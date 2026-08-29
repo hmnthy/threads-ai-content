@@ -1,0 +1,16 @@
+.env
+Content/
+data/cache/
+data/processed/
+output/
+__pycache__/
+*.pyc
+.next/
+node_modules/
+*.db
+*.sqlite
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
