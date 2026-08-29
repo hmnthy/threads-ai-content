@@ -14,6 +14,7 @@ from src.api.endpoints import (
     get_follower_demographics,
     get_post_insights,
     get_posts,
+    get_replies,
     get_user_info,
 )
 from src.api.models import AccountInsights, MediaType, PostInsights, ThreadsPost, UserInfo
@@ -35,6 +36,7 @@ __all__ = [
     "get_follower_demographics",
     "get_post_insights",
     "get_posts",
+    "get_replies",
     "get_user_info",
     "load_credentials",
     "refresh_long_lived_token",

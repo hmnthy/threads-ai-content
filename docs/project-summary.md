@@ -74,7 +74,7 @@ Tác giả đăng thủ công lên Threads
 | Meta Developer App | **Hoàn tất** — app, use case Threads API, 8 permissions, Tester `thydilammuon` đã accept |
 | Credentials (.env) | Đủ 4/5 giá trị (thiếu `ANTHROPIC_API_KEY`, chưa cần gấp) |
 | Tooling | `uv` + `pyproject.toml`, ruff + mypy strict + pytest + pre-commit — đã setup, git repo đã init |
-| `src/api/` | **Hoàn tất & verify với data thật** — 6 file + test đầy đủ (25 test pass, ruff/mypy sạch). Fetch thật 25 posts + account insights của `thydilammuon` |
+| `src/api/` | **Hoàn tất & verify với data thật** — 6 file + test đầy đủ (27 test pass, ruff/mypy sạch). Pagination đầy đủ + `get_replies()` verify live (2026-08-29): **140 posts, 1,285 replies** của `thydilammuon` |
 | Documentation | `docs/project-summary.md`, `docs/next-steps.md` |
 
 ---
@@ -107,5 +107,5 @@ Tác giả đăng thủ công lên Threads
 ### Câu hỏi còn mở
 - Giọng văn tác giả cần đọc scripts gốc để xác nhận chi tiết trước khi viết prompts cho `generation/`
 - Template carousel: tọa độ text box của từng slide chưa được đo — cần làm khi implement `src/carousel/`
-- Dashboard: chọn Next.js hay Streamlit? Streamlit nhanh hơn cho prototype, Next.js chuẩn hơn cho production
+- ~~Dashboard: chọn Next.js hay Streamlit?~~ **Đã chốt: Next.js** (deploy trên Vercel) — quyết định 2026-08-29, lý do đầy đủ tại `docs/claude/architecture.md` phần "Quyết định quan trọng đã chốt"
 - Có cần tích hợp auto-post lên Threads không? Hiện tại thiết kế là manual post

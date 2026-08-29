@@ -64,7 +64,7 @@ threads-ai-content/
 │       └── styles/
 │
 ├── tests/
-│   └── api/                   # Test cho src/api/ — 25 test, chạy `uv run pytest`
+│   └── api/                   # Test cho src/api/ — 27 test, chạy `uv run pytest`
 │
 ├── data/
 │   ├── cache/                 # API response cache (JSON, tối đa 6 giờ)
@@ -85,7 +85,7 @@ threads-ai-content/
 | Threads API client | `httpx` (async, dùng với FastAPI) |
 | Validation / models | `pydantic` v2 |
 | AI / LLM | Claude API (`claude-sonnet-4-6`) với prompt caching |
-| Dashboard | Next.js + Recharts / shadcn/ui, hoặc Streamlit (prototype nhanh) |
+| Dashboard | **Next.js** + Recharts / shadcn/ui — quyết định final, deploy trên Vercel |
 | Image generation | **Pillow** (Python) — overlay text lên template PNG có sẵn |
 | Font carousel | **Google Sans** (Việt hóa) — đã tải tại `src/carousel/fonts/Google_Sans/` |
 | Database | SQLite (dev) → PostgreSQL (prod) |
@@ -112,6 +112,7 @@ threads-ai-content/
 | Dùng `uv` thay `pip`/`poetry` | Chuẩn 2026, nhanh hơn, lockfile + quản lý venv tích hợp |
 | Test song song với từng module + ruff/mypy strict/pre-commit từ đầu | Theo yêu cầu nâng chuẩn "senior ML/AI Engineer 2026" — quyết định 2026-08-28 |
 | CLAUDE.md tách thành `docs/claude/*.md`, chỉ trỏ đường dẫn (không `@import`) | CLAUDE.md gốc đã hơn 500 dòng và sẽ tiếp tục phình to qua các giai đoạn; `@import` nạp sẵn mỗi phiên như để nguyên 1 file, còn plain reference để Claude tự đọc file liên quan theo đúng task — quyết định 2026-08-29 |
+| Dashboard dùng Next.js, không dùng Streamlit | Design system (`design-system.md`) đòi hỏi kiểm soát CSS/JS hoàn toàn — custom donut chart (Virality Score Ring), scroll-triggered animation qua Intersection Observer, component patterns pixel-level. Streamlit render trong sandbox riêng, muốn custom sâu phải hack qua `st.components.v1.html`, khó maintain (đã thử năm 2025, không đủ linh hoạt). Deploy trên Vercel (đã có GitHub App liên kết sẵn) — quyết định 2026-08-29 |
 
 ---
 

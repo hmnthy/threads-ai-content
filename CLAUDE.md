@@ -1,6 +1,6 @@
 # Threads AI Content — CLAUDE.md
 
-> Cập nhật lần cuối: 2026-08-29
+> Cập nhật lần cuối: 2026-08-29 (pagination + get_replies())
 > Trạng thái: **Phase 1 — `src/api/` đã viết xong và verify end-to-end với data thật, sẵn sàng viết `src/analysis/`**
 
 ---
@@ -48,8 +48,8 @@ Tham vọng dài hạn: mở rộng từ phân tích 1 kênh sang **nghiên cứ
 | Threads Tester | `thydilammuon` đã accept lời mời |
 | Credentials (.env) | **Đủ 4/5 giá trị** — thiếu `ANTHROPIC_API_KEY` (chưa cần tới Giai đoạn 3) |
 | Tooling | `uv` + `pyproject.toml`, ruff (lint+format) + mypy strict + pytest + pre-commit — tất cả đã setup và pass |
-| Git | Repo đã init (`git init`), pre-commit hook đã cài, **chưa có commit nào** |
-| `src/api/` code | **Hoàn tất & verify với data thật** — `models.py`, `cache.py`, `auth.py`, `client.py`, `endpoints.py`, `__init__.py` + test đầy đủ (25 test pass). Đã fetch thật 25 posts + account insights của `thydilammuon` |
+| Git | Đã đồng bộ GitHub — [`hmnthy/threads-ai-content`](https://github.com/hmnthy/threads-ai-content) (private), branch `main`, commit đầu tiên `31adcbc`. `Content/` không commit (personal media + rate card) |
+| `src/api/` code | **Hoàn tất & verify với data thật** — `models.py`, `cache.py`, `auth.py`, `client.py`, `endpoints.py`, `__init__.py` + test đầy đủ (27 test pass). Pagination đầy đủ + `get_replies()` verify live (2026-08-29): **140 posts, 1,285 replies** của `thydilammuon` |
 | `src/analysis/` | Chưa viết |
 | `src/generation/` | Chưa viết |
 | `src/carousel/` | Chưa viết |

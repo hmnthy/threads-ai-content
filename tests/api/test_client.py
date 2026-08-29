@@ -36,6 +36,24 @@ async def test_get_raises_threads_api_error_on_error_response() -> None:
 
 
 @respx.mock
+async def test_get_url_fetches_absolute_url_without_reinjecting_token() -> None:
+    # A `paging.next` cursor link from the Graph API is already a full URL with its
+    # own access_token and query params baked in — get_url() must not add another.
+    route = respx.get(
+        "https://graph.threads.net/v1.0/123/threads?after=cursor123&access_token=tok-abc"
+    ).mock(return_value=Response(200, json={"data": [{"id": "2"}]}))
+    client = ThreadsClient(access_token="tok-abc")
+
+    data = await client.get_url(
+        "https://graph.threads.net/v1.0/123/threads?after=cursor123&access_token=tok-abc"
+    )
+
+    assert data == {"data": [{"id": "2"}]}
+    assert route.calls.call_count == 1
+    await client.aclose()
+
+
+@respx.mock
 async def test_client_usable_as_async_context_manager() -> None:
     respx.get("https://graph.threads.net/v1.0/ping").mock(return_value=Response(200, json={}))
 

@@ -24,22 +24,64 @@ async def get_user_info(client: ThreadsClient, user_id: str) -> UserInfo:
     return UserInfo.model_validate(data)
 
 
+async def _paginate(
+    client: ThreadsClient, path: str, params: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Follow Graph API cursor pagination (`paging.next`) until the full result set
+    across the account's entire history has been fetched, not just the first page."""
+    items: list[dict[str, Any]] = []
+    data = await client.get(path, params=params)
+    items.extend(data.get("data", []))
+    next_url = data.get("paging", {}).get("next")
+    while next_url:
+        data = await client.get_url(next_url)
+        items.extend(data.get("data", []))
+        next_url = data.get("paging", {}).get("next")
+    return items
+
+
 async def get_posts(
     client: ThreadsClient, user_id: str, cache: Cache | None = None
 ) -> list[ThreadsPost]:
-    """Fetch all posts for user_id, serving from cache when available and fresh."""
+    """Fetch every post for user_id across the account's full history (paginated),
+    serving from cache when available and fresh."""
     cache_key = f"posts_{user_id}"
     if cache is not None:
         cached = cache.get(cache_key)
         if cached is not None:
             return [ThreadsPost.model_validate(item) for item in cached]
 
-    data = await client.get(f"/{user_id}/threads", params={"fields": POST_FIELDS})
-    posts = [ThreadsPost.model_validate(item) for item in data.get("data", [])]
+    raw_posts = await _paginate(client, f"/{user_id}/threads", {"fields": POST_FIELDS})
+    posts = [ThreadsPost.model_validate(item) for item in raw_posts]
 
     if cache is not None:
         cache.set(cache_key, [post.model_dump(mode="json") for post in posts])
     return posts
+
+
+async def get_replies(
+    client: ThreadsClient, user_id: str, cache: Cache | None = None
+) -> list[ThreadsPost]:
+    """Fetch every reply user_id has posted across the account's full history
+    (paginated), serving from cache when available and fresh.
+
+    NOTE: reuses POST_FIELDS and the ThreadsPost shape as a starting assumption —
+    the real `/replies` response has NOT been verified live yet (unlike `/threads`
+    and `/threads_insights`, see docs/claude/data-model.md). Verify against a real
+    account before relying on this for analysis.
+    """
+    cache_key = f"replies_{user_id}"
+    if cache is not None:
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return [ThreadsPost.model_validate(item) for item in cached]
+
+    raw_replies = await _paginate(client, f"/{user_id}/replies", {"fields": POST_FIELDS})
+    replies = [ThreadsPost.model_validate(item) for item in raw_replies]
+
+    if cache is not None:
+        cache.set(cache_key, [reply.model_dump(mode="json") for reply in replies])
+    return replies
 
 
 async def get_post_insights(client: ThreadsClient, post_id: str) -> PostInsights:
