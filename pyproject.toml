@@ -1,0 +1,45 @@
+[project]
+name = "threads-ai-content"
+version = "0.1.0"
+description = "Internal AI tool for analyzing and generating content for the 'Thy di lam muon' Threads channel"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1.2.0",
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "pillow>=12.3.0",
+    "pydantic>=2.13.5",
+    "python-dotenv>=1.2.3",
+    "uvicorn[standard]>=0.52.4",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["Content", "docs", "output", "data", "*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.3.1",
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "respx>=0.23.1",
+    "ruff>=0.16.5",
+]
