@@ -11,6 +11,7 @@ from src.api.endpoints import (
     get_follower_demographics,
     get_post_insights,
     get_posts,
+    get_replies,
     get_user_info,
 )
 
@@ -32,14 +33,69 @@ async def test_get_user_info_parses_response() -> None:
 
 
 @respx.mock
-async def test_get_posts_returns_parsed_list_and_populates_cache(tmp_path: Path) -> None:
+async def test_get_posts_follows_pagination_across_full_channel_history(
+    tmp_path: Path,
+) -> None:
+    # First page reports a `paging.next` cursor link; get_posts() must follow it
+    # (via ThreadsClient.get_url) rather than stopping at the first 25-ish results.
     route = respx.get(f"{BASE}/999/threads").mock(
+        side_effect=[
+            Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "1",
+                            "timestamp": "2026-08-28T10:00:00+0000",
+                            "media_type": "TEXT_POST",
+                        }
+                    ],
+                    "paging": {
+                        "next": f"{BASE}/999/threads?after=CURSOR1&access_token=tok",
+                    },
+                },
+            ),
+            Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "2",
+                            "timestamp": "2026-08-27T10:00:00+0000",
+                            "media_type": "TEXT_POST",
+                        }
+                    ]
+                    # No `paging.next` here — this is the last page.
+                },
+            ),
+        ]
+    )
+    client = ThreadsClient(access_token="tok")
+    cache = Cache(cache_dir=tmp_path)
+
+    posts = await get_posts(client, "999", cache=cache)
+
+    assert [post.id for post in posts] == ["1", "2"]
+    assert route.calls.call_count == 2
+
+    # Second call should be served from cache, not hit the API again.
+    posts_again = await get_posts(client, "999", cache=cache)
+    assert len(posts_again) == 2
+    assert route.calls.call_count == 2
+    await client.aclose()
+
+
+@respx.mock
+async def test_get_replies_returns_parsed_list_and_caches_separately_from_posts(
+    tmp_path: Path,
+) -> None:
+    route = respx.get(f"{BASE}/999/replies").mock(
         return_value=Response(
             200,
             json={
                 "data": [
                     {
-                        "id": "1",
+                        "id": "reply-1",
                         "timestamp": "2026-08-28T10:00:00+0000",
                         "media_type": "TEXT_POST",
                     }
@@ -50,16 +106,17 @@ async def test_get_posts_returns_parsed_list_and_populates_cache(tmp_path: Path)
     client = ThreadsClient(access_token="tok")
     cache = Cache(cache_dir=tmp_path)
 
-    posts = await get_posts(client, "999", cache=cache)
+    replies = await get_replies(client, "999", cache=cache)
 
-    assert len(posts) == 1
-    assert posts[0].id == "1"
+    assert len(replies) == 1
+    assert replies[0].id == "reply-1"
     assert route.calls.call_count == 1
 
-    # Second call should be served from cache, not hit the API again.
-    posts_again = await get_posts(client, "999", cache=cache)
-    assert len(posts_again) == 1
+    # Cached under its own key — must not collide with (or be served by) get_posts()'s cache.
+    replies_again = await get_replies(client, "999", cache=cache)
+    assert len(replies_again) == 1
     assert route.calls.call_count == 1
+    assert cache.get("posts_999") is None
     await client.aclose()
 
 

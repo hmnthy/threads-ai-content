@@ -1,5 +1,5 @@
 # Next Steps — Threads AI Content
-> Cập nhật: 2026-08-28
+> Cập nhật: 2026-08-29
 
 ---
 
@@ -11,10 +11,10 @@ App `threads-thydilammuon`, use case Threads API, 8 permissions (Standard Access
 
 ### 2. `src/api/` — ĐÃ HOÀN TẤT
 
-6 file (`models.py`, `cache.py`, `auth.py`, `client.py`, `endpoints.py`, `__init__.py`) + test đầy đủ tại `tests/api/` (22 test). Tooling: `uv` + `pyproject.toml`, ruff + mypy strict + pytest + pre-commit, git repo đã init.
+6 file (`models.py`, `cache.py`, `auth.py`, `client.py`, `endpoints.py`, `__init__.py`) + test đầy đủ tại `tests/api/` (27 test). Tooling: `uv` + `pyproject.toml`, ruff + mypy strict + pytest + pre-commit, git repo đã init.
 
 ```bash
-uv run pytest -q          # 22 passed
+uv run pytest -q          # 27 passed
 uv run ruff check .       # All checks passed!
 uv run mypy               # Success: no issues found
 ```
@@ -27,7 +27,18 @@ uv run mypy               # Success: no issues found
 
 Test suite hiện có 25 test, tất cả pass, cùng ruff/mypy sạch.
 
-### 4. Viết `src/analysis/` rồi `src/main.py`
+### 4. Pagination cho `get_posts()` + thêm `get_replies()` — ĐÃ HOÀN TẤT (2026-08-29)
+
+`get_posts()` trước đây chỉ lấy 1 page (25 posts, default page size của Graph API) — không follow `paging.cursors.after`/`paging.next` nên bỏ sót phần còn lại của lịch sử kênh nếu kênh có > 25 bài. Đã sửa:
+- Thêm `ThreadsClient.get_url()` — fetch thẳng URL tuyệt đối (`paging.next` đã có sẵn `access_token`, không inject lại)
+- Thêm helper `_paginate()` trong `endpoints.py`, dùng chung cho `get_posts()` và `get_replies()` mới — loop theo `paging.next` tới khi hết
+- Thêm `get_replies()` (dùng scope `threads_manage_replies` đã có sẵn ở Phase 1) — lấy toàn bộ reply tác giả đã đăng, cache riêng key `replies_{user_id}`
+
+**Verify live (2026-08-29)**: fetch thật cả 2 endpoint — `/replies` trả đúng shape như giả định ban đầu (khác với `children`/account insights trước đây, lần này giả định đúng ngay, không cần sửa code). Số liệu thật của kênh: **140 posts** (số "25 posts" ghi ở mục 3 chỉ là page 1 do bug pagination cũ, đã lỗi thời), **1,285 replies**.
+
+Test suite hiện có 27 test (thêm 2: pagination `get_posts()` qua nhiều trang + `get_replies()`), tất cả pass, ruff/mypy sạch.
+
+### 5. Viết `src/analysis/` rồi `src/main.py`
 
 ```
 1. src/analysis/engagement.py     — engagement rate, đã có sẵn công thức trong PostInsights.engagement_rate
@@ -45,6 +56,7 @@ GIAI ĐOẠN 1 — Data Foundation
 ├── [x] Meta Developer setup + credentials
 ├── [x] src/api/ (6 files + test, tooling uv/ruff/mypy/pytest/pre-commit)
 ├── [x] Verify field mapping insights với data thật (25 posts + account insights fetch thành công)
+├── [x] Pagination cho get_posts() + get_replies() (verify live: 140 posts, 1,285 replies)
 ├── [ ] src/analysis/ (virality index, engagement calc, topic classifier)
 └── [ ] src/main.py (FastAPI entry point)
     → Có thể: fetch data thydilammuon và xem kết quả qua /docs

@@ -34,6 +34,12 @@ class ThreadsClient:
         response = await self._http.get(path, params=self._with_token(params))
         return self._parse(response)
 
+    async def get_url(self, url: str) -> dict[str, Any]:
+        """Fetch an absolute URL as-is — used for a Graph API `paging.next` cursor
+        link, which already carries the access token and all query params."""
+        response = await self._http.get(url)
+        return self._parse(response)
+
     async def post(self, path: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
         response = await self._http.post(path, params=self._with_token(params))
         return self._parse(response)

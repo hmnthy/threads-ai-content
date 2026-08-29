@@ -13,10 +13,21 @@
 
 ```
 GET /{user_id}/threads                   # Danh sách posts của kênh
+GET /{user_id}/replies                   # Danh sách reply tác giả đã đăng
 GET /{thread-id}/insights                # Metrics của 1 post
 GET /{user_id}/threads_insights          # Metrics tổng kênh
 POST /me/threads                         # Publish post mới (nếu tích hợp auto-post)
 ```
+
+### Pagination
+
+`GET /{user_id}/threads` và `GET /{user_id}/replies` đều trả kết quả theo **cursor pagination** chuẩn Graph API: response có thêm object `paging: { cursors: { before, after }, next: "<url trang tiếp theo>" }`. Không truyền `limit` → API tự dùng page size mặc định (phát hiện thực tế: 25/page).
+
+`get_posts()` và `get_replies()` (`src/api/endpoints.py`) đều dùng chung helper `_paginate()` — gọi `ThreadsClient.get_url()` với URL tuyệt đối từ `paging.next` (URL này đã có sẵn `access_token`, không inject lại) cho tới khi response không còn `paging.next`. Đảm bảo lấy đủ toàn bộ lịch sử kênh, không chỉ page đầu.
+
+`get_replies()` mới thêm (2026-08-29), dùng scope `threads_manage_replies` đã có sẵn ở Phase 1, tái dùng `POST_FIELDS` + model `ThreadsPost` với `/threads`.
+
+**Verify live (2026-08-29)**: đã fetch thật cả 2 endpoint với pagination fix — `/replies` trả đúng shape như giả định (25/25 item validate sạch qua `ThreadsPost`, không có field lạ ngoài `POST_FIELDS`, các field optional như `thumbnail_url`/`quoted_post`/`reposted_post` chỉ đơn giản là không có mặt ở item nào chứ không sai kiểu). Số liệu thật của kênh `thydilammuon`: **140 posts**, **1,285 replies** (con số "25 posts" ghi ở lần verify trước chỉ là page 1 do bug pagination lúc đó — đã lỗi thời).
 
 ### Fields có thể lấy từ mỗi post
 
