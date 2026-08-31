@@ -27,12 +27,12 @@ Tác giả đăng thủ công lên Threads
 
 ## Các tính năng dự kiến xây dựng
 
-### Module 1 — Data Pipeline (`src/api/` + `src/analysis/`)
-- Fetch toàn bộ posts + metrics từ Threads API
-- Cache local 6 giờ tránh rate limit
-- Tính engagement rate: `(likes + replies + reposts) / views × 100`
-- Tính Virality Index (0–100) theo weighted formula
-- Phân loại post theo topic: Alternance / CV / Entretien / Lifestyle / Data / Divers
+### Module 1 — Data + NLP Foundation (`src/api/` + `src/analysis/` + `src/db/`)
+- Fetch toàn bộ posts + metrics từ Threads API, reconstruct thành `ContentUnit` (root + self-reply continuations — thread dài trên Threads)
+- Cache local 6 giờ tránh rate limit; `data/raw/` archive vĩnh viễn phục vụ rerun pipeline
+- 6 metric index tách biệt (popularity/engagement/virality/conversation/velocity/longevity) thay vì 1 công thức gộp — xem `docs/claude/data-model.md` "Metric Architecture" (redesign 2026-08-30, sau khi phát hiện heuristic cũ thiếu evidence)
+- NLP pipeline: embedding multilingual → fixed-category classification (SVM-RBF+LogReg, cho carousel routing) song song unsupervised clustering (UMAP+HDBSCAN+LLM labeling, cho topic discovery/visualize 3D)
+- Topic affinity + timing fit theo report_window (7d/14d/30d/90d), tách biệt post_maturity_window (0-72h)
 
 ### Module 2 — Dashboard (`src/dashboard/`)
 - Trang Dashboard: followers growth, avg engagement, top posts
@@ -45,6 +45,7 @@ Tác giả đăng thủ công lên Threads
 - Mobile responsive + scroll animations (Intersection Observer)
 
 ### Module 3 — AI Content Generation (`src/generation/`)
+- RAG-assisted: retrieval trên vector store (tái dùng embedding từ Module 1) + Claude generation
 - Đọc scripts gốc (`Content/Scripts/`) để học giọng văn tác giả
 - Propose 3–5 content ideas dựa trên gap analysis
 - Mỗi idea: generate 3 phiên bản (Short ≤150 / Medium 150–400 / Long 400–500 ký tự)
@@ -65,7 +66,7 @@ Tác giả đăng thủ công lên Threads
 | Hạng mục | Chi tiết |
 |----------|---------|
 | CLAUDE.md + docs/claude/ | Mission, trạng thái, quy tắc tuyệt đối ở CLAUDE.md; design system/tech stack/data model/dev rules tách riêng tại docs/claude/*.md |
-| Carousel templates | 7 slides Alternance, 9 slides CV, 11 slides Entretien |
+| Carousel templates | 7 slides Alternance, 9 slides CV, 12 slides Entretien |
 | Ảnh/video gốc | Tại `Content/Content - Photo carousel/Photos/` |
 | Scripts gốc | 5 file docx/xlsx tại `Content/Scripts/` — nguồn học giọng văn |
 | Font Google Sans | Đã tải về, hỗ trợ tiếng Việt, tại `src/carousel/fonts/Google_Sans/` |
@@ -75,6 +76,7 @@ Tác giả đăng thủ công lên Threads
 | Credentials (.env) | Đủ 4/5 giá trị (thiếu `ANTHROPIC_API_KEY`, chưa cần gấp) |
 | Tooling | `uv` + `pyproject.toml`, ruff + mypy strict + pytest + pre-commit — đã setup, git repo đã init |
 | `src/api/` | **Hoàn tất & verify với data thật** — 6 file + test đầy đủ (27 test pass, ruff/mypy sạch). Pagination đầy đủ + `get_replies()` verify live (2026-08-29): **140 posts, 1,285 replies** của `thydilammuon` |
+| `src/analysis/engagement.py` | **Hoàn tất** (2026-08-29) — average engagement rate, top posts by engagement, engagement by hour/weekday (parametrize theo `timezone` cho audience Pháp + VN). 8 test pass, ruff/mypy sạch |
 | Documentation | `docs/project-summary.md`, `docs/next-steps.md` |
 
 ---
@@ -82,7 +84,10 @@ Tác giả đăng thủ công lên Threads
 ## Những phần còn phải làm
 
 ### Ưu tiên cao — Cần làm ngay
-- [ ] Viết `src/analysis/` — virality scoring, engagement calc, topic classification
+- [x] `src/analysis/engagement.py` — average engagement rate, top posts, engagement by hour/weekday (2026-08-29)
+- [ ] `src/analysis/virality.py` — virality index
+- [ ] NLP pipeline (redesign 2026-08-30, xem `docs/sprint-plan.md`): `preprocessing.py`, `embeddings.py`, `classification.py` (SVM-RBF + LogReg), `clustering.py` (UMAP + HDBSCAN), `trends.py`
+- [ ] `src/db/` — SQLite schema + vector store (Chroma/FAISS)
 - [ ] Viết `src/main.py` — FastAPI entry point
 
 ### Ưu tiên thấp hơn — Làm sau khi data pipeline hoạt động
@@ -105,6 +110,7 @@ Tác giả đăng thủ công lên Threads
 | Template PNG thay font/layout | Thấp | Tọa độ text cần định nghĩa thủ công mỗi template |
 
 ### Câu hỏi còn mở
+- Gold-standard label cho 140 posts (6 fixed category) — user tự gán tay, cần xong trước khi train `classification.py` (xem `docs/sprint-plan.md` Ngày 3)
 - Giọng văn tác giả cần đọc scripts gốc để xác nhận chi tiết trước khi viết prompts cho `generation/`
 - Template carousel: tọa độ text box của từng slide chưa được đo — cần làm khi implement `src/carousel/`
 - ~~Dashboard: chọn Next.js hay Streamlit?~~ **Đã chốt: Next.js** (deploy trên Vercel) — quyết định 2026-08-29, lý do đầy đủ tại `docs/claude/architecture.md` phần "Quyết định quan trọng đã chốt"

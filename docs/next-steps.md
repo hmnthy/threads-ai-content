@@ -1,5 +1,6 @@
 # Next Steps — Threads AI Content
 > Cập nhật: 2026-08-29
+> **Đang chạy theo `docs/sprint-plan.md`** — kế hoạch ngày-theo-ngày (Giai đoạn 1-3, Carousel hoãn lại). File này giữ lịch sử các mốc đã qua; sprint-plan.md là nguồn "hôm nay làm gì".
 
 ---
 
@@ -38,48 +39,26 @@ Test suite hiện có 25 test, tất cả pass, cùng ruff/mypy sạch.
 
 Test suite hiện có 27 test (thêm 2: pagination `get_posts()` qua nhiều trang + `get_replies()`), tất cả pass, ruff/mypy sạch.
 
-### 5. Viết `src/analysis/` rồi `src/main.py`
+### 5. `src/analysis/engagement.py` — ĐÃ HOÀN TẤT (2026-08-29)
 
-```
-1. src/analysis/engagement.py     — engagement rate, đã có sẵn công thức trong PostInsights.engagement_rate
-2. src/analysis/virality.py       — virality index theo công thức trong docs/claude/data-model.md
-3. src/analysis/topics.py         — phân loại post theo topic (keyword matching + Claude classification)
-4. src/main.py                    — FastAPI entry point, expose các endpoint qua /docs
-```
+Build trên `PostInsights.engagement_rate` có sẵn:
+- `average_engagement_rate(insights)` — trung bình engagement rate trên tập post
+- `top_posts_by_engagement(posts, insights, limit)` — ghép post với insights theo `id`/`post_id`, sort giảm dần, bỏ qua post không có insights khớp
+- `engagement_by_hour(posts, insights)` / `engagement_by_weekday(posts, insights)` — gom nhóm theo giờ/thứ trong tuần, phục vụ heatmap "giờ đăng tốt nhất" ở dashboard
+
+**Cập nhật (2026-08-29)**: audience kênh trải cả Pháp và Việt Nam (2 múi giờ chênh 5-6h tùy DST) — Threads API không cho biết engagement tới từ đâu, nên không tách được thật sự theo audience. Giải pháp: `engagement_by_hour`/`engagement_by_weekday` nhận thêm param `timezone: ZoneInfo | None` — gọi 2 lần với `ZoneInfo("Europe/Paris")` và `ZoneInfo("Asia/Ho_Chi_Minh")` để so sánh 2 góc nhìn trên cùng dữ liệu (mặc định `None` giữ nguyên UTC thô, tương thích ngược). Cần thêm `tzdata` vào dependencies vì Windows không có sẵn IANA timezone database. Chi tiết lý do tại `docs/claude/architecture.md` phần "Quyết định quan trọng đã chốt".
+
+Test suite hiện có 35 test (33 trước đó + 2 test timezone conversion), tất cả pass, ruff/mypy sạch.
+
+### 6. [SUPERSEDED 2026-08-30] `src/analysis/virality.py`, `src/analysis/topics.py`, rồi `src/main.py`
+
+> Mục này đã lỗi thời — `topics.py` (keyword matching + Claude classification) bị thay hoàn toàn bằng pipeline NLP thật (embedding + SVM-RBF/LogReg + UMAP/HDBSCAN + RAG). Xem `docs/sprint-plan.md` (Ngày 1-13) cho kế hoạch hiện hành, `docs/claude/data-model.md` phần "NLP Pipeline" cho thiết kế chi tiết.
 
 ---
 
 ## Kế hoạch theo giai đoạn
 
-```
-GIAI ĐOẠN 1 — Data Foundation
-├── [x] Meta Developer setup + credentials
-├── [x] src/api/ (6 files + test, tooling uv/ruff/mypy/pytest/pre-commit)
-├── [x] Verify field mapping insights với data thật (25 posts + account insights fetch thành công)
-├── [x] Pagination cho get_posts() + get_replies() (verify live: 140 posts, 1,285 replies)
-├── [ ] src/analysis/ (virality index, engagement calc, topic classifier)
-└── [ ] src/main.py (FastAPI entry point)
-    → Có thể: fetch data thydilammuon và xem kết quả qua /docs
-
-GIAI ĐOẠN 2 — Dashboard
-├── src/dashboard/ (Next.js hoặc Streamlit)
-├── Trang Dashboard + Analytics + Topic Explorer
-└── Mobile responsive + scroll animations
-    → Có thể: xem analytics trực quan trên web
-
-GIAI ĐOẠN 3 — AI Content
-├── src/generation/ (Claude API + prompts từ scripts gốc)
-├── Trang Generate Content trên dashboard
-└── Workflow: propose → review → approve
-    → Có thể: generate content mới đúng giọng văn
-
-GIAI ĐOẠN 4 — Carousel
-├── src/carousel/ (Pillow + Google Sans)
-├── Đo tọa độ text box từng template PNG
-├── Trang Carousel Builder trên dashboard
-└── Export PNG sequence
-    → Hoàn chỉnh toàn bộ workflow
-```
+**[SUPERSEDED 2026-08-30]** — kế hoạch chi tiết theo ngày (13 ngày, Giai đoạn 1-3 mở rộng NLP/RAG, Giai đoạn 4 hoãn) nay nằm ở `docs/sprint-plan.md`, không lặp lại ở đây nữa để tránh 2 nguồn lệch nhau theo thời gian.
 
 ---
 

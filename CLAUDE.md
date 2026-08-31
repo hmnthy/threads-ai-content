@@ -1,7 +1,7 @@
 # Threads AI Content — CLAUDE.md
 
-> Cập nhật lần cuối: 2026-08-29 (pagination + get_replies())
-> Trạng thái: **Phase 1 — `src/api/` đã viết xong và verify end-to-end với data thật, sẵn sàng viết `src/analysis/`**
+> Cập nhật lần cuối: 2026-08-30 (redesign v2: 6-index metrics + ContentUnit + code-switching-tolerant NLP)
+> Trạng thái: **Phase 1 — `src/api/` hoàn tất & verify; `src/analysis/engagement.py` xong; Bước 0 (verify API field cho ContentUnit) đã xong. Kế hoạch chi tiết + lý do tại `docs/sprint-plan.md` + `docs/claude/data-model.md`**
 
 ---
 
@@ -50,12 +50,12 @@ Tham vọng dài hạn: mở rộng từ phân tích 1 kênh sang **nghiên cứ
 | Tooling | `uv` + `pyproject.toml`, ruff (lint+format) + mypy strict + pytest + pre-commit — tất cả đã setup và pass |
 | Git | Đã đồng bộ GitHub — [`hmnthy/threads-ai-content`](https://github.com/hmnthy/threads-ai-content) (private), branch `main`, commit đầu tiên `31adcbc`. `Content/` không commit (personal media + rate card) |
 | `src/api/` code | **Hoàn tất & verify với data thật** — `models.py`, `cache.py`, `auth.py`, `client.py`, `endpoints.py`, `__init__.py` + test đầy đủ (27 test pass). Pagination đầy đủ + `get_replies()` verify live (2026-08-29): **140 posts, 1,285 replies** của `thydilammuon` |
-| `src/analysis/` | Chưa viết |
+| `src/analysis/` | `engagement.py` xong (average, top posts, by hour/weekday) — `virality.py` + NLP pipeline (`preprocessing.py`/`embeddings.py`/`classification.py`/`clustering.py`/`trends.py`) chưa viết, xem `docs/sprint-plan.md` |
 | `src/generation/` | Chưa viết |
 | `src/carousel/` | Chưa viết |
 | Dashboard (Next.js) | Chưa viết |
 
-**Bước tiếp theo ngay**: Viết `src/analysis/` (virality index, engagement calc, topic classifier) dựa trên `src/api/` đã verify, rồi `src/main.py` (FastAPI entry point).
+**Bước tiếp theo ngay**: Bước 1 trong `docs/sprint-plan.md` — `src/models/` (`ContentUnit`, `InsightSnapshot`) + `src/db/` schema. Bước 0 (verify API field) đã xong.
 
 ---
 
@@ -80,6 +80,7 @@ CLAUDE.md gốc chỉ giữ phần **luôn cần thiết mỗi phiên** (mission
 - **Không commit** `.env`, API tokens, hoặc personal data
 - **Luôn đọc scripts gốc** trong `Content/Scripts/` trước khi generate text content mới
 - Giọng văn phải phản ánh đúng tác giả — không dùng giọng generic AI
+- **Không thêm trailer `Co-Authored-By: Claude...`** vào git commit message (quyết định 2026-08-30 — repo này sẽ dùng làm nguồn squash sang 1 repo public riêng sau; commit message + decisions log trong `docs/claude/architecture.md` đã đủ thể hiện quá trình tư duy, không cần trailer). Lịch sử commit cũ trước quyết định này (`31adcbc`, `3eceabe`) giữ nguyên, không rewrite.
 
 ---
 

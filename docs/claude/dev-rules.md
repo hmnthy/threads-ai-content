@@ -34,6 +34,12 @@ uv run uvicorn src.main:app --reload --port 8000
 
 **Lưu ý IDE**: chọn Python interpreter là `.venv/Scripts/python.exe` (VSCode: Ctrl+Shift+P → "Python: Select Interpreter") để hết cảnh báo "package not installed".
 
+**Troubleshooting — `uv` báo "not recognized" trong PowerShell** (xảy ra 2026-08-31): `uv` cài qua `pip install --user uv` (bước 1 ở trên) nằm ở `C:\Users\<user>\AppData\Roaming\Python\PythonXXX\Scripts\uv.exe` — thư mục này **không tự động nằm trong PATH** trên Windows. Đóng/mở terminal mới không đủ để fix (đây không phải PATH chưa refresh, mà PATH thật sự thiếu entry này). Fix 1 lần:
+```powershell
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Users\<user>\AppData\Roaming\Python\Python312\Scripts", "User")
+```
+Rồi **đóng hẳn cửa sổ VS Code** (không chỉ tab terminal) và mở lại — VS Code cache biến môi trường lúc khởi động. Verify bằng `uv --version`.
+
 ---
 
 ## Environment Variables (.env)
@@ -80,7 +86,7 @@ ANTHROPIC_API_KEY=
 Template hiện có theo chủ đề:
 - `Alternance/` → 7 slides (dùng khi content về alternance, thực tập, đi làm)
 - `CV/` → 9 slides (dùng khi content về viết CV, hồ sơ xin việc)
-- `Entretien/` → 11 slides (dùng khi content về phỏng vấn xin việc)
+- `Entretien/` → 12 slides (dùng khi content về phỏng vấn xin việc)
 
 Quy trình:
 1. Map content topic → đúng template folder (bảng mapping đầy đủ tại [`data-model.md`](data-model.md#chủ-đề-content-hiện-có-từ-carousel-templates))

@@ -10,6 +10,7 @@ dependencies = [
     "pillow>=12.3.0",
     "pydantic>=2.13.5",
     "python-dotenv>=1.2.3",
+    "tzdata>=2025.1",
     "uvicorn[standard]>=0.52.4",
 ]
 
