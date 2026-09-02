@@ -9,7 +9,12 @@ from src.api.models import AccountInsights, PostInsights, ThreadsPost, UserInfo
 USER_FIELDS: Final = "id,username"
 POST_FIELDS: Final = (
     "id,text,timestamp,media_type,permalink,shortcode,username,"
-    "media_url,thumbnail_url,is_quote_post,quoted_post,reposted_post,children"
+    "media_url,thumbnail_url,is_quote_post,quoted_post,reposted_post,children,"
+    # Thread reconstruction fields — verify live 2026-08-30, xem docs/claude/data-model.md
+    "root_post,replied_to,is_reply,is_reply_owned_by_me,has_replies,is_spoiler_media,"
+    # Context field mở rộng — schema nullable, chưa dùng trong scoring (xem models.py)
+    "text_attachment,is_ghost_post,poll_attachment,gif_attachment,location_id,"
+    "enable_reply_approvals"
 )
 POST_INSIGHTS_METRICS: Final = "views,likes,replies,reposts,quotes"
 # follower_demographics is deliberately excluded: confirmed live (2026-08-28) that Threads

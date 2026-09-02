@@ -44,7 +44,8 @@ POST /me/threads                         # Publish post mới (nếu tích hợp
 | `is_reply`, `is_reply_owned_by_me` | ✅ Thật — boolean đúng nghĩa (`is_reply=False` trên `/threads`, `True` trên `/replies`) | Phân biệt self-continuation (tác giả tự reply tiếp) vs audience reply |
 | `has_replies` | ✅ Thật (test thêm ngoài dự kiến ban đầu) | Tín hiệu nhẹ "post có ai reply chưa" |
 | `is_spoiler_media` | ✅ Thật, luôn `False` trong data hiện có | Tác giả chưa dùng spoiler |
-| `text_attachment`, `is_ghost_post`, `poll_attachment`, `gif_attachment`, `location_id` | ⚠️ Không lỗi nhưng **0/100 item có data** (test 50 post + 50 reply) | Nhiều khả năng tác giả chưa từng dùng các tính năng này — KHÔNG kết luận field sai, nhưng cũng chưa có bằng chứng field đúng. Lưu schema nullable, không dùng trong scoring tới khi có post thật dùng chúng |
+| `text_attachment` | ✅ Thật, CÓ dùng — verify lại 2026-08-31 khi chạy pipeline ingest trên toàn bộ 140 posts + 1,285 replies (mẫu nhỏ 50+50 ngày 2026-08-30 không bắt được case này). Shape thật là **edge `{"plaintext": "..."}`**, không phải string phẳng như giả định ban đầu — `ThreadsPost` đã thêm `field_validator` tự flatten (giống `children`) | Dùng cho `ContentUnit.text_attachment` |
+| `is_ghost_post`, `poll_attachment`, `gif_attachment`, `location_id` | ⚠️ Không lỗi nhưng **0/100 item có data** (test 50 post + 50 reply, 2026-08-30) | Nhiều khả năng tác giả chưa từng dùng các tính năng này — KHÔNG kết luận field sai, nhưng cũng chưa có bằng chứng field đúng. Lưu schema nullable, không dùng trong scoring tới khi có post thật dùng chúng |
 | `enable_reply_approvals` | ⚠️ Tương tự — có thể chỉ là param lúc publish, không đọc lại được | Không dùng trong V1 |
 | Metric **"shares"** | ❌ Không tồn tại — post-level insights chỉ có `views, likes, replies, reposts, quotes` (verify 2026-08-28) | Loại khỏi mọi công thức Engagement/Virality tới khi tìm được field thật (nếu có) |
 
@@ -266,6 +267,34 @@ Dùng `lingua-py` (không phải `langdetect`) — hỗ trợ confidence score n
 **Vì sao LLM chỉ dùng ở bước labeling cluster, không dùng để classify trực tiếp**: dùng LLM đúng việc nó giỏi nhất — tóm tắt ngôn ngữ tự nhiên sau khi đã có cấu trúc thật từ NLP pipeline (HDBSCAN), không thay thế phần NLP core bằng 1 API call.
 
 > Velocity/Momentum/Longevity/Freshness/Topic Affinity — xem "Metric Architecture" phía trên, không lặp lại ở đây.
+
+### Methodology log: clustering space cho HDBSCAN (thực nghiệm 2026-09-02)
+
+> Viết ở dạng report — nguồn để đăng lên trang "Methodology" của dashboard/web analytics sau này (output hướng ra ngoài, sẽ dịch/viết lại tiếng Anh khi lên web, xem quy tắc ngôn ngữ ở dưới). Đây là quá trình thật, kể cả phần đã sai và sửa lại — không "làm sạch" lịch sử.
+
+**Bối cảnh môi trường**: `hdbscan`/`umap-learn`/`scikit-learn`/`sentence-transformers` không import được trên Windows của máy chạy dự án — chẩn đoán ra là **Smart App Control** (tính năng Windows 11 Home, khác WDAC/AppLocker doanh nghiệp — xác nhận qua registry `HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy\VerifiedAndReputablePolicyState=1` và việc cmdlet `Get-AppLockerPolicy` không tồn tại trên máy). Đặc điểm quan trọng: Smart App Control **không có UI cho user thường allowlist 1 file** — chỉ có thể tắt hẳn, và theo tài liệu Microsoft, tắt rồi **không bật lại được nếu không cài lại Windows**. Đánh đổi đó không tương xứng chỉ để chạy 1 thư viện Python, nên quyết định **không tắt**.
+
+Verify thêm cho thấy hành vi này **flaky theo thời gian**, không phải "chặn cố định": `sentence-transformers`/bge-m3 chạy được thật 1 lần (2026-09-01), rồi bị chặn lại đúng lỗi cũ ngày hôm sau (2026-09-02) mà không đổi gì ở code/dependency — nghi do reputation-check bất đồng bộ của Smart App Control. Kết luận: không dựa vào Windows cho bất kỳ bước ML thật nào (embedding lẫn clustering), kể cả khi có lúc chạy được.
+
+**Giải pháp**: chuyển toàn bộ embedding + UMAP + HDBSCAN sang chạy trong **WSL2** (đã cài sẵn trên máy, không cần `wsl --install`/reboot). Smart App Control chỉ kiểm soát PE/DLL của Windows — binary ELF trong WSL2 nằm ngoài phạm vi đó hoàn toàn, không phải "mẹo né" mà là khác boundary hệ điều hành. Kiến trúc cầu nối 3 bước, dùng lại nguyên hàm `embed_texts()`/`cluster_embeddings()` đã viết (không viết logic riêng cho WSL, tránh 2 bản lệch nhau):
+1. `src/pipeline/clustering_export.py` (Windows) — xuất `(id, full_text)` ra `data/nlp_exchange/texts_export.json`
+2. `src/pipeline/cluster_wsl.py` (chạy trong WSL2 Ubuntu, venv `~/threads-clustering-env`) — embed + cluster, ghi `data/nlp_exchange/cluster_results.json`
+3. `src/pipeline/clustering_import.py` (Windows) — đọc kết quả, ghi toạ độ UMAP + chạy LLM labeling vào SQLite
+
+**Thực nghiệm — raw embedding space vs UMAP space cho input của HDBSCAN**: thiết kế gốc của `cluster_embeddings()` (`src/nlp/topics.py`) cho HDBSCAN chạy trên embedding gốc 1024 chiều (lý do ghi trong docstring cũ: "giữ đúng density thật, không bị méo bởi UMAP"). Chạy thật trên 141 post: kết quả suy biến — 1 cluster chiếm **82%** dữ liệu (116/141), không tách được chủ đề nào. Chẩn đoán: curse of dimensionality — khoảng cách Euclidean mất khả năng phân biệt trên không gian nhiều chiều với ít điểm dữ liệu. Thử lại HDBSCAN trên chính toạ độ UMAP 3D (đã tính sẵn cho visualize, không thêm bước giảm chiều trung gian nào khác — dataset nhỏ, chưa cần) cho kết quả cân đối hơn hẳn (47/73/8 + 13 noise thay vì 116/6 + 19 noise).
+
+**Phát hiện phụ làm nhiễu thực nghiệm**: 6/141 post có `full_text` rỗng, toàn bộ đều là `media_type=REPOST_FACADE` (tác giả repost bài người khác không thêm caption — Threads lưu dạng "vỏ", không có `text` lẫn `text_attachment`). Embedding của chuỗi rỗng gần giống hệt nhau nên HDBSCAN gom 6 post này thành 1 "cluster" giả ở cả 2 phương pháp — không phải chủ đề thật. Quyết định: loại content unit có `full_text` rỗng khỏi bước export cluster (lọc theo tiêu chí "rỗng", không hardcode `media_type`, vì đúng bản chất là "không có gì để embed" — tổng quát hơn cho các trường hợp tương lai).
+
+**Kết quả sau khi loại nhiễu (135 post sạch)** — chênh lệch giữa 2 phương pháp rõ ràng hơn nhiều, không còn mập mờ:
+
+| | Raw embedding (1024D) | UMAP space (3D) |
+|---|---|---|
+| Số cluster | 2 (40/15) | 2 (50/81) |
+| Noise | 80/135 (**59%**) | 4/135 (**3%**) |
+
+Raw-embedding-space **kém ổn định hẳn** khi bỏ 6 điểm neo (noise tăng từ 13%→59%) — chứng tỏ kết quả trước đó "có vẻ ổn" phần lớn dựa vào 1 nhóm điểm suy biến, không phải cấu trúc chủ đề thật. UMAP-space **ổn định và sạch hơn** khi bỏ nhiễu (9%→3%). Kết luận methodology: **cluster trên toạ độ UMAP đã giảm chiều, không phải embedding gốc** — đảo ngược quyết định thiết kế ban đầu, dựa trên bằng chứng thực nghiệm chứ không phải lý thuyết suông. *(Trạng thái tới lúc ghi report này: đã có đủ bằng chứng, đang chờ xác nhận cuối trước khi sửa `cluster_embeddings()` — xem `docs/next-steps.md`.)*
+
+**Công cụ**: mọi biểu đồ so sánh dùng SVG thuần (không dùng Plotly `scatter3d`/WebGL — artifact sandbox không render WebGL, `scatter3d` cho canvas trống không báo lỗi rõ ràng; small-multiples 2D (X-Y/X-Z/Y-Z) từ cùng toạ độ 3D cho khả năng đánh giá tương đương mà không cần rotate).
 
 ### Storage
 

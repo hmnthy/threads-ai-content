@@ -2,6 +2,8 @@
 Content/
 data/cache/
 data/processed/
+data/nlp_exchange/
+data/logs/
 output/
 __pycache__/
 *.pyc

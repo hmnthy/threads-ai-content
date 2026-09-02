@@ -53,18 +53,29 @@ threads-ai-content/
 │   │   ├── endpoints.py       # get_posts, get_post_insights, get_account_insights, get_user_info
 │   │   ├── models.py          # Pydantic: ThreadsPost, PostInsights, AccountInsights, UserInfo, MediaType
 │   │   └── cache.py           # JSON cache TTL 6h tại data/cache/
-│   ├── models/                # ContentUnit, InsightSnapshot (ThreadsPost đã có ở src/api/models.py) — CHƯA VIẾT
-│   ├── processing/            # thread_reconstruction.py, text.py (raw+normalized) — CHƯA VIẾT
-│   ├── nlp/                   # language.py (lingua-py), embeddings.py, topics.py (UMAP+HDBSCAN) — CHƯA VIẾT
-│   ├── analysis/              # engagement.py xong (bucketing utils); popularity/virality/conversation/
-│   │                          # velocity/longevity/freshness/topic_affinity/timing.py CHƯA VIẾT
-│   ├── db/                    # SQLite schema + vector store (Chroma/FAISS) — CHƯA VIẾT
-│   ├── pipeline/               # analytics.py — batch job orchestrate ingestion→processing→nlp→analysis→db — CHƯA VIẾT
+│   ├── models/                # ContentUnit, InsightSnapshot — XONG (2026-08-31)
+│   ├── processing/            # thread_reconstruction.py, text.py — XONG (2026-08-31)
+│   ├── nlp/                   # language.py XONG+verify thật; embeddings.py XONG nhưng KHÔNG chạy trên
+│   │                          # Windows (Smart App Control flaky, xem architecture decision log
+│   │                          # 2026-09-02) — chạy qua src/pipeline/cluster_wsl.py trong WSL2; topics.py
+│   │                          # (UMAP+HDBSCAN) XONG, input đổi sang UMAP coords (2026-09-02, xem
+│   │                          # data-model.md "Methodology log"); LLM cluster labeling CHƯA chạy thật
+│   │                          # (chờ chốt methodology xong)
+│   ├── analysis/              # engagement/popularity/virality/conversation/freshness/velocity.py XONG.
+│   │                          # longevity/topic_affinity/timing.py CHƯA VIẾT (cần snapshot tích luỹ dài hơn)
+│   ├── db/                    # SQLite schema (posts/content_units/insights_snapshots/topics/
+│   │                          # post_topic_labels) XONG (2026-08-31). Vector store (Chroma/FAISS) cho
+│   │                          # RAG — CHƯA VIẾT (Bước 10, hoãn)
+│   ├── pipeline/               # ingest.py, snapshot.py, scheduled_job.py (cron 4h) XONG (2026-09-01);
+│   │                          # clustering_export.py/cluster_wsl.py/clustering_import.py (cầu nối
+│   │                          # Windows↔WSL2 cho ML thật) XONG (2026-09-02, xem decision log)
 │   ├── generation/            # AI text generation — Claude API + RAG (CHƯA VIẾT)
 │   ├── carousel/              # Pillow-based image composition (CHƯA VIẾT)
 │   │   └── fonts/
 │   │       └── Google_Sans/   # Font Việt hóa đã tải về
-│   └── dashboard/             # Frontend Next.js app (CHƯA VIẾT)
+│   └── dashboard/             # Next.js 16 + Tailwind v4 — Overview (/) + Topic Explorer (/topics) XONG
+│                              # (2026-09-01), build/lint sạch, chưa deploy. Topic Explorer chưa có data
+│                              # thật (chờ methodology clustering chốt xong)
 │       ├── components/
 │       ├── pages/
 │       └── styles/
@@ -144,6 +155,14 @@ threads-ai-content/
 | Repo này (`hmnthy/threads-ai-content`) giữ **Private vĩnh viễn làm "working repo"** — đầy đủ lịch sử thật kể cả các đoạn tranh luận/redesign; khi cần bản public sẽ squash/curate sang 1 repo public riêng | Giá trị portfolio nằm ở quá trình tư duy (docs, decisions log, commit message) chứ không phải việc giấu AI có tham gia hay không — không cần "dọn sạch" lịch sử làm việc thật. Repo public sau này (nếu có) sẽ là bản curated riêng, không phải chính repo này — quyết định 2026-08-30 |
 | Git commit trong repo này **không thêm trailer** `Co-Authored-By: Claude...` | Xem dòng "Quy tắc tuyệt đối" trong `CLAUDE.md`. Lịch sử commit trước quyết định (`31adcbc`, `3eceabe`) giữ nguyên, không rewrite/force-push — rủi ro không đáng đổi cho 1 sửa đổi mang tính thẩm mỹ — quyết định 2026-08-30 |
 | `.pre-commit-config.yaml` — hook `mypy` đổi từ `repo: mirrors-mypy` (tự tạo venv riêng trong `~/.cache/pre-commit/`) sang `repo: local` trỏ thẳng `.venv/Scripts/python.exe -m mypy` | Application Control Policy trên máy chặn ngẫu nhiên các file `.dll` biên dịch của mypy khi load từ `~/.cache/pre-commit/` (nhiều khả năng do policy coi thư mục cache/tải-về là kém tin cậy hơn `.venv` của project) — lỗi tái diễn ở các module mypy khác nhau mỗi lần (`error_formatter`, `semanal_infer`, `indirection`...), không phải lỗi code. Ban đầu định dùng `entry: uv run mypy` nhưng `uv` không có trên PATH trong terminal thật của user (`uv.exe` cài qua `pip install --user` nằm ở `AppData\Roaming\Python\PythonXXX\Scripts`, không tự thêm vào PATH) — đổi sang trỏ thẳng `.venv/Scripts/python.exe` để không phụ thuộc `uv` có trên PATH hay không — quyết định 2026-08-31 |
+| Chẩn đoán chính xác "Application Control Policy" chặn scipy/hdbscan/umap-learn là **Smart App Control** (Windows 11 Home), KHÔNG phải WDAC/AppLocker | Xác nhận qua registry `HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy\VerifiedAndReputablePolicyState=1` + `Get-AppLockerPolicy` không tồn tại (cmdlet chỉ có ở Pro/Enterprise). Khác biệt quan trọng: Smart App Control không có UI allowlist 1 file cho user thường — chỉ bật/tắt, và tắt rồi không bật lại được nếu không cài lại Windows. Quyết định KHÔNG tắt (đánh đổi bảo mật toàn máy vĩnh viễn không tương xứng lợi ích hẹp) — quyết định 2026-09-02 |
+| Chuyển toàn bộ ML thật (embedding + UMAP + HDBSCAN) sang chạy trong **WSL2** (đã cài sẵn, không cần `wsl --install`/reboot), không cố sửa trên Windows | WSL2 chạy kernel Linux thật — binary ELF nằm ngoài phạm vi kiểm soát của Smart App Control (chỉ áp cho PE/DLL Windows), không phải "mẹo né" mà khác OS boundary hoàn toàn, không đánh đổi bảo mật gì. Verify thêm cho thấy hành vi chặn trên Windows **flaky theo thời gian** (`sentence-transformers` chạy được thật 1 lần 2026-09-01, bị chặn lại y hệt 2026-09-02 không đổi gì code) — không tin tưởng dùng Windows cho bất kỳ bước ML nào kể cả lúc "có vẻ đã hết chặn" — quyết định 2026-09-02 |
+| Kiến trúc cầu nối 3 bước Windows↔WSL2 (`clustering_export.py` → `cluster_wsl.py` → `clustering_import.py`), dùng lại nguyên `embed_texts()`/`cluster_embeddings()` đã viết, KHÔNG viết logic riêng cho WSL | Tránh 2 bản logic ML lệch nhau giữa 2 môi trường chạy — file `.py` giống hệt, chỉ khác Python nào thực thi nó. Trao đổi qua `data/nlp_exchange/*.json` (gitignored, regenerable) | quyết định 2026-09-02 |
+| `cluster_embeddings()` chuyển input HDBSCAN từ embedding gốc 1024D sang toạ độ UMAP 3D đã giảm chiều (đảo ngược quyết định gốc "giữ density thật, không dùng UMAP output") | Thực nghiệm thật trên data: raw-embedding-space suy biến (1 cluster chiếm 82%, sau khi lọc nhiễu thì noise tăng 13%→59% — không ổn định). UMAP-space cho kết quả cân đối và ổn định hơn khi lọc nhiễu (noise giảm 9%→3%). Bằng chứng thực nghiệm > lý thuyết ban đầu. Chi tiết đầy đủ + số liệu tại `docs/claude/data-model.md` mục "Methodology log: clustering space cho HDBSCAN" — quyết định 2026-09-02 |
+| Loại content unit có `full_text` rỗng khỏi bước export cluster (lọc theo "rỗng", không hardcode `media_type`) | Verify thật: 6/141 post rỗng đều là `REPOST_FACADE` (repost không caption, Threads không có `text`/`text_attachment`). Embedding chuỗi rỗng gần giống hệt nhau → HDBSCAN gom thành 1 "cluster" giả, làm nhiễu so sánh methodology. Lọc theo tiêu chí tổng quát (rỗng) thay vì hardcode loại post cụ thể, để đúng cả khi phát sinh trường hợp khác tương lai — quyết định 2026-09-02 |
+| Visualization so sánh cluster dùng SVG thuần (3 góc chiếu 2D X-Y/X-Z/Y-Z), KHÔNG dùng Plotly `scatter3d` | `scatter3d` cần WebGL — artifact sandbox (claude.ai) không render được, cho canvas trống hoàn toàn không báo lỗi (2 lần thử fix Plotly thất bại trước khi đổi hướng). SVG là kỹ thuật đã verify hoạt động ổn định trong cùng sandbox (dùng ở trang CV artifact) — quyết định 2026-09-02 |
+| Cron job snapshot 4h (Windows Task Scheduler) dùng launcher `.bat` riêng, KHÔNG inline `cmd.exe /c "..."` qua `-Argument` của `New-ScheduledTaskAction` | Inline argument với quoting lồng nhau gây `STATUS_CONTROL_C_EXIT` (process bị kill ngay khi Task Scheduler tự gọi, dù chạy tay bằng tay thì ổn) — chẩn đoán nhầm là Application Control lúc đầu, thật ra là lỗi parsing argument string. File `.bat` verify chạy ổn định qua chính Task Scheduler (không chỉ chạy tay) — quyết định 2026-09-01 |
+| `.pre-commit-config.yaml` — hook `mypy` sửa `entry` từ `.venv/Scripts/python.exe -m mypy` thành `./.venv/Scripts/python.exe -m mypy` (thêm tiền tố `./`) | Lỗi thật lộ ra ở lần `git commit` đầu tiên kể từ khi config này được viết (2026-08-31) — trước đó mọi lần verify mypy trong phiên đều gọi trực tiếp qua Bash (`./.venv/Scripts/python.exe -m mypy`, luôn có `./`), chưa từng thật sự đi qua pre-commit hook. Chẩn đoán chính xác bằng cách tái hiện lỗi trực tiếp qua `subprocess.run([...])` trong Python: `.venv/Scripts/python.exe` (không tiền tố) gây `WinError 2` dù file tồn tại đúng chỗ, `cwd` đúng — hành vi thật của Windows `CreateProcess` (khác `exec` trên POSIX): không tự resolve path tương đối thiếu `./`/`.\` dù dùng đúng `cwd`, kể cả khi gõ trực tiếp trong Bash/cmd thì shell tự thêm bước resolve đó nên không thấy lỗi. Không liên quan Application Control Policy — quyết định 2026-09-02 |
 
 ---
 

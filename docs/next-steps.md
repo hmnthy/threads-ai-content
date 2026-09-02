@@ -1,6 +1,7 @@
 # Next Steps — Threads AI Content
-> Cập nhật: 2026-08-29
+> Cập nhật: 2026-09-02
 > **Đang chạy theo `docs/sprint-plan.md`** — kế hoạch ngày-theo-ngày (Giai đoạn 1-3, Carousel hoãn lại). File này giữ lịch sử các mốc đã qua; sprint-plan.md là nguồn "hôm nay làm gì".
+> **Việc cần làm ngay khi quay lại phiên tiếp theo**: xem mục 10 — đang chờ xác nhận chốt methodology clustering (UMAP space) trước khi chạy LLM labeling + hoàn thiện Topic Explorer.
 
 ---
 
@@ -53,6 +54,36 @@ Test suite hiện có 35 test (33 trước đó + 2 test timezone conversion), t
 ### 6. [SUPERSEDED 2026-08-30] `src/analysis/virality.py`, `src/analysis/topics.py`, rồi `src/main.py`
 
 > Mục này đã lỗi thời — `topics.py` (keyword matching + Claude classification) bị thay hoàn toàn bằng pipeline NLP thật (embedding + SVM-RBF/LogReg + UMAP/HDBSCAN + RAG). Xem `docs/sprint-plan.md` (Ngày 1-13) cho kế hoạch hiện hành, `docs/claude/data-model.md` phần "NLP Pipeline" cho thiết kế chi tiết.
+
+### 7. Batch qua đêm — Bước 1/2/4/9 + snapshot job + draft NLP + dashboard tối giản — ĐÃ HOÀN TẤT (2026-08-31/09-01)
+
+Chạy trên worktree `agent-ae623e2a159ec48c4` (chưa merge vào `main`, chưa commit). Tóm tắt:
+- `src/models/`, `src/db/schema.py`, `src/processing/`, `src/analysis/{popularity,virality,conversation,freshness}.py` — xong, test/ruff/mypy sạch, verify trên 140-141 post thật.
+- Verify live phát hiện `text_attachment` **thực ra có được tác giả dùng** (ngược ghi chú cũ "0/100 item có data") — đã sửa field validator + doc.
+- Dashboard Next.js (Overview + Topic Explorer skeleton) — build/lint sạch, chưa deploy, chưa push GitHub.
+- `src/nlp/{language,embeddings,topics}.py` viết xong nhưng embedding/clustering CHƯA verify chạy thật lúc đó (Application Control Policy chặn — xem mục 9).
+
+### 8. Bắt post mới + `velocity.py` + cron snapshot 4h + Virality Potential Tracker — ĐÃ HOÀN TẤT (2026-09-01)
+
+- `velocity.py` (view_velocity, amplification_velocity) — xong, verify thật: post mới đăng lúc 12:10:19Z đạt **65,31 views/h** giữa 2 snapshot cách nhau ~22 phút.
+- Cron 4h qua Windows Task Scheduler (`ThreadsAI_SnapshotJob_4h`) — gặp `STATUS_CONTROL_C_EXIT` do lỗi quoting `cmd.exe /c "..."` inline, sửa bằng launcher `run_snapshot_job.bat` riêng, verify chạy ổn định qua chính Task Scheduler (không chỉ chạy tay). **Lưu ý: task đang trỏ vào path worktree tạm — cần trỏ lại sau khi merge vào `main`.**
+- Publish artifact CV tạm thời (link riêng, không phải repo) — data thật đầy đủ 141 post, top-10 mỗi metric + tab "All posts", Virality Potential Tracker cho post mới nhất, demographics thật (VN 71,5%/FR 19,3%).
+- Dọn side-effect: `uv sync` lại `.venv` repo chính (gỡ 36 package cài nhầm lúc debug), xoá bản copy `.env` trong worktree (verify `load_dotenv()` tự tìm ngược lên `.env` gốc của repo chính, không cần copy riêng).
+
+### 9. Chẩn đoán Smart App Control + dựng pipeline clustering qua WSL2 — ĐÃ HOÀN TẤT (2026-09-02)
+
+Chi tiết đầy đủ + lý do tại `docs/claude/architecture.md` (decision log 2026-09-02) và `docs/claude/data-model.md` ("Methodology log: clustering space cho HDBSCAN"). Tóm tắt: xác định đúng là Smart App Control (không phải WDAC), quyết định không tắt, chuyển toàn bộ embedding+UMAP+HDBSCAN sang WSL2 (đã cài sẵn), dựng cầu nối 3 script (`clustering_export.py`/`cluster_wsl.py`/`clustering_import.py`), verify chạy thật thành công.
+
+### 10. Thực nghiệm methodology: raw embedding space vs UMAP space cho HDBSCAN — ĐÃ CÓ KẾT LUẬN, CHỜ XÁC NHẬN (2026-09-02)
+
+Phát hiện raw-embedding-space suy biến (1 cluster 82% dữ liệu), chẩn đoán curse of dimensionality. Phát hiện phụ: 6/141 post `REPOST_FACADE` (full_text rỗng) làm nhiễu so sánh — đã loại khỏi export (135 post sạch). Kết quả cuối: **UMAP-space thắng rõ rệt** (noise 3% vs 59% khi raw-embedding-space mất đi 6 điểm neo). Số liệu đầy đủ tại `docs/claude/data-model.md`.
+
+**Việc còn lại — làm khi quay lại phiên sau (hoặc trong phiên này nếu được xác nhận)**:
+1. Sửa `cluster_embeddings()` (`src/nlp/topics.py`) — đổi input HDBSCAN sang UMAP coords, cập nhật docstring theo bằng chứng thực nghiệm (không phải lý thuyết cũ).
+2. Chạy lại `clustering_import.py` — ghi toạ độ UMAP + chạy LLM labeling (đặt tên cluster tiếng Anh) vào SQLite thật.
+3. Wire data thật vào Topic Explorer (`src/dashboard/`), verify hiển thị đúng.
+4. Cân nhắc thử `min_cluster_size` khác 5 nếu 2 cluster (50/81) vẫn quá thô so với 6 category cố định — chưa làm, chỉ là ý tưởng dự phòng.
+5. Trỏ lại cron `ThreadsAI_SnapshotJob_4h` sang path `main` sau khi merge worktree.
 
 ---
 

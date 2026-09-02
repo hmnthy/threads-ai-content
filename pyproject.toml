@@ -6,11 +6,16 @@ requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.2.0",
     "fastapi>=0.141.1",
+    "hdbscan>=0.8.44",
     "httpx>=0.28.1",
+    "lingua-language-detector>=2.2.0",
     "pillow>=12.3.0",
     "pydantic>=2.13.5",
     "python-dotenv>=1.2.3",
+    "scikit-learn>=1.9.0",
+    "sentence-transformers>=6.0.1",
     "tzdata>=2025.1",
+    "umap-learn>=0.5.12",
     "uvicorn[standard]>=0.52.4",
 ]
 
@@ -29,6 +34,12 @@ select = ["E", "F", "I", "UP", "B", "SIM", "N"]
 python_version = "3.12"
 strict = true
 files = ["src", "tests"]
+
+# hdbscan/umap-learn không ship type stub (py.typed) — xem docs/claude/data-model.md
+# "NLP Pipeline". lingua/sentence-transformers/anthropic đều có py.typed nên không cần liệt kê.
+[[tool.mypy.overrides]]
+module = ["hdbscan", "hdbscan.*", "umap", "umap.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

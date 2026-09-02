@@ -31,6 +31,27 @@ class ThreadsPost(BaseModel):
     reposted_post: dict[str, Any] | None = None
     children: list[str] = Field(default_factory=list)
 
+    # Fields cho thread reconstruction — verify live 2026-08-30 (xem docs/claude/data-model.md
+    # bảng "Fields cho thread reconstruction"). root_post/replied_to trả về edge dạng
+    # {"id": "..."} giống quoted_post/reposted_post — giữ nguyên dict, không flatten, dùng
+    # property root_post_id/replied_to_id bên dưới cho tiện.
+    root_post: dict[str, Any] | None = None
+    replied_to: dict[str, Any] | None = None
+    is_reply: bool = False
+    is_reply_owned_by_me: bool = False
+    has_replies: bool = False
+    is_spoiler_media: bool = False
+
+    # Context field mở rộng — verify live 2026-08-30: KHÔNG lỗi nhưng 0/100 item có data
+    # (test 50 post + 50 reply). Lưu schema nullable, KHÔNG dùng trong scoring tới khi có
+    # post thật dùng chúng.
+    text_attachment: str | None = None
+    is_ghost_post: bool | None = None
+    poll_attachment: dict[str, Any] | None = None
+    gif_attachment: dict[str, Any] | None = None
+    location_id: str | None = None
+    enable_reply_approvals: bool | None = None
+
     @field_validator("children", mode="before")
     @classmethod
     def _flatten_children_edge(cls, value: Any) -> list[str]:
@@ -40,6 +61,28 @@ class ThreadsPost(BaseModel):
         if isinstance(value, dict):
             return [item["id"] for item in value.get("data", [])]
         return value  # type: ignore[no-any-return]
+
+    @field_validator("text_attachment", mode="before")
+    @classmethod
+    def _flatten_text_attachment_edge(cls, value: Any) -> str | None:
+        """Verify live 2026-08-31: NGƯỢC với ghi chú trước (0/100 item có data lúc
+        test mẫu nhỏ 2026-08-30) — trên toàn bộ 1,285 replies thật, tác giả CÓ dùng
+        text_attachment. Response shape thật là `{"plaintext": "..."}`, không phải
+        string phẳng như giả định ban đầu trong data-model.md — cập nhật giả định
+        này tại đây, xem thêm ghi chú trong data-model.md."""
+        if value is None or isinstance(value, str):
+            return value
+        if isinstance(value, dict):
+            return value.get("plaintext")
+        return value  # type: ignore[no-any-return]
+
+    @property
+    def root_post_id(self) -> str | None:
+        return self.root_post.get("id") if self.root_post else None
+
+    @property
+    def replied_to_id(self) -> str | None:
+        return self.replied_to.get("id") if self.replied_to else None
 
 
 class PostInsights(BaseModel):
@@ -52,10 +95,11 @@ class PostInsights(BaseModel):
 
     @property
     def engagement_rate(self) -> float:
-        """(likes + replies + reposts) / views * 100 — see docs/claude/data-model.md."""
+        """(likes + replies + reposts + quotes) / views * 100 — see docs/claude/data-model.md
+        "Metric Architecture". SỬA 2026-08-30: công thức cũ thiếu `quotes` ở tử số."""
         if self.views == 0:
             return 0.0
-        return (self.likes + self.replies + self.reposts) / self.views * 100
+        return (self.likes + self.replies + self.reposts + self.quotes) / self.views * 100
 
 
 class AccountInsights(BaseModel):
