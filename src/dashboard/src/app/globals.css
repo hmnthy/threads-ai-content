@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  /* Palette từ docs/claude/design-system.md — "Tinh gọn — Hiện đại — Chuyên nghiệp — Hiệu quả" */
+  --bg-primary: #0d0d0d;
+  --bg-surface: #141414;
+  --bg-elevated: #1c1c1c;
+  --bg-border: #2a2a2a;
+
+  --accent-purple: #7c3aed;
+  --accent-purple-soft: #a78bfa;
+
+  --positive: #22c55e;
+  --negative: #ef4444;
+  --neutral: #a3a3a3;
+
+  --text-primary: #f5f5f5;
+  --text-secondary: #a3a3a3;
+  --text-muted: #525252;
+}
+
+@theme inline {
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-border: var(--bg-border);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-purple-soft: var(--accent-purple-soft);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-neutral: var(--neutral);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
