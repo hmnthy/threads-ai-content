@@ -11,20 +11,20 @@ Dự án có **2 tầng mục tiêu**, khác nhau về mức độ ưu tiên, r�
 
 ### Phase 1 — Công cụ phân tích & content cho kênh cá nhân (đang triển khai)
 
-AI solution phân tích và generate content cho kênh Threads **"Thy đi làm muộn"** — kênh của một người Việt tại Pháp, chia sẻ về cuộc sống đi làm, alternance, xin việc, và lifestyle tại Pháp.
+AI solution phân tích và generate content cho kênh Threads **"thydilammuon"** — kênh của một người Việt tại Pháp, chia sẻ về cuộc sống đi làm, alternance, xin việc, và lifestyle tại Pháp.
 
-Mục tiêu: kéo data từ Threads API → phân tích hiệu suất → gợi ý content mới → generate carousel theo template có sẵn, **luôn giữ đúng giọng văn gốc của tác giả**.
+Mục tiêu: kéo data từ Threads API → phân tích hiệu suất → gợi ý content mới dựa trên giọng văn tác giả và quét data báo chí tại Pháp, những nội dung phù hợp kênh giáo dục và cuộc sống tại Pháp → generate carousel theo template có sẵn éventuellement - tùy tình hình, **luôn giữ đúng giọng văn gốc của tác giả**.
 
-**Đây là internal tool dùng riêng cho tác giả** — không phải SaaS công khai. Không cần auth nhiều user, không cần scale lớn. Dùng Threads API ở mức **Standard Access** (chỉ thao tác trên chính tài khoản `thydilammuon` thông qua vai trò Threads Tester).
+**Đây là internal tool dùng riêng cho tác giả, được đăng lên 1 link website để đáp ứng nhu cầu cho portfolio DS/MLE** — không phải SaaS công khai. Không cần auth nhiều user, không cần scale lớn. Dùng Threads API ở mức **Standard Access** (tập trung thao tác trên chính tài khoản `thydilammuon` thông qua vai trò Threads Tester).
 
 ### Phase 2 — Nghiên cứu hệ sinh thái Threads & KOL Strategy Engine (định hướng, chưa triển khai)
 
-Tham vọng dài hạn: mở rộng từ phân tích 1 kênh sang **nghiên cứu algo/hệ sinh thái Threads trên diện rộng**, ứng dụng NLP để rút ra insight về:
+Tham vọng kéo dài xuyên suốt: mở rộng từ phân tích 1 kênh sang **nghiên cứu algo/hệ sinh thái Threads trên diện rộng**, ứng dụng NLP để rút ra insight về:
 - Pattern nội dung & thời điểm đăng tương quan với hiệu suất cao, tổng hợp từ nhiều tài khoản công khai (không chỉ kênh của tác giả)
 - Trending topics theo thời gian thực trên nền tảng Threads
 - Chiến lược reply/tương tác chéo giúp tăng visibility, dựa trên hành vi reply chủ động hiện có của tác giả
 
-Đích đến: xây dựng một **"KOL Strategy Engine" dựa trên NLP** — theo đánh giá hiện tại, đây là hướng sản phẩm/phương pháp luận **chưa có trên thị trường**, có tiềm năng vượt ra ngoài phạm vi "internal tool" nếu chứng minh được giá trị thực tế.
+Đích đến: xây dựng một **"KOL Strategy Engine" dựa trên NLP** — theo đánh giá hiện tại, đây là hướng sản phẩm/phương pháp luận **chưa có trên thị trường**, có tiềm năng vượt ra ngoài phạm vi "internal tool" nếu chứng minh được giá trị thực tế, có impact, có câu chuyện, có kỹ thuật rõ ràng, đáp ứng tiêu chuẩn project NLP/MLE trong năm 2026. 
 
 **Ràng buộc kỹ thuật cần lưu ý (chốt ngày 2026-08-28)**:
 - Bắt buộc cần **Advanced Access** qua Meta App Review (Business Verification, Privacy Policy URL, mô tả use case, video demo) — Standard Access hiện tại **không đủ** để đọc content/profile của tài khoản khác ở quy mô có ý nghĩa; Meta thiết kế Standard Access chỉ để test trên chính tài khoản tester.
@@ -67,7 +67,7 @@ CLAUDE.md gốc chỉ giữ phần **luôn cần thiết mỗi phiên** (mission
 |---|---|
 | [`docs/claude/architecture.md`](docs/claude/architecture.md) | Cần cấu trúc thư mục, tech stack, decisions log, workflow diagram, roadmap tính năng |
 | [`docs/claude/data-model.md`](docs/claude/data-model.md) | Làm việc với `src/api/`/`src/analysis/`, cần field/metrics/response shape của Threads API, công thức Virality Index, mapping topic↔template |
-| [`docs/claude/design-system.md`](docs/claude/design-system.md) | Làm việc với `src/dashboard/` — color palette, typography, component patterns, layout, motion |
+| [`docs/claude/design-system.md`](docs/claude/design-system.md) | **BẮT BUỘC đọc trước MỌI việc chạm tới UI** (`src/dashboard/`, frontend, mockup, artifact, HTML demo) — nguồn sự thật duy nhất về design: tokens, tầng A/B, component patterns, chart rules, checklist merge, query cookbook cho `ui-ux-pro-max` |
 | [`docs/claude/dev-rules.md`](docs/claude/dev-rules.md) | Setup môi trường, chạy lệnh dev, implement `src/generation/`/`src/carousel/` |
 
 ---
@@ -80,6 +80,25 @@ CLAUDE.md gốc chỉ giữ phần **luôn cần thiết mỗi phiên** (mission
 - **Không commit** `.env`, API tokens, hoặc personal data
 - **Luôn đọc scripts gốc** trong `Content/Scripts/` trước khi generate text content mới
 - Giọng văn phải phản ánh đúng tác giả — không dùng giọng generic AI
+
+### Design — routing bắt buộc (chốt 2026-09-02)
+
+- **Nguồn sự thật DUY NHẤT về design là [`docs/claude/design-system.md`](docs/claude/design-system.md)**, bám theo reference [`docs/design/dashboard-reference.png`](docs/design/dashboard-reference.png). Phải đọc file này **trước khi viết dòng UI đầu tiên** — kể cả với mockup nhanh, artifact, hay HTML demo dùng một lần.
+  - Không tự chọn palette / font / layout. Không dùng default palette của model.
+  - Thứ tự thắng khi mâu thuẫn: **PNG reference > design-system.md > mọi nguồn khác** (skill, generator, "best practice" chung).
+  - Lý do: 2026-09-01 artifact `f23eb6c8` được sinh mà không đọc cả hai nguồn trên, tạo ra hướng design thứ ba (`#f9f9f7` + Instrument Serif). Xem Decision log §11 trong `design-system.md`.
+
+- **Skill `.claude/skills/ui-ux-pro-max/` là công cụ TRA CỨU, không phải nguồn design.**
+  - **KHÔNG nạp `SKILL.md` vào context** (55KB ≈ 15k token mỗi lần trigger). Chỉ chạy CLI:
+    ```bash
+    # Windows: python | Linux/macOS: python3
+    python .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --domain <chart|ux|icons|react|color|typography> -n 3
+    python .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --stack <nextjs|react|shadcn|html-tailwind>
+    ```
+  - **NGHIÊM CẤM `--design-system` và `--persist`.** Generator sinh palette + pattern landing-page marketing mâu thuẫn với `design-system.md`; `--persist` còn ghi ra `design-system/<slug>/MASTER.md` ở project root, tạo nguồn sự thật thứ hai.
+  - Query phải viết theo **triệu chứng quan sát được**, 2-5 từ, không theo chủ đề. Cookbook sẵn có: `design-system.md` §9.
+  - Kết quả trả về là khuyến nghị. Mâu thuẫn với `design-system.md` → `design-system.md` thắng.
+  - Các skill design khác trong `.claude/skills/` (`design`, `design-system`, `ui-styling`, `slides`, `banner-design`, `brand`) **không dùng cho dashboard** — chúng trùng vai trò và sẽ kéo lệch khỏi reference.
 - **Không thêm trailer `Co-Authored-By: Claude...`** vào git commit message (quyết định 2026-08-30 — repo này sẽ dùng làm nguồn squash sang 1 repo public riêng sau; commit message + decisions log trong `docs/claude/architecture.md` đã đủ thể hiện quá trình tư duy, không cần trailer). Lịch sử commit cũ trước quyết định này (`31adcbc`, `3eceabe`) giữ nguyên, không rewrite.
 
 ---
