@@ -1,41 +1,68 @@
 @import "tailwindcss";
 
 :root {
-  /* Palette từ docs/claude/design-system.md — "Tinh gọn — Hiện đại — Chuyên nghiệp — Hiệu quả" */
-  --bg-primary: #0d0d0d;
-  --bg-surface: #141414;
-  --bg-elevated: #1c1c1c;
-  --bg-border: #2a2a2a;
+  /* v3.1 Amber — docs/claude/design-system.md. Light mode duy nhất trong scope. */
+  --bg-page: #fbfbfc;
+  --bg-card: #ffffff;
+  --bg-surface: #f1f3f6;
+  --bg-sunken: #fafafb;
+  --border-hairline: rgba(17, 24, 39, 0.1);
+  --rule: #e4e8ed;
 
-  --accent-purple: #7c3aed;
-  --accent-purple-soft: #a78bfa;
+  --text-primary: #111827; /* 16.1:1 trên #FBFBFC */
+  --text-secondary: #4b5563; /* 7.0:1 */
+  --text-muted: #6b7280; /* 4.8:1 */
 
-  --positive: #22c55e;
-  --negative: #ef4444;
-  --neutral: #a3a3a3;
+  --amber-soft: #fef3c7;
+  --amber-fill: rgba(245, 158, 11, 0.42);
+  --amber-600: #b45309; /* 5.9:1 — tương tác: nút chính, link, focus ring */
+  --amber-700: #92400e; /* 8.2:1 — link hover */
 
-  --text-primary: #f5f5f5;
-  --text-secondary: #a3a3a3;
-  --text-muted: #525252;
+  --positive: #15803d; /* 4.9:1 */
+  --negative: #c42a2f; /* 5.1:1 */
+
+  /* Alias sang tên token cũ (v2 dark) — Nav.tsx/TopicExplorer.tsx/topics/page.tsx
+     CHƯA refactor sang v3.1 trong đợt sync này (xem mockups/README.md "Chưa làm"),
+     giữ alias để 2 trang đó không vỡ layout thay vì để nguyên giá trị dark cũ. Xoá
+     alias này khi các file đó được refactor thẳng sang token v3.1 ở trên. */
+  --bg-primary: var(--bg-page);
+  --bg-elevated: var(--bg-surface);
+  --bg-border: var(--border-hairline);
+  --accent-purple: var(--amber-600);
+  --accent-purple-soft: var(--amber-soft);
+  --neutral: var(--text-muted);
 }
 
 @theme inline {
-  --color-bg-primary: var(--bg-primary);
+  --color-bg-page: var(--bg-page);
+  --color-bg-card: var(--bg-card);
   --color-bg-surface: var(--bg-surface);
+  --color-bg-sunken: var(--bg-sunken);
+  --color-border-hairline: var(--border-hairline);
+  --color-rule: var(--rule);
+  --color-amber-soft: var(--amber-soft);
+  --color-amber-fill: var(--amber-fill);
+  --color-amber-600: var(--amber-600);
+  --color-amber-700: var(--amber-700);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  /* Alias — xem ghi chú trong :root */
+  --color-bg-primary: var(--bg-primary);
   --color-bg-elevated: var(--bg-elevated);
   --color-bg-border: var(--bg-border);
   --color-accent-purple: var(--accent-purple);
   --color-accent-purple-soft: var(--accent-purple-soft);
-  --color-positive: var(--positive);
-  --color-negative: var(--negative);
   --color-neutral: var(--neutral);
-  --color-text-primary: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted: var(--text-muted);
+
   --font-sans: var(--font-inter);
+  --font-mono: var(--font-ibm-plex-mono);
 }
 
 body {
-  background: var(--bg-primary);
+  background: var(--bg-page);
   color: var(--text-primary);
 }

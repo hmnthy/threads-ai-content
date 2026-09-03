@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" rel="stylesheet" />
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#FFFFFF;color:#14141F;font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:#6A5AE8;text-decoration:none}
+  a:hover{color:#5849cf;text-decoration:underline}
+  table{border-collapse:collapse}
+  button:focus-visible,a:focus-visible{outline:2px solid #6A5AE8;outline-offset:2px}
+  i.ph{line-height:1}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</helmet>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" fill="#F1F0FE"/><circle cx="46" cy="50" r="18" fill="#6A5AE8"/><circle cx="74" cy="50" r="18" fill="#918DF6"/><rect x="36" y="78" width="48" height="8" rx="4" fill="#14141F"/></svg></template>
+<div style="display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh">
+
+  <aside style="border-right:1px solid rgba(20,20,31,0.08);background:#F7F7F7;position:sticky;top:0;height:100vh;overflow-y:auto;padding:24px 16px;display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;flex-direction:column;gap:4px;padding:0 8px 12px">
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em">Design System</span>
+      <span style="font-size:12px;font-weight:500;color:#8A8A94">Threads AI Content · v3</span>
+    </div>
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="14">
+      <a href="{{ n.href }}" style="{{ n.style }}">{{ n.label }}</a>
+    </sc-for>
+    <div style="margin-top:auto;padding:16px 8px 0;font-size:12px;font-weight:500;color:#8A8A94;line-height:1.5">Source of truth: <code style="font-family:'IBM Plex Mono',monospace;font-size:11px">docs/claude/design-system.md</code></div>
+  </aside>
+
+  <main style="min-width:0;padding:40px 40px 96px;display:flex;flex-direction:column;gap:64px">
+
+    <header style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;font-weight:600;color:#6A5AE8;background:#F1F0FE;border-radius:999px;padding:4px 12px;align-self:flex-start">v3 · 2026-09-02 · light mode only</span>
+      <h1 style="margin:0;font-size:44px;font-weight:700;letter-spacing:-0.03em;line-height:1.05">Threads AI Content</h1>
+      <p style="margin:0;max-width:640px;font-size:15px;color:#52525B">Every token below is rendered from the values in <code style="font-family:'IBM Plex Mono',monospace;font-size:13px">design-system.md</code>. Hex marked <em>measured</em> was pixel-sampled from the reference PNG; <em>derived</em> was computed to reach a contrast threshold.</p>
+    </header>
+
+    <section id="neutral" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Colors · Neutral</h2>
+        <span style="font-size:13px;color:#52525B">78% of the reference is white or near-white. Surface sits on page, never inverted, and there is no third background tier.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ neutrals }}" as="c" hint-placeholder-count="4">
+          <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;overflow:hidden">
+            <div style="{{ c.chip }}"></div>
+            <div style="padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0">
+              <span style="font-size:13px;font-weight:600">{{ c.name }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#52525B;overflow-wrap:anywhere">{{ c.hex }}</span>
+              <span style="font-size:12px;color:#8A8A94;line-height:1.45">{{ c.use }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ textTiers }}" as="c" hint-placeholder-count="3">
+          <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px">
+            <span style="{{ c.sample }}">The quick brown fox</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#52525B">{{ c.hex }}</span>
+              <span style="{{ c.badge }}">{{ c.ratio }}</span>
+            </div>
+            <span style="font-size:12px;color:#8A8A94;line-height:1.45">{{ c.use }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="violet" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Colors · Brand violet</h2>
+        <span style="font-size:13px;color:#52525B">Two violets do different jobs. Mixing them up is the single most common way to break this system.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ violets }}" as="c" hint-placeholder-count="5">
+          <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;overflow:hidden">
+            <div style="{{ c.chip }}"></div>
+            <div style="padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0">
+              <span style="font-size:13px;font-weight:600">{{ c.name }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#52525B;overflow-wrap:anywhere">{{ c.hex }}</span>
+              <span style="font-size:12px;color:#8A8A94;line-height:1.45">{{ c.use }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+        <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:13px;font-weight:600;color:#C42A2F">Measured from reference · fails AA</span>
+          <div style="background:#918DF6;border-radius:999px;height:44px;display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-size:14px;font-weight:600">Generate ideas</div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#52525B">#918DF6 + white = 2.86:1</span>
+        </div>
+        <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:13px;font-weight:600;color:#2C7F44">What we ship · passes AA</span>
+          <div style="background:#6A5AE8;border-radius:999px;height:44px;display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-size:14px;font-weight:600">Generate ideas</div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#52525B">#6A5AE8 + white = 4.95:1</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="accents" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Colors · Feature accents</h2>
+        <span style="font-size:13px;color:#52525B">Each accent has two tiers. The reference hex draws; the AA-safe hex writes. Colour is never the only signal.</span>
+      </div>
+      <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;overflow:hidden">
+        <table style="width:100%">
+          <thead>
+            <tr style="background:#F7F7F7">
+              <th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:600;color:#52525B">Accent</th>
+              <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:600;color:#52525B">Fill · chart · dot</th>
+              <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:600;color:#52525B">Text · meaningful icon</th>
+              <th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:600;color:#52525B">Meaning in this product</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ accents }}" as="a" hint-placeholder-count="6">
+              <tr style="border-top:1px solid rgba(20,20,31,0.08)">
+                <td style="padding:12px 16px;font-size:13px;font-weight:500">{{ a.name }}</td>
+                <td style="padding:12px 12px">
+                  <span style="display:flex;align-items:center;gap:8px">
+                    <span style="{{ a.refChip }}"></span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#52525B">{{ a.ref }}</span>
+                  </span>
+                </td>
+                <td style="padding:12px 12px">
+                  <span style="display:flex;align-items:center;gap:8px">
+                    <span style="{{ a.safeChip }}"></span>
+                    <span style="{{ a.safeText }}">{{ a.safe }}</span>
+                    <span style="font-size:11px;color:#8A8A94;font-variant-numeric:tabular-nums">{{ a.ratio }}</span>
+                  </span>
+                </td>
+                <td style="padding:12px 16px;font-size:13px;color:#52525B">{{ a.meaning }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="type" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Typography</h2>
+        <span style="font-size:13px;color:#52525B">Inter throughout. Chosen for full Vietnamese diacritic support, not identified from the reference. Metric numbers always use tabular figures.</span>
+      </div>
+      <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;overflow:hidden">
+        <sc-for list="{{ typeScale }}" as="t" hint-placeholder-count="6">
+          <div style="{{ t.row }}">
+            <div style="flex:none;width:180px;display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:13px;font-weight:600">{{ t.name }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8A94">{{ t.spec }}</span>
+            </div>
+            <span style="{{ t.sample }}">{{ t.text }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+        <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;font-weight:600">Tabular figures, always</span>
+          <span style="font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">184,210 · 4.34% · 0.44%</span>
+          <span style="font-size:12px;color:#8A8A94">Columns of numbers must align vertically when they update.</span>
+        </div>
+        <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;font-weight:600">Vietnamese diacritics</span>
+          <span style="font-size:22px;font-weight:600;letter-spacing:-0.01em">Đi làm ở Pháp · tuyển dụng</span>
+          <span style="font-size:12px;color:#8A8A94">Never uppercase Vietnamese in badges — it damages the diacritics.</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="shape" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Shape &amp; elevation</h2>
+        <span style="font-size:13px;color:#52525B">Full pills are the signature. Depth comes from changing the background, not from shadow.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ radii }}" as="r" hint-placeholder-count="5">
+          <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+            <div style="{{ r.demo }}"></div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:13px;font-weight:600">{{ r.name }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8A94">{{ r.value }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+        <sc-for list="{{ spacing }}" as="s" hint-placeholder-count="9">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+            <div style="{{ s.demo }}"></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8A94">{{ s.n }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="buttons" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Components · Buttons</h2>
+        <span style="font-size:13px;color:#52525B">Variants, sizes, states. No square-cornered button exists in this system.</span>
+      </div>
+      <div style="background:#F7F7F7;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <span style="flex:none;width:72px;font-size:12px;color:#8A8A94">variants</span>
+          <button style="height:44px;padding:0 20px;border:none;background:#6A5AE8;color:#FFFFFF;border-radius:999px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Generate ideas</button>
+          <button style="height:44px;padding:0 20px;border:1px solid rgba(20,20,31,0.08);background:#FFFFFF;color:#14141F;border-radius:999px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Export</button>
+          <button style="height:44px;padding:0 20px;border:none;background:transparent;color:#52525B;border-radius:999px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Cancel</button>
+          <button style="height:44px;padding:0 20px;border:none;background:#C42A2F;color:#FFFFFF;border-radius:999px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Delete draft</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <span style="flex:none;width:72px;font-size:12px;color:#8A8A94">sizes</span>
+          <button style="height:32px;padding:0 14px;border:none;background:#6A5AE8;color:#FFFFFF;border-radius:999px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">Small</button>
+          <button style="height:36px;padding:0 16px;border:none;background:#6A5AE8;color:#FFFFFF;border-radius:999px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">Medium</button>
+          <button style="height:44px;padding:0 20px;border:none;background:#6A5AE8;color:#FFFFFF;border-radius:999px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Large</button>
+          <button style="display:flex;align-items:center;gap:8px;height:44px;padding:0 20px;border:none;background:#6A5AE8;color:#FFFFFF;border-radius:999px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"><i class="ph ph-sparkle" style="font-size:16px" aria-hidden="true"></i>With icon</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <span style="flex:none;width:72px;font-size:12px;color:#8A8A94">states</span>
+          <button style="display:flex;align-items:center;gap:8px;height:44px;padding:0 20px;border:none;background:#C7C4FA;color:#14141F;border-radius:999px;font-family:inherit;font-size:14px;font-weight:500;cursor:progress"><i class="ph ph-circle-notch" style="font-size:16px" aria-hidden="true"></i>Generating…</button>
+          <button disabled="" style="height:44px;padding:0 20px;border:none;background:#F1F0FE;color:#8A8A94;border-radius:999px;font-family:inherit;font-size:14px;font-weight:500;cursor:not-allowed">Disabled</button>
+          <button aria-label="More actions" style="width:44px;height:44px;border:1px solid rgba(20,20,31,0.08);background:#FFFFFF;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer"><i class="ph ph-dots-three" style="font-size:18px;color:#52525B" aria-hidden="true"></i></button>
+          <button aria-label="Add" style="width:44px;height:44px;border:none;background:#6A5AE8;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer"><i class="ph ph-plus" style="font-size:18px;color:#FFFFFF" aria-hidden="true"></i></button>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <span style="flex:none;width:72px;font-size:12px;color:#8A8A94">nav tabs</span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <span style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;background:#F7F7F7;border:1px solid rgba(20,20,31,0.08);color:#14141F;border-radius:999px;font-size:14px;font-weight:600"><i class="ph ph-chart-pie-slice" style="font-size:18px" aria-hidden="true"></i>Overview</span>
+            <span style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;color:#52525B;border-radius:999px;font-size:14px;font-weight:500"><i class="ph ph-chart-line-up" style="font-size:18px" aria-hidden="true"></i>Analytics</span>
+            <span style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;color:#52525B;border-radius:999px;font-size:14px;font-weight:500"><i class="ph ph-compass" style="font-size:18px" aria-hidden="true"></i>Topic Explorer</span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section id="display" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Components · Display</h2>
+        <span style="font-size:13px;color:#52525B">Badge, topic pill, score ring, ranked bar, KPI strip.</span>
+      </div>
+      <div style="background:#F7F7F7;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <span style="flex:none;width:72px;font-size:12px;color:#8A8A94">badge</span>
+          <sc-for list="{{ badges }}" as="b" hint-placeholder-count="5">
+            <span style="{{ b.style }}"><span style="{{ b.dot }}" aria-hidden="true"></span>{{ b.label }}</span>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <span style="flex:none;width:72px;font-size:12px;color:#8A8A94">topic</span>
+          <sc-for list="{{ topicPills }}" as="t" hint-placeholder-count="5">
+            <span style="{{ t.style }}">{{ t.label }}</span>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
+          <span style="flex:none;width:72px;font-size:12px;color:#8A8A94;padding-top:24px">ring</span>
+          <sc-for list="{{ rings }}" as="r" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;background:#FFFFFF;border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:14px 18px">
+              <svg viewBox="0 0 100 100" role="img" aria-label="{{ r.aria }}" style="width:56px;height:56px;flex:none">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#F7F7F7" stroke-width="6"></circle>
+                <circle cx="50" cy="50" r="42" fill="none" stroke="{{ r.color }}" stroke-width="6" stroke-linecap="round" stroke-dasharray="{{ r.dash }}" transform="rotate(-90 50 50)"></circle>
+                <text x="50" y="59" text-anchor="middle" font-family="Inter" font-size="28" font-weight="700" fill="#14141F">{{ r.n }}</text>
+              </svg>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:15px;font-weight:600">{{ r.label }}</span>
+                <span style="font-size:12px;color:#8A8A94">{{ r.range }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:16px">
+          <span style="flex:none;width:72px;font-size:12px;color:#8A8A94;padding-top:6px">ranked bar</span>
+          <div style="flex:1;min-width:0;background:#FFFFFF;border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ ranked }}" as="r" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+                <span style="flex:none;width:180px">{{ r.label }}</span>
+                <span style="flex:1;min-width:72px;height:8px;border-radius:999px;background:#F7F7F7;overflow:hidden"><span style="{{ r.bar }}"></span></span>
+                <span style="flex:none;width:56px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums">{{ r.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:16px">
+          <span style="flex:none;width:72px;font-size:12px;color:#8A8A94;padding-top:6px">KPI strip</span>
+          <div style="flex:1;min-width:0;background:#FFFFFF;border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;gap:32px;overflow-x:auto">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+              <div style="flex:none;min-width:120px;display:flex;flex-direction:column;gap:4px">
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#8A8A94"><span style="{{ k.dot }}" aria-hidden="true"></span>{{ k.label }}</span>
+                <span style="font-size:28px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">{{ k.value }}</span>
+                <span style="{{ k.deltaStyle }}">{{ k.delta }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="data" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Components · Data table</h2>
+        <span style="font-size:13px;color:#52525B">Header 11px, not uppercase. Row hover only — no zebra striping.</span>
+      </div>
+      <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;overflow:hidden">
+        <table style="width:100%">
+          <thead>
+            <tr style="background:#F7F7F7">
+              <th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:600;color:#52525B">Content unit</th>
+              <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:600;color:#52525B">Topic</th>
+              <th style="text-align:right;padding:10px 12px;font-size:11px;font-weight:600;color:#52525B">Views</th>
+              <th style="text-align:left;padding:10px 16px;width:150px;font-size:11px;font-weight:600;color:#52525B">Engagement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top:1px solid rgba(20,20,31,0.08);background:#F1F0FE">
+              <td style="padding:12px 16px;font-size:13px">Mình bị từ chối 47 lần trước khi có alternance…</td>
+              <td style="padding:12px 12px"><span style="font-size:11px;font-weight:500;background:#F1F0FE;color:#6A5AE8;border-radius:999px;padding:3px 9px">Alternance applications</span></td>
+              <td style="padding:12px 12px;text-align:right;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">184,210</td>
+              <td style="padding:12px 16px"><span style="display:flex;align-items:center;gap:8px"><span style="flex:1;min-width:72px;height:8px;border-radius:999px;background:#FFFFFF;overflow:hidden"><span style="display:block;height:8px;width:100%;border-radius:999px;background:rgba(145,141,246,0.35)"></span></span><span style="font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">3.83%</span></span></td>
+            </tr>
+            <tr style="border-top:1px solid rgba(20,20,31,0.08)">
+              <td style="padding:12px 16px;font-size:13px">Đi préfecture mùa cao điểm: timeline thật của mình</td>
+              <td style="padding:12px 12px"><span style="font-size:11px;font-weight:500;background:#F7F7F7;color:#52525B;border-radius:999px;padding:3px 9px">Visa and administration</span></td>
+              <td style="padding:12px 12px;text-align:right;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">48,922</td>
+              <td style="padding:12px 16px"><span style="display:flex;align-items:center;gap:8px"><span style="flex:1;min-width:72px;height:8px;border-radius:999px;background:#F7F7F7;overflow:hidden"><span style="display:block;height:8px;width:96%;border-radius:999px;background:rgba(145,141,246,0.35)"></span></span><span style="font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">3.70%</span></span></td>
+            </tr>
+            <tr style="border-top:1px solid rgba(20,20,31,0.08)">
+              <td style="padding:12px 16px;font-size:13px">Đi siêu thị ở Pháp với 40€/tuần: mình mua gì</td>
+              <td style="padding:12px 12px"><span style="font-size:11px;font-weight:500;background:#F7F7F7;color:#52525B;border-radius:999px;padding:3px 9px">Cost of living in France</span></td>
+              <td style="padding:12px 12px;text-align:right;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums">38,902</td>
+              <td style="padding:12px 16px"><span style="display:flex;align-items:center;gap:8px"><span style="flex:1;min-width:72px;height:8px;border-radius:999px;background:#F7F7F7;overflow:hidden"><span style="display:block;height:8px;width:92%;border-radius:999px;background:rgba(145,141,246,0.35)"></span></span><span style="font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">3.57%</span></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="states" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Components · Chart states</h2>
+        <span style="font-size:13px;color:#52525B">Mandatory for every chart. This product has a real cold start, so empty is a designed state, not an afterthought.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:13px;font-weight:600">Loading</span>
+          <div style="height:12px;border-radius:999px;background:#F7F7F7"></div>
+          <div style="height:76px;border-radius:10px;background:#F7F7F7"></div>
+          <span style="font-size:12px;color:#8A8A94">Skeleton shimmer, never a spinner. Under 300ms shows nothing.</span>
+        </div>
+        <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:13px;font-weight:600">Empty</span>
+          <div style="height:88px;border-radius:10px;background:#F7F7F7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+            <i class="ph ph-database" style="font-size:20px;color:#6A5AE8" aria-hidden="true"></i>
+            <span style="font-size:12px;color:#52525B">No snapshot yet</span>
+          </div>
+          <span style="font-size:12px;color:#8A8A94">Says what to run next. Never an empty axis frame.</span>
+        </div>
+        <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:13px;font-weight:600">Error</span>
+          <div style="height:88px;border-radius:10px;background:#F7F7F7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+            <i class="ph ph-warning-circle" style="font-size:20px;color:#C42A2F" aria-hidden="true"></i>
+            <span style="font-size:12px;color:#52525B">Request failed · 502</span>
+          </div>
+          <span style="font-size:12px;color:#8A8A94">Message plus a retry control.</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="layout" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Layouts</h2>
+        <span style="font-size:13px;color:#52525B">Two tiers that must not be mixed. When a request says “make UI” without saying which, it means tier A.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+        <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:14px;font-weight:600">Tier A · App shell</span>
+            <span style="font-size:11px;font-weight:500;background:#F1F0FE;color:#6A5AE8;border-radius:999px;padding:3px 10px">Build first</span>
+          </div>
+          <div style="background:#F7F7F7;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between"><span style="width:64px;height:10px;border-radius:999px;background:#14141F"></span><span style="width:24px;height:10px;border-radius:999px;background:#C7C4FA"></span></div>
+            <div style="display:flex;gap:6px"><span style="width:52px;height:14px;border-radius:999px;background:#FFFFFF"></span><span style="width:52px;height:14px;border-radius:999px;background:rgba(20,20,31,0.06)"></span><span style="width:52px;height:14px;border-radius:999px;background:rgba(20,20,31,0.06)"></span></div>
+            <div style="display:flex;gap:14px;padding-top:4px">
+              <span style="display:flex;flex-direction:column;gap:3px"><span style="width:36px;height:6px;border-radius:999px;background:#C7C4FA"></span><span style="width:48px;height:12px;border-radius:3px;background:#14141F"></span></span>
+              <span style="display:flex;flex-direction:column;gap:3px"><span style="width:36px;height:6px;border-radius:999px;background:#C7C4FA"></span><span style="width:48px;height:12px;border-radius:3px;background:#14141F"></span></span>
+              <span style="display:flex;flex-direction:column;gap:3px"><span style="width:36px;height:6px;border-radius:999px;background:#C7C4FA"></span><span style="width:48px;height:12px;border-radius:3px;background:#14141F"></span></span>
+            </div>
+            <div style="height:56px;border-radius:8px;background:#FFFFFF;border:1px solid rgba(20,20,31,0.08)"></div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">
+              <span style="height:28px;border-radius:8px;background:#FFFFFF;border:1px solid rgba(20,20,31,0.08)"></span>
+              <span style="height:28px;border-radius:8px;background:#FFFFFF;border:1px solid rgba(20,20,31,0.08)"></span>
+            </div>
+          </div>
+          <span style="font-size:12px;color:#8A8A94;line-height:1.5">max-width 1280 · padding 24 · top nav tab pill, no sidebar · KPI strip flat on white · main chart ~280px · card grid 2×2</span>
+        </div>
+        <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:14px;font-weight:600">Tier B · Landing</span>
+            <span style="font-size:11px;font-weight:500;background:#F7F7F7;color:#52525B;border-radius:999px;padding:3px 10px">Later</span>
+          </div>
+          <div style="background:#F7F7F7;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;align-items:center">
+            <span style="width:96px;height:14px;border-radius:999px;background:#14141F"></span>
+            <span style="width:150px;height:16px;border-radius:4px;background:#14141F;margin-top:4px"></span>
+            <span style="width:110px;height:16px;border-radius:4px;background:#14141F"></span>
+            <span style="display:flex;gap:6px;padding-top:2px"><span style="width:56px;height:14px;border-radius:999px;background:#6A5AE8"></span><span style="width:56px;height:14px;border-radius:999px;background:#FFFFFF"></span></span>
+            <div style="width:100%;height:58px;border-radius:8px;background:linear-gradient(180deg,#B1A0E9 0%,#7863E9 45%,#2D5AF9 100%);display:flex;align-items:center;justify-content:center;margin-top:4px">
+              <span style="width:78%;height:40px;border-radius:6px;background:#FFFFFF;box-shadow:0 8px 32px -8px rgba(20,20,31,0.18)"></span>
+            </div>
+            <div style="width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+              <span style="height:26px;border-radius:8px;background:#FFFFFF"></span>
+              <span style="height:26px;border-radius:8px;background:#FFFFFF"></span>
+              <span style="height:26px;border-radius:8px;background:#FFFFFF"></span>
+            </div>
+          </div>
+          <span style="font-size:12px;color:#8A8A94;line-height:1.5">Floating pill navbar · hero on the one gradient in the whole system · bento cards radius 20, no border · pricing, FAQ, footer</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="author" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Tier B · Author block</h2>
+        <span style="font-size:13px;color:#52525B">Landing-page only. The one place a personal photograph appears at size; in the app it is a 32px avatar in the topbar.</span>
+      </div>
+      <div style="background:#F7F7F7;border-radius:20px;padding:32px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:center">
+        <img src="assets/photo-author.jpg" alt="Channel author" style="width:200px;height:240px;object-fit:cover;object-position:50% 30%;border-radius:16px;display:block" />
+        <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+          <span style="font-size:11px;font-weight:600;color:#6A5AE8">Built for one channel first</span>
+          <p style="margin:0;font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:1.3;text-wrap:pretty">Every formula in this system was tested against a real channel before it became a metric.</p>
+          <p style="margin:0;font-size:14px;color:#52525B;line-height:1.6;max-width:60ch">135 content units on alternance, job applications, and working life in France — written in Vietnamese, published from Paris, read mostly from Vietnam. That split is why hour-of-day analysis runs in two timezones instead of one.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;padding-top:4px">
+            <span style="font-size:11px;font-weight:500;background:#FFFFFF;color:#52525B;border-radius:999px;padding:4px 11px">thydilammuon</span>
+            <span style="font-size:11px;font-weight:500;background:#FFFFFF;color:#52525B;border-radius:999px;padding:4px 11px">Threads · VI / FR</span>
+            <span style="font-size:11px;font-weight:500;background:#FFFFFF;color:#52525B;border-radius:999px;padding:4px 11px">1,423 followers with country data</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="rules" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em">Hard rules</h2>
+        <span style="font-size:13px;color:#52525B">Each of these exists because breaking it already caused a problem in this project.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ rules }}" as="r" hint-placeholder-count="8">
+          <div style="border:1px solid rgba(20,20,31,0.08);border-radius:12px;padding:14px 16px;display:flex;gap:10px">
+            <i class="ph ph-prohibit" style="font-size:17px;color:#C42A2F;margin-top:3px;flex:none" aria-hidden="true"></i>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:13px;font-weight:600">{{ r.title }}</span>
+              <span style="font-size:12.5px;color:#52525B;line-height:1.5">{{ r.why }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showRules&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Sections&quot;}}">
+class Component extends DCLogic {
+  chip(bg, extra) {
+    return `height:72px;background:${bg};${extra || ""}`;
+  }
+
+  renderVals() {
+    const mono = "font-family:'IBM Plex Mono',monospace";
+    return {
+      nav: [
+        { label: "Neutral", href: "#neutral" },
+        { label: "Brand violet", href: "#violet" },
+        { label: "Feature accents", href: "#accents" },
+        { label: "Typography", href: "#type" },
+        { label: "Shape & spacing", href: "#shape" },
+        { label: "Buttons", href: "#buttons" },
+        { label: "Display", href: "#display" },
+        { label: "Data table", href: "#data" },
+        { label: "Chart states", href: "#states" },
+        { label: "Layouts", href: "#layout" },
+        { label: "Author block", href: "#author" },
+        { label: "Hard rules", href: "#rules" }
+      ].map(n => ({ ...n, style: "display:block;padding:7px 8px;border-radius:999px;font-size:13.5px;font-weight:500;color:#52525B;text-decoration:none" })),
+
+      neutrals: [
+        { name: "bg-page", hex: "#FFFFFF · measured 53%", use: "Page background", chip: this.chip("#FFFFFF", "border-bottom:1px solid rgba(20,20,31,0.08)") },
+        { name: "bg-surface", hex: "#F7F7F7 · measured 19%", use: "Card, secondary button, input, table header", chip: this.chip("#F7F7F7") },
+        { name: "bg-inverse", hex: "#14141F · measured", use: "Navbar pill, tooltip, toast", chip: this.chip("#14141F") },
+        { name: "border-hairline", hex: "rgba(20,20,31,0.08)", use: "Tier A borders only", chip: this.chip("#FFFFFF", "border:8px solid rgba(20,20,31,0.08)") }
+      ],
+      textTiers: [
+        { hex: "#14141F · text-primary", ratio: "18.3:1 AAA", use: "Body copy, metric values, headings", sample: "font-size:19px;font-weight:600;color:#14141F", badge: "font-size:11px;font-weight:500;background:#F1F0FE;color:#2C7F44;border-radius:999px;padding:2px 9px" },
+        { hex: "#52525B · text-secondary", ratio: "7.9:1 AA", use: "Descriptions, secondary labels", sample: "font-size:19px;font-weight:500;color:#52525B", badge: "font-size:11px;font-weight:500;background:#F1F0FE;color:#2C7F44;border-radius:999px;padding:2px 9px" },
+        { hex: "#8A8A94 · text-muted", ratio: "3.4:1 limited", use: "Only labels ≥18px or non-text UI. Never body copy.", sample: "font-size:19px;font-weight:500;color:#8A8A94", badge: "font-size:11px;font-weight:500;background:#F7F7F7;color:#996607;border-radius:999px;padding:2px 9px" }
+      ],
+      violets: [
+        { name: "violet-50", hex: "#F1F0FE", use: "Icon chip, light badge, row hover", chip: this.chip("#F1F0FE") },
+        { name: "violet-200", hex: "#C7C4FA", use: "Light border, gradient stop", chip: this.chip("#C7C4FA") },
+        { name: "violet-400", hex: "#918DF6 · measured", use: "Decorative only — chart series, fill", chip: this.chip("#918DF6") },
+        { name: "violet-500", hex: "#9580FF · measured", use: "Register button on dark navbar", chip: this.chip("#9580FF") },
+        { name: "violet-600", hex: "#6A5AE8 · derived", use: "Interactive — primary, link, focus ring", chip: this.chip("#6A5AE8") }
+      ],
+      accents: [
+        { name: "Green", ref: "#34C757", safe: "#2C7F44", ratio: "4.64:1", meaning: "Positive delta, virality ≥80, approved" },
+        { name: "Blue", ref: "#4486FC", safe: "#386DCE", ratio: "4.62:1", meaning: "Reach, views, follower geography" },
+        { name: "Pink", ref: "#D747A3", safe: "#BD3E8F", ratio: "4.61:1", meaning: "Replies, conversation rate" },
+        { name: "Orange", ref: "#FFAA0C", safe: "#996607", ratio: "4.60:1", meaning: "Warning, below median" },
+        { name: "Violet", ref: "#918DF6", safe: "#6A5AE8", ratio: "4.64:1", meaning: "Brand, engagement, virality index" },
+        { name: "Red", ref: "—", safe: "#C42A2F", ratio: "5.1:1", meaning: "Negative delta, destructive action" }
+      ].map(a => ({
+        ...a,
+        refChip: a.ref === "—" ? "width:16px;height:16px;border-radius:4px;background:#F7F7F7;border:1px dashed rgba(20,20,31,0.18)" : `width:16px;height:16px;border-radius:4px;background:${a.ref}`,
+        safeChip: `width:16px;height:16px;border-radius:4px;background:${a.safe}`,
+        safeText: `${mono};font-size:12px;font-weight:500;color:${a.safe}`
+      })),
+
+      typeScale: [
+        { name: "H1 landing", spec: "48/64 · w700 · -0.03em", text: "Analytics with its methodology in view", sample: "font-size:44px;font-weight:700;letter-spacing:-0.03em;line-height:1.05" },
+        { name: "H2 section", spec: "32/40 · w700 · -0.02em", text: "Performance by topic cluster", sample: "font-size:30px;font-weight:700;letter-spacing:-0.02em;line-height:1.1" },
+        { name: "H3 / card title", spec: "18/20 · w600", text: "Metric architecture", sample: "font-size:18px;font-weight:600" },
+        { name: "Body", spec: "15px · w400 · lh 1.6", text: "Freshness is reported beside the indices, never multiplied into them.", sample: "font-size:15px;font-weight:400;color:#52525B;line-height:1.6" },
+        { name: "Label", spec: "12px · w500", text: "Median engagement rate", sample: "font-size:12px;font-weight:500;color:#8A8A94" },
+        { name: "Metric", spec: "28/36 · w700 · tabular", text: "43,314", sample: "font-size:28px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums" }
+      ].map((t, i) => ({ ...t, row: `display:flex;align-items:baseline;gap:24px;padding:18px 20px;${i > 0 ? "border-top:1px solid rgba(20,20,31,0.08)" : ""}` })),
+
+      radii: [
+        { name: "Button · badge · tab", value: "999px", demo: "width:100%;height:36px;border-radius:999px;background:#6A5AE8" },
+        { name: "Bento card (tier B)", value: "20px · no border", demo: "width:100%;height:36px;border-radius:20px;background:#F7F7F7" },
+        { name: "App card (tier A)", value: "12px · hairline", demo: "width:100%;height:36px;border-radius:12px;background:#FFFFFF;border:1px solid rgba(20,20,31,0.08)" },
+        { name: "Input", value: "10px", demo: "width:100%;height:36px;border-radius:10px;background:#F7F7F7;border:1px solid rgba(20,20,31,0.08)" },
+        { name: "Float shadow", value: "only 2 exceptions", demo: "width:100%;height:36px;border-radius:12px;background:#FFFFFF;box-shadow:0 8px 32px -8px rgba(20,20,31,0.18)" }
+      ],
+      spacing: [4, 8, 12, 16, 24, 32, 48, 64, 96].map(n => ({
+        n,
+        demo: `width:${n}px;height:${Math.min(n, 48)}px;border-radius:3px;background:#C7C4FA`
+      })),
+
+      badges: [
+        { label: "Live", bg: "#F1F0FE", fg: "#2C7F44", dotc: "#34C757" },
+        { label: "Deferred", bg: "#F7F7F7", fg: "#52525B", dotc: "#8A8A94" },
+        { label: "Below median", bg: "#F7F7F7", fg: "#996607", dotc: "#FFAA0C" },
+        { label: "Needs review", bg: "#F7F7F7", fg: "#C42A2F", dotc: "#C42A2F" },
+        { label: "135 units", bg: "#F7F7F7", fg: "#52525B", dotc: null }
+      ].map(b => ({
+        label: b.label,
+        style: `display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;background:${b.bg};color:${b.fg};border-radius:999px;padding:4px 11px`,
+        dot: b.dotc ? `width:6px;height:6px;border-radius:999px;background:${b.dotc}` : "display:none"
+      })),
+      topicPills: [
+        { label: "Alternance applications", c: "#6A5AE8", bg: "#F1F0FE" },
+        { label: "Cost of living in France", c: "#386DCE", bg: "#F7F7F7" },
+        { label: "Visa and administration", c: "#996607", bg: "#F7F7F7" },
+        { label: "French for interviews", c: "#BD3E8F", bg: "#F7F7F7" },
+        { label: "Đi làm ở Pháp", c: "#2C7F44", bg: "#F7F7F7" }
+      ].map(t => ({ label: t.label, style: `display:inline-flex;font-size:11px;font-weight:500;background:${t.bg};color:${t.c};border-radius:999px;padding:4px 11px` })),
+      rings: [
+        { n: 22, label: "Low", range: "0–30", color: "#C42A2F" },
+        { n: 47, label: "Medium", range: "30–60", color: "#996607" },
+        { n: 74, label: "High", range: "60–80", color: "#6A5AE8" },
+        { n: 91, label: "Exceptional", range: "80–100", color: "#2C7F44" }
+      ].map(r => ({ ...r, dash: `${(r.n / 100 * 264).toFixed(0)} 264`, aria: `Score ${r.n} of 100, ${r.label}` })),
+      ranked: [
+        { label: "Alternance applications", n: 34, value: "34" },
+        { label: "Cost of living in France", n: 26, value: "26" },
+        { label: "Working in a French company", n: 22, value: "22" },
+        { label: "Visa and administration", n: 15, value: "15" }
+      ].map(r => ({ ...r, bar: `display:block;height:8px;width:${(r.n / 34) * 100}%;border-radius:999px;background:rgba(145,141,246,0.35)` })),
+      kpis: [
+        { label: "Content units", value: "135", delta: "root posts only", up: null, dotc: null },
+        { label: "Engagement", value: "4.34%", delta: "↑ 0.4 pt", up: true, dotc: "#918DF6" },
+        { label: "Median views", value: "43,314", delta: "↓ 2.1%", up: false, dotc: "#4486FC" },
+        { label: "Conversation", value: "0.28%", delta: "↑ 0.03 pt", up: true, dotc: "#D747A3" }
+      ].map(k => ({
+        ...k,
+        dot: k.dotc ? `width:6px;height:6px;border-radius:999px;background:${k.dotc}` : "display:none",
+        deltaStyle: `font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;color:${k.up === null ? "#8A8A94" : k.up ? "#2C7F44" : "#C42A2F"}`
+      })),
+
+      rules: [
+        { title: "No loose hex", why: "Every colour must be a token from the palette above. A stray hex in a PR gets rejected." },
+        { title: "violet-400 never sits behind text", why: "White on #918DF6 is 2.86:1. It is a fill colour, not a surface for words." },
+        { title: "Colour is never the only signal", why: "Deltas carry ↑ or ↓; the score ring carries a written label." },
+        { title: "No emoji as icons", why: "They render differently per OS, ignore colour tokens, and do not scale with font-size. One Phosphor set, one weight." },
+        { title: "No zebra striping", why: "Row hover carries the reading position instead." },
+        { title: "No shadow for hierarchy", why: "Depth comes from #F7F7F7 on #FFFFFF. Two documented exceptions only." },
+        { title: "No uppercase on Vietnamese", why: "Uppercase destroys the diacritics in badges and table headers." },
+        { title: "No page-level horizontal scroll", why: "The KPI strip and wide tables scroll inside their own container." }
+      ],
+
+      spacingNote: null
+    };
+  }
+}
+</script>
+</body>
+</html>
