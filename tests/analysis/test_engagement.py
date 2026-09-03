@@ -2,9 +2,11 @@ from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from src.analysis.engagement import (
+    MIN_N_PER_BUCKET,
     average_engagement_rate,
     engagement_by_hour,
     engagement_by_weekday,
+    median_engagement_rate,
     top_posts_by_engagement,
 )
 from src.api.models import MediaType, PostInsights, ThreadsPost
@@ -28,6 +30,33 @@ def test_average_engagement_rate_returns_mean_across_posts() -> None:
 
 def test_average_engagement_rate_empty_list_returns_zero() -> None:
     assert average_engagement_rate([]) == 0.0
+
+
+def test_median_engagement_rate_basic() -> None:
+    insights = [
+        _insights("1", views=1000, likes=10),  # 1%
+        _insights("2", views=1000, likes=20),  # 2%
+        _insights("3", views=1000, likes=30),  # 3%
+    ]
+    assert median_engagement_rate(insights) == 2.0
+
+
+def test_median_engagement_rate_empty_list_returns_zero() -> None:
+    assert median_engagement_rate([]) == 0.0
+
+
+def test_median_engagement_rate_resists_a_single_viral_outlier_unlike_mean() -> None:
+    # 4 posts hovering around 2%, 1 wildly viral outlier at 500% — mean gets dragged
+    # far above what any "typical" post in the set looks like, median doesn't.
+    insights = [
+        _insights("1", views=1000, likes=20),  # 2%
+        _insights("2", views=1000, likes=20),  # 2%
+        _insights("3", views=1000, likes=20),  # 2%
+        _insights("4", views=1000, likes=20),  # 2%
+        _insights("5", views=1000, likes=5000),  # 500%
+    ]
+    assert median_engagement_rate(insights) == 2.0
+    assert average_engagement_rate(insights) > 100.0  # mean dominated by the outlier
 
 
 def test_top_posts_by_engagement_sorts_descending_and_skips_unmatched_posts() -> None:
@@ -57,7 +86,7 @@ def test_top_posts_by_engagement_respects_limit() -> None:
     assert [post.id for post, _ in top] == ["4", "3"]
 
 
-def test_engagement_by_hour_averages_rates_within_the_same_hour() -> None:
+def test_engagement_by_hour_reports_median_mean_n_and_iqr_within_the_same_hour() -> None:
     posts = [
         _post("1", datetime(2026, 8, 24, 9, 0, tzinfo=UTC)),
         _post("2", datetime(2026, 8, 25, 9, 0, tzinfo=UTC)),
@@ -71,9 +100,60 @@ def test_engagement_by_hour_averages_rates_within_the_same_hour() -> None:
 
     result = engagement_by_hour(posts, insights)
 
-    assert result[9] == 5.0
-    assert result[20] == 5.0
+    assert result[9].median == 5.0
+    assert result[9].mean == 5.0
+    assert result[9].n == 2
+    assert result[20].median == 5.0
+    assert result[20].n == 1
     assert 21 not in result
+
+
+def test_engagement_by_hour_flags_insufficient_data_below_min_n_per_bucket() -> None:
+    ts = datetime(2026, 8, 24, 9, 0, tzinfo=UTC)
+    # 1 post in the bucket — well under MIN_N_PER_BUCKET (5).
+    posts = [_post("1", ts)]
+    insights = [_insights("1", views=1000, likes=100)]
+
+    result = engagement_by_hour(posts, insights)
+
+    assert result[9].n < MIN_N_PER_BUCKET
+    assert result[9].insufficient_data is True
+
+
+def test_engagement_by_hour_does_not_flag_insufficient_data_at_min_n_per_bucket() -> None:
+    ts = datetime(2026, 8, 24, 9, 0, tzinfo=UTC)
+    posts = [_post(str(i), ts) for i in range(MIN_N_PER_BUCKET)]
+    insights = [_insights(str(i), views=1000, likes=10) for i in range(MIN_N_PER_BUCKET)]
+
+    result = engagement_by_hour(posts, insights)
+
+    assert result[9].n == MIN_N_PER_BUCKET
+    assert result[9].insufficient_data is False
+
+
+def test_engagement_by_hour_iqr_low_high_bracket_the_median_for_multi_point_bucket() -> None:
+    ts = datetime(2026, 8, 24, 9, 0, tzinfo=UTC)
+    posts = [_post(str(i), ts) for i in range(5)]
+    # rates: 1%, 2%, 3%, 4%, 5%
+    insights = [_insights(str(i), views=1000, likes=(i + 1) * 10) for i in range(5)]
+
+    result = engagement_by_hour(posts, insights)
+    stats = result[9]
+
+    assert stats.median == 3.0
+    assert stats.iqr_low <= stats.median <= stats.iqr_high
+    assert stats.iqr_low < stats.iqr_high
+
+
+def test_engagement_by_hour_single_point_bucket_has_zero_spread() -> None:
+    ts = datetime(2026, 8, 24, 9, 0, tzinfo=UTC)
+    posts = [_post("1", ts)]
+    insights = [_insights("1", views=1000, likes=100)]  # 10%
+
+    result = engagement_by_hour(posts, insights)
+    stats = result[9]
+
+    assert stats.iqr_low == stats.iqr_high == stats.median == 10.0
 
 
 def test_engagement_by_hour_converts_to_the_given_timezone() -> None:
@@ -83,13 +163,13 @@ def test_engagement_by_hour_converts_to_the_given_timezone() -> None:
     posts = [_post("1", ts_utc)]
     insights = [_insights("1", views=1000, likes=100)]  # 10%
 
-    assert engagement_by_hour(posts, insights) == {ts_utc.hour: 10.0}
-    assert engagement_by_hour(posts, insights, timezone=ZoneInfo("Europe/Paris")) == {
-        ts_paris.hour: 10.0
+    assert set(engagement_by_hour(posts, insights).keys()) == {ts_utc.hour}
+    assert set(engagement_by_hour(posts, insights, timezone=ZoneInfo("Europe/Paris")).keys()) == {
+        ts_paris.hour
     }
-    assert engagement_by_hour(posts, insights, timezone=ZoneInfo("Asia/Ho_Chi_Minh")) == {
-        ts_vn.hour: 10.0
-    }
+    assert set(
+        engagement_by_hour(posts, insights, timezone=ZoneInfo("Asia/Ho_Chi_Minh")).keys()
+    ) == {ts_vn.hour}
     # The whole point of parametrizing: converting actually changes the bucket.
     assert ts_paris.hour != ts_utc.hour
     assert ts_vn.hour != ts_utc.hour
@@ -102,13 +182,13 @@ def test_engagement_by_weekday_can_shift_across_timezones_near_midnight() -> Non
     posts = [_post("1", ts_utc)]
     insights = [_insights("1", views=1000, likes=100)]  # 10%
 
-    assert engagement_by_weekday(posts, insights) == {ts_utc.weekday(): 10.0}
-    assert engagement_by_weekday(posts, insights, timezone=ZoneInfo("Europe/Paris")) == {
-        ts_paris.weekday(): 10.0
-    }
-    assert engagement_by_weekday(posts, insights, timezone=ZoneInfo("Asia/Ho_Chi_Minh")) == {
-        ts_vn.weekday(): 10.0
-    }
+    assert set(engagement_by_weekday(posts, insights).keys()) == {ts_utc.weekday()}
+    assert set(
+        engagement_by_weekday(posts, insights, timezone=ZoneInfo("Europe/Paris")).keys()
+    ) == {ts_paris.weekday()}
+    assert set(
+        engagement_by_weekday(posts, insights, timezone=ZoneInfo("Asia/Ho_Chi_Minh")).keys()
+    ) == {ts_vn.weekday()}
     # A post near UTC midnight lands on the next local day in both audience timezones.
     assert ts_paris.weekday() != ts_utc.weekday()
     assert ts_vn.weekday() != ts_utc.weekday()
@@ -125,5 +205,5 @@ def test_engagement_by_weekday_buckets_by_weekday_number() -> None:
 
     result = engagement_by_weekday(posts, insights)
 
-    assert result[ts_a.weekday()] == 10.0
-    assert result[ts_b.weekday()] == 2.0
+    assert result[ts_a.weekday()].median == 10.0
+    assert result[ts_b.weekday()].median == 2.0
