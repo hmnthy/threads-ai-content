@@ -22,13 +22,27 @@ multi-tenant, not trying to be.
 
 ## Screenshots
 
-> The three images below are referenced from `docs/screenshots/` but not committed yet — this
-> repo is private and the images need to be captured from a running `npm run dev` session before
-> the first push. See [Local setup](#local-setup).
+The product in four steps — from the pitch to the raw discovered topics.
 
-| Landing / story page | Overview — Timeline Brush | Analytics — timezone breakdown |
-|---|---|---|
-| ![Landing page](docs/screenshots/landing.png) | ![Overview dashboard](docs/screenshots/overview.png) | ![Analytics tab](docs/screenshots/analytics.png) |
+<p align="center">
+  <img src="docs/screenshots/landing.png" alt="Landing page: hero, problem, solution, tech stack" width="820"><br>
+  <sub><b>1. Landing</b> — the pitch, the problem, and the three-layer solution (statistics → NLP → generative AI/RAG), plus the full tech stack shown live/coming-soon.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/overview.png" alt="Overview tab: KPI strip and Timeline Brush" width="820"><br>
+  <sub><b>2. Overview</b> — median-first KPI strip, the daily-views chart with the drag-to-rescale Timeline Brush, and the top content units in the selected window.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/analytics.png" alt="Analytics tab: top posts and timezone breakdown" width="820"><br>
+  <sub><b>3. Analytics</b> — top posts by engagement/virality/conversation, and posting-time performance broken down by both Europe/Paris and Asia/Ho_Chi_Minh.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/topics.png" alt="Topic Explorer: 3D UMAP scatter of discovered topics" width="820"><br>
+  <sub><b>4. Topic Explorer</b> — unsupervised topic clusters (UMAP 3D + HDBSCAN) discovered from the channel's own post history.</sub>
+</p>
 
 ---
 

@@ -24,14 +24,27 @@ multi-tenant, et ça n'a pas vocation à le devenir.
 
 ## Captures d'écran
 
-> Les trois images ci-dessous pointent vers `docs/screenshots/` mais ne sont **pas encore
-> commitées** — ce dépôt est privé et les captures doivent être prises depuis une session
-> `npm run dev` en cours d'exécution avant le premier push. Voir
-> [Installation en local](#installation-en-local).
+Le produit en quatre étapes — du pitch jusqu'aux sujets bruts découverts par clustering.
 
-| Landing / page de présentation | Overview — Timeline Brush | Analytics — répartition par fuseau horaire |
-|---|---|---|
-| ![Landing page](docs/screenshots/landing.png) | ![Overview dashboard](docs/screenshots/overview.png) | ![Analytics tab](docs/screenshots/analytics.png) |
+<p align="center">
+  <img src="docs/screenshots/landing.png" alt="Landing page: hero, problem, solution, tech stack" width="820"><br>
+  <sub><b>1. Landing</b> — le pitch, le problème, et la solution à trois couches (statistiques → NLP → IA générative/RAG), avec toute la stack technique affichée selon son statut réel (en ligne / bientôt disponible).</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/overview.png" alt="Overview tab: KPI strip and Timeline Brush" width="820"><br>
+  <sub><b>2. Overview</b> — bandeau de KPI centré sur la médiane, graphique des vues quotidiennes avec le Timeline Brush (glisser pour recalculer), et les contenus les plus performants sur la fenêtre sélectionnée.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/analytics.png" alt="Analytics tab: top posts and timezone breakdown" width="820"><br>
+  <sub><b>3. Analytics</b> — meilleures publications par engagement/viralité/conversation, et performance par créneau horaire, répartie sur les deux fuseaux Europe/Paris et Asia/Ho_Chi_Minh.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/topics.png" alt="Topic Explorer: 3D UMAP scatter of discovered topics" width="820"><br>
+  <sub><b>4. Topic Explorer</b> — clusters de sujets découverts de façon non supervisée (UMAP 3D + HDBSCAN) à partir de l'historique réel des publications du compte.</sub>
+</p>
 
 ---
 
