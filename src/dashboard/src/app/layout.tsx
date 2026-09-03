@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Inter } from "next/font/google";
-import { Nav } from "@/components/Nav";
 import "./globals.css";
 
 // Font stack theo docs/claude/design-system.md v3.1: Inter cho UI, IBM Plex Mono
@@ -17,17 +16,15 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Threads AI Content — Dashboard",
-  description: "Internal analytics dashboard for the 'thydilammuon' Threads channel.",
+  title: "Threads AI Content",
+  description:
+    "A statistics-first NLP/ML analytics and content engine, built on one real Threads channel's own data.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${inter.variable} ${ibmPlexMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-bg-page text-text-primary">
-        <Nav />
-        {children}
-      </body>
+      <body className="min-h-full flex flex-col bg-bg-page text-text-primary">{children}</body>
     </html>
   );
 }

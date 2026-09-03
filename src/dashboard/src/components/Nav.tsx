@@ -8,7 +8,7 @@ import { ChartLineUp, ChartPieSlice, CaretDown, Compass } from "@phosphor-icons/
 // Topbar + tab pill — docs/claude/design-system.md §7 Tầng A: topbar (logo +
 // tagline + account pill + avatar) rồi tab pill ngay dưới, không sidebar.
 const TABS = [
-  { href: "/", label: "Overview", Icon: ChartPieSlice },
+  { href: "/overview", label: "Overview", Icon: ChartPieSlice },
   { href: "/analytics", label: "Analytics", Icon: ChartLineUp },
   { href: "/topics", label: "Topic Explorer", Icon: Compass },
 ];
@@ -19,7 +19,7 @@ export function Nav() {
   return (
     <div className="border-b border-border-hairline">
       <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center justify-between gap-4 px-6 py-3">
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-600 text-white">
             <span className="text-sm font-semibold leading-none">@</span>
           </div>
@@ -31,7 +31,7 @@ export function Nav() {
               The algorithm, read back to you.
             </span>
           </div>
-        </div>
+        </Link>
 
         <div className="flex items-center gap-2.5">
           <button
