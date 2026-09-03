@@ -82,12 +82,13 @@ CLAUDE.md gốc chỉ giữ phần **luôn cần thiết mỗi phiên** (mission
 - **Luôn đọc scripts gốc** trong `Content/Scripts/` trước khi generate text content mới
 - Giọng văn phải phản ánh đúng tác giả — không dùng giọng generic AI
 
-### Design — routing bắt buộc (chốt 2026-09-02)
+### Design — routing bắt buộc (chốt 2026-09-02, cập nhật 2026-09-03)
 
-- **Nguồn sự thật DUY NHẤT về design là [`docs/claude/design-system.md`](docs/claude/design-system.md)**, bám theo reference [`docs/design/dashboard-reference.png`](docs/design/dashboard-reference.png). Phải đọc file này **trước khi viết dòng UI đầu tiên** — kể cả với mockup nhanh, artifact, hay HTML demo dùng một lần.
+- **Nguồn sự thật DUY NHẤT về design là [`docs/claude/design-system.md`](docs/claude/design-system.md)** (hiện tại: v3.1 Amber). Phải đọc file này **trước khi viết dòng UI đầu tiên** — kể cả với mockup nhanh, artifact, hay HTML demo dùng một lần.
   - Không tự chọn palette / font / layout. Không dùng default palette của model.
-  - Thứ tự thắng khi mâu thuẫn: **PNG reference > design-system.md > mọi nguồn khác** (skill, generator, "best practice" chung).
-  - Lý do: 2026-09-01 artifact `f23eb6c8` được sinh mà không đọc cả hai nguồn trên, tạo ra hướng design thứ ba (`#f9f9f7` + Instrument Serif). Xem Decision log §11 trong `design-system.md`.
+  - Thứ tự thắng khi mâu thuẫn: **design-system.md > [`docs/design/dashboard-reference.png`](docs/design/dashboard-reference.png) (chỉ còn dùng cho cấu trúc/hình khối, không dùng cho màu) > mọi nguồn khác** (skill, generator, "best practice" chung) — xem §0 trong `design-system.md`.
+  - Lý do đảo priority PNG↔file (2026-09-03): PNG dùng violet, dự án đã chủ động rời khỏi violet (quá generic cho mọi AI SaaS) sang amber sau khi dựng và so sánh 2 hướng thật — xem §13 Decision log trong `design-system.md`.
+  - Lý do gốc file này là nguồn duy nhất: 2026-09-01 artifact `f23eb6c8` được sinh mà không đọc cả design-system.md lẫn PNG, tạo ra hướng design thứ ba (`#f9f9f7` + Instrument Serif).
 
 - **Skill `.claude/skills/ui-ux-pro-max/` là công cụ TRA CỨU, không phải nguồn design.**
   - **KHÔNG nạp `SKILL.md` vào context** (55KB ≈ 15k token mỗi lần trigger). Chỉ chạy CLI:
@@ -97,7 +98,7 @@ CLAUDE.md gốc chỉ giữ phần **luôn cần thiết mỗi phiên** (mission
     python .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --stack <nextjs|react|shadcn|html-tailwind>
     ```
   - **NGHIÊM CẤM `--design-system` và `--persist`.** Generator sinh palette + pattern landing-page marketing mâu thuẫn với `design-system.md`; `--persist` còn ghi ra `design-system/<slug>/MASTER.md` ở project root, tạo nguồn sự thật thứ hai.
-  - Query phải viết theo **triệu chứng quan sát được**, 2-5 từ, không theo chủ đề. Cookbook sẵn có: `design-system.md` §9.
+  - Query phải viết theo **triệu chứng quan sát được**, 2-5 từ, không theo chủ đề. Cookbook sẵn có: `design-system.md` §11.
   - Kết quả trả về là khuyến nghị. Mâu thuẫn với `design-system.md` → `design-system.md` thắng.
   - Các skill design khác trong `.claude/skills/` (`design`, `design-system`, `ui-styling`, `slides`, `banner-design`, `brand`) **không dùng cho dashboard** — chúng trùng vai trò và sẽ kéo lệch khỏi reference.
 - **Nghiên cứu thị trường và methodology: xem `docs/research/README.md` trước khi thay đổi metric hay NLP pipeline.** Thư mục `docs/research/` là quá trình hình thành methodology (private) — không đưa vào repo public/bản squash; README công khai chỉ mô tả methodology bản cuối. Đề xuất trong đó chỉ được triển khai sau khi Thy duyệt, và khi triển khai phải ghi vào decisions log `docs/claude/architecture.md`.
