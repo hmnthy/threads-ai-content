@@ -69,6 +69,7 @@ CLAUDE.md gốc chỉ giữ phần **luôn cần thiết mỗi phiên** (mission
 | [`docs/claude/data-model.md`](docs/claude/data-model.md) | Làm việc với `src/api/`/`src/analysis/`, cần field/metrics/response shape của Threads API, công thức Virality Index, mapping topic↔template |
 | [`docs/claude/design-system.md`](docs/claude/design-system.md) | **BẮT BUỘC đọc trước MỌI việc chạm tới UI** (`src/dashboard/`, frontend, mockup, artifact, HTML demo) — nguồn sự thật duy nhất về design: tokens, tầng A/B, component patterns, chart rules, checklist merge, query cookbook cho `ui-ux-pro-max` |
 | [`docs/claude/dev-rules.md`](docs/claude/dev-rules.md) | Setup môi trường, chạy lệnh dev, implement `src/generation/`/`src/carousel/` |
+| [`docs/research/README.md`](docs/research/README.md) | **Nghiên cứu thị trường và methodology (PRIVATE)**: đọc trước khi thay đổi metric, định nghĩa viral hay NLP pipeline, hoặc khi cần cite nguồn/paper cho một quyết định kỹ thuật. README là chỉ mục các kết luận đã chốt và đề xuất chưa duyệt; chi tiết trong các file HTML cùng thư mục |
 
 ---
 
@@ -99,6 +100,7 @@ CLAUDE.md gốc chỉ giữ phần **luôn cần thiết mỗi phiên** (mission
   - Query phải viết theo **triệu chứng quan sát được**, 2-5 từ, không theo chủ đề. Cookbook sẵn có: `design-system.md` §9.
   - Kết quả trả về là khuyến nghị. Mâu thuẫn với `design-system.md` → `design-system.md` thắng.
   - Các skill design khác trong `.claude/skills/` (`design`, `design-system`, `ui-styling`, `slides`, `banner-design`, `brand`) **không dùng cho dashboard** — chúng trùng vai trò và sẽ kéo lệch khỏi reference.
+- **Nghiên cứu thị trường và methodology: xem `docs/research/README.md` trước khi thay đổi metric hay NLP pipeline.** Thư mục `docs/research/` là quá trình hình thành methodology (private) — không đưa vào repo public/bản squash; README công khai chỉ mô tả methodology bản cuối. Đề xuất trong đó chỉ được triển khai sau khi Thy duyệt, và khi triển khai phải ghi vào decisions log `docs/claude/architecture.md`.
 - **Không thêm trailer `Co-Authored-By: Claude...`** vào git commit message (quyết định 2026-08-30 — repo này sẽ dùng làm nguồn squash sang 1 repo public riêng sau; commit message + decisions log trong `docs/claude/architecture.md` đã đủ thể hiện quá trình tư duy, không cần trailer). Lịch sử commit cũ trước quyết định này (`31adcbc`, `3eceabe`) giữ nguyên, không rewrite.
 
 ---

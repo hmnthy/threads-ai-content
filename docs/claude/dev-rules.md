@@ -54,6 +54,28 @@ ANTHROPIC_API_KEY=
 
 ---
 
+## Multi-Tool Workflow: Claude Code / Claude Design / Claude Cowork
+
+> Đọc khi: có thay đổi liên quan tới `src/dashboard/` hoặc `docs/claude/design-system.md`, hoặc nghi ngờ 2 tool đang "dẫm chân" lên cùng 1 file.
+
+Dự án dùng song song 3 bề mặt Claude khác nhau trên cùng 1 repo: **Claude Code** (VSCode, terminal — implementation), **Claude Cowork** (ghi trực tiếp vào git working tree, giống 1 phiên terminal khác — dùng cho doc/spec/quyết định), và **Claude Design** (canvas riêng trên claude.ai, **KHÔNG kết nối git trực tiếp**).
+
+**Sự thật kỹ thuật cần nhớ**: mọi thứ chỉnh trong canvas Claude Design **chưa tồn tại trong repo** cho tới khi chủ động chạy skill `/design-sync` (tool `DesignSync`) để pull — cơ chế này **incremental, từng component 1, never wholesale replace**. Không có `/design-sync` chạy → không có gì thay đổi trong `src/dashboard/`, bất kể canvas nhìn đẹp/mới cỡ nào.
+
+**Pipeline chuẩn (tuyến tính, không chạy song song trên cùng file)**:
+1. Thăm dò ý tưởng visual trong canvas Claude Design (sandbox riêng, không rủi ro cho repo).
+2. Khi 1 hướng đã **chốt** → văn bản hoá thành token cụ thể (hex, type scale, spacing) vào `docs/claude/design-system.md` — nguồn sự thật duy nhất về design (xem `CLAUDE.md`).
+3. Chạy `/design-sync` để pull component thật từ Design project vào `src/dashboard/`, từng phần.
+4. Claude Code verify: code sync có khớp token trong `design-system.md` không → wire data thật → chạy test/build → commit.
+5. Quay lại bước 1 chỉ cho hướng visual MỚI — không sửa tay code đã sync ngược lại trong canvas Design (tạo lại 2 nguồn sự thật).
+
+**3 nguyên tắc chặn xung đột**:
+- Trước khi chạm `src/dashboard/` (hoặc bất kỳ file nào) ở tool nào — `git status` trước. Có uncommitted work từ tool khác → không ghi đè, hỏi lại user.
+- `design-system.md` là trọng tài khi có mâu thuẫn — sửa spec trước, sync/code sau, không làm ngược.
+- Commit nhỏ, thường xuyên, message rõ nghĩa — git log là kênh giao tiếp DUY NHẤT giữa các tool (không chia sẻ bộ nhớ).
+
+---
+
 ## Content Generation (TEXT)
 
 **Nguyên tắc quan trọng nhất**: Học giọng văn từ `Content/Scripts/` trước khi generate.

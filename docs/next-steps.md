@@ -1,7 +1,7 @@
 # Next Steps — Threads AI Content
 > Cập nhật: 2026-09-02
 > **Đang chạy theo `docs/sprint-plan.md`** — kế hoạch ngày-theo-ngày (Giai đoạn 1-3, Carousel hoãn lại). File này giữ lịch sử các mốc đã qua; sprint-plan.md là nguồn "hôm nay làm gì".
-> **Việc cần làm ngay khi quay lại phiên tiếp theo**: xem mục 10 — đang chờ xác nhận chốt methodology clustering (UMAP space) trước khi chạy LLM labeling + hoàn thiện Topic Explorer.
+> **Việc cần làm ngay khi quay lại phiên tiếp theo**: xem mục 11 — pipeline NLP + dashboard + cron đã commit/push lên `main` xong, chỉ còn trỏ lại cron sang path `main` (hiện vẫn trỏ worktree tạm) + wire data thật vào Topic Explorer.
 
 ---
 
@@ -84,6 +84,24 @@ Phát hiện raw-embedding-space suy biến (1 cluster 82% dữ liệu), chẩn 
 3. Wire data thật vào Topic Explorer (`src/dashboard/`), verify hiển thị đúng.
 4. Cân nhắc thử `min_cluster_size` khác 5 nếu 2 cluster (50/81) vẫn quá thô so với 6 category cố định — chưa làm, chỉ là ý tưởng dự phòng.
 5. Trỏ lại cron `ThreadsAI_SnapshotJob_4h` sang path `main` sau khi merge worktree.
+
+### 11. LLM cluster labeling + commit/push toàn bộ pipeline lên `main` — ĐÃ HOÀN TẤT (2026-09-02)
+
+- `ANTHROPIC_API_KEY` đã có (user tự tạo tại console.anthropic.com, $5 credit). Chạy `clustering_import.py` thật: 2 cluster được đặt tên có ý nghĩa — **"Food and Shopping in France"** (50 post) và **"Studying in France Guidance"** (81 post). Verify UTF-8 sạch trong DB.
+- Test suite cuối: **107 passed, 0 failed, 0 skipped**; ruff + mypy sạch toàn bộ 62 file.
+- **Commit + push lên GitHub thành công** (`869aa41..8af3f30` trên `main`), 2 commit:
+  1. `59a303a` — NLP pipeline, dashboard, cron 4h (81 file — toàn bộ việc mục 7-10)
+  2. `8af3f30` — Design Claude Skills + research docs từ Claude Cowork/Design (179 file, xem mục dưới)
+- **Phát hiện quan trọng lúc commit**: `main` có sẵn thay đổi cục bộ chưa commit từ **Claude Cowork và Claude Design** (2 công cụ khác của Anthropic, user chủ động dùng song song, không phải rác) — `CLAUDE.md`, `docs/claude/design-system.md`, `docs/sprint-plan.md`, `uv.lock`, `.claude/skills/*` (7 skill thiết kế: banner-design/brand/design/design-system/slides/ui-styling/ui-ux-pro-max), `docs/research/*.html`. Đã `git stash` → merge nhánh worktree (fast-forward sạch) → `stash pop` → **`uv.lock` xung đột thật đúng như dự đoán** → xử lý bằng regenerate (`uv lock`) từ `pyproject.toml` đã merge sạch, không hand-merge lockfile.
+- 2 bug hạ tầng phát hiện + sửa trong lúc commit (chi tiết đầy đủ tại `docs/claude/architecture.md` decision log 2026-09-02):
+  - `.pre-commit-config.yaml` mypy hook: `entry: .venv/Scripts/python.exe` thiếu tiền tố `./` → Windows `CreateProcess` không resolve được (khác Bash) → `WinError 2`. Sửa thành `./.venv/Scripts/python.exe`.
+  - `.claude/skills/` (vendored, không phải code dự án) bị ruff lint theo chuẩn dự án này → thêm `.claude` vào `extend-exclude` trong `pyproject.toml`.
+- **Quy tắc mới**: mọi commit message của repo này **luôn viết tiếng Anh** (đã lưu memory `feedback_commit_language.md`) — mục tiêu để người ngoài (portfolio audience) đọc được lịch sử commit.
+
+**Việc còn lại**:
+1. Cron `ThreadsAI_SnapshotJob_4h` vẫn trỏ vào path worktree (`​.claude/worktrees/agent-ae623e2a159ec48c4`) — cần trỏ lại sang `main` (worktree giờ chỉ còn giữ lại vì cron cần, không xoá được cho tới khi trỏ lại xong).
+2. Wire data cluster thật (đã có trong SQLite) vào Topic Explorer (`src/dashboard/`), verify hiển thị đúng.
+3. Dashboard vẫn chưa deploy public (Vercel) — xem lại thảo luận "static export + Vercel Deploy Hook" đã bàn trước đó nếu muốn làm tiếp.
 
 ---
 
