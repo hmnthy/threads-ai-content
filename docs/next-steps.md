@@ -1,7 +1,7 @@
 # Next Steps — Threads AI Content
 > Cập nhật: 2026-09-03
 > **Đang chạy theo `docs/sprint-plan.md`** — kế hoạch ngày-theo-ngày (Giai đoạn 1-3, Carousel hoãn lại). File này giữ lịch sử các mốc đã qua; sprint-plan.md là nguồn "hôm nay làm gì".
-> **Việc cần làm ngay khi quay lại phiên tiếp theo**: xem mục 12 — Overview page thật (windowed analytics + Timeline Brush) đã xong, đã commit (4 commit, chưa push). Còn lại: user tự test tương tác trong browser (drag/keyboard/preset — chưa verify được bằng tool, xem mục 12), rồi push khi user duyệt. TopicExplorer.tsx/topics/page.tsx vẫn còn ở token v2 cũ, ngoài phạm vi đợt này.
+> **Việc cần làm ngay khi quay lại phiên tiếp theo**: xem mục 12-13 — toàn bộ 6 commit đã **push lên `origin/main`** (`dd7bf37..7534faa`). User đã tự test Timeline Brush thật trong browser (log backend xác nhận có drag/nudge liên tục theo ngày) — không còn là điểm mù. Việc còn lại: user tự duyệt lại bio tác giả (`LandingAuthor.tsx`) và sub-headline diễn giải tagline (`LandingHero.tsx`) — cả 2 do tôi draft, chưa phải bản cuối user xác nhận. TopicExplorer.tsx/topics/page.tsx vẫn còn ở token v2 cũ, ngoài phạm vi cả 2 đợt.
 
 ---
 
@@ -124,11 +124,24 @@ Việc build thật sau khi v3.1 Amber design sync (mục trước) bị chỉ r
 
 **Chưa verify được** (không có tool browser trong môi trường này): tương tác kéo/pan/phím mũi tên/preset thật trong trình duyệt — cần user tự mở `npm run dev` + `uvicorn src.main:app --reload` và thử tay trước khi coi là "done" theo đúng house rule "test trong browser trước khi báo done".
 
+**Việc còn lại (mục 12) — ĐÃ XONG, xem mục 13**: user đã tự test Timeline Brush thật (xác nhận qua log backend), đã push.
+
+### 13. Landing/story page (Tầng B scoped) + di chuyển tool sang `/overview` — ĐÃ HOÀN TẤT, ĐÃ PUSH (2026-09-03)
+
+User tự mở link deploy tạm ở mục 12, test thật thấy Timeline Brush chạy tốt nhưng chỉ ra đúng 1 vấn đề: ai bấm link cũng rơi thẳng vào raw analytics, không có gì giải thích sản phẩm là gì/giải quyết vấn đề gì/tác giả là ai. Cũng hỏi "tại sao views trống trước tháng 3" — trả lời trực tiếp bằng data thật (không sửa code gì): bài đăng đầu tiên của kênh là 2025-04-14, nên 7 tháng đầu trong cửa sổ 2 năm Meta cho phép (từ 2024-09) đúng là 0 thật (kênh chưa tồn tại), không phải lỗi.
+
+**Đã làm**: landing page thật ở `/` (Hero + Problem + Solution 3 tầng statistics/NLP/RAG + Tech stack grid ~15 dòng có badge live/coming soon + khối "AI Content Generation — Coming soon" riêng + About the channel), tool chuyển sang `/overview` qua Next.js route group `(app)/` (Analytics/Topics giữ nguyên route, chỉ đổi vị trí file). `Nav.tsx` sửa: tab Overview trỏ `/overview`, logo/tagline giờ là link về `/`.
+
+**2 chỗ nội dung cần user tự duyệt lại** (draft từ fact có sẵn, không bịa, nhưng chưa phải bản cuối user xác nhận):
+- Bio tác giả trong `LandingAuthor.tsx` — chỉ dùng đúng fact đã có trong CLAUDE.md.
+- Sub-headline diễn giải tagline "The algorithm, read back to you." trong `LandingHero.tsx` — grep xác nhận tagline này official/locked trong `design-system.md` §13 nhưng KHÔNG có rationale nào được ghi lại; sub-headline là diễn giải của tôi, đã nói rõ với user.
+
+**Đã push**: `origin/main` tại `7534faa` (6 commit tổng cộng từ đầu phiên, `dd7bf37..7534faa`).
+
 **Việc còn lại**:
-1. User tự test tương tác Timeline Brush trong browser (drag 2 tay cầm, pan, phím mũi tên, 4 preset, empty-state khi kéo về đoạn không có content unit).
-2. Push 4 commit lên GitHub khi user duyệt (chưa tự ý push).
-3. `TopicExplorer.tsx`/`topics/page.tsx` vẫn ở token v2 cũ — ngoài phạm vi đợt này, để dành đợt sau nếu cần đồng bộ nốt.
-4. Tầng B (landing page public) — chưa làm, vẫn hoãn như design-system.md đã ghi.
+1. User duyệt/sửa bio tác giả + sub-headline tagline (2 điểm ở trên).
+2. `TopicExplorer.tsx`/`topics/page.tsx` vẫn ở token v2 cũ — ngoài phạm vi cả 2 đợt.
+3. Tầng B đầy đủ (logo strip, bento feature, pricing, FAQ, footer 4 cột — 13-section spec gốc trong design-system.md §7) — KHÔNG phải cái vừa làm (bản vừa làm là scoped, chỉ đúng phần user yêu cầu). Chưa làm, chưa được yêu cầu ở mức đó.
 
 ---
 
