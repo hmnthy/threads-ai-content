@@ -1,7 +1,7 @@
 # Threads AI Content — CLAUDE.md
 
-> Cập nhật lần cuối: 2026-09-03 (windowed analytics endpoint + Timeline Brush + Analytics tab thật)
-> Trạng thái: **Phase 1 — backend (`src/api/`, `src/analysis/`, `src/db/`, `src/main.py`) + pipeline NLP (clustering) + dashboard (Overview/Analytics/Topic Explorer) đều đã có, chạy được với data thật. Chi tiết mốc gần nhất tại `docs/next-steps.md` mục 12 (đọc mục này trước khi giả định trạng thái cũ hơn từ phần "Trạng thái hiện tại" bên dưới, phần đó chưa cập nhật theo kịp)**
+> Cập nhật lần cuối: 2026-09-03 (landing/story page thật ở `/`, tool chuyển sang `/overview`)
+> Trạng thái: **Phase 1 — backend (`src/api/`, `src/analysis/`, `src/db/`, `src/main.py`) + pipeline NLP (clustering) + dashboard (landing `/` + tool Overview/Analytics/Topic Explorer dưới `/overview`,`/analytics`,`/topics`) đều đã có, chạy được với data thật, đã push `origin/main`. Chi tiết mốc gần nhất tại `docs/next-steps.md` (đọc các mục cuối cùng — số mục thay đổi theo thời gian, đừng tin số cụ thể ghi cứng ở đây — trước khi giả định trạng thái cũ hơn từ phần "Trạng thái hiện tại" bên dưới, phần đó chưa cập nhật theo kịp)**
 
 ---
 
