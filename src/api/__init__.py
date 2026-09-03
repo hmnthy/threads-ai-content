@@ -10,6 +10,7 @@ from src.api.auth import (
 from src.api.cache import Cache
 from src.api.client import ThreadsAPIError, ThreadsClient
 from src.api.endpoints import (
+    get_account_daily_views,
     get_account_insights,
     get_follower_demographics,
     get_post_insights,
@@ -17,11 +18,19 @@ from src.api.endpoints import (
     get_replies,
     get_user_info,
 )
-from src.api.models import AccountInsights, MediaType, PostInsights, ThreadsPost, UserInfo
+from src.api.models import (
+    AccountInsights,
+    DailyViewPoint,
+    MediaType,
+    PostInsights,
+    ThreadsPost,
+    UserInfo,
+)
 
 __all__ = [
     "AccountInsights",
     "Cache",
+    "DailyViewPoint",
     "MediaType",
     "MissingCredentialsError",
     "PostInsights",
@@ -32,6 +41,7 @@ __all__ = [
     "ThreadsPost",
     "UserInfo",
     "days_until_expiry",
+    "get_account_daily_views",
     "get_account_insights",
     "get_follower_demographics",
     "get_post_insights",

@@ -12,6 +12,7 @@ from src.db.schema import (
     create_schema,
     insert_insight_snapshot,
     upsert_content_unit,
+    upsert_daily_views,
     upsert_post,
     upsert_post_topic_label,
     upsert_topic,
@@ -285,3 +286,149 @@ def test_analytics_overview_excludes_reply_posts_from_the_posts_table(
     data = response.json()
     assert data["post_count"] == 1
     assert data["top_by_engagement"][0]["id"] == "post-root"
+
+
+def test_analytics_daily_views_returns_series_with_bounds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "daily-views.db"
+    monkeypatch.setattr(main_module, "DEFAULT_DB_PATH", db_path)
+
+    conn = connect(db_path)
+    create_schema(conn)
+    upsert_daily_views(conn, date="2026-08-10", views=100, fetched_at="2026-08-11T00:00:00+00:00")
+    upsert_daily_views(conn, date="2026-08-11", views=150, fetched_at="2026-08-12T00:00:00+00:00")
+    conn.commit()
+    conn.close()
+
+    with TestClient(main_module.app) as test_client:
+        response = test_client.get("/analytics/daily-views")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["min_date"] == "2026-08-10"
+    assert data["max_date"] == "2026-08-11"
+    assert [p["views"] for p in data["points"]] == [100, 150]
+
+
+def test_analytics_daily_views_empty_table_returns_null_bounds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "daily-views-empty.db"
+    monkeypatch.setattr(main_module, "DEFAULT_DB_PATH", db_path)
+    conn = connect(db_path)
+    create_schema(conn)
+    conn.commit()
+    conn.close()
+
+    with TestClient(main_module.app) as test_client:
+        response = test_client.get("/analytics/daily-views")
+
+    data = response.json()
+    assert data["points"] == []
+    assert data["min_date"] is None
+    assert data["max_date"] is None
+
+
+def test_analytics_window_computes_median_stats_and_views_from_daily_series(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "window.db"
+    monkeypatch.setattr(main_module, "DEFAULT_DB_PATH", db_path)
+
+    conn = connect(db_path)
+    create_schema(conn)
+
+    post_in = ThreadsPost(
+        id="post-in",
+        text="in window",
+        timestamp=datetime(2026, 8, 15, 9, 0, tzinfo=UTC),
+        media_type=MediaType.TEXT_POST,
+    )
+    post_out = ThreadsPost(
+        id="post-out",
+        text="out of window",
+        timestamp=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
+        media_type=MediaType.TEXT_POST,
+    )
+    upsert_post(conn, post_in)
+    upsert_post(conn, post_out)
+    upsert_content_unit(conn, ContentUnit(root=post_in, full_text="in window"))
+    upsert_content_unit(conn, ContentUnit(root=post_out, full_text="out of window"))
+    insert_insight_snapshot(
+        conn,
+        InsightSnapshot(
+            post_id="post-in",
+            fetched_at=datetime(2026, 8, 30, tzinfo=UTC),
+            views=1000,
+            likes=100,
+            replies=10,
+            reposts=5,
+            quotes=2,
+        ),
+    )
+    insert_insight_snapshot(
+        conn,
+        InsightSnapshot(
+            post_id="post-out",
+            fetched_at=datetime(2026, 8, 30, tzinfo=UTC),
+            views=999999,
+            likes=999999,
+            replies=999999,
+            reposts=999999,
+            quotes=999999,
+        ),
+    )
+    # Account-level daily views — 1 điểm trong window, 1 điểm ngoài window.
+    upsert_daily_views(conn, date="2026-08-14", views=500, fetched_at="2026-08-31T00:00:00+00:00")
+    upsert_daily_views(conn, date="2026-08-15", views=700, fetched_at="2026-08-31T00:00:00+00:00")
+    upsert_daily_views(conn, date="2026-07-01", views=999, fetched_at="2026-08-31T00:00:00+00:00")
+    conn.commit()
+    conn.close()
+
+    with TestClient(main_module.app) as test_client:
+        response = test_client.get(
+            "/analytics/window", params={"start": "2026-08-14", "end": "2026-08-20"}
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["content_unit_count"] == 1  # chỉ post-in nằm trong window
+    assert data["views"] == 500 + 700  # account-level daily views trong window, KHÔNG lẫn post-out
+    assert data["interactions"] == 100 + 10 + 5 + 2
+    assert data["engagement"]["median"] == pytest.approx((100 + 10 + 5 + 2) / 1000 * 100)
+    assert data["engagement"]["n"] == 1
+    assert data["engagement"]["insufficient_data"] is True  # n=1 < MIN_N_PER_BUCKET
+    assert data["virality"]["median"] == pytest.approx((5 + 2) / 1000 * 100)
+    assert data["conversation"]["median"] == pytest.approx(10 / 1000 * 100)
+    assert len(data["top_content_units"]) == 1
+    assert data["top_content_units"][0]["id"] == "post-in"
+
+
+def test_analytics_window_empty_range_returns_zeroed_stats(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "window-empty.db"
+    monkeypatch.setattr(main_module, "DEFAULT_DB_PATH", db_path)
+    conn = connect(db_path)
+    create_schema(conn)
+    conn.commit()
+    conn.close()
+
+    with TestClient(main_module.app) as test_client:
+        response = test_client.get(
+            "/analytics/window", params={"start": "2026-01-01", "end": "2026-01-31"}
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["content_unit_count"] == 0
+    assert data["views"] == 0
+    assert data["interactions"] == 0
+    assert data["top_content_units"] == []
+    assert data["engagement"]["insufficient_data"] is True
+
+
+def test_analytics_window_rejects_malformed_dates(client: TestClient) -> None:
+    response = client.get("/analytics/window", params={"start": "not-a-date", "end": "2026-08-20"})
+    assert response.status_code == 422

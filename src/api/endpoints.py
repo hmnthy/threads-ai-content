@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from datetime import date as date_cls
+from datetime import timedelta
 from typing import Any, Final
 
 from src.api.cache import Cache
 from src.api.client import ThreadsClient
-from src.api.models import AccountInsights, PostInsights, ThreadsPost, UserInfo
+from src.api.models import AccountInsights, DailyViewPoint, PostInsights, ThreadsPost, UserInfo
 
 USER_FIELDS: Final = "id,username"
 POST_FIELDS: Final = (
@@ -101,6 +103,43 @@ async def get_account_insights(client: ThreadsClient, user_id: str) -> AccountIn
     )
     metrics = _flatten_insights(data)
     return AccountInsights(**metrics)
+
+
+# Verify live 2026-09-03 (`since` further back than this errors: "since param is
+# not valid. Metrics data is available for the last 2 years"). Days before the
+# channel existed just come back with value=0, no gaps — so a `since` this far
+# back is always safe, it never raises for being "too early" in the other direction.
+DAILY_VIEWS_LOOKBACK_CAP_DAYS: Final = 729
+
+
+async def get_account_daily_views(
+    client: ThreadsClient, user_id: str, since: date_cls, until: date_cls
+) -> list[DailyViewPoint]:
+    """Account-level `views`, `period="day"` — KHÔNG sum qua `_flatten_insights`
+    như `get_account_insights` (hàm đó cộng dồn thành 1 tổng, mất breakdown theo
+    ngày). Giữ nguyên từng điểm — dùng cho biểu đồ Timeline Brush (Overview mới),
+    KHÁC hẳn `insights_snapshots` (lifetime cumulative theo 1 post cụ thể)."""
+    data = await client.get(
+        f"/{user_id}/threads_insights",
+        params={
+            "metric": "views",
+            "period": "day",
+            "since": since.isoformat(),
+            "until": until.isoformat(),
+        },
+    )
+    raw_values = data.get("data", [{}])[0].get("values", [])
+    points: list[DailyViewPoint] = []
+    for item in raw_values:
+        end_time = item["end_time"]  # "YYYY-MM-DDTHH:MM:SS+0000", luôn "07:00:00"
+        end_date = date_cls.fromisoformat(end_time[:10])
+        # "D 07:00 UTC" = "D 00:00" giờ Pacific (UTC-7) — mốc KẾT THÚC ngày lịch
+        # Pacific (D-1), nên bucket này đại diện ngày (D-1), không phải ngày D.
+        # Chỉ áp dụng quy đổi khi khớp đúng giả định đã verify (07:00 UTC); nếu
+        # Meta đổi giờ boundary trong tương lai, giữ nguyên end_date thay vì đoán.
+        bucket_date = end_date - timedelta(days=1) if end_time[11:13] == "07" else end_date
+        points.append(DailyViewPoint(date=bucket_date.isoformat(), views=item["value"]))
+    return points
 
 
 async def get_follower_demographics(
