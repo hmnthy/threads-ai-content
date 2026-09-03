@@ -1,7 +1,7 @@
 # Next Steps — Threads AI Content
-> Cập nhật: 2026-09-02
+> Cập nhật: 2026-09-03
 > **Đang chạy theo `docs/sprint-plan.md`** — kế hoạch ngày-theo-ngày (Giai đoạn 1-3, Carousel hoãn lại). File này giữ lịch sử các mốc đã qua; sprint-plan.md là nguồn "hôm nay làm gì".
-> **Việc cần làm ngay khi quay lại phiên tiếp theo**: xem mục 11 — pipeline NLP + dashboard + cron đã commit/push lên `main` xong, chỉ còn trỏ lại cron sang path `main` (hiện vẫn trỏ worktree tạm) + wire data thật vào Topic Explorer.
+> **Việc cần làm ngay khi quay lại phiên tiếp theo**: xem mục 12 — Overview page thật (windowed analytics + Timeline Brush) đã xong, đã commit (4 commit, chưa push). Còn lại: user tự test tương tác trong browser (drag/keyboard/preset — chưa verify được bằng tool, xem mục 12), rồi push khi user duyệt. TopicExplorer.tsx/topics/page.tsx vẫn còn ở token v2 cũ, ngoài phạm vi đợt này.
 
 ---
 
@@ -102,6 +102,33 @@ Phát hiện raw-embedding-space suy biến (1 cluster 82% dữ liệu), chẩn 
 1. Cron `ThreadsAI_SnapshotJob_4h` vẫn trỏ vào path worktree (`​.claude/worktrees/agent-ae623e2a159ec48c4`) — cần trỏ lại sang `main` (worktree giờ chỉ còn giữ lại vì cron cần, không xoá được cho tới khi trỏ lại xong).
 2. Wire data cluster thật (đã có trong SQLite) vào Topic Explorer (`src/dashboard/`), verify hiển thị đúng.
 3. Dashboard vẫn chưa deploy public (Vercel) — xem lại thảo luận "static export + Vercel Deploy Hook" đã bàn trước đó nếu muốn làm tiếp.
+
+### 12. Overview page thật: windowed analytics endpoint + Timeline Brush + Analytics tab thật — ĐÃ HOÀN TẤT (2026-09-03)
+
+Việc build thật sau khi v3.1 Amber design sync (mục trước) bị chỉ ra là "quá sơ sài, không liên quan gì đến design đã làm ở Claude Design" — xem `feedback_mockup_is_spec` trong memory. Kế hoạch đầy đủ + 3 quyết định đã hỏi user trực tiếp (không tự quyết âm thầm) nằm trong plan file phiên này; tóm tắt:
+
+**Backend** (`22380ca`):
+- Verify live 2026-09-03: `threads_insights?metric=views&period=day&since=...&until=...` trả breakdown thật theo ngày, cap lookback **2 năm** (Meta trả lỗi rõ ràng "Metrics data is available for the last 2 years" khi vượt), `end_time` luôn `07:00:00+0000` (ranh giới ngày Pacific time, đã quy đổi đúng — verify khớp chính xác điểm cuối cùng thật khi so với data đã ingest).
+- Bảng mới `account_daily_views` (date, views, fetched_at) + `src/pipeline/daily_views.py` (backfill full 729 ngày lần đầu, chỉ refetch 7 ngày gần nhất các lần sau) — đã gộp vào `run_ingest()` nên chạy tự động cùng cron 4h có sẵn. Đã backfill thật: **730 điểm** (2024-09-02 → 2026-09-01).
+- `src/analysis/stats.py` mới — generalize `EngagementBucketStats` (Layer 2 cũ) thành `DistributionStats`/`distribution_stats()`/`window_stats()` dùng chung cho Engagement/Virality/Conversation trong 1 cửa sổ thời gian (trước đây chỉ Engagement có median/mean).
+- 2 endpoint mới: `GET /analytics/daily-views` (toàn bộ series đã ingest, gọi 1 lần) và `GET /analytics/window?start=...&end=...` (hero/KPI/top-content tính lại thật theo [start,end]).
+- **Quyết định methodology quan trọng** (user chốt, không phải tôi tự chọn): số Engagement/Virality/Conversation trong window là **median+mean của từng post** (đúng Layer 2 cũ), KHÔNG dùng pooled ratio Σinteractions/Σviews mà file mockup `.dc.html` tự tính cho đẹp — "MOCKUPS tuyệt đối chỉ dùng cho DESIGN, không được phép can thiệp vào quyết định mọi kĩ thuật đã thống nhất trước đó" (nguyên văn user).
+- 183 test pass (20 mới), ruff/mypy sạch.
+
+**Frontend** (`c31d756`, `f887b9b`, `040096b`):
+- `Nav.tsx` rebuild: topbar (logo/tagline/account pill/avatar) + 3-tab pill thật (Overview/Analytics/Topic Explorer — Analytics giờ là route thật, không phải placeholder, theo yêu cầu user "Xây luôn tab Analytics thật đợt này").
+- `AnalyticsOverview.tsx` → đổi tên `AnalyticsBreakdown.tsx`, chuyển sang route `/analytics` (bảng top-post 3 metric + biểu đồ giờ/thứ theo timezone) — đồng thời sửa bug type-drift có sẵn (`HourBucket`/`WeekdayBucket` phía frontend đọc field `average_engagement_rate` không còn tồn tại từ khi backend đổi sang `DistributionStats`).
+- Overview (`/`) rebuild hoàn toàn: `HeroBand`, `TimelineBrush` (component tương tác chính — port pointer-capture drag 2 tay cầm + pan + keyboard nudge + 4 preset từ `overview-amber.dc.html`, nhưng số liệu KPI refetch thật từ backend, debounce 300ms, không tính tại client như mockup), `KpiStrip`, `MetricArchitectureGrid`, `TopContentList`.
+- Thêm dependency `@phosphor-icons/react` (design-system.md §6 yêu cầu Phosphor icon).
+- `npm run build` + `npm run lint` sạch. Verify **API thật** qua curl (daily-views trả 728 điểm khớp data backfill, `/analytics/window?start=2026-08-01&end=2026-09-01` trả 16 content unit/991,841 views/median engagement 2.30% — số hợp lý). `npm run dev` + `uvicorn` chạy thật, cả 3 route (`/`, `/analytics`, `/topics`) trả 200, không lỗi server.
+
+**Chưa verify được** (không có tool browser trong môi trường này): tương tác kéo/pan/phím mũi tên/preset thật trong trình duyệt — cần user tự mở `npm run dev` + `uvicorn src.main:app --reload` và thử tay trước khi coi là "done" theo đúng house rule "test trong browser trước khi báo done".
+
+**Việc còn lại**:
+1. User tự test tương tác Timeline Brush trong browser (drag 2 tay cầm, pan, phím mũi tên, 4 preset, empty-state khi kéo về đoạn không có content unit).
+2. Push 4 commit lên GitHub khi user duyệt (chưa tự ý push).
+3. `TopicExplorer.tsx`/`topics/page.tsx` vẫn ở token v2 cũ — ngoài phạm vi đợt này, để dành đợt sau nếu cần đồng bộ nốt.
+4. Tầng B (landing page public) — chưa làm, vẫn hoãn như design-system.md đã ghi.
 
 ---
 

@@ -1,7 +1,7 @@
 # Threads AI Content — CLAUDE.md
 
-> Cập nhật lần cuối: 2026-08-30 (redesign v2: 6-index metrics + ContentUnit + code-switching-tolerant NLP)
-> Trạng thái: **Phase 1 — `src/api/` hoàn tất & verify; `src/analysis/engagement.py` xong; Bước 0 (verify API field cho ContentUnit) đã xong. Kế hoạch chi tiết + lý do tại `docs/sprint-plan.md` + `docs/claude/data-model.md`**
+> Cập nhật lần cuối: 2026-09-03 (windowed analytics endpoint + Timeline Brush + Analytics tab thật)
+> Trạng thái: **Phase 1 — backend (`src/api/`, `src/analysis/`, `src/db/`, `src/main.py`) + pipeline NLP (clustering) + dashboard (Overview/Analytics/Topic Explorer) đều đã có, chạy được với data thật. Chi tiết mốc gần nhất tại `docs/next-steps.md` mục 12 (đọc mục này trước khi giả định trạng thái cũ hơn từ phần "Trạng thái hiện tại" bên dưới, phần đó chưa cập nhật theo kịp)**
 
 ---
 
