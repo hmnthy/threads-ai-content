@@ -24,6 +24,7 @@ from src.db.schema import (
     upsert_content_unit,
     upsert_post,
 )
+from src.pipeline.daily_views import fetch_and_store_daily_views
 from src.pipeline.snapshot import fetch_and_store_insights_snapshot
 from src.processing.text import normalize_text
 from src.processing.thread_reconstruction import build_content_units
@@ -64,6 +65,7 @@ async def run_ingest(db_path: Path = DEFAULT_DB_PATH, *, use_cache: bool = True)
         snapshot_count = await fetch_and_store_insights_snapshot(
             client, conn, [unit.id for unit in units]
         )
+        daily_views_count = await fetch_and_store_daily_views(client, conn, creds.user_id)
 
     conn.close()
     return {
@@ -72,6 +74,7 @@ async def run_ingest(db_path: Path = DEFAULT_DB_PATH, *, use_cache: bool = True)
         "content_units": len(units),
         "multi_post_units": sum(1 for unit in units if unit.is_multi_post),
         "insight_snapshots": snapshot_count,
+        "daily_views_points": daily_views_count,
     }
 
 

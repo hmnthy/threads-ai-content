@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ from httpx import Response
 from src.api.cache import Cache
 from src.api.client import ThreadsClient
 from src.api.endpoints import (
+    get_account_daily_views,
     get_account_insights,
     get_follower_demographics,
     get_post_insights,
@@ -224,4 +226,52 @@ async def test_get_follower_demographics_rejects_invalid_breakdown() -> None:
     client = ThreadsClient(access_token="tok")
     with pytest.raises(ValueError, match="breakdown must be one of"):
         await get_follower_demographics(client, "999", breakdown="not-a-real-one")
+    await client.aclose()
+
+
+@respx.mock
+async def test_get_account_daily_views_keeps_each_day_separate_and_converts_end_time() -> None:
+    # Shape confirmed live against the real API 2026-09-03: end_time always lands on
+    # "07:00:00+0000" — a Pacific-time day boundary, one calendar day AHEAD of the
+    # day the value actually belongs to (see get_account_daily_views docstring).
+    respx.get(f"{BASE}/999/threads_insights").mock(
+        return_value=Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "name": "views",
+                        "period": "day",
+                        "values": [
+                            {"value": 18, "end_time": "2025-07-29T07:00:00+0000"},
+                            {"value": 6, "end_time": "2025-07-30T07:00:00+0000"},
+                        ],
+                    }
+                ]
+            },
+        )
+    )
+    client = ThreadsClient(access_token="tok")
+
+    points = await get_account_daily_views(client, "999", date(2025, 7, 28), date(2025, 7, 29))
+
+    assert [p.date for p in points] == ["2025-07-28", "2025-07-29"]
+    assert [p.views for p in points] == [18, 6]
+    await client.aclose()
+
+
+@respx.mock
+async def test_get_account_daily_views_sends_since_and_until_params() -> None:
+    route = respx.get(f"{BASE}/999/threads_insights").mock(
+        return_value=Response(200, json={"data": [{"name": "views", "values": []}]})
+    )
+    client = ThreadsClient(access_token="tok")
+
+    await get_account_daily_views(client, "999", date(2025, 1, 1), date(2025, 1, 31))
+
+    params = route.calls.last.request.url.params
+    assert params["metric"] == "views"
+    assert params["period"] == "day"
+    assert params["since"] == "2025-01-01"
+    assert params["until"] == "2025-01-31"
     await client.aclose()

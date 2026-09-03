@@ -11,12 +11,15 @@ from src.db.schema import (
     insert_insight_snapshot,
     latest_insight_snapshot,
     list_content_units,
+    list_daily_views,
     list_root_posts,
+    list_root_posts_in_range,
     snapshot_row_to_post_insights,
     update_content_unit_embedding_coords,
     update_content_unit_language,
     update_content_unit_text,
     upsert_content_unit,
+    upsert_daily_views,
     upsert_post,
     upsert_post_topic_label,
     upsert_topic,
@@ -224,4 +227,74 @@ def test_get_post_topic_label_returns_none_when_untagged(tmp_path: Path) -> None
     conn.commit()
 
     assert get_post_topic_label(conn, "post-1", method="cluster") is None
+
+
+def test_list_root_posts_in_range_filters_inclusive_by_calendar_day(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "test.db")
+    create_schema(conn)
+
+    def _post_at(post_id: str, ts: datetime) -> ThreadsPost:
+        return ThreadsPost(id=post_id, timestamp=ts, media_type=MediaType.TEXT_POST)
+
+    upsert_post(conn, _post_at("before", datetime(2026, 8, 9, 23, 59, tzinfo=UTC)))
+    upsert_post(conn, _post_at("start-boundary", datetime(2026, 8, 10, 0, 0, tzinfo=UTC)))
+    upsert_post(conn, _post_at("inside", datetime(2026, 8, 15, 12, 0, tzinfo=UTC)))
+    upsert_post(conn, _post_at("end-boundary", datetime(2026, 8, 20, 23, 59, tzinfo=UTC)))
+    upsert_post(conn, _post_at("after", datetime(2026, 8, 21, 0, 0, tzinfo=UTC)))
+    conn.commit()
+
+    rows = list_root_posts_in_range(conn, "2026-08-10", "2026-08-20")
+
+    assert {row["id"] for row in rows} == {"start-boundary", "inside", "end-boundary"}
+    conn.close()
+
+
+def test_list_root_posts_in_range_excludes_replies(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "test.db")
+    create_schema(conn)
+
+    upsert_post(conn, _post("root-1"))
+    upsert_post(
+        conn,
+        ThreadsPost(
+            id="reply-1",
+            timestamp=datetime(2026, 8, 24, 9, 0, tzinfo=UTC),
+            media_type=MediaType.TEXT_POST,
+            is_reply=True,
+        ),
+    )
+    conn.commit()
+
+    rows = list_root_posts_in_range(conn, "2026-08-01", "2026-08-31")
+
+    assert [row["id"] for row in rows] == ["root-1"]
+    conn.close()
+
+
+def test_upsert_daily_views_overwrites_on_conflict(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "test.db")
+    create_schema(conn)
+
+    upsert_daily_views(conn, date="2026-08-10", views=100, fetched_at="2026-08-11T00:00:00+00:00")
+    upsert_daily_views(conn, date="2026-08-10", views=150, fetched_at="2026-08-12T00:00:00+00:00")
+    conn.commit()
+
+    rows = list_daily_views(conn)
+    assert len(rows) == 1
+    assert rows[0]["views"] == 150  # backfill trễ ghi đè, không insert trùng
+
+
+def test_list_daily_views_orders_by_date_and_filters_range(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "test.db")
+    create_schema(conn)
+
+    for day, views in [("2026-08-12", 3), ("2026-08-10", 1), ("2026-08-11", 2)]:
+        upsert_daily_views(conn, date=day, views=views, fetched_at="2026-08-13T00:00:00+00:00")
+    conn.commit()
+
+    all_rows = list_daily_views(conn)
+    assert [row["date"] for row in all_rows] == ["2026-08-10", "2026-08-11", "2026-08-12"]
+
+    ranged = list_daily_views(conn, "2026-08-11", "2026-08-11")
+    assert [row["date"] for row in ranged] == ["2026-08-11"]
     conn.close()

@@ -13,9 +13,11 @@ Docs: http://localhost:8000/docs
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from datetime import date as date_cls
 from typing import Final
 from zoneinfo import ZoneInfo
 
@@ -32,6 +34,7 @@ from src.analysis.engagement import (
     top_posts_by_engagement,
 )
 from src.analysis.popularity import popularity_index
+from src.analysis.stats import DistributionStats, window_stats
 from src.analysis.virality import virality_index
 from src.api.models import PostInsights, ThreadsPost
 from src.db.schema import (
@@ -41,7 +44,9 @@ from src.db.schema import (
     get_post_topic_label,
     latest_insight_snapshot,
     list_content_units,
+    list_daily_views,
     list_root_posts,
+    list_root_posts_in_range,
     snapshot_row_to_post_insights,
 )
 
@@ -51,10 +56,14 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Dashboard Next.js chạy local trên :3000 (xem "Dashboard tối giản" trong task scope).
+# Dashboard Next.js chạy local trên :3000. Cho phép thêm origin qua env
+# CORS_ALLOW_ORIGINS (phân cách bằng dấu phẩy) — dùng khi deploy tạm frontend
+# lên Vercel + backend qua ngrok tunnel, không hardcode domain tạm vào code.
+_cors_env = os.environ.get("CORS_ALLOW_ORIGINS", "")
+_extra_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", *_extra_origins],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -125,14 +134,16 @@ class TopPostEntry(BaseModel):
     metrics: ContentUnitMetrics
 
 
-class EngagementBucketOut(BaseModel):
-    """Mirror của `EngagementBucketStats` (Layer 2, `src/analysis/engagement.py`)
-    — median/mean cạnh nhau CỐ TÌNH (tầng 3 "Narrative Layering Principle", xem
-    docs/claude/data-model.md), kèm n/IQR/insufficient_data để dashboard không
-    tuyên bố "giờ tốt nhất" từ bucket quá ít bài."""
+class DistributionStatsOut(BaseModel):
+    """Mirror của `DistributionStats` (`src/analysis/stats.py`, generalize từ
+    `EngagementBucketStats` cũ) — median/mean cạnh nhau CỐ TÌNH (tầng 3 "Narrative
+    Layering Principle", xem docs/claude/data-model.md), kèm n/IQR/insufficient_data
+    để dashboard không tuyên bố "tốt nhất" từ 1 tập quá ít bài. Dùng chung cho bucket
+    giờ/thứ (`HourBucket`/`WeekdayBucket`) VÀ cho engagement/virality/conversation
+    của `WindowAnalyticsOut` (Overview mới) — 1 shape, không lặp lại 2 lần."""
 
-    median_engagement_rate: float
-    mean_engagement_rate: float
+    median: float
+    mean: float
     n: int
     iqr_low: float
     iqr_high: float
@@ -141,12 +152,12 @@ class EngagementBucketOut(BaseModel):
 
 class HourBucket(BaseModel):
     hour: int
-    stats: EngagementBucketOut
+    stats: DistributionStatsOut
 
 
 class WeekdayBucket(BaseModel):
     weekday: int  # 0=Monday .. 6=Sunday, theo datetime.weekday()
-    stats: EngagementBucketOut
+    stats: DistributionStatsOut
 
 
 class TimezoneEngagement(BaseModel):
@@ -162,6 +173,42 @@ class AnalyticsOverviewOut(BaseModel):
     top_by_virality: list[TopPostEntry]
     top_by_conversation: list[TopPostEntry]
     timezones: list[TimezoneEngagement]
+
+
+class DailyViewsPointOut(BaseModel):
+    date: str
+    views: int
+
+
+class DailyViewsSeriesOut(BaseModel):
+    """Toàn bộ `account_daily_views` đã ingest — gọi 1 lần khi trang load để vẽ
+    biểu đồ nền của Timeline Brush + xác định biên rail (`min_date`/`max_date`).
+    KHÔNG đổi khi kéo cửa sổ — chỉ `WindowAnalyticsOut` (bên dưới) mới re-query
+    theo [start, end]."""
+
+    points: list[DailyViewsPointOut]
+    min_date: str | None
+    max_date: str | None
+
+
+class WindowAnalyticsOut(BaseModel):
+    """Hero band + KPI strip + top content units — tính lại từ data thật CHỈ trong
+    [start, end]. `views` = Σ account_daily_views (account-level, gồm views từ
+    replies) — KHÁC `top_content_units[].metrics.popularity_index` (post-level, per
+    ContentUnit). `engagement`/`virality`/`conversation` là median+mean CỦA TỪNG
+    POST trong cửa sổ (đúng methodology Layer 2 đã chốt) — KHÔNG phải pooled ratio
+    Σinteractions/Σviews như mockup UI tự vẽ cho đẹp (xem `src/analysis/stats.py`
+    docstring)."""
+
+    start: str
+    end: str
+    views: int
+    content_unit_count: int
+    interactions: int
+    engagement: DistributionStatsOut
+    virality: DistributionStatsOut
+    conversation: DistributionStatsOut
+    top_content_units: list[TopPostEntry]
 
 
 @app.get("/health")
@@ -277,10 +324,13 @@ def _to_top_post_entry(post: ThreadsPost, insights: PostInsights) -> TopPostEntr
     )
 
 
-def _to_bucket_out(stats: EngagementBucketStats) -> EngagementBucketOut:
-    return EngagementBucketOut(
-        median_engagement_rate=stats.median,
-        mean_engagement_rate=stats.mean,
+def _to_stats_out(stats: EngagementBucketStats | DistributionStats) -> DistributionStatsOut:
+    """Nhận cả `EngagementBucketStats` (bucket giờ/thứ) lẫn `DistributionStats`
+    (window aggregate, `src/analysis/stats.py`) — 2 dataclass field-tương-thích,
+    cùng serialize ra 1 shape `DistributionStatsOut` duy nhất."""
+    return DistributionStatsOut(
+        median=stats.median,
+        mean=stats.mean,
         n=stats.n,
         iqr_low=stats.iqr_low,
         iqr_high=stats.iqr_high,
@@ -319,13 +369,13 @@ def get_analytics_overview() -> AnalyticsOverviewOut:
             TimezoneEngagement(
                 timezone=tz_name,
                 by_hour=[
-                    HourBucket(hour=hour, stats=_to_bucket_out(stats))
+                    HourBucket(hour=hour, stats=_to_stats_out(stats))
                     for hour, stats in sorted(
                         engagement_by_hour(posts, insights, timezone=tz).items()
                     )
                 ],
                 by_weekday=[
-                    WeekdayBucket(weekday=weekday, stats=_to_bucket_out(stats))
+                    WeekdayBucket(weekday=weekday, stats=_to_stats_out(stats))
                     for weekday, stats in sorted(
                         engagement_by_weekday(posts, insights, timezone=tz).items()
                     )
@@ -343,4 +393,69 @@ def get_analytics_overview() -> AnalyticsOverviewOut:
             top_by_virality=_top_by(posts, insights, virality_index, ANALYTICS_TOP_N),
             top_by_conversation=_top_by(posts, insights, conversation_rate, ANALYTICS_TOP_N),
             timezones=timezones,
+        )
+
+
+ANALYTICS_WINDOW_TOP_N: Final = 5
+
+
+def _load_posts_with_insights_in_range(
+    conn: sqlite3.Connection, start: str, end: str
+) -> tuple[list[ThreadsPost], list[PostInsights]]:
+    """`_load_root_posts_with_insights()` lọc thêm theo [start, end] — dùng
+    `list_root_posts_in_range()` (`src/db/schema.py`) thay vì `list_root_posts()`."""
+    posts: list[ThreadsPost] = []
+    insights: list[PostInsights] = []
+    for row in list_root_posts_in_range(conn, start, end):
+        snapshot = latest_insight_snapshot(conn, row["id"])
+        if snapshot is None:
+            continue
+        posts.append(ThreadsPost.model_validate_json(row["raw_json"]))
+        insights.append(snapshot_row_to_post_insights(snapshot))
+    return posts, insights
+
+
+@app.get("/analytics/daily-views", response_model=DailyViewsSeriesOut)
+def get_analytics_daily_views() -> DailyViewsSeriesOut:
+    """Toàn bộ views theo ngày, account-level, đã ingest qua
+    `src/pipeline/daily_views.py` (nguồn: `threads_insights?metric=views&period=day`,
+    verify live 2026-09-03 — xem `src/api/endpoints.py`). Gọi 1 lần khi trang load
+    để vẽ chart nền + biên rail của Timeline Brush, KHÔNG đổi khi kéo cửa sổ."""
+    with _db() as conn:
+        rows = list_daily_views(conn)
+        points = [DailyViewsPointOut(date=row["date"], views=row["views"]) for row in rows]
+        return DailyViewsSeriesOut(
+            points=points,
+            min_date=points[0].date if points else None,
+            max_date=points[-1].date if points else None,
+        )
+
+
+@app.get("/analytics/window", response_model=WindowAnalyticsOut)
+def get_analytics_window(start: date_cls, end: date_cls) -> WindowAnalyticsOut:
+    """Hero band + KPI strip + top content units cho Timeline Brush (Overview mới)
+    — tính lại từ data thật CHỈ trong [start, end] mỗi khi cửa sổ đổi (KHÔNG slice
+    từ 1 series tĩnh phía client như mockup UI làm). Xem docstring `WindowAnalyticsOut`
+    cho định nghĩa từng field — đặc biệt `views` (account-level) khác
+    `top_content_units[].metrics.popularity_index` (post-level)."""
+    start_s, end_s = start.isoformat(), end.isoformat()
+    with _db() as conn:
+        posts, insights = _load_posts_with_insights_in_range(conn, start_s, end_s)
+        daily_rows = list_daily_views(conn, start_s, end_s)
+
+        interactions = sum(
+            item.likes + item.replies + item.reposts + item.quotes for item in insights
+        )
+        top_content_units = _top_by(posts, insights, popularity_index, ANALYTICS_WINDOW_TOP_N)
+
+        return WindowAnalyticsOut(
+            start=start_s,
+            end=end_s,
+            views=sum(row["views"] for row in daily_rows),
+            content_unit_count=len(posts),
+            interactions=interactions,
+            engagement=_to_stats_out(window_stats(insights, lambda i: i.engagement_rate)),
+            virality=_to_stats_out(window_stats(insights, virality_index)),
+            conversation=_to_stats_out(window_stats(insights, conversation_rate)),
+            top_content_units=top_content_units,
         )
