@@ -103,7 +103,7 @@ threads-ai-content/
 | Package manager | **uv** + `pyproject.toml` (thay pip/requirements.txt) — lockfile `uv.lock`, venv tại `.venv/` |
 | Threads API client | `httpx` (async, dùng với FastAPI) |
 | Validation / models | `pydantic` v2 |
-| AI / LLM | Claude API (`claude-sonnet-4-6`) với prompt caching |
+| AI / LLM | Claude API — `claude-opus-5` cho cluster labeling (`CLUSTER_LABELING_MODEL`, xem quyết định 2026-09-03 bên dưới), prompt caching |
 | Dashboard | **Next.js** + Recharts / shadcn/ui — quyết định final, deploy trên Vercel |
 | Image generation | **Pillow** (Python) — overlay text lên template PNG có sẵn |
 | Font carousel | **Google Sans** (Việt hóa) — đã tải tại `src/carousel/fonts/Google_Sans/` |
@@ -163,8 +163,10 @@ threads-ai-content/
 | Visualization so sánh cluster dùng SVG thuần (3 góc chiếu 2D X-Y/X-Z/Y-Z), KHÔNG dùng Plotly `scatter3d` | `scatter3d` cần WebGL — artifact sandbox (claude.ai) không render được, cho canvas trống hoàn toàn không báo lỗi (2 lần thử fix Plotly thất bại trước khi đổi hướng). SVG là kỹ thuật đã verify hoạt động ổn định trong cùng sandbox (dùng ở trang CV artifact) — quyết định 2026-09-02 |
 | Cron job snapshot 4h (Windows Task Scheduler) dùng launcher `.bat` riêng, KHÔNG inline `cmd.exe /c "..."` qua `-Argument` của `New-ScheduledTaskAction` | Inline argument với quoting lồng nhau gây `STATUS_CONTROL_C_EXIT` (process bị kill ngay khi Task Scheduler tự gọi, dù chạy tay bằng tay thì ổn) — chẩn đoán nhầm là Application Control lúc đầu, thật ra là lỗi parsing argument string. File `.bat` verify chạy ổn định qua chính Task Scheduler (không chỉ chạy tay) — quyết định 2026-09-01 |
 | `.pre-commit-config.yaml` — hook `mypy` sửa `entry` từ `.venv/Scripts/python.exe -m mypy` thành `./.venv/Scripts/python.exe -m mypy` (thêm tiền tố `./`) | Lỗi thật lộ ra ở lần `git commit` đầu tiên kể từ khi config này được viết (2026-08-31) — trước đó mọi lần verify mypy trong phiên đều gọi trực tiếp qua Bash (`./.venv/Scripts/python.exe -m mypy`, luôn có `./`), chưa từng thật sự đi qua pre-commit hook. Chẩn đoán chính xác bằng cách tái hiện lỗi trực tiếp qua `subprocess.run([...])` trong Python: `.venv/Scripts/python.exe` (không tiền tố) gây `WinError 2` dù file tồn tại đúng chỗ, `cwd` đúng — hành vi thật của Windows `CreateProcess` (khác `exec` trên POSIX): không tự resolve path tương đối thiếu `./`/`.\` dù dùng đúng `cwd`, kể cả khi gõ trực tiếp trong Bash/cmd thì shell tự thêm bước resolve đó nên không thấy lỗi. Không liên quan Application Control Policy — quyết định 2026-09-02 |
+| Chốt `CLUSTER_LABELING_MODEL = "claude-opus-5"` (khác `claude-sonnet-4-6` từng pin ở bảng Tech Stack) | `topics.py` đã tự chọn `claude-opus-5` khi viết (chất lượng label tốt hơn cho câu hỏi hiểu ngữ cảnh Việt/Pháp pha trộn, chi phí task labeling nhỏ nên không đáng kể) nhưng chưa đối chiếu lại — tác giả xác nhận giữ `claude-opus-5`, cập nhật bảng Tech Stack cho khớp thay vì sửa code — quyết định 2026-09-03 |
 
 ---
+| Repo hiện tại là **repo làm việc private**; khi công khai sẽ **tạo repo khác**, chỉ đưa nội dung công khai (code, README mô tả methodology bản cuối) và **loại bỏ file private** (`docs/research/`, `docs/take note.docx`, ghi chú quá trình) | Quá trình hình thành methodology (market scan, phản biện, đề xuất chưa duyệt) phải riêng tư; README public chỉ nói methodology final. Lưu ý: commit `8af3f30` đã đưa `docs/research/*.html` vào git history của repo này → **không squash/push history repo này sang repo public**, mà copy nội dung sang repo mới với lịch sử sạch — quyết định 2026-09-03 |
 
 ## Roadmap tính năng theo module
 

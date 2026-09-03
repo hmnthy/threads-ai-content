@@ -6,6 +6,17 @@ unit (kể cả noise, để vẫn plot được), rồi dùng `label_cluster_wi
 đặt tên tiếng Anh cho từng cluster thật (bỏ qua noise = -1, không tạo topic giả).
 
 Chạy tay: `.venv/Scripts/python.exe -m src.pipeline.clustering_import`
+
+**Layer 10 (2026-09-03) — full-recompute, không phải incremental update**: mỗi
+lần chạy XOÁ SẠCH toàn bộ `topics`/`post_topic_labels` có `method='cluster'`
+(`delete_cluster_topics()`) TRƯỚC khi ghi kết quả mới. Lý do: `topic_id =
+f"cluster_{n}"` lấy theo vị trí nhãn HDBSCAN trả về — thứ tự này không ổn định
+giữa các lần chạy (không có cách nào map "cluster 0 lần trước" == "cluster 0 lần
+này" mà không có centroid matching, chưa làm ở đợt này). Dùng `upsert` (như bản
+cũ) sẽ để lại rác: cluster biến mất ở lần chạy sau vẫn tồn tại vĩnh viễn, và bài
+chuyển từ có-cluster sang noise không được dọn nhãn cũ. Vì hàm này vốn đã là
+full-recompute (không có logic incremental nào khác trong pipeline), xoá-rồi-ghi
+là an toàn tuyệt đối, không mất dữ liệu gì đáng giữ.
 """
 
 from __future__ import annotations
@@ -17,6 +28,7 @@ from pathlib import Path
 from src.db.schema import (
     DEFAULT_DB_PATH,
     connect,
+    delete_cluster_topics,
     get_content_unit,
     update_content_unit_embedding_coords,
     upsert_post_topic_label,
@@ -47,6 +59,12 @@ def run_import(db_path: Path = DEFAULT_DB_PATH) -> dict[str, int]:
     for unit_id, label in zip(ids, cluster_labels, strict=True):
         if label != -1:
             clusters[label].append(unit_id)
+
+    # Full-recompute: xoá sạch kết quả cluster CŨ trước khi ghi kết quả MỚI (xem
+    # docstring module — topic_id không ổn định giữa các lần chạy, upsert-theo-vị-trí
+    # để lại rác nếu không xoá trước).
+    delete_cluster_topics(conn)
+    conn.commit()
 
     for cluster_label, unit_ids in clusters.items():
         topic_id = f"cluster_{cluster_label}"
