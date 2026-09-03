@@ -112,6 +112,62 @@ def conversation_rate(insights: PostInsights) -> float:
     """replies / views * 100. V2: nâng cấp bằng unique repliers/reply depth qua ContentUnit."""
 ```
 
+### Central tendency: median cạnh mean (`src/analysis/engagement.py`, Layer 2, 2026-09-03)
+
+```python
+def median_engagement_rate(insights: list[PostInsights]) -> float:
+    """Median of engagement_rate — dùng song song average_engagement_rate() (mean).
+    Mean bị 1 bài viral kéo lệch; median phản ánh 'trải nghiệm điển hình' bền hơn."""
+
+@dataclass(frozen=True)
+class EngagementBucketStats:
+    median: float
+    mean: float
+    n: int
+    iqr_low: float   # Q1, statistics.quantiles(..., method="inclusive")
+    iqr_high: float  # Q3
+    insufficient_data: bool  # True nếu n < MIN_N_PER_BUCKET
+
+def engagement_by_hour(posts, insights, *, timezone=None) -> dict[int, EngagementBucketStats]: ...
+def engagement_by_weekday(posts, insights, *, timezone=None) -> dict[int, EngagementBucketStats]: ...
+```
+
+**Breaking change (2026-09-03)**: `engagement_by_hour`/`engagement_by_weekday` trước đây trả `dict[int, float]` (mean thô) — nay trả `dict[int, EngagementBucketStats]`. Lý do: case thực nghiệm median 412 vs mean 2.254 (gấp 5.5 lần, nguồn `Hwemo-Chung/threads-analytics`) cho thấy "giờ tốt nhất" theo mean có thể là "giờ tệ nhất" theo median — 1 con số mean đơn lẻ không đủ để kết luận, cần median (bền với outlier) + n + spread đi kèm để biết có đủ căn cứ diễn giải không. `MIN_N_PER_BUCKET = 5` (mượn `vunderkind/threads-analytics`) — bucket dưới ngưỡng này vẫn trả về số liệu thô (không loại bỏ) nhưng đánh dấu `insufficient_data=True`, tầng trình bày phải tôn trọng cờ này (không tuyên bố "giờ này tốt nhất" từ 1-2 bài). Đây là ứng dụng trực tiếp tầng 3 "Narrative Layering Principle" ở trên. Xem "Narrative Layering Principle" cho thứ tự trình bày đầy đủ.
+
+### Suy diễn thống kê: `compare_groups()` (`src/analysis/significance.py`, Layer 4, 2026-09-03)
+
+```python
+@dataclass(frozen=True)
+class ComparisonResult:
+    median_a: float
+    median_b: float
+    n_a: int
+    n_b: int
+    p_value: float | None          # Mann-Whitney U, two-sided; None nếu 1 nhóm rỗng
+    effect_size: float | None      # Cliff's delta [-1, 1]; None nếu 1 nhóm rỗng
+    median_diff_ci_low: float | None   # bootstrap CI 95%, median(b) - median(a)
+    median_diff_ci_high: float | None
+    insufficient_data: bool        # True nếu min(n_a, n_b) < MIN_N_PER_BUCKET
+
+def compare_groups(group_a: list[float], group_b: list[float], *, n_resamples: int = 1000, random_seed: int | None = None) -> ComparisonResult: ...
+```
+
+**Engine dùng chung** cho mọi so sánh 2 nhóm: viral vs non-viral (`is_viral`, Layer 3), có/không author reply event (`topic_affinity.py`, Layer 7), topic vs topic. Mann-Whitney U (không giả định phân phối chuẩn — đúng lý do median thắng mean ở Layer 2, engagement rate lệch phải mạnh) + Cliff's delta (effect size non-parametric tương ứng, dương = `group_a` xu hướng lớn hơn `group_b`) + bootstrap CI 95% (1000 resample, percentile method) trên `median(group_b) - median(group_a)`. Bộ 3 kiểm định port từ `vunderkind/threads-analytics`. `insufficient_data` dùng LẠI `MIN_N_PER_BUCKET` của `engagement.py` (1 nguồn sự thật "mẫu quá nhỏ để diễn giải" xuyên suốt dự án) — khác với 2 nhóm rỗng (không thể tính Mann-Whitney, trả `None` thay vì chỉ đánh cờ). Đây là tầng 5 "Narrative Layering Principle".
+
+### Định nghĩa viral: `is_viral()` (`src/analysis/virality.py`, Layer 3, 2026-09-03)
+
+```python
+def channel_virality_p90(insights: list[PostInsights]) -> float:
+    """P90 của virality_index trên toàn kênh (hoặc 1 cửa sổ do người gọi tự lọc
+    trước — hàm không tự áp cửa sổ thời gian)."""
+
+def is_viral(virality_index_value: float, channel_p90: float, views: int, floor: int) -> bool:
+    """virality_index_value > channel_p90 AND views >= floor.
+    `floor` KHÔNG hardcode — người gọi tự tính từ phân phối views thật (VD P25/median)."""
+```
+
+Nhãn phái sinh THÊM, không thay `virality_index` (công thức intrinsic không đổi). Tiền lệ học thuật: Elmas 2023 (arXiv 2303.06120) + VIRALITYNET (arXiv 2605.02358) — kết hợp percentile-trong-kênh (tầng 4 "Narrative Layering Principle") VÀ floor tuyệt đối trên views (loại post "ăn may" vì mẫu bé — 1 view + 1 repost cũng đạt percentile cao nhưng vô nghĩa). `channel_p90` phải tính trên CÙNG cửa sổ thời gian với `views` đang xét — hàm không tự kiểm tra tính nhất quán này.
+
 ### Velocity & Momentum (cần `insights_snapshots`, KHÔNG dùng lifetime metric đơn lẻ)
 
 ```python
@@ -121,6 +177,15 @@ def view_velocity(t1: InsightSnapshot, t2: InsightSnapshot) -> float:
 def amplification_velocity(t1: InsightSnapshot, t2: InsightSnapshot) -> float:
     """Δ(reposts + quotes) / Δt."""
 ```
+
+```python
+def window_velocity(snapshots: list[InsightSnapshot]) -> float:
+    """Hệ số góc hồi quy tuyến tính views~time (numpy.polyfit bậc 1) trên TOÀN BỘ
+    chuỗi snapshot trong 1 window — yêu cầu >=3 điểm, raise ValueError nếu <3
+    (2 điểm dùng view_velocity)."""
+```
+
+**"Window velocity" (Layer 5, 2026-09-03)** — bổ sung `view_velocity`/`amplification_velocity` (2 điểm, "velocity hiện tại"), KHÔNG thay thế: với 1 post có ≥3 snapshot trong 1 window xác định (VD 24h — cron 4h → ~6 điểm), hồi quy trên TOÀN BỘ chuỗi ổn định hơn trước nhiễu do lịch cron không hoàn hảo, thay vì chỉ lấy 2 điểm đầu-cuối (nhạy với 1 điểm lỗi/trễ). Ở tầng trình bày, LUÔN hiện chuỗi snapshot thô (timestamp, views — tầng 1 "Narrative Layering Principle") TRƯỚC khi hiện slope tính ra (tầng 2/3).
 
 `MomentumIndex = CurrentVelocity / HistoricalMedianVelocity(age, publish_slot)` — **V2, không phải V1**: cần đủ nhiều post × nhiều snapshot tích luỹ hàng tháng mới có "historical median" ý nghĩa. Chỉ hook sẵn interface, chưa implement.
 
@@ -155,6 +220,22 @@ def freshness_weight(
 
 **Confounding factor cần nhớ**: low engagement 6h đầu có thể do audience VN đang ngủ (giờ Pháp buổi tối), KHÔNG đồng nghĩa content dở — đây là lý do velocity/momentum quan trọng hơn recency đơn thuần (2 post cùng age=12h có thể 1 bài đang tăng tốc, 1 bài đang giảm tốc — recency không phân biệt được, velocity thì có).
 
+### Reply-level analysis (`src/analysis/reply_thread.py`, Layer 6, 2026-09-03)
+
+```python
+def unique_repliers(root_post_id: str, conn: sqlite3.Connection) -> int:
+    """Số người reply RIÊNG BIỆT (loại is_reply_owned_by_me=True). Dùng username
+    khi có, fallback post.id khi thiếu (over-count có chủ đích, ghi rõ hạn chế)."""
+
+def reply_depth(root_post_id: str, conn: sqlite3.Connection) -> int:
+    """Độ sâu tối đa chuỗi replied_to_id tính từ root — 0/1/2+."""
+
+def early_reply_velocity(root_post_id: str, conn: sqlite3.Connection, window_hours: float = 24.0) -> float:
+    """Số reply audience / giờ trong window_hours đầu kể từ lúc root đăng."""
+```
+
+Tính trực tiếp trên graph đã có sẵn trong `posts` (`is_reply`/`replied_to_id`/`root_post_id`/`is_reply_owned_by_me`) — trước giờ 1.285 replies chỉ đóng góp vào `conversation_rate` (đếm gộp). Căn cứ chính thức: Meta Transparency Center liệt kê "engagement của descendant ở level 2 trong 1h/6h" là 1 prediction feature THẬT trong ranking — cho phép trích dẫn khi trình bày hạng mục này. `unique_repliers`/`early_reply_velocity` chỉ tính audience (loại self-continuation của tác giả); `reply_depth` tính trên toàn graph (audience có thể reply vào self-continuation, vẫn là 1 phần cấu trúc thread thật). So sánh nhóm dùng `compare_groups()` ở tầng gọi, không lặp logic thống kê trong module này.
+
 ### Topic Affinity (đổi tên từ `topic_trend_score` — không đo được "đang trend trên Threads" với Standard Access + ~2 post/ngày)
 
 ```python
@@ -164,6 +245,22 @@ def topic_affinity_score(topic_id: str, window_days: int) -> float:
 ```
 
 **2 khái niệm thời gian tách biệt, không trộn**: `post_maturity_window` = 0-72h (lifecycle 1 post) vs `report_window` = 7d/14d/30d/90d (khung phân tích kênh — ưu tiên 30d/90d vì ~2 post/ngày, 7d chỉ ~14 post quá thưa để có ý nghĩa thống kê, giữ lại cho operational monitoring).
+
+### Reply-strategy evidence (`src/analysis/topic_affinity.py`, Layer 7, 2026-09-03)
+
+```python
+def is_author_reply_event(post: ThreadsPost, root_content_unit: ContentUnit) -> bool:
+    """True nếu post.is_reply_owned_by_me=True VÀ post KHÔNG thuộc
+    root_content_unit.continuations — tác giả trả lời vào cuộc trò chuyện
+    audience, không phải tự nối tiếp nội dung mình."""
+
+def compare_virality_with_without_author_reply(
+    posts_with_reply: list[float], posts_without_reply: list[float]
+) -> ComparisonResult:
+    """Tái sử dụng compare_groups() (Layer 4) — KHÔNG viết lại logic thống kê."""
+```
+
+**Correlation, not causation — PHẢI đọc trước khi diễn giải**: dù kết quả có ý nghĩa thống kê, KHÔNG kết luận "tác giả reply nhiều hơn LÀM cho post viral hơn". Confound đã biết: chiều nhân quả nhiều khả năng ngược lại — bài đang lên top khiến tác giả chủ động reply nhiều hơn để tận dụng đà, không phải reply là nguyên nhân. Kết quả chỉ có giá trị mô tả tương quan quan sát được, dùng để hình thành giả thuyết, không dùng để khẳng định 1 chiến lược content.
 
 ### Timing Fit
 
@@ -244,7 +341,7 @@ Raw post (root + continuations, giữ NGUYÊN — không strip emoji/hashtag)
 ### 3 nguyên tắc từ paper "Challenges of Computational Processing of Code-Switching" (áp dụng 2026-08-30)
 
 1. **Code-switching là metadata, không phải routing constraint** — không có bước "language detection → chọn model xử lý riêng cho ngôn ngữ đó" (error propagation: nếu LID sai, mọi bước sau sai theo). 2 nhánh `language.py`/`embed()` chạy song song, độc lập.
-2. **Giữ nguyên ngữ liệu, không "clean" quá tay** — bỏ hẳn kế hoạch strip emoji/hashtag/"từ nước ngoài" trước embedding. Social media text: 1 token có thể emoji mang tín hiệu sentiment/virality thật (`"OpenAI cooked 😭🔥 #GPT6"` → xoá emoji/hashtag là mất signal). Giữ song song `raw_text` (bất biến, để rerun pipeline khi model tốt hơn — lưu tại `data/raw/`, KHÁC `data/cache/` hiện có vì cache TTL 6h còn raw archive không hết hạn) + `normalized_text` (nhẹ).
+2. **Giữ nguyên ngữ liệu, không "clean" quá tay** — bỏ hẳn kế hoạch strip emoji/hashtag/"từ nước ngoài" trước embedding. Social media text: 1 token có thể emoji mang tín hiệu sentiment/virality thật (`"OpenAI cooked 😭🔥 #GPT6"` → xoá emoji/hashtag là mất signal). Giữ song song `raw_text` (bất biến, để rerun pipeline khi model tốt hơn — lưu tại `data/raw/`, KHÁC `data/cache/` hiện có vì cache TTL 6h còn raw archive không hết hạn) + `normalized_text` (nhẹ — chỉ whitespace/URL + Unicode NFC + gộp dấu thanh cũ/mới "oa"/"uy", thêm Layer 9 2026-09-03, xem `src/processing/text.py`; KHÔNG động vào emoji/hashtag/từ mượn — vẫn đúng tinh thần "không clean quá tay", chỉ chuẩn hoá CHÍNH TẢ tương đương, không đổi nghĩa/xoá tín hiệu).
 3. **Ưu tiên "không chắc" hơn "chắc sai"** — `primary_language` cho phép `None`/unknown khi confidence thấp, không ép argmax. Ranh giới code-switching vs borrowing (từ mượn đã thành vocabulary, VD "deploy"/"model"/"production" trong cộng đồng tech Việt) không rõ ràng — kể cả human annotator cũng không thống nhất — nên dùng **continuous score**, không dùng boolean.
 
 ```python
@@ -253,10 +350,23 @@ class LanguageInfo:
     primary_language: str | None   # None nếu confidence thấp — không ép argmax
     detected_languages: list[str]
     confidence: float
-    language_mix_score: float      # continuous — KHÔNG phải bool, tránh false positive với từ mượn
+    language_mix_score: float      # Code-Mixing Index, thang 0-100 (Layer 9, xem dưới)
 ```
 
-Dùng `lingua-py` (không phải `langdetect`) — hỗ trợ confidence score native, robust hơn trên short text (gap `langdetect` gặp theo paper), có `detect_multiple_languages_of()` để tính `language_mix_score = 1 - (độ dài span ngôn ngữ ưu thế / tổng độ dài)`.
+Dùng `lingua-py` (không phải `langdetect`) — hỗ trợ confidence score native, robust hơn trên short text (gap `langdetect` gặp theo paper).
+
+**Layer 9 (2026-09-03) — Code-Mixing Index (CMI) thay công thức span-based cũ**: `language_mix_score` trước đây tính bằng `detect_multiple_languages_of()` (`1 - độ dài span ngôn ngữ ưu thế / tổng độ dài`) — hàm này CHÍNH lingua-py gắn nhãn "experimental", kém tin cậy trên đoạn ngắn (social media post điển hình). Thay bằng **Code-Mixing Index**, định nghĩa học thuật gốc (Gambäck & Das, "On Measuring the Complexity of Code-Mixing", 2014):
+
+```
+CMI = 100 * (1 - max(w_i) / (n - u))   nếu n > u
+CMI = 0                                 nếu n = u
+```
+
+`n` = tổng số token, `u` = số token "language-independent" (LID không gán được ngôn ngữ — "unknown"), `w_i` = số token ngôn ngữ i, `max(w_i)` = số token ngôn ngữ chiếm ưu thế trong phần còn lại. **Thang 0-100** (KHÁC thang 0.0-1.0 của công thức cũ) — cố tình giữ đúng thang chuẩn để so sánh trực tiếp với benchmark VietMix (CMI≈21.7 trên data Threads VI-EN thật, xem `docs/research/vietnamese-nlp-foundations-2026-09.html`) — "kênh này CMI=X so với 21.7 của VietMix" là 1 con số citable thật cho report.
+
+**LID cấp từ — hybrid** (`src/nlp/language.py` `_token_language()`): (1) dict tra cứu trực tiếp cho từ mượn chuyên ngành đã biết trước (`_BORROWED_TERMS` — "alternance", "CDI", "CV", "entretien", "stage", "titre de séjour"...) — đáng tin hơn LID thống kê trên 1 từ đơn lẻ rất ngắn; (2) `lingua-py.detect_language_of()` chạy PER-TOKEN làm fallback (API ổn định, KHÁC `detect_multiple_languages_of` đã bỏ); (3) fallback cuối `"unknown"` — nguyên tắc 3 ở trên áp dụng luôn ở cấp từ, không chỉ cấp câu.
+
+**Lưu ý chưa hoàn thành**: `MIN_CONFIDENCE_FOR_PRIMARY = 0.5` VẪN LÀ hypothesis chưa calibrate bằng data thật — Layer 9 chỉ rà soát lại giá trị này, chưa có bước calibrate thực nghiệm (cần review tay 1 mẫu post thật + nhãn confidence kỳ vọng, chưa làm trong đợt sửa này).
 
 **Vì sao bỏ `underthesea`**: content trộn VI/FR/EN tự nhiên — tokenizer riêng tiếng Việt sẽ segment sai phần tiếng Pháp/Anh. sentence-transformers multilingual tự xử lý đa ngôn ngữ ở tầng embedding.
 
@@ -265,6 +375,8 @@ Dùng `lingua-py` (không phải `langdetect`) — hỗ trợ confidence score n
 **Vì sao SVM-RBF làm model chính, LogisticRegression chỉ là baseline**: LogReg là mô hình tuyến tính, chỉ nên đóng vai trò benchmark để biết SVM-RBF (bắt được ranh giới phi tuyến trên embedding) có thực sự tốt hơn không — không phải chọn 1 trong 2 rồi bỏ, mà giữ cả 2 trong bảng kết quả để so sánh minh bạch.
 
 **Vì sao LLM chỉ dùng ở bước labeling cluster, không dùng để classify trực tiếp**: dùng LLM đúng việc nó giỏi nhất — tóm tắt ngôn ngữ tự nhiên sau khi đã có cấu trúc thật từ NLP pipeline (HDBSCAN), không thay thế phần NLP core bằng 1 API call.
+
+**Ranh giới Claude LLM trong pipeline (chốt tường minh 2026-09-03)** — research thị trường (`docs/research/market-scan-2026-09.html`) xác nhận kiến trúc hiện tại ĐÚNG hướng, không cần sửa code, chỉ cần công bố rõ: Claude **CHỈ** dùng ở duy nhất 1 điểm — `label_cluster_with_claude()` (`src/nlp/topics.py`), tóm tắt 1 cluster đã tồn tại (do HDBSCAN tìm ra) thành tên + mô tả tiếng Anh. Claude **KHÔNG BAO GIỜ**: (a) classify/gán nhãn topic trực tiếp cho 1 post (việc đó là HDBSCAN + SVM-RBF/LogReg), (b) tạo embedding (việc đó là `sentence-transformers`), (c) tham gia bất kỳ bước NLP core nào khác (LID, clustering, tokenization). Ranh giới này khớp nguyên tắc chung của dự án: dùng LLM đúng việc "tóm tắt ngôn ngữ tự nhiên", không dùng LLM như black-box thay thế phương pháp luận NLP có cấu trúc — giữ tính reproducible/explainable của pipeline (HDBSCAN/SVM cho kết quả xác định lại được từ embedding, LLM không).
 
 > Velocity/Momentum/Longevity/Freshness/Topic Affinity — xem "Metric Architecture" phía trên, không lặp lại ở đây.
 
@@ -292,9 +404,48 @@ Verify thêm cho thấy hành vi này **flaky theo thời gian**, không phải 
 | Số cluster | 2 (40/15) | 2 (50/81) |
 | Noise | 80/135 (**59%**) | 4/135 (**3%**) |
 
-Raw-embedding-space **kém ổn định hẳn** khi bỏ 6 điểm neo (noise tăng từ 13%→59%) — chứng tỏ kết quả trước đó "có vẻ ổn" phần lớn dựa vào 1 nhóm điểm suy biến, không phải cấu trúc chủ đề thật. UMAP-space **ổn định và sạch hơn** khi bỏ nhiễu (9%→3%). Kết luận methodology: **cluster trên toạ độ UMAP đã giảm chiều, không phải embedding gốc** — đảo ngược quyết định thiết kế ban đầu, dựa trên bằng chứng thực nghiệm chứ không phải lý thuyết suông. *(Trạng thái tới lúc ghi report này: đã có đủ bằng chứng, đang chờ xác nhận cuối trước khi sửa `cluster_embeddings()` — xem `docs/next-steps.md`.)*
+Raw-embedding-space **kém ổn định hẳn** khi bỏ 6 điểm neo (noise tăng từ 13%→59%) — chứng tỏ kết quả trước đó "có vẻ ổn" phần lớn dựa vào 1 nhóm điểm suy biến, không phải cấu trúc chủ đề thật. UMAP-space **ổn định và sạch hơn** khi bỏ nhiễu (9%→3%). Kết luận methodology: **cluster trên toạ độ UMAP đã giảm chiều, không phải embedding gốc** — đảo ngược quyết định thiết kế ban đầu, dựa trên bằng chứng thực nghiệm chứ không phải lý thuyết suông. Đã xác nhận và triển khai vào `cluster_embeddings()` (2026-09-02) — không còn là DRAFT.
 
 **Công cụ**: mọi biểu đồ so sánh dùng SVG thuần (không dùng Plotly `scatter3d`/WebGL — artifact sandbox không render WebGL, `scatter3d` cho canvas trống không báo lỗi rõ ràng; small-multiples 2D (X-Y/X-Z/Y-Z) từ cùng toạ độ 3D cho khả năng đánh giá tương đương mà không cần rotate).
+
+### Narrative Layering Principle
+
+> Thêm 2026-09-03 — quy tắc **trình bày**, áp dụng cho MỌI output phân tích hướng ra ngoài (dashboard, report, README) — không phải logic code, nhưng mọi hàm mới trong `src/analysis/` (Layer 2-9) được thiết kế để cắm vừa đúng 6 tầng này, không tầng nào được nhảy cóc lên trước tầng thấp hơn nó phụ thuộc.
+
+Một câu chuyện thống kê tử tế không nhảy thẳng từ số thô sang kết luận — nó đi qua từng tầng, mỗi tầng trả lời 1 câu hỏi cụ thể hơn tầng trước:
+
+1. **Số thô** (`views`/`likes`/`replies`/`reposts`/`quotes`) — "chuyện gì đã xảy ra".
+2. **Rate đơn giản** (`engagement_rate`/`virality_index`/`conversation_rate`) — chuẩn hoá số thô theo `views` để so sánh được giữa các post khác quy mô.
+3. **Central tendency + spread** (median, IQR — xem `engagement_by_hour`/`engagement_by_weekday` Layer 2) — 1 con số đại diện cho CẢ NHÓM, kèm độ phân tán, không phải 1 con số đơn lẻ đánh lừa (VD mean bị kéo lệch bởi 1 outlier viral).
+4. **Vị trí trong phân phối kênh** (percentile — VD `channel_virality_p90` Layer 3) — post/giờ/nhóm này đứng đâu so với lịch sử CHÍNH kênh đó, không so với benchmark ngoài không liên quan.
+5. **Suy diễn thống kê** (kiểm định + effect size + CI — `compare_groups()` Layer 4) — khác biệt quan sát được có đáng tin không, hay chỉ là nhiễu do mẫu nhỏ; effect size trả lời "khác biệt lớn tới đâu", CI trả lời "khoảng tin cậy tới đâu".
+6. **Diễn giải bằng lời** — câu kết luận cuối cùng, PHẢI trích dẫn ngược lại số liệu ở tầng 1-5 (không được nói suông "giờ này tốt hơn" mà không kèm median/n/p-value đứng sau nó).
+
+**Vì sao thứ tự này bắt buộc, không được đảo**: nhảy thẳng từ tầng 1/2 lên tầng 6 (VD "8h tối là giờ đăng tốt nhất" chỉ dựa trên mean của 2 bài) là đúng lỗi phương pháp luận đã sửa ở Layer 2 — case thực nghiệm median 412 vs mean 2.254 (gấp 5.5 lần, "best hour theo mean lại là worst theo median", nguồn `Hwemo-Chung/threads-analytics`, trích trong `docs/research/`) chứng minh tầng 3 (central tendency đúng loại) có thể đảo ngược hoàn toàn kết luận nếu bỏ qua. Tương tự, tầng 5 (suy diễn thống kê) là điều kiện để tầng 6 được phép dùng ngôn ngữ khẳng định ("A cao hơn B có ý nghĩa thống kê") thay vì chỉ mô tả ("A quan sát được cao hơn B") — thiếu tầng 5, tầng 6 chỉ được phép mô tả, không được phép khẳng định nhân quả/ý nghĩa thống kê.
+
+**Áp dụng cụ thể cho từng layer bên dưới**: Layer 2 (median/IQR = tầng 3), Layer 3 `is_viral`/`channel_virality_p90` (tầng 4), Layer 4 `compare_groups()` (tầng 5, engine dùng chung cho mọi so sánh nhóm ở Layer 3/6/7), Layer 5 velocity (luôn hiện chuỗi snapshot thô — tầng 1 — trước khi hiện slope tính ra — tầng 2/3), Layer 6/7 reply analysis (tầng 1-2 thô, dùng `compare_groups()` khi cần tầng 5).
+
+### Methodology log: hiệu chỉnh tham số HDBSCAN cho số lượng topic (thực nghiệm 2026-09-03)
+
+> Viết ở dạng report — cùng mục đích với report methodology phía trên (nguồn cho trang "Methodology" công khai sau này). Ghi lại đầy đủ 3 cấu hình đã thử, số liệu, và lý do chọn cấu hình cuối — không chỉ công bố kết quả cuối cùng.
+
+**Bối cảnh**: cấu hình mặc định ban đầu (`HDBSCAN_MIN_CLUSTER_SIZE=5`, `cluster_selection_method` mặc định `'eom'`, `UMAP_N_NEIGHBORS=15`, xem thực nghiệm phía trên) chỉ tách được **2 cluster** trên 135 content unit sạch — dù đã đổi không gian clustering (raw embedding → UMAP). Tác giả (chính người viết 141 bài, domain expert thật của kênh) đánh giá 2 là quá thô, ước tính kênh có khoảng **6-8 chủ đề chính, tối đa 12 nếu chia nhỏ**. Chẩn đoán: `eom` (Excess of Mass, mặc định `hdbscan`) thiên về gộp thành ít cluster lớn hơn `leaf`; `UMAP_N_NEIGHBORS=15` khá cao so với n=135, thiên về giữ cấu trúc toàn cục/thô thay vì cục bộ.
+
+**Phương pháp**: sweep có hệ thống trên lưới `cluster_selection_method ∈ {eom, leaf}` × `min_cluster_size ∈ {3,4,5}` × `UMAP_N_NEIGHBORS ∈ {5,8,10,15}` (24 tổ hợp), chạy trong WSL2 (script tạm `src/pipeline/cluster_sweep.py`, xoá sau khi chốt). Với mỗi tổ hợp: số cluster, % noise, và **DBCV** (`hdbscan.relative_validity_` — density-based cluster validation, không cần nhãn ground-truth, đo mức chênh lệch mật độ trong-cluster vs ngoài-cluster). Kết quả `eom` xác nhận lại đúng như cấu hình mặc định: **luôn hội tụ về 2-3 cluster** ở mọi `min_cluster_size`/`n_neighbors`, DBCV cao (0.26–0.75) nhưng số cluster không đổi — xác nhận `eom` không phải tham số cần chỉnh, mà `cluster_selection_method` mới là đòn bẩy chính. Toàn bộ ứng viên khả thi (≥6 cluster) đều nằm ở `leaf`.
+
+**3 ứng viên gần nhất với kỳ vọng domain, review trực tiếp nội dung từng cluster** (không chỉ nhìn số, in mẫu bài thật từng cluster — script tạm `src/pipeline/cluster_preview.py`, xoá sau khi chốt):
+
+| Ứng viên | `n_neighbors` | `min_cluster_size` | Số cluster | Noise | DBCV |
+|---|---|---|---|---|---|
+| A | 10 | 5 | 7 | 33/135 (24.4%) | 0.089 |
+| B | 10 | 4 | 8 | 46/135 (34.1%) | **0.205** |
+| C | 15 | 3 | 12 | 47/135 (34.8%) | 0.083 |
+
+- **A (7 cluster)**: đời sống/văn hoá Pháp-Việt chung, vui chơi cuối tuần, du học, review đồ ăn, đi chợ/giá cả, career/finance, alternance. Mạch lạc, ít noise nhất, nhưng gộp "học/lỗi tiếng Pháp" chung vào cluster đời sống chung — thiếu 1 chủ đề tác giả cho là tách biệt.
+- **B (8 cluster)**: giống A nhưng tách thêm cluster "học/lỗi tiếng Pháp + văn hoá công sở Pháp" (rõ nét, khác hẳn cluster du học) và cluster "thuê nhà + đời sống thường ngày" (hơi lẫn 2 ý phụ, nhưng vẫn đọc được chủ đề chính). DBCV cao nhất trong cả 3 ứng viên — không chỉ nhiều cluster hơn A, mà mật độ trong-cluster/ngoài-cluster tách bạch rõ hơn cả.
+- **C (12 cluster)**: tách quá tay — cluster "review đồ ăn" (A/B gộp 1) vỡ thành 3 mảnh chồng chéo (matcha/cà phê, so sánh Pháp-Việt, sản phẩm mỹ phẩm/retail), có 2 cluster chỉ n=3 (housing riêng, tư vấn du học riêng) — sát ngưỡng `min_cluster_size`, khó phân biệt với noise thật. DBCV **thấp nhất trong 3 ứng viên** (0.083, thấp hơn cả A) dù nhiều cluster nhất — bằng chứng định lượng cho thấy các cluster thêm vào không có mật độ/ranh giới rõ, nhiều khả năng là mảnh vỡ của cluster lớn hơn bị ép tách bởi `min_cluster_size` quá nhỏ so với n=135, không phải chủ đề thật riêng biệt.
+
+**Kết luận methodology**: **B** là lựa chọn cân bằng nhất theo cả 2 tiêu chí — định lượng (DBCV cao nhất, tốt hơn cả A) và định tính (nội dung từng cluster đọc mạch lạc, khớp với 8 chủ đề tác giả tự ước tính là "6-8 chủ đề chính"). C tuy đúng số lượng tối đa tác giả kỳ vọng (12) nhưng bằng chứng (DBCV thấp nhất + nội dung cluster chồng chéo/vỡ vụn) cho thấy đây là over-fitting tham số trên tập dữ liệu nhỏ (n=135), không phải cấu trúc chủ đề thật — minh hoạ đúng nguyên tắc "domain expectation là giả thuyết cần đối chiếu bằng chứng, không phải câu trả lời đúng sẵn". **Chốt**: `HDBSCAN_MIN_CLUSTER_SIZE=4`, `cluster_selection_method="leaf"`, `UMAP_N_NEIGHBORS=10`.
 
 ### Storage
 

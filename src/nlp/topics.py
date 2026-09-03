@@ -12,9 +12,13 @@ trên Windows — verify thật trong WSL2 Ubuntu (`~/threads-clustering-env`) t
 công, không bị chặn (Linux không nằm trong phạm vi Smart App Control). Gọi hàm
 này từ `src/pipeline/cluster_wsl.py`, chạy bằng Python trong WSL, KHÔNG chạy
 trên `.venv` Windows. `label_cluster_with_claude()` (chỉ cần `anthropic`, không
-đụng scipy) vẫn chạy trên Windows bình thường. Tham số `HDBSCAN_MIN_CLUSTER_SIZE`
-vẫn là hypothesis ban đầu, CHƯA calibrate — chỉ mới chốt KHÔNG GIAN clustering
-(UMAP vs embedding gốc), chưa chốt giá trị tham số.
+đụng scipy) vẫn chạy trên Windows bình thường.
+
+Tham số HDBSCAN/UMAP đã calibrate bằng sweep 24 tổ hợp + review nội dung thật
+từng cluster (2026-09-03) — xem docs/claude/data-model.md "Methodology log:
+hiệu chỉnh tham số HDBSCAN cho số lượng topic" cho đầy đủ bằng chứng 3 ứng viên
+đã so sánh (7/8/12 cluster) và lý do chọn 8 cluster (DBCV cao nhất + nội dung
+mạch lạc nhất, không chỉ dựa trên số lượng khớp kỳ vọng domain).
 """
 
 from __future__ import annotations
@@ -28,18 +32,19 @@ from anthropic import Anthropic
 if TYPE_CHECKING:
     import numpy as np
 
-# Hypothesis ban đầu, CHƯA calibrate bằng data thật — 140 content units, ~2 post/ngày
-# nên cluster kỳ vọng nhỏ (5-15 điểm/cluster là hợp lý cho 1 kênh cá nhân, không phải
-# corpus lớn). Cần chủ dự án xác nhận lại sau khi xem kết quả thô.
-HDBSCAN_MIN_CLUSTER_SIZE = 5
+# Đã calibrate bằng sweep 24 tổ hợp + review nội dung thật từng cluster (2026-09-03)
+# — chốt ứng viên "B" (8 cluster, DBCV=0.205 cao nhất trong 3 ứng viên so sánh, nội
+# dung mạch lạc nhất). Chi tiết đầy đủ: docs/claude/data-model.md "Methodology log:
+# hiệu chỉnh tham số HDBSCAN cho số lượng topic".
+HDBSCAN_MIN_CLUSTER_SIZE = 4
 UMAP_N_COMPONENTS = 3
 UMAP_RANDOM_STATE = 42
-UMAP_N_NEIGHBORS = 15  # mặc định umap-learn — chưa tự tune cho 140 điểm (dataset nhỏ)
+UMAP_N_NEIGHBORS = 10
+CLUSTER_SELECTION_METHOD = "leaf"  # 'eom' (mặc định hdbscan) luôn hội tụ về 2-3 cluster
+# lớn trên dataset này — 'leaf' mới cho granularity khớp domain, xem methodology log.
 
-# Quyết định tự chọn (cần xác nhận lại): architecture.md pin "claude-sonnet-4-6"
-# cho toàn dự án, nhưng model đó không còn là default hiện hành. Dùng claude-opus-5
-# ở đây (current recommended default cho task đơn giản/rẻ như labeling 1 cluster) —
-# CHƯA cập nhật architecture.md, cần chủ dự án xác nhận model chuẩn cho toàn dự án.
+# Chốt 2026-09-03 (xem docs/claude/architecture.md decision log): giữ claude-opus-5,
+# cập nhật lại bảng Tech Stack cho khớp thay vì đổi model.
 CLUSTER_LABELING_MODEL = "claude-opus-5"
 
 
@@ -71,7 +76,11 @@ def cluster_embeddings(embeddings: np.ndarray) -> ClusterResult:
     )
     coords = reducer.fit_transform(embeddings)
 
-    clusterer = hdbscan.HDBSCAN(min_cluster_size=HDBSCAN_MIN_CLUSTER_SIZE, metric="euclidean")
+    clusterer = hdbscan.HDBSCAN(
+        min_cluster_size=HDBSCAN_MIN_CLUSTER_SIZE,
+        cluster_selection_method=CLUSTER_SELECTION_METHOD,
+        metric="euclidean",
+    )
     labels = clusterer.fit_predict(coords)
 
     return ClusterResult(labels=labels, umap_coords=coords)

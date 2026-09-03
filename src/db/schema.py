@@ -325,3 +325,22 @@ def get_post_topic_label(
         (post_id, method),
     ).fetchone()
     return row  # type: ignore[no-any-return]
+
+
+def delete_cluster_topics(conn: sqlite3.Connection) -> None:
+    """Xoá sạch mọi `topics`/`post_topic_labels` có `method='cluster'` — dùng
+    TRƯỚC khi `src/pipeline/clustering_import.py` ghi lại kết quả cluster mới.
+
+    Lý do (Layer 10, xem docs/claude/data-model.md): `topic_id = f"cluster_{n}"`
+    lấy theo VỊ TRÍ nhãn HDBSCAN trả về, thứ tự này không ổn định giữa các lần
+    chạy — cùng 1 `topic_id` số có thể đại diện 2 chủ đề khác nhau ở 2 lần chạy.
+    Vì `clustering_import.py` vốn đã là full-recompute mỗi lần (không có logic
+    incremental), xoá-rồi-ghi-lại là đúng và an toàn hơn hẳn upsert-theo-vị-trí:
+    tránh (a) cluster cũ không còn ở lần chạy mới vẫn tồn tại vĩnh viễn (rác),
+    (b) `post_topic_labels` của bài chuyển sang noise không được dọn (trỏ topic
+    cũ sai). Chỉ xoá `method='cluster'` — giữ nguyên `method='fixed'` (hiện chưa
+    có code nào ghi 'fixed', nhưng tách theo method để không đụng nhầm nếu sau
+    này có fixed-category classifier ghi vào cùng 2 bảng này).
+    """
+    conn.execute("DELETE FROM post_topic_labels WHERE method = 'cluster'")
+    conn.execute("DELETE FROM topics WHERE method = 'cluster'")
