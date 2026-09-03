@@ -23,13 +23,27 @@ Engineer. Không phải SaaS, không multi-tenant, và không có tham vọng tr
 
 ## Ảnh chụp màn hình
 
-> 3 ảnh bên dưới đang trỏ tới `docs/screenshots/` nhưng **chưa được commit** — repo này private và
-> cần chụp thật từ phiên `npm run dev` đang chạy trước khi push lần đầu. Xem mục
-> [Chạy thử ở local](#chạy-thử-ở-local).
+Sản phẩm qua 4 bước — từ tuyên ngôn tới tận cluster chủ đề thô khám phá được.
 
-| Landing / story page | Overview — Timeline Brush | Analytics — phân tích theo múi giờ |
-|---|---|---|
-| ![Landing page](docs/screenshots/landing.png) | ![Overview dashboard](docs/screenshots/overview.png) | ![Analytics tab](docs/screenshots/analytics.png) |
+<p align="center">
+  <img src="docs/screenshots/landing.png" alt="Landing page: hero, problem, solution, tech stack" width="820"><br>
+  <sub><b>1. Landing</b> — tuyên ngôn, vấn đề, và giải pháp 3 tầng (statistics → NLP → generative AI/RAG), cùng toàn bộ tech stack hiển thị đúng trạng thái live/coming soon.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/overview.png" alt="Overview tab: KPI strip and Timeline Brush" width="820"><br>
+  <sub><b>2. Overview</b> — KPI strip lấy median làm số chính, biểu đồ views theo ngày với Timeline Brush kéo-để-tính-lại, và danh sách content unit hiệu suất cao nhất trong cửa sổ đã chọn.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/analytics.png" alt="Analytics tab: top posts and timezone breakdown" width="820"><br>
+  <sub><b>3. Analytics</b> — top bài theo engagement/virality/conversation, và hiệu suất theo giờ đăng tách riêng 2 múi giờ Europe/Paris và Asia/Ho_Chi_Minh.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/topics.png" alt="Topic Explorer: 3D UMAP scatter of discovered topics" width="820"><br>
+  <sub><b>4. Topic Explorer</b> — cluster chủ đề khám phá không giám sát (UMAP 3D + HDBSCAN) từ chính lịch sử bài đăng của kênh.</sub>
+</p>
 
 ---
 
