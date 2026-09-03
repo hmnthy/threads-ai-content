@@ -9,10 +9,12 @@ dependencies = [
     "hdbscan>=0.8.44",
     "httpx>=0.28.1",
     "lingua-language-detector>=2.2.0",
+    "numpy>=2.5.2",
     "pillow>=12.3.0",
     "pydantic>=2.13.5",
     "python-dotenv>=1.2.3",
     "scikit-learn>=1.9.0",
+    "scipy>=1.18.1",
     "sentence-transformers>=6.0.1",
     "tzdata>=2025.1",
     "umap-learn>=0.5.12",
@@ -39,6 +41,13 @@ files = ["src", "tests"]
 # "NLP Pipeline". lingua/sentence-transformers/anthropic đều có py.typed nên không cần liệt kê.
 [[tool.mypy.overrides]]
 module = ["hdbscan", "hdbscan.*", "umap", "umap.*"]
+ignore_missing_imports = true
+
+# scipy.stats không ship stub đầy đủ cho mypy strict (cần gói `scipy-stubs` riêng,
+# chưa thêm vào dev deps) — dùng ở src/analysis/significance.py (Layer 4, Mann-Whitney
+# U). numpy CÓ py.typed đầy đủ nên không cần liệt kê.
+[[tool.mypy.overrides]]
+module = ["scipy", "scipy.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

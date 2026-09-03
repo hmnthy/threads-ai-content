@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 from src.analysis.conversation import conversation_rate
 from src.analysis.engagement import (
+    EngagementBucketStats,
     average_engagement_rate,
     engagement_by_hour,
     engagement_by_weekday,
@@ -124,14 +125,28 @@ class TopPostEntry(BaseModel):
     metrics: ContentUnitMetrics
 
 
+class EngagementBucketOut(BaseModel):
+    """Mirror của `EngagementBucketStats` (Layer 2, `src/analysis/engagement.py`)
+    — median/mean cạnh nhau CỐ TÌNH (tầng 3 "Narrative Layering Principle", xem
+    docs/claude/data-model.md), kèm n/IQR/insufficient_data để dashboard không
+    tuyên bố "giờ tốt nhất" từ bucket quá ít bài."""
+
+    median_engagement_rate: float
+    mean_engagement_rate: float
+    n: int
+    iqr_low: float
+    iqr_high: float
+    insufficient_data: bool
+
+
 class HourBucket(BaseModel):
     hour: int
-    average_engagement_rate: float
+    stats: EngagementBucketOut
 
 
 class WeekdayBucket(BaseModel):
     weekday: int  # 0=Monday .. 6=Sunday, theo datetime.weekday()
-    average_engagement_rate: float
+    stats: EngagementBucketOut
 
 
 class TimezoneEngagement(BaseModel):
@@ -262,6 +277,17 @@ def _to_top_post_entry(post: ThreadsPost, insights: PostInsights) -> TopPostEntr
     )
 
 
+def _to_bucket_out(stats: EngagementBucketStats) -> EngagementBucketOut:
+    return EngagementBucketOut(
+        median_engagement_rate=stats.median,
+        mean_engagement_rate=stats.mean,
+        n=stats.n,
+        iqr_low=stats.iqr_low,
+        iqr_high=stats.iqr_high,
+        insufficient_data=stats.insufficient_data,
+    )
+
+
 def _top_by(
     posts: list[ThreadsPost],
     insights: list[PostInsights],
@@ -293,14 +319,14 @@ def get_analytics_overview() -> AnalyticsOverviewOut:
             TimezoneEngagement(
                 timezone=tz_name,
                 by_hour=[
-                    HourBucket(hour=hour, average_engagement_rate=rate)
-                    for hour, rate in sorted(
+                    HourBucket(hour=hour, stats=_to_bucket_out(stats))
+                    for hour, stats in sorted(
                         engagement_by_hour(posts, insights, timezone=tz).items()
                     )
                 ],
                 by_weekday=[
-                    WeekdayBucket(weekday=weekday, average_engagement_rate=rate)
-                    for weekday, rate in sorted(
+                    WeekdayBucket(weekday=weekday, stats=_to_bucket_out(stats))
+                    for weekday, stats in sorted(
                         engagement_by_weekday(posts, insights, timezone=tz).items()
                     )
                 ],
