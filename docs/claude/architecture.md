@@ -13,7 +13,7 @@ threads-ai-content/
 │   ├── hooks/                 # session_status / guard_commit / ruff_on_edit / notify+toast
 │   ├── rules/                 # quy tắc theo đường dẫn (paths:) — chỉ nạp khi chạm đúng mảng code
 │   ├── agents/                # code-reviewer, qa-tester, researcher
-│   └── skills/                # /prime /checkpoint /record-decision /new-rq /recluster /kb-eval /wt ui-lookup
+│   └── skills/                # /prime /checkpoint /record-decision /new-rq /recluster /wt ui-lookup
 ├── .mcp.json                  # context7 + huggingface
 ├── docs/
 │   ├── status.md              # trạng thái hiện tại (≤60 dòng)

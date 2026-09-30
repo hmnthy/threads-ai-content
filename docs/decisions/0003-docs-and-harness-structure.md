@@ -19,7 +19,7 @@ Theo khuyến nghị chính thức (code.claude.com/docs: memory, hooks, skills,
 3. **Trạng thái → `docs/status.md`** (≤ 60 dòng, chỉ hiện tại) + **kế hoạch → `docs/roadmap.md`**. Lịch sử là git log + ADR, không phải file log.
 4. **Quyết định → ADR 1 file/quyết định** trong `docs/decisions/`; bảng cũ lưu nguyên văn ở `legacy-log.md`.
 5. **Quy tắc bắt buộc được cưỡng chế bằng máy, không chỉ bằng chữ**: `attribution` rỗng trong `.claude/settings.json`, hook PreToolUse chặn trailer, hook git `commit-msg`, `permissions.deny` cho `.env`.
-6. **Việc lặp lại → skills** (`/prime`, `/checkpoint`, `/record-decision`, `/new-rq`, `/recluster`, `/kb-eval`, `/wt`, `ui-lookup`), đa số `disable-model-invocation: true` để mô tả không tốn context.
+6. **Việc lặp lại → skills** (`/prime`, `/checkpoint`, `/record-decision`, `/new-rq`, `/recluster`, `/wt`, `ui-lookup`; `/kb-eval` tạo ở Phase E khi KB tồn tại), đa số `disable-model-invocation: true` để mô tả không tốn context.
 7. **3 subagent** có tool giới hạn: `code-reviewer` (chỉ đọc), `qa-tester` (chỉ sửa `tests/`), `researcher` (web + MCP, chỉ đọc).
 8. **Xoá 6 skill design không dùng**; `ui-ux-pro-max` chuyển sang `tools/` và chỉ gọi qua CLI.
 9. **MCP tối thiểu**: `context7` (docs thư viện cập nhật), `huggingface` (model/dataset/paper).
