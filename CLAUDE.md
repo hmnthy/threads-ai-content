@@ -2,6 +2,7 @@
 
 Dự án NLP trên data thật của kênh Threads **@thydilammuon** (người Việt tại Pháp: alternance, xin việc, đời sống).
 Scope (ADR-0001): **phân tích NLP sâu → knowledge base (cơ sở tri thức) cập nhật liên tục → chỉ sau cổng chất lượng: chatbot + landing thương hiệu.**
+<!-- consistency: allow ADR0001-generation ADR0001-carousel ADR0001-kol -->
 Không generation giọng văn, không carousel, không KOL engine. Portfolio NLP/MLE — repo private, sẽ curate sang repo public riêng.
 
 ## Quy tắc tuyệt đối
@@ -19,7 +20,8 @@ Không generation giọng văn, không carousel, không KOL engine. Portfolio NL
 
 ```bash
 uv sync                                    # cài deps (Python 3.12)
-uv run pytest -q                           # test (hiện chậm ~5 phút trên Windows — Phase C sẽ chuyển WSL2)
+uv run pytest -q                           # cả suite ~1 phút (pre-commit chạy bộ nhanh ~20s)
+uv run pre-commit install                  # 1 lần sau khi clone: bật các cổng chặn commit
 uv run ruff check . && uv run ruff format . && uv run mypy
 uv run uvicorn src.main:app --reload --port 8000
 cd src/dashboard && npm run dev            # http://localhost:3000 (cần backend chạy)
@@ -46,10 +48,14 @@ Quy tắc theo mảng code nằm ở `.claude/rules/` và **tự nạp** khi đ�
 ## Cách làm việc
 
 - **Checkpoint**: sau mỗi bước có test/build xanh → đề xuất `/checkpoint` (chạy kiểm tra, soạn commit, **chờ Thy đồng ý**, cập nhật `docs/status.md`).
-- **Quyết định mới** (kiến trúc, methodology, metric) → `/record-decision`; không sửa ADR cũ để đổi ý.
+- **Quyết định mới** (kiến trúc, methodology, metric) → `/record-decision` (kèm luật trong `docs/decisions/invariants.toml`)
+  → `/decision-sweep` lan ra toàn repo. Pre-commit **chặn** commit vi phạm sổ luật; ngoại lệ có chủ đích ghi `consistency: allow <id>`.
 - **Git**: không làm trực tiếp trên `main` cho việc nhiều bước — branch hoặc worktree (`/wt`). Mọi worktree dùng chung DB
   của checkout chính (sau Phase C); trước đó `data/` của worktree là bản riêng, có thể cũ.
 - **Subagents**: `@agent-code-reviewer` trước commit có logic/thống kê · `@agent-qa-tester` viết/chạy test (chỉ sửa `tests/`) ·
-  `@agent-researcher` tìm paper/model/docs có trích nguồn (web + MCP `huggingface`, `context7`).
+  `@agent-researcher` tìm paper/model/docs có trích nguồn (web + MCP `huggingface`, `context7`) ·
+  `@agent-consistency-auditor` kiểm toán độc lập 1 ADR (dùng trong `/decision-sweep`).
+- **Cổng pre-commit** (chặn commit): ruff, mypy, sổ luật nhất quán, pytest nhanh, eslint + tsc khi chạm dashboard, commit-msg.
+  Hook đầu phiên báo số vi phạm ≠ 0 → chạy `/decision-sweep` trước việc mới.
 - **Phiên mới**: đọc status do hook in ra; cần thêm context cho 1 task → `/prime <task>`.
 - Thy dùng song song Claude Design/Cowork trên cùng repo → `git status` trước khi sửa; thấy thay đổi lạ thì hỏi, không ghi đè.

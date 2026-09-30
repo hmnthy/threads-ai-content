@@ -1,11 +1,10 @@
 """SQLite schema — `posts`, `content_units`, `insights_snapshots`, `topics`,
 `post_topic_labels`, theo đúng spec tại docs/claude/data-model.md mục "Storage".
 
-Quyết định tự chọn (cần xác nhận lại — xem report cuối): thêm cột `umap_x/y/z` +
-`language_primary`/`language_mix_score` vào `content_units` (không phải bảng riêng)
-để dashboard Topic Explorer (Bước 7 + 11-13) đọc trực tiếp toạ độ scatter mà không
-cần dựng vector store riêng (Chroma/FAISS, việc của RAG — Bước 10, hoãn) chỉ để phục
-vụ visualize. Vector store thật cho RAG vẫn để dành cho Bước 10, không xây tối nay.
+Cột `umap_x/y/z` + `language_primary`/`language_mix_score` nằm thẳng trong
+`content_units` (không phải bảng riêng) để dashboard Topic Explorer đọc trực tiếp toạ độ
+scatter. Embedding + knowledge base sẽ nằm trong chính file SQLite này (bảng
+`embeddings`, `kb_*`, FTS5) — xem docs/roadmap.md Phase D0/E.
 
 Đây là raw archive + derived layer, KHÁC `data/cache/` (TTL 6h) — không tự xoá.
 """
@@ -45,11 +44,11 @@ CREATE TABLE IF NOT EXISTS content_units (
     raw_text TEXT NOT NULL,
     normalized_text TEXT NOT NULL,
     full_text TEXT NOT NULL,
-    -- toạ độ UMAP 3D (Bước 7) — null tới khi pipeline NLP chạy
+    -- toạ độ UMAP 3D (src/nlp/topics.py) — null tới khi pipeline NLP chạy
     umap_x REAL,
     umap_y REAL,
     umap_z REAL,
-    -- LanguageInfo (Bước 3) — null tới khi pipeline NLP chạy
+    -- LanguageInfo (src/nlp/language.py) — null tới khi pipeline NLP chạy
     language_primary TEXT,
     language_mix_score REAL
 );
@@ -159,7 +158,7 @@ def get_post(conn: sqlite3.Connection, post_id: str) -> sqlite3.Row | None:
 def list_root_posts(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     """Chỉ root post (`is_reply = 0`) — mỗi row map 1:1 với 1 `content_units.id`.
     Dùng cho analytics đọc theo ContentUnit (engagement_by_hour/weekday, top posts),
-    KHÔNG lẫn 1,285 audience/self-reply cũng nằm trong bảng `posts`."""
+    KHÔNG lẫn các reply của tác giả (1.368 tại 2026-09-30) cũng nằm trong bảng `posts`."""
     return conn.execute("SELECT * FROM posts WHERE is_reply = 0").fetchall()
 
 

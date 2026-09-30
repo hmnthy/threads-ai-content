@@ -83,19 +83,19 @@ def test_label_cluster_with_claude_parses_json_response() -> None:
 @pytest.mark.slow  # UMAP + HDBSCAN thật, ~20s trên Windows
 def test_cluster_embeddings_on_toy_data() -> None:
     # BLOCKED trên máy chạy agent này (2026-08-31): umap-learn/hdbscan phụ thuộc
-    # scipy.linalg._flapack ở tầng import, bị Application Control Policy chặn (xem
-    # docs/claude/architecture.md decision log). Skip thay vì fail cứng.
+    # scipy.linalg._flapack ở tầng import, bị Smart App Control chặn (chẩn đoán
+    # 2026-09-02, xem docs/decisions/legacy-log.md). Skip thay vì fail cứng.
     # pytest 9.1+ only auto-skips on ModuleNotFoundError by default — this failure is
     # a plain ImportError (DLL load failure), so exc_type must be passed explicitly.
     numpy = pytest.importorskip("numpy")
     pytest.importorskip(
         "hdbscan",
-        reason="blocked by Application Control Policy on this machine — see architecture.md",
+        reason="blocked by Smart App Control on this machine — see docs/decisions/legacy-log.md",
         exc_type=ImportError,
     )
     pytest.importorskip(
         "umap",
-        reason="blocked by Application Control Policy on this machine — see architecture.md",
+        reason="blocked by Smart App Control on this machine — see docs/decisions/legacy-log.md",
         exc_type=ImportError,
     )
     from src.nlp.topics import cluster_embeddings

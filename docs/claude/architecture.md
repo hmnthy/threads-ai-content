@@ -10,17 +10,17 @@ threads-ai-content/
 ├── CLAUDE.md                  # ≤80 dòng: mission, quy tắc tuyệt đối, bản đồ tài liệu
 ├── .claude/
 │   ├── settings.json          # hooks, attribution tắt, deny .env
-│   ├── hooks/                 # session_status / guard_commit / ruff_on_edit / notify+toast
+│   ├── hooks/                 # session_status / guard_commit / ruff_on_edit / adr_written / tests_only / notify+toast
 │   ├── rules/                 # quy tắc theo đường dẫn (paths:) — chỉ nạp khi chạm đúng mảng code
-│   ├── agents/                # code-reviewer, qa-tester, researcher
-│   └── skills/                # /prime /checkpoint /record-decision /new-rq /recluster /wt ui-lookup
+│   ├── agents/                # code-reviewer, qa-tester, researcher, consistency-auditor
+│   └── skills/                # /prime /checkpoint /record-decision /decision-sweep /new-rq /recluster /wt ui-lookup
 ├── .mcp.json                  # context7 + huggingface
 ├── docs/
 │   ├── status.md              # trạng thái hiện tại (≤60 dòng)
 │   ├── roadmap.md             # phase C → F + cổng chatbot
-│   ├── decisions/             # ADR 1 file/quyết định + legacy-log.md
+│   ├── decisions/             # ADR 1 file/quyết định + legacy-log.md + invariants.toml (sổ luật nhất quán)
 │   ├── claude/                # tài liệu tham chiếu: architecture, data-model, design-system, dev-rules
-│   ├── rq/                    # (sắp có) câu hỏi nghiên cứu RQ-xx
+│   ├── rq/                    # câu hỏi nghiên cứu RQ-xx (roadmap D, chưa tạo)
 │   ├── research/              # PRIVATE, gitignored — market scan, methodology
 │   ├── archive/               # plan/sprint cũ, giữ nguyên văn
 │   ├── design/ · screenshots/
@@ -33,9 +33,11 @@ threads-ai-content/
 │   ├── db/schema.py           # SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels
 │   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job, cầu nối clustering Win↔WSL2 (bỏ ở Phase C)
 │   ├── main.py                # FastAPI — chỉ đọc SQLite, không load model trong request
-│   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`
+│   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
+│                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)
 ├── tools/ui-ux-pro-max/       # CLI tra cứu UI (vendored) — gọi qua skill ui-lookup
-├── tests/                     # pytest (183 test), respx mock HTTP
+├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard)
+├── tests/                     # pytest (marker slow/live), respx mock HTTP
 ├── data/                      # gitignored: threads.db, logs/, cache/, raw/
 └── content/                   # gitignored: asset cá nhân của tác giả
 ```
@@ -57,7 +59,7 @@ threads-ai-content/
 | Dashboard | Next.js 16 + Tailwind v4 + Recharts + Phosphor icons | Live (chưa deploy cố định) |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
-| Chất lượng code | ruff, mypy strict, pytest, pre-commit (+ commit-msg guard) | Live |
+| Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán, pytest nhanh, eslint+tsc, commit-msg | Live |
 | CI | GitHub Actions | Roadmap G |
 
 ## Luồng dữ liệu

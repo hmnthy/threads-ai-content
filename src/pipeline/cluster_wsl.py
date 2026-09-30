@@ -1,5 +1,5 @@
 """Bước 2/3 của clustering pipeline — CHỈ chạy trong WSL2 Ubuntu, KHÔNG chạy trên
-`.venv` Windows (xem docs/claude/architecture.md decision log 2026-09-02 — Smart
+`.venv` Windows (xem docs/decisions/legacy-log.md, dòng 2026-09-02 — Smart
 App Control chặn `scipy.linalg._flapack` không ổn định trên Windows, verify thật
 cho thấy có lúc chạy được có lúc không; WSL2 không nằm trong phạm vi Smart App
 Control nên ổn định).

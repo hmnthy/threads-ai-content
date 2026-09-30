@@ -1,7 +1,8 @@
 """PreToolUse hook (Bash): chặn `git commit` vi phạm quy tắc repo.
 
 - Không trailer `Co-Authored-By` (repo sẽ được curate sang bản public, xem CLAUDE.md).
-- Không `--no-verify` (bỏ qua pre-commit = bỏ qua ruff/mypy/commit-msg guard).
+- Không `--no-verify` (bỏ qua pre-commit = bỏ qua ruff, mypy, consistency, pytest nhanh,
+  dashboard, commit-msg).
 
 Exit 2 + stderr = chặn tool call và đưa lý do cho Claude (docs: code.claude.com/docs/en/hooks).
 Chỉ dùng thư viện chuẩn.
@@ -36,7 +37,8 @@ flags_only = re.sub(r'"(?:\\.|[^"\\])*"|\'[^\']*\'', "", commit_part)
 first_command = re.split(r"&&|\|\||;", flags_only)[0]
 if re.search(r"--no-verify\b|\s-n\b", first_command):
     print(
-        "Blocked: --no-verify skips ruff/mypy/commit-msg hooks. Fix the hook failure instead.",
+        "Blocked: --no-verify skips the ruff, mypy, consistency, fast-test, dashboard and "
+        "commit-msg hooks. Fix the hook failure instead.",
         file=sys.stderr,
     )
     sys.exit(2)

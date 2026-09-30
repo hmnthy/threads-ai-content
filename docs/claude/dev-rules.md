@@ -17,18 +17,21 @@ uv sync
 # 3. Copy env template và điền credentials (đã điền sẵn trên máy hiện tại)
 copy .env.example .env
 
-# 4. Chạy test suite
+# 4. Bật các cổng chặn commit (1 lần): ruff, mypy, sổ luật nhất quán, pytest nhanh, dashboard eslint+tsc, commit-msg
+uv run pre-commit install
+
+# 5. Chạy test suite (~1 phút; pre-commit chạy bộ nhanh ~20s)
 uv run pytest -q
 
-# 5. Lint + format + type-check (cũng chạy tự động qua pre-commit khi commit)
+# 6. Lint + format + type-check (cũng chạy tự động qua pre-commit khi commit)
 uv run ruff check .
 uv run ruff format .
 uv run mypy
 
-# 6. Chạy FastAPI backend (sau khi có src/main.py)
+# 7. Chạy FastAPI backend
 uv run uvicorn src.main:app --reload --port 8000
 
-# 7. Kiểm tra API đang chạy
+# 8. Kiểm tra API đang chạy
 # Mở trình duyệt: http://localhost:8000/docs
 ```
 
@@ -60,14 +63,14 @@ ANTHROPIC_API_KEY=
 
 Dự án dùng song song 3 bề mặt Claude khác nhau trên cùng 1 repo: **Claude Code** (VSCode, terminal — implementation), **Claude Cowork** (ghi trực tiếp vào git working tree, giống 1 phiên terminal khác — dùng cho doc/spec/quyết định), và **Claude Design** (canvas riêng trên claude.ai, **KHÔNG kết nối git trực tiếp**).
 
-**Sự thật kỹ thuật cần nhớ**: mọi thứ chỉnh trong canvas Claude Design **chưa tồn tại trong repo** cho tới khi chủ động chạy skill `/design-sync` (tool `DesignSync`) để pull — cơ chế này **incremental, từng component 1, never wholesale replace**. Không có `/design-sync` chạy → không có gì thay đổi trong `src/dashboard/`, bất kể canvas nhìn đẹp/mới cỡ nào.
+**Sự thật kỹ thuật cần nhớ** (verify 2026-09-30 qua schema tool `DesignSync`): skill `/design-sync` **đẩy** component library từ máy lên 1 project design-system trên claude.ai/design — incremental, từng component, không bao giờ thay toàn bộ. Chiều ngược lại chỉ **đọc từng file** (`get_file`); không có thao tác kéo cả trang về repo. Vì vậy mọi thứ chỉnh trong canvas **chưa tồn tại trong `src/dashboard/`** cho tới khi Claude Code port lại thành code (từ file đọc qua `get_file` hoặc mockup `.dc.html` Thy xuất ra). Claude Design không đọc GitHub — không cần push để dùng nó.
 
 **Pipeline chuẩn (tuyến tính, không chạy song song trên cùng file)**:
 1. Thăm dò ý tưởng visual trong canvas Claude Design (sandbox riêng, không rủi ro cho repo).
-2. Khi 1 hướng đã **chốt** → văn bản hoá thành token cụ thể (hex, type scale, spacing) vào `docs/claude/design-system.md` — nguồn sự thật duy nhất về design (xem `CLAUDE.md`).
-3. Chạy `/design-sync` để pull component thật từ Design project vào `src/dashboard/`, từng phần.
-4. Claude Code verify: code sync có khớp token trong `design-system.md` không → wire data thật → chạy test/build → commit.
-5. Quay lại bước 1 chỉ cho hướng visual MỚI — không sửa tay code đã sync ngược lại trong canvas Design (tạo lại 2 nguồn sự thật).
+2. Khi 1 hướng đã **chốt** → văn bản hoá thành token cụ thể (hex, type scale, spacing) vào `docs/claude/design-system.md` — nguồn sự thật duy nhất về design (routing bắt buộc: `.claude/rules/dashboard.md`).
+3. Claude Code port từng component về `src/dashboard/` (đọc file qua `DesignSync get_file` hoặc mockup `.dc.html`), nối data thật; `/design-sync` chỉ dùng khi muốn đẩy component library hiện tại lên Claude Design làm nền cho vòng thiết kế tiếp.
+4. Claude Code verify: code đã port có khớp token trong `design-system.md` không → wire data thật → chạy test/build → commit.
+5. Quay lại bước 1 chỉ cho hướng visual MỚI — không sửa tay trong canvas rồi port đè lên code đã được sửa sau đó (tạo lại 2 nguồn sự thật).
 
 **3 nguyên tắc chặn xung đột**:
 - Trước khi chạm `src/dashboard/` (hoặc bất kỳ file nào) ở tool nào — `git status` trước. Có uncommitted work từ tool khác → không ghi đè, hỏi lại user.

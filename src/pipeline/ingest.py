@@ -3,8 +3,8 @@ normalize text → lưu SQLite → seed insights_snapshots ban đầu.
 
 Tách khỏi FastAPI serving layer — `src/main.py` chỉ đọc kết quả đã tính sẵn từ
 SQLite, KHÔNG tự gọi API/build lại content unit mỗi request (xem
-docs/claude/architecture.md quyết định "Batch pipeline tách riêng khỏi FastAPI
-serving layer"). Chạy tay: `.venv/Scripts/python.exe -m src.pipeline.ingest`.
+docs/decisions/legacy-log.md dòng "Batch pipeline tách riêng khỏi FastAPI serving
+layer"). Chạy tay: `.venv/Scripts/python.exe -m src.pipeline.ingest`.
 """
 
 from __future__ import annotations

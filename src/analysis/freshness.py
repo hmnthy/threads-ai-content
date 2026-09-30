@@ -14,7 +14,7 @@ def freshness_weight(
     `virality_index`/báo cáo trend theo tuần/tháng: 1 post đăng 20 ngày trước vẫn
     có thể là bài viral nhất quý, nhân recency vào sẽ xoá sổ sai semantic (trộn
     intrinsic performance với 1 explanatory variable, đúng lỗi phương pháp luận
-    đã sửa ở `virality_index` v1 — xem decisions log trong architecture.md).
+    đã sửa ở `virality_index` v1 — xem docs/decisions/legacy-log.md).
 
     `grace_hours=12`/`half_life_hours=48` là hypothesis dựa trên quan sát cá nhân
     tác giả (audience VN thức dậy trễ hơn giờ đăng ở Pháp) — CHƯA calibrate bằng

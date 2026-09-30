@@ -2,8 +2,8 @@
 
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
-![Status](https://img.shields.io/badge/status-Phase%201%20in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-183%20passing-brightgreen)
+![Status](https://img.shields.io/badge/status-in%20progress-orange)
+![Tests](https://img.shields.io/badge/tests-217%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -119,7 +119,7 @@ threads-ai-content/
 │   ├── pipeline/           ingest, 4h snapshot cron, Windows↔WSL2 clustering bridge — live
 │   ├── main.py             FastAPI entry point — live
 │   └── dashboard/          Next.js app: landing page + Overview/Analytics/Topic Explorer — live
-└── tests/                183 tests, ruff + mypy strict clean
+└── tests/                pytest suite, ruff + mypy strict clean
 ```
 
 Data flow, end to end:
@@ -136,8 +136,8 @@ FastAPI only ever reads precomputed results, it never loads a transformer model 
 
 ## Methodology highlights
 
-A few decisions this project treats as load-bearing, documented in full in
-[`docs/claude/architecture.md`](docs/claude/architecture.md) and
+A few decisions this project treats as load-bearing, each recorded in
+[`docs/decisions/`](docs/decisions/) (one file per decision) and
 [`docs/claude/data-model.md`](docs/claude/data-model.md):
 
 - **Median-as-headline, mean-as-secondary — never a pooled ratio.** A single windowed
@@ -161,14 +161,16 @@ A few decisions this project treats as load-bearing, documented in full in
 
 **Live:** Threads API client, NLP topic-discovery pipeline, 6-index metric architecture, windowed
 statistics, and a three-tab dashboard (Overview, Analytics, Topic Explorer) plus this landing page,
-all running against real production data (183 tests passing, ruff + mypy strict clean).
+all running against real production data (full test suite passing, ruff + mypy strict clean).
 
 **Next — deliberately narrow scope ("less is more"):**
 1. Deeper NLP analysis written up as explicit research questions (cluster stability, embedding
    model comparison, code-mixing vs. engagement, a supervised classifier baseline ladder).
 2. A continuously updated knowledge base with measured retrieval quality.
-3. Only once that knowledge base passes its quality gate: a Q&A assistant grounded in it.
+3. Only once that knowledge base passes its quality gate: a Q&A assistant grounded in it, and a
+   brand landing page for the channel.
 
+<!-- consistency: allow ADR0001-generation ADR0001-carousel ADR0001-image-gen -->
 Voice-matched post generation and carousel image generation were considered and deliberately
 dropped to keep the project focused.
 
@@ -178,8 +180,9 @@ dropped to keep the project focused.
 # Backend (Python 3.12 via uv)
 pip install --user uv
 uv sync
+uv run pre-commit install          # commit gates: lint, types, consistency, fast tests
 cp .env.example .env               # fill in THREADS_* and ANTHROPIC_API_KEY
-uv run pytest -q                   # 183 tests
+uv run pytest -q                   # full test suite (~1 min)
 uv run uvicorn src.main:app --reload --port 8000
 
 # Dashboard (Next.js)

@@ -7,8 +7,8 @@ interface StackItem {
 
 // Grid 3 cột + badge status — tái dùng đúng pattern của MetricArchitectureGrid
 // (Overview), không phát minh pattern mới cho landing. Nội dung khớp bảng "Tech
-// Stack đã chốt" trong docs/claude/architecture.md, phân loại live/coming soon
-// theo trạng thái THẬT của code (verify 2026-09-03, không phải kỳ vọng).
+// stack" trong docs/claude/architecture.md; nhãn live / next / research theo trạng
+// thái THẬT của code, không phải kỳ vọng.
 const STACK: StackItem[] = [
   { layer: "Backend / API", tech: "FastAPI", status: "live", note: "Sole backend — one language end to end, no Node.js API layer." },
   { layer: "Package manager", tech: "uv", status: "live", note: "Lockfile + venv management, replaces pip/poetry." },

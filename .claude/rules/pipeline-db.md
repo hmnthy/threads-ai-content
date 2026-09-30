@@ -2,7 +2,7 @@
 paths:
   - "src/pipeline/**"
   - "src/db/**"
-  - "scripts/**"
+  - "scripts/jobs/**"   # sẽ tạo ở Phase C (roadmap) — glob đặt sẵn
   - "run_*.bat"
 ---
 

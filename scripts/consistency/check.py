@@ -514,7 +514,12 @@ def main(argv: list[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     root = Path(_git(Path.cwd(), "rev-parse", "--show-toplevel").strip() or ".")
     mode = "staged" if args.staged else "all"
-    violations = run(root, mode, with_pytest=not (args.no_pytest or args.count))
+    try:
+        violations = run(root, mode, with_pytest=not (args.no_pytest or args.count))
+    except (tomllib.TOMLDecodeError, re.error, KeyError) as exc:
+        # Sổ luật hỏng phải chặn commit với thông báo rõ ràng, không phải traceback
+        print(f"consistency: sổ luật {INVARIANTS_PATH} không hợp lệ — {type(exc).__name__}: {exc}")
+        return 2
     if args.count:
         print(len(violations))
     elif args.json:

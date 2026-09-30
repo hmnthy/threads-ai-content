@@ -4,8 +4,8 @@
 sẽ có nguy cơ bỏ lỡ post đăng giữa 2 lần chạy.
 
 Chạy tay: `.venv/Scripts/python.exe -m src.pipeline.scheduled_job`
-Log ra stdout, Task Scheduler tự redirect vào file log (xem lệnh setup trong
-architecture.md quyết định 2026-09-01 hoặc hỏi lại nếu chưa ghi).
+Log ra stdout, Task Scheduler tự redirect vào file log qua `run_snapshot_job.bat`
+(lý do dùng launcher .bat: docs/decisions/legacy-log.md, dòng 2026-09-01).
 """
 
 from __future__ import annotations

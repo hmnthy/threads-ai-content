@@ -1,11 +1,11 @@
-"""Snapshot job (Bước 5, CHỈ phần thu thập) — fetch insights hiện tại cho toàn bộ
-post, insert vào `insights_snapshots`. Mỗi lần chạy APPEND 1 snapshot mới cho mỗi
-post, KHÔNG ghi đè — `velocity.py`/`longevity.py` (Bước 5 phần tính toán + Bước 6,
-CHƯA VIẾT tối nay) cần nhiều điểm snapshot tích luỹ theo thời gian mới tính được.
+"""Snapshot job (chỉ phần thu thập) — fetch insights hiện tại cho toàn bộ post,
+insert vào `insights_snapshots`. Mỗi lần chạy APPEND 1 snapshot mới cho mỗi post,
+KHÔNG ghi đè — `src/analysis/velocity.py` (và `longevity.py`, chưa viết) cần nhiều
+điểm snapshot tích luỹ theo thời gian mới tính được.
 
-Script đã sẵn sàng để chạy định kỳ (cron / Task Scheduler) — **tần suất bao nhiêu
-là quyết định cần chủ dự án xác nhận, KHÔNG tự setup lịch chạy ở đây** (xem CLAUDE.md
-task scope). Chạy tay 1 lần: `.venv/Scripts/python.exe -m src.pipeline.snapshot`.
+Chạy định kỳ qua `src/pipeline/scheduled_job.py` (Task Scheduler
+`ThreadsAI_SnapshotJob_4h`, xem `.claude/rules/pipeline-db.md`).
+Chạy tay 1 lần: `.venv/Scripts/python.exe -m src.pipeline.snapshot`.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 ---
 name: checkpoint
 description: Propose a git checkpoint commit for threads-ai-content once a step is done and green — run the relevant checks, update docs/status.md, draft an English commit message, and wait for Thy's explicit OK before committing. Use proactively after finishing any meaningful step, and whenever the session status reports uncommitted files.
-allowed-tools: Bash(git status *) Bash(git diff *) Bash(git log *) Bash(uv run ruff *) Bash(uv run mypy *) Bash(uv run pytest *)
+allowed-tools: Bash(git status *) Bash(git diff *) Bash(git log *) Bash(uv run ruff *) Bash(uv run mypy *) Bash(uv run pytest *) Bash(uv run --no-sync python -m scripts.consistency.check *)
 ---
 
 # /checkpoint — commit tại điểm dừng an toàn
@@ -16,9 +16,11 @@ allowed-tools: Bash(git status *) Bash(git diff *) Bash(git log *) Bash(uv run r
 
 | Thay đổi | Chạy |
 |---|---|
-| `src/**/*.py`, `tests/**` | `uv run ruff check .` · `uv run mypy` · `uv run pytest <phạm vi liên quan> -q` (cả suite nếu đụng `src/db`, `src/models`, `src/main.py`) |
-| `src/dashboard/**` | `npm run lint` + `npm run build` trong `src/dashboard` |
-| Chỉ docs/config | không cần test; kiểm link/đường dẫn nhắc tới có tồn tại |
+| Mọi thay đổi | `uv run --no-sync python -m scripts.consistency.check --all` phải = 0 (pre-commit sẽ chặn nếu không) |
+| `src/**/*.py`, `tests/**`, `scripts/**` | `uv run ruff check .` · `uv run mypy` · `uv run pytest -q` (**cả suite**, ~1 phút) |
+| `src/dashboard/**` | `npm run lint` + `npx tsc --noEmit` + `npm run build` trong `src/dashboard` |
+| `pyproject.toml`, `docs/decisions/invariants.toml` | `uv run pytest -q` (sổ luật có test riêng; pre-commit cũng chạy test nhanh) |
+| Chỉ docs khác | không cần test; bộ kiểm tra nhất quán đã kiểm đường dẫn chết + 3 README |
 
 Có fail → dừng, báo lỗi, **không** commit. Thay đổi có logic/metric/thống kê/NLP → đề xuất gọi `@agent-code-reviewer` trước.
 

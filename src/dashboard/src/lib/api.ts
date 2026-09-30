@@ -1,6 +1,6 @@
 // Types khớp 1:1 với response model của src/main.py (FastAPI) — xem
 // ContentUnitOut / TopicOut trong file đó. Toàn bộ copy hướng ra UI là tiếng Anh
-// theo quy tắc đã chốt (docs/claude/architecture.md).
+// (quy tắc tuyệt đối trong CLAUDE.md).
 
 export interface ContentUnitMetrics {
   popularity_index: number;

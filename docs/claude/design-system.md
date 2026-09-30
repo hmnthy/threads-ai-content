@@ -156,7 +156,7 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 
 **Tầng A · App shell** (ưu tiên — `src/dashboard/`, sản phẩm thật): `max-width 1280`, padding 24. Thứ tự dọc: topbar (logo + tagline + account pill + avatar) → tab pill → **dải hero gradient** → chart + timeline brush → KPI strip → metric architecture → top content units. Top nav tab pill, không sidebar.
 
-**Tầng B · Landing** (làm sau — trang public giới thiệu tool cho portfolio): navbar pill, hero, bento radius 20 không viền, **khối Author**, pricing, FAQ, footer. Thứ tự section tham khảo (đo từ reference PNG, màu cần map sang token amber ở §2 khi dựng thật, KHÔNG dùng lại violet dưới đây):
+**Tầng B · Landing** (đã dựng bản scoped 2026-09-03 tại `/`: Hero · Problem · Solution · Tech stack · Author — trang giới thiệu tool cho portfolio; pricing, FAQ, Login/Register **ngoài scope** vì đây không phải SaaS; landing thương hiệu thydilammuon là việc của roadmap Phase F, cần ADR riêng): navbar pill, hero, bento radius 20 không viền, **khối Author**, footer. Thứ tự section tham khảo (đo từ reference PNG, màu cần map sang token amber ở §2 khi dựng thật, KHÔNG dùng lại violet dưới đây):
 
 1. Floating navbar — pill căn giữa, cách mép trên 16px: logo tròn · menu · Login · nút Register
 2. Hero — badge pill nhỏ ("NEW · …") → H1 2 dòng → sub 2 dòng → 2 nút pill (primary + secondary)
@@ -328,7 +328,7 @@ Kết quả trả về là **khuyến nghị**, không phải lệnh. Nếu mâu
 
 Nguồn đầy đủ (research, ảnh style guide, mockup tương tác): `src/dashboard/mockups/` — README của thư mục đó liệt kê từng file.
 
-**Sync 2026-09-03**: `docs/claude/design-system.md` (file này) cập nhật theo v3.1 từ `src/dashboard/mockups/design-system-v3.1-amber.md`, sau đó xoá bản copy trong `mockups/` để không còn 2 nguồn song song. `globals.css` + `AnalyticsOverview.tsx` refactor sang token v3.1 (bỏ zebra striping, bỏ gradient bar ngoài hero, bỏ hex hardcode trong Recharts). **Chưa làm**: `Nav.tsx`, `TopicExplorer.tsx`, `topics/page.tsx` vẫn dùng token cũ (alias sang giá trị amber trong `globals.css` để không vỡ layout, nhưng chưa refactor cấu trúc/component theo §5–§6). Tầng B landing page chưa dựng.
+**Sync 2026-09-03**: `docs/claude/design-system.md` (file này) cập nhật theo v3.1 từ bản `design-system-v3.1-amber.md` trong mockups (đã xoá sau khi sync) để không còn 2 nguồn song song. `globals.css` + `AnalyticsOverview.tsx` refactor sang token v3.1 (bỏ zebra striping, bỏ gradient bar ngoài hero, bỏ hex hardcode trong Recharts). **Chưa làm**: `Nav.tsx`, `TopicExplorer.tsx`, `topics/page.tsx` vẫn dùng token cũ (alias sang giá trị amber trong `globals.css` để không vỡ layout, nhưng chưa refactor cấu trúc/component theo §5–§6). (Cập nhật: `Nav.tsx` đã xong ở `c31d756`, landing Tầng B bản scoped đã dựng ở `7534faa`; `TopicExplorer.tsx` + `topics/page.tsx` vẫn ở token cũ — theo dõi ở `docs/status.md`.)
 
 ### 2026-09-02 — v3 thay v2: dark → light
 
@@ -342,9 +342,9 @@ Nguồn đầy đủ (research, ảnh style guide, mockup tương tác): `src/da
 3. Bỏ sidebar 220px + emoji icon → top nav tab pill + Phosphor icon.
 4. Tách rõ tầng A (app) / tầng B (landing) để không lẫn pattern marketing vào dashboard.
 5. Bổ sung §9 Chart rules (v2 thiếu).
-6. Thêm quy tắc routing vào `CLAUDE.md` để mọi phiên sau bắt buộc đọc file này trước khi sinh UI.
+6. Thêm quy tắc routing vào `CLAUDE.md` để mọi phiên sau bắt buộc đọc file này trước khi sinh UI (nay nằm ở `.claude/rules/dashboard.md` — ADR-0003).
 7. UI hướng ra ngoài (dashboard, LLM label, RAG) chuyển toàn bộ sang tiếng Anh — nội dung post giữ tiếng Việt. Số dùng định dạng en (`18,420`) thay cho `toLocaleString('vi-VN')`.
 
-**Giữ lại từ v2**: breakpoints, scroll animation spec, keyboard shortcut A/S, cấu trúc Content Idea Card, danh sách trang.
+**Giữ lại từ v2**: breakpoints, scroll animation spec, danh sách trang. (Phím tắt A/S và thẻ gợi ý nội dung của v2 đã bỏ cùng tính năng generation — ADR-0001.)
 
 **Rủi ro còn mở (v3, đã giải quyết ở v3.1)**: hex đo từ ảnh PNG có sai số ±3%/kênh — v3.1 không còn dùng PNG cho màu nên rủi ro này không còn áp dụng. Font vẫn dùng Inter như quyết định độc lập (hỗ trợ tiếng Việt tốt), không phải kết quả nhận dạng từ reference.

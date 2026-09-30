@@ -232,7 +232,7 @@ def test_analytics_overview_excludes_posts_without_insight_snapshot(
 def test_analytics_overview_excludes_reply_posts_from_the_posts_table(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # `posts` also holds the 1,285 audience/self-replies ingested alongside root
+    # `posts` also holds the author's own replies ingested alongside root
     # posts — analytics must only ever count root posts (== content units).
     db_path = tmp_path / "analytics-reply.db"
     monkeypatch.setattr(main_module, "DEFAULT_DB_PATH", db_path)
