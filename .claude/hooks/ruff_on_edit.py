@@ -36,6 +36,8 @@ result = subprocess.run(
     cwd=project,
     capture_output=True,
     text=True,
+    encoding="utf-8",  # mặc định cp1252 trên Windows → vỡ tiếng Việt trong output ruff
+    errors="replace",
     check=False,
 )
 if result.returncode != 0:

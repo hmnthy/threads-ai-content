@@ -34,7 +34,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "N"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 
 # hdbscan/umap-learn không ship type stub (py.typed) — xem docs/claude/data-model.md
 # "NLP Pipeline". lingua/sentence-transformers/anthropic đều có py.typed nên không cần liệt kê.
