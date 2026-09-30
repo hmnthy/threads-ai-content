@@ -1,4 +1,4 @@
-# Status — threads-ai-content
+# Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
 > Cập nhật: 2026-09-30
@@ -7,6 +7,7 @@
 
 - Tái cấu trúc "LESS IS MORE" (ADR-0001, ADR-0003) đã merge vào `main` (chưa push).
 - Nhánh `chore/consistency-police` (ADR-0008) xong: sổ luật `invariants.toml` + `check.py` + `consistency-auditor` + `/decision-sweep` + 7 cổng pre-commit. Lượt sweep đầu cho ADR-0001/0003/0008: tầng 1 = 0 vi phạm, auditor lượt 3 xác nhận. Chờ Thy duyệt merge vào `main`.
+- Đổi tên hiển thị sản phẩm → **Unthreaded** (ADR-0009, slug `threads-ai-content` giữ nguyên) + câu miễn trừ Meta; cùng nhánh `chore/consistency-police`.
 
 ## Next
 
@@ -18,7 +19,6 @@
 ## Blocked / cần Thy
 
 - Quyết định còn mở từ lượt sweep đầu (chưa sửa, chờ Thy):
-  - Tên sản phẩm "Threads AI Content" (chữ "AI Content" gợi ý tính năng sinh nội dung đã bỏ).
   - Landing ghi "This site, deployed on Vercel" — hiện có bản deploy cố định không?
   - "SQLite → PostgreSQL planned" (README ×3, landing) — giữ hay bỏ?
   - Topic `method='fixed'` trong schema và `/topics` (xem roadmap D0).
@@ -37,7 +37,7 @@
 
 ## Số liệu nhanh
 
-- 150 root post · 1.368 reply của tác giả (362 self-continuation · 664 trả lời follower · 342 ở bài người khác) · 9 cluster · 217 test pass
+- 150 root post · 1.368 reply của tác giả (362 self-continuation · 664 trả lời follower · 342 ở bài người khác) · 9 cluster · 225 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint

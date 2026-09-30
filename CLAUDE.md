@@ -1,4 +1,4 @@
-# threads-ai-content
+# Unthreaded (repo `threads-ai-content`)
 
 Dự án NLP trên data thật của kênh Threads **@thydilammuon** (người Việt tại Pháp: alternance, xin việc, đời sống).
 Scope (ADR-0001): **phân tích NLP sâu → knowledge base (cơ sở tri thức) cập nhật liên tục → chỉ sau cổng chất lượng: chatbot + landing thương hiệu.**

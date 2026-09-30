@@ -1,4 +1,4 @@
-# Data Model — Threads AI Content
+# Data Model — Unthreaded
 
 > Đọc khi: làm việc trong `src/api/`, `src/analysis/`, hoặc cần biết field/metrics/response shape thật của Threads API, công thức Virality Index, NLP pipeline, hay thiết kế knowledge base.
 > Xem thêm: [`architecture.md`](architecture.md) cho tech stack/cấu trúc thư mục, [`CLAUDE.md`](../../CLAUDE.md) cho mission, [`docs/status.md`](../status.md) cho trạng thái.

@@ -29,7 +29,7 @@ if (-not $Title) {
         default        { $Title = "Claude: $Event" }
     }
 }
-if (-not $Message) { $Message = "threads-ai-content" }
+if (-not $Message) { $Message = "Unthreaded" }
 $Message = ($Message -replace "\s+", " ").Trim()
 if ($Message.Length -gt 120) { $Message = $Message.Substring(0, 117) + "..." }
 

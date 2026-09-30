@@ -1,9 +1,9 @@
-# Threads AI Content
+# Unthreaded
 
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-217%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-225%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -209,3 +209,6 @@ thành case study thống kê + NLP đầy đủ như mô tả ở trên.
 Dự án cá nhân, private. Giữ toàn bộ quyền — không phải mã nguồn mở, không nhận contribution từ bên
 ngoài. Được xây dựng làm sản phẩm portfolio, thể hiện năng lực kỹ thuật NLP/ML áp dụng thật trên
 data production.
+
+Không liên kết với Meta. Threads là nhãn hiệu của Meta Platforms, Inc. Repo vẫn giữ tên kỹ thuật
+`threads-ai-content`.

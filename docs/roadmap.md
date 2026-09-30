@@ -1,4 +1,4 @@
-# Roadmap — threads-ai-content
+# Roadmap — Unthreaded
 
 > Nguồn "làm gì, theo thứ tự nào". Trạng thái hiện tại xem `docs/status.md`; lý do của từng quyết định xem `docs/decisions/`.
 > Scope đã chốt tại ADR-0001: **NLP sâu → knowledge base → (sau cổng F) chatbot + landing thương hiệu.** Không generation giọng văn, không carousel.

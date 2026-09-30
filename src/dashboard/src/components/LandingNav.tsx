@@ -12,7 +12,7 @@ export function LandingNav() {
             <span className="text-sm font-semibold leading-none">@</span>
           </div>
           <span className="text-sm font-semibold tracking-tight text-text-primary">
-            Threads AI Content
+            Unthreaded
           </span>
         </div>
         <Link
