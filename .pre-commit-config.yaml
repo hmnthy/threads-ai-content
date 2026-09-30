@@ -1,3 +1,6 @@
+# Cài: `uv run pre-commit install` (tự cài cả pre-commit lẫn commit-msg nhờ default_install_hook_types)
+default_install_hook_types: [pre-commit, commit-msg]
+
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.5
@@ -9,7 +12,15 @@ repos:
     hooks:
       - id: mypy
         name: mypy
+        # Windows path — đổi sang uv/.venv/bin khi chuyển runtime sang WSL2 (roadmap Phase C)
         entry: ./.venv/Scripts/python.exe -m mypy
         language: system
-        files: ^src/
+        files: ^(src|tests)/
         pass_filenames: false
+      # Chốt chặn tầng git cho quy tắc "không trailer Co-Authored-By" — áp dụng cả khi
+      # commit tay ngoài Claude Code (hook PreToolUse chỉ bảo vệ commit do Claude chạy).
+      - id: no-coauthor-trailer
+        name: no Co-Authored-By trailer
+        language: pygrep
+        entry: "(?i)^co-authored-by:"
+        stages: [commit-msg]
