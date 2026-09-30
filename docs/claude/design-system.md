@@ -243,13 +243,13 @@ File: `docs/design/photo_author.JPG` (4000×4000).
 
 ## 11. UI/UX Pro Max — phạm vi sử dụng
 
-Skill `.claude/skills/ui-ux-pro-max/` là **công cụ tra cứu**, không phải nguồn design. Xem quy tắc bắt buộc ở `CLAUDE.md` §Quy tắc tuyệt đối.
+Skill `tools/ui-ux-pro-max/` là **công cụ tra cứu**, không phải nguồn design. Gọi qua skill `ui-lookup`; quy tắc bắt buộc ở `.claude/rules/dashboard.md` (tự nạp khi chạm `src/dashboard/`).
 
 **Không nạp SKILL.md vào context** (55KB ≈ 15k token). Chỉ chạy CLI:
 
 ```bash
 # Windows dùng `python`; Linux/macOS dùng `python3`
-python .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --domain <d> -n 3
+python tools/ui-ux-pro-max/scripts/search.py "<query>" --domain <d> -n 3
 ```
 
 **Nghiêm cấm** `--design-system` và `--persist`: generator này sinh palette + pattern landing-page marketing, mâu thuẫn với file này, và `--persist` ghi ra `design-system/<slug>/MASTER.md` tạo nguồn sự thật thứ hai.

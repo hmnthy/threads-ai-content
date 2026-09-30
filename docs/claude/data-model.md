@@ -70,7 +70,7 @@ POST /me/threads                         # Publish post mới (nếu tích hợp
 
 - OAuth 2.0, token lưu trong `.env` (không commit)
 - Scope Phase 1 (đang dùng): `threads_basic`, `threads_manage_insights`, `threads_content_publish`, `threads_manage_replies`
-- Scope đã request sẵn cho Phase 2 (Standard Access, chưa dùng được đầy đủ — xem Phase 2 trong `CLAUDE.md`): `threads_trending_topics`, `threads_keyword_search`, `threads_read_replies`, `threads_profile_discovery`
+- Scope đã request sẵn ở Standard Access (Phase 2 KOL engine đã bỏ — ADR-0001; `threads_read_replies` vẫn cần cho Phase D0: đọc bình luận follower qua `/conversation`, chưa verify live): `threads_trending_topics`, `threads_keyword_search`, `threads_read_replies`, `threads_profile_discovery`
 - Long-lived token: 60 ngày — dùng `refresh_long_lived_token()` trong `src/api/auth.py` trước khi hết hạn; `should_warn_expiry()` cảnh báo khi còn ≤ 7 ngày (chỉ hoạt động sau lần refresh đầu tiên, vì Threads không cho tra hạn còn lại của 1 token bất kỳ)
 - Rate limit chính tài khoản: `4,800 × số impressions` / 24h (rất cao, khó chạm)
 - Token hiện tại lấy trực tiếp qua công cụ **"Tạo mã truy cập"** trong Meta Dashboard (App → Trường hợp sử dụng → Truy cập API Threads → Cài đặt → Công cụ tạo mã người dùng) — công cụ này trả ngay long-lived token cho tester đã approve, không cần tự dựng OAuth redirect flow
