@@ -1,5 +1,5 @@
 """Bước 1/3 của clustering pipeline — chạy trên Windows. Ghi `language_primary`/
-`language_mix_score` vào `content_units` (Bước 3 — `lingua-language-detector`
+`language_mix_score` vào `content_units` (`lingua-language-detector`
 KHÔNG phụ thuộc scipy, chạy ổn định trên Windows) và xuất `(id, full_text)` của
 content unit ra `data/nlp_exchange/texts_export.json` để `src/pipeline/
 cluster_wsl.py` đọc vào.
@@ -11,8 +11,8 @@ block lại) — tức là lần "tự hết" hôm qua chỉ là may rủi (repu
 ổn định), KHÔNG phải đã sửa dứt điểm. Toàn bộ phần ML thật (embedding + UMAP +
 HDBSCAN) chuyển hẳn sang chạy trong WSL2 (xem `src/pipeline/cluster_wsl.py`) —
 môi trường Linux không nằm trong phạm vi kiểm soát của Smart App Control, ổn
-định hơn là dựa vào Windows "có lúc chặn có lúc không". Xem docs/claude/
-architecture.md decision log 2026-09-02.
+định hơn là dựa vào Windows "có lúc chặn có lúc không". Xem
+docs/decisions/legacy-log.md, các dòng 2026-09-02.
 
 QUAN TRỌNG #2 (2026-09-02) — vì sao lọc `full_text` rỗng: content unit có
 `full_text` rỗng (whitespace-only) bị LOẠI KHỎI export cluster — verify thật cho

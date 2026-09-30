@@ -11,6 +11,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from scripts.consistency import check
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -299,3 +301,125 @@ def test_real_sprint_step_rule_ignores_procedure_numbering_in_skills(tmp_path: P
     got = [(v.path, v.rule) for v in check.check_forbid(root, files, cfg)]
     assert ("src/m.py", "ADR0003-sprint-steps") in got
     assert all(path != ".claude/skills/x/SKILL.md" for path, _ in got)
+
+
+# Luật học được từ lượt /decision-sweep đầu tiên (consistency-auditor): mỗi luật 1 ví dụ
+# PHẢI khớp và 1 ví dụ KHÔNG được khớp, lấy từ chính phát hiện thật trong repo.
+LEARNED_RULES = [
+    (
+        "ADR0003-arch-md-see",
+        "tests/x.py",
+        'reason="blocked by Application Control Policy — see architecture.md",',
+        "# Xem docs/claude/architecture.md mục Tech stack",
+    ),
+    (
+        "ADR0001-autopost",
+        "docs/claude/x.md",
+        "POST /me/threads  # Publish post mới (nếu tích hợp auto-post)",
+        "Không đăng gì lên Threads.",
+    ),
+    (
+        "ADR0001-publish-scope",
+        "docs/claude/x.md",
+        "- Scope đang dùng: `threads_basic`, `threads_content_publish`",
+        "- Scope đang dùng: `threads_basic`. Đã cấp nhưng không dùng: `threads_content_publish`",
+    ),
+    (
+        "ADR0001-rag-gen-scope",
+        "docs/claude/x.md",
+        "- RAG: bản nhẹ (retrieval + generation cơ bản)",
+        "- Knowledge base: chỉ truy xuất + đánh giá",
+    ),
+    (
+        "ADR0001-svm-in-pipeline",
+        "docs/claude/x.md",
+        "(việc đó là HDBSCAN + SVM-RBF/LogReg)",
+        "bậc thang baseline → SVM-RBF",
+    ),
+    ("ADR0001-content-idea", "docs/claude/x.md", "cấu trúc Content Idea Card", "Content unit row"),
+    (
+        "DATA-stale-reply-count",
+        "src/x.py",
+        "phục vụ 1.285 replies đã ingest",
+        "# Verify live 2026-08-31 (140 posts + 1,285 replies)",
+    ),
+    (
+        "DATA-audience-reply-field",
+        "docs/claude/x.md",
+        "Phân biệt self-continuation vs audience reply",
+        "phân vai reply ở Phase D0",
+    ),
+    (
+        "ADR0003-arch-decision-pointer",
+        "src/x.py",
+        "xem docs/claude/architecture.md decision log 2026-09-02",
+        "## 13. Decision log",
+    ),
+    (
+        "ADR0003-status-in-claude",
+        "docs/claude/x.md",
+        "[`CLAUDE.md`](../../CLAUDE.md) cho mission/status.",
+        "Tài liệu gọn (CLAUDE.md, status, roadmap, ADR)",
+    ),
+    (
+        "ADR0003-sprint-word",
+        "docs/claude/x.md",
+        "### V2 (không scope vào sprint hiện tại)",
+        "plan/sprint cũ, giữ nguyên văn",
+    ),
+    (
+        "ADR0003-harness-counts",
+        "docs/status.md",
+        "hooks, 3 subagent, 7 skill",
+        "subagents code-reviewer, qa-tester",
+    ),
+    (
+        "DS-landing-built",
+        "docs/claude/x.md",
+        "Tầng B landing page chưa dựng.",
+        "(Tầng B, scoped — xem design-system)",
+    ),
+    (
+        "FACT-design-sync-wording",
+        "docs/claude/dev-rules.md",
+        "4. Claude Code verify: code sync có khớp token",
+        "4. Claude Code verify: code đã port có khớp token",
+    ),
+    (
+        "ADR0008-pytest-slow",
+        "CLAUDE.md",
+        "uv run pytest -q   # test (hiện chậm ~5 phút trên Windows)",
+        "nếu job vừa bắt đầu < 5 phút thì chờ",
+    ),
+    (
+        "ADR0008-mypy-scope",
+        ".claude/rules/python.md",
+        "mypy **strict** trên `src/` + `tests/` —",
+        "mypy **strict** trên `src/` + `tests/` + `scripts/` —",
+    ),
+    (
+        "ADR0008-precommit-scope",
+        ".claude/hooks/x.py",
+        "--no-verify skips ruff/mypy/commit-msg hooks",
+        "skips the ruff, mypy, consistency hooks",
+    ),
+]
+
+
+@pytest.mark.parametrize(("rule_id", "path", "hit", "miss"), LEARNED_RULES)
+def test_learned_rules_hit_and_miss(
+    tmp_path: Path, rule_id: str, path: str, hit: str, miss: str
+) -> None:
+    root = tmp_path / "repo"
+    (root / "docs/decisions").mkdir(parents=True)
+    real_toml = (REPO_ROOT / check.INVARIANTS_PATH).read_text(encoding="utf-8")
+    (root / check.INVARIANTS_PATH).write_text(real_toml, encoding="utf-8")
+    target = root / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    cfg = check.load_config(root)
+
+    target.write_text(hit + "\n", encoding="utf-8")
+    assert rule_id in {v.rule for v in check.check_forbid(root, [path], cfg)}
+
+    target.write_text(miss + "\n", encoding="utf-8")
+    assert rule_id not in {v.rule for v in check.check_forbid(root, [path], cfg)}

@@ -10,7 +10,7 @@ THẬT đang dùng để ghi rõ trong report/log, không giấu việc đã fal
 
 QUAN TRỌNG (2026-09-02): môi trường Windows chạy agent này chặn `scipy.linalg.
 _flapack` bằng Smart App Control (Windows 11 Home — KHÔNG có UI allowlist cho
-user thường, khác WDAC/AppLocker, xem docs/claude/architecture.md decision log
+user thường, khác WDAC/AppLocker, xem docs/decisions/legacy-log.md, các dòng
 2026-09-02) — `sentence-transformers` phụ thuộc `scikit-learn`→`scipy` ở tầng
 import. Đã verify hành vi KHÔNG ổn định: chạy được thật 1 lần (2026-09-01, tải
 bge-m3 thành công), rồi bị chặn LẠI ngay hôm sau (2026-09-02) không có thay đổi

@@ -8,7 +8,7 @@ from typing import Any
 DEFAULT_CACHE_DIR = Path("data/cache")
 DEFAULT_TTL_SECONDS = (
     6 * 60 * 60
-)  # 6 hours, per docs/claude/architecture.md decision to avoid Threads rate limits
+)  # 6 hours, to avoid Threads rate limits — see docs/decisions/legacy-log.md ("Cache TTL 6 giờ")
 
 
 class Cache:

@@ -208,3 +208,146 @@ max = 60
 id = "FACT-test-count"
 pattern = '(?i)(?P<n>\d+)(%20|\s)+tests?\b(?!\s*(file|module))'
 paths = ["README*.md", "docs/status.md", "CLAUDE.md", "docs/claude/**"]
+
+[[count_fact]]
+id = "FACT-test-badge"
+pattern = 'tests-(?P<n>\d+)%20passing'
+paths = ["README*.md"]
+
+# ---------------------------------------------------------------------------------------
+# Luật học được từ lượt /decision-sweep đầu tiên (consistency-auditor, 2026-09-30)
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0001-autopost"
+adr = "0001"
+pattern = '(?i)auto-?post|auto-?publish|tự động đăng'
+why = "Dự án không đăng bài (ADR-0001 + quy tắc tuyệt đối) — không mô tả luồng đăng bài như tính năng"
+fix = "Xoá, hoặc ghi rõ 'không dùng — dự án không đăng bài'"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0001-publish-scope"
+adr = "0001"
+# Dừng ở dấu chấm hết câu: "đang dùng: X. Đã cấp nhưng không dùng: threads_content_publish" là hợp lệ
+pattern = '(?i)đang dùng:?[^.\n]*threads_content_publish'
+why = "Không có code nào publish — scope threads_content_publish được cấp nhưng không dùng"
+fix = "Chuyển sang nhóm 'đã cấp nhưng không dùng'"
+
+[[forbid]]
+id = "ADR0001-rag-gen-scope"
+adr = "0001"
+pattern = '(?i)retrieval \+ generation'
+why = "Generation (chatbot) chỉ làm sau cổng Phase F — phạm vi hiện tại là retrieval + eval"
+fix = "Ghi 'retrieval + eval; generation chỉ sau cổng F'"
+allow = ["docs/decisions/**", "docs/roadmap.md"]
+
+[[forbid]]
+id = "ADR0001-svm-in-pipeline"
+adr = "0001"
+pattern = 'HDBSCAN ?[+/] ?SVM'
+why = "Bộ phân loại có giám sát chỉ là câu hỏi nghiên cứu RQ-08, không phải thành phần pipeline đang chạy"
+fix = "Chỉ nêu HDBSCAN; bộ phân loại → RQ-08"
+
+[[forbid]]
+id = "ADR0001-content-idea"
+adr = "0001"
+pattern = '(?i)content idea'
+why = "Content Idea Card thuộc tính năng gợi ý/generation đã bỏ"
+fix = "Xoá, hoặc chú thích 'đã bỏ theo ADR-0001'"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "DATA-stale-reply-count"
+adr = "finding-2026-09-30"
+pattern = '^(?!.*2026-08-(29|30|31)).*\b1[.,]285\b'
+why = "1.285 là số reply cũ (tới 2026-08-31); trình bày như hiện trạng là sai — hiện 1.368 và còn tăng"
+fix = "Bỏ số, hoặc ghi kèm ngày đo"
+
+[[forbid]]
+id = "DATA-audience-reply-field"
+adr = "finding-2026-09-30"
+pattern = '(?i)vs audience repl'
+why = "Data từ /replies chỉ gồm reply của tác giả — is_reply_owned_by_me không phân biệt được reply của follower"
+fix = "Ghi rõ: luôn True với data /replies; phân vai reply ở Phase D0 (reply_role)"
+
+[[forbid]]
+id = "ADR0003-arch-decision-pointer"
+adr = "0003"
+pattern = '''(?i)architecture\.md[`"')\s]*(decisions?\b|quyết định)|decisions? log[^\n]{0,25}architecture\.md'''
+why = "Bảng quyết định đã rời architecture.md → docs/decisions/legacy-log.md (và ADR mới trong docs/decisions/)"
+fix = "Trỏ tới docs/decisions/legacy-log.md (kèm tên dòng quyết định)"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0003-arch-md-see"
+adr = "0003"
+pattern = '(?i)\bsee architecture\.md'
+why = "architecture.md không còn chứa lý do quyết định — trỏ tới docs/decisions/legacy-log.md hoặc ADR"
+fix = "see docs/decisions/legacy-log.md"
+paths = ["src/**", "tests/**", "scripts/**"]
+
+[[forbid]]
+id = "ADR0003-status-in-claude"
+adr = "0003"
+# Chỉ bắt câu "CLAUDE.md cho ... status" (trỏ trạng thái về CLAUDE.md), không bắt liệt kê "CLAUDE.md, status, …"
+pattern = 'CLAUDE\.md\)?\s*(cho|for)\b[^\n|]{0,20}\bstatus\b(?!\.md)'
+why = "Trạng thái nằm ở docs/status.md, không ở CLAUDE.md"
+fix = "Trỏ tới docs/status.md"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0003-sprint-word"
+adr = "0003"
+pattern = '(?i)sprint (hiện tại|current|này)'
+why = "Sprint plan đã archive — kế hoạch hiện tại là các phase trong docs/roadmap.md"
+fix = "Trỏ tới phase trong docs/roadmap.md"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0003-harness-counts"
+adr = "0003"
+pattern = '(?i)\b\d+ (subagent|skill)s?\b'
+why = "Đếm subagent/skill trong văn xuôi trôi mỗi khi thêm mới — liệt kê tên hoặc bỏ số"
+fix = "Bỏ số, hoặc liệt kê tên"
+paths = ["docs/status.md", "docs/claude/**", "README*.md", "CLAUDE.md"]
+
+[[forbid]]
+id = "DS-landing-built"
+adr = "0001"
+pattern = '(?i)Tầng B[^\n]{0,40}(làm sau|chưa dựng)'
+why = "Landing (Tầng B, bản scoped) đã dựng 2026-09-03 (commit 7534faa)"
+fix = "Ghi 'đã dựng bản scoped'; landing thương hiệu = Phase F"
+paths = ["docs/claude/**"]
+
+[[forbid]]
+id = "FACT-design-sync-wording"
+adr = "fact-designsync"
+pattern = '(?i)code (đã )?sync\b|sync ngược lại'
+why = "Code về repo bằng cách port (đọc get_file / mockup), không phải sync kéo về"
+fix = "Dùng 'port' cho chiều Design → code"
+paths = ["docs/claude/dev-rules.md"]
+
+# ADR-0008 — cưỡng chế nhất quán (luật cho những gì chính ADR-0008 làm lỗi thời)
+
+[[forbid]]
+id = "ADR0008-pytest-slow"
+adr = "0008"
+pattern = '(?i)pytest[^\n]{0,60}~?\s?5 (phút|min)'
+why = "Bộ test đầy đủ ~51 giây, bộ nhanh ~20 giây — con số ~5 phút là lần chạy lạnh đầu tiên"
+fix = "Ghi '~1 phút (đầy đủ); pre-commit chạy bộ nhanh'"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0008-mypy-scope"
+adr = "0008"
+pattern = 'mypy[^\n]{0,40}`src/`\s*\+\s*`tests/`(?!\s*\+)'
+why = "mypy strict phủ src/ + tests/ + scripts/"
+fix = "Thêm `scripts/`"
+
+[[forbid]]
+id = "ADR0008-precommit-scope"
+adr = "0008"
+pattern = 'ruff/mypy/commit-msg\b(?!\s*/)'
+why = "Pre-commit còn chạy consistency, pytest nhanh, dashboard eslint+tsc"
+fix = "Liệt kê đủ các cổng"

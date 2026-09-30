@@ -2,8 +2,8 @@
 `src/pipeline/ingest.py` + `src/pipeline/snapshot.py`, topic label bằng
 `src/nlp/topics.py`). KHÔNG load model transformer / chạy lại embedding+clustering
 mỗi request — đây là nguyên tắc kiến trúc đã chốt (batch compute tách khỏi serving
-layer), xem docs/claude/architecture.md quyết định "Batch pipeline tách riêng khỏi
-FastAPI serving layer".
+layer), xem docs/decisions/legacy-log.md dòng "Batch pipeline tách riêng khỏi FastAPI serving
+layer".
 
 Chạy: `uv run uvicorn src.main:app --reload --port 8000` (hoặc
 `.venv/Scripts/python.exe -m uvicorn src.main:app --reload --port 8000`).
@@ -52,7 +52,7 @@ from src.db.schema import (
 
 app = FastAPI(
     title="Threads AI Content API",
-    description="Internal analytics API cho kênh Threads 'thydilammuon' — Phase 1.",
+    description="Internal analytics API cho kênh Threads 'thydilammuon'.",
     version="0.1.0",
 )
 
@@ -79,10 +79,9 @@ def _db() -> Generator[sqlite3.Connection]:
 
 
 class ContentUnitMetrics(BaseModel):
-    """6-index architecture (Bước 4) — chỉ 3 base index tính được ngay từ 1 snapshot
-    insights (popularity/virality/conversation) + engagement_rate đã sửa (thêm
-    quotes). velocity/longevity cần nhiều snapshot theo thời gian — chưa tính tối nay
-    (Bước 5 phần tính toán, Bước 6 — deferred)."""
+    """6-index architecture — 3 base index tính được từ 1 snapshot insights
+    (popularity/virality/conversation) + engagement_rate (có quotes). velocity/longevity
+    cần chuỗi snapshot theo thời gian nên chưa trả qua endpoint này (deferred)."""
 
     popularity_index: int
     engagement_rate: float
@@ -118,8 +117,8 @@ class TopicOut(BaseModel):
 
 # Audience trải cả Pháp và Việt Nam (verify live 2026-08-31 qua
 # get_follower_demographics(breakdown="country"): 71.5% VN, 19.3% FR trên 1,423
-# follower có dữ liệu country — xem report cuối). So sánh song song 2 timezone thay
-# vì chọn 1, đúng quyết định đã chốt trong architecture.md cho engagement_by_hour/weekday.
+# follower có dữ liệu country). So sánh song song 2 timezone thay vì chọn 1 — lý do
+# tại docs/decisions/legacy-log.md (dòng "Timeline analysis ... parametrize theo timezone").
 ANALYTICS_TIMEZONES: Final = (
     ("Europe/Paris", ZoneInfo("Europe/Paris")),
     ("Asia/Ho_Chi_Minh", ZoneInfo("Asia/Ho_Chi_Minh")),
@@ -358,8 +357,8 @@ def get_analytics_overview() -> AnalyticsOverviewOut:
     """Overview/Analytics tối giản — bảng top post theo 3 base index (engagement/
     virality/conversation) + engagement theo giờ/thứ, song song Europe/Paris và
     Asia/Ho_Chi_Minh (KHÔNG chọn 1 timezone — Threads không expose viewer timezone
-    per-post, xem docs/claude/architecture.md quyết định "Timeline analysis...
-    parametrize theo timezone"). Thuần đọc + tính arithmetic từ SQLite, KHÔNG gọi
+    per-post, xem docs/decisions/legacy-log.md dòng "Timeline analysis ... parametrize theo
+    timezone"). Thuần đọc + tính arithmetic từ SQLite, KHÔNG gọi
     lại Threads API, KHÔNG chạy lại pipeline NLP."""
     with _db() as conn:
         posts, insights = _load_root_posts_with_insights(conn)

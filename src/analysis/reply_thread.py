@@ -1,6 +1,6 @@
 """Layer 6 — reply-level analysis, tính trực tiếp trên graph đã có sẵn trong
 bảng `posts` (`is_reply`, `replied_to_id`, `root_post_id`, `is_reply_owned_by_me`
-— xem `src/db/schema.py`), phục vụ 1.285 replies đã ingest nhưng trước giờ chỉ
+— xem `src/db/schema.py`), phục vụ các reply của tác giả đã ingest, trước giờ chỉ
 đóng góp dưới dạng đếm gộp trong `conversation_rate` (`replies/views*100`).
 
 Căn cứ chính thức: Meta Transparency Center — "Instagram Threads Feed AI system"

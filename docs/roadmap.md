@@ -6,12 +6,13 @@
 
 Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`. Mỗi phase kết thúc bằng checkpoint commit + cập nhật `docs/status.md`.
 
-## Đã xong (nhánh `chore/restructure`)
+## Đã xong
 
 - **0** Dọn worktree cũ, `.gitattributes`, `.gitignore`, `.worktreeinclude`
 - **A1** `.claude/settings.json` + hooks (status, chặn trailer, ruff-on-edit, pop-up Windows)
 - **B** Gỡ generation/carousel (ADR-0001)
 - **A2–A6** Tài liệu gọn (CLAUDE.md, status, roadmap, ADR), `.claude/rules/`, subagents, skills, `.mcp.json`
+- **Cảnh sát nhất quán** (ADR-0008): sổ luật `invariants.toml`, `check.py`, `/decision-sweep`, pre-commit chặn vi phạm + test nhanh + dashboard, `npm run screenshots`
 
 ## C — Chuyển toàn bộ Python sang WSL2 (ADR-0002)
 
@@ -21,17 +22,18 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 - `connect()`: WAL + `busy_timeout=30000` + retry khi "database is locked".
 - `scripts/jobs/run_job.sh {snapshot|nlp|kb}` bọc `flock`; job NLP gộp thành `src/pipeline/recluster.py`. Xoá cầu nối `clustering_export.py`/`cluster_wsl.py`/`clustering_import.py` + 2 file `.bat`.
 - `scripts/jobs/wsl_job.ps1` cho Task Scheduler: retry khi WSL khởi động chậm (`HCS_E_CONNECTION_TIMEOUT`), pop-up khi thất bại hẳn.
-- pre-commit mypy entry → đường dẫn Linux.
+- 4 entry local của pre-commit (mypy, consistency, pytest-fast, dashboard) → đường dẫn Linux (`.venv/bin/python`).
 - **Xong khi**: test xanh trong WSL; 2 job chạy chồng thì job sau chờ; 3 ngày log xanh liên tục.
 
 ## G — CI (GitHub Actions)
 
-- Job `py`: `setup-uv` → `uv sync --frozen` → ruff → mypy → `pytest -m "not live and not slow"`. Job `web`: `npm ci` → lint → `tsc --noEmit` → build. Không data thật, không secrets.
+- Job `py`: `setup-uv` → `uv sync --frozen` → ruff → mypy → `python -m scripts.consistency.check --all --no-pytest` → `pytest -m "not live and not slow"`. Job `web`: `npm ci` → lint → `tsc --noEmit` → build. Không data thật, không secrets.
 
 ## D0 — Sửa tính đúng của dữ liệu (chặn D và E) — ADR-0004
 
 1. `posts.reply_role ∈ {root, self_continuation, author_answer, outbound}` — continuation khi `replied_to ∈ {root} ∪ {continuation trước đó}`. Đối chiếu số thật 362/664/342.
 2. `full_text` = root + self_continuation + `text_attachment`. Câu trả lời cho follower lưu riêng.
+   - Quyết định kèm (hỏi Thy): topic `method='fixed'` trong schema/`/topics` chỉ dành cho kết quả RQ-08 hay bỏ khỏi CHECK — bộ phân loại không còn là thành phần sản phẩm (ADR-0001).
 3. **Verify live** `GET /{root_id}/conversation`: Standard Access có trả text bình luận follower không. Có → bảng `audience_replies` (username pseudonymize bằng hash có salt — GDPR), ADR-0007. Không → gold set dùng câu hỏi tự soạn.
 4. Bảng `qa_pairs` (bình luận follower ↔ câu trả lời tác giả).
 5. Bảng `embeddings(object_type, object_id, model_id, content_hash, vector)` — chỉ embed lại khi hash đổi; điền `topics.centroid_embedding_json`.
@@ -73,4 +75,4 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 
 ## Trước khi public repo
 
-Không copy history. `git filter-repo` trên bản clone mới: loại `docs/research/`, `src/carousel/`, trailer ở `31adcbc`/`3eceabe`. Kiểm tra license skill vendored (`tools/`) và mọi asset.
+Không copy history. `git filter-repo` trên bản clone mới: loại `docs/research/`, `src/carousel/` <!-- consistency: allow dead-path -->, trailer ở `31adcbc`/`3eceabe`. Kiểm tra license skill vendored (`tools/`) và mọi asset.

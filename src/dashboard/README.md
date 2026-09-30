@@ -1,36 +1,15 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dashboard (Next.js 16)
 
-## Getting Started
-
-First, run the development server:
+Giao diện của threads-ai-content: landing `/` + tool `/overview`, `/analytics`, `/topics`.
+Tài liệu chính ở README gốc của repo; design system: `docs/claude/design-system.md`.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev            # http://localhost:3000 — cần backend: uv run uvicorn src.main:app --port 8000
+npm run lint           # eslint (cũng chạy ở pre-commit, kèm tsc --noEmit)
+npm run build
+npm run screenshots    # chụp lại docs/screenshots/*.png (Playwright + Edge có sẵn)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`.env.local`: `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` (trả về localhost sau mỗi lần deploy tạm qua tunnel).
+Next.js 16 có breaking changes — xem `AGENTS.md` cùng thư mục.

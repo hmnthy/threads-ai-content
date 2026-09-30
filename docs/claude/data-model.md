@@ -1,7 +1,7 @@
 # Data Model — Threads AI Content
 
 > Đọc khi: làm việc trong `src/api/`, `src/analysis/`, hoặc cần biết field/metrics/response shape thật của Threads API, công thức Virality Index, NLP pipeline, hay thiết kế knowledge base.
-> Xem thêm: [`architecture.md`](architecture.md) cho tech stack/cấu trúc thư mục, [`CLAUDE.md`](../../CLAUDE.md) cho mission/status.
+> Xem thêm: [`architecture.md`](architecture.md) cho tech stack/cấu trúc thư mục, [`CLAUDE.md`](../../CLAUDE.md) cho mission, [`docs/status.md`](../status.md) cho trạng thái.
 
 ---
 
@@ -16,7 +16,7 @@ GET /{user_id}/threads                   # Danh sách posts của kênh
 GET /{user_id}/replies                   # Danh sách reply tác giả đã đăng
 GET /{thread-id}/insights                # Metrics của 1 post
 GET /{user_id}/threads_insights          # Metrics tổng kênh
-POST /me/threads                         # Publish post mới (nếu tích hợp auto-post)
+POST /me/threads                         # Đăng bài — KHÔNG dùng: dự án không đăng bài (ADR-0001)
 ```
 
 ### Pagination
@@ -25,7 +25,7 @@ POST /me/threads                         # Publish post mới (nếu tích hợp
 
 `get_posts()` và `get_replies()` (`src/api/endpoints.py`) đều dùng chung helper `_paginate()` — gọi `ThreadsClient.get_url()` với URL tuyệt đối từ `paging.next` (URL này đã có sẵn `access_token`, không inject lại) cho tới khi response không còn `paging.next`. Đảm bảo lấy đủ toàn bộ lịch sử kênh, không chỉ page đầu.
 
-`get_replies()` mới thêm (2026-08-29), dùng scope `threads_manage_replies` đã có sẵn ở Phase 1, tái dùng `POST_FIELDS` + model `ThreadsPost` với `/threads`.
+`get_replies()` mới thêm (2026-08-29), dùng scope `threads_manage_replies` đã có sẵn, tái dùng `POST_FIELDS` + model `ThreadsPost` với `/threads`.
 
 **Verify live (2026-08-29)**: đã fetch thật cả 2 endpoint với pagination fix — `/replies` trả đúng shape như giả định (25/25 item validate sạch qua `ThreadsPost`, không có field lạ ngoài `POST_FIELDS`, các field optional như `thumbnail_url`/`quoted_post`/`reposted_post` chỉ đơn giản là không có mặt ở item nào chứ không sai kiểu). Số liệu thật của kênh `thydilammuon`: **140 posts**, **1,285 replies** (con số "25 posts" ghi ở lần verify trước chỉ là page 1 do bug pagination lúc đó — đã lỗi thời).
 
@@ -41,7 +41,7 @@ POST /me/threads                         # Publish post mới (nếu tích hợp
 | Field | Kết quả verify | Ghi chú |
 |---|---|---|
 | `root_post`, `replied_to` | ✅ Thật — trả `{"id": "..."}`. Mẫu nhỏ (limit=3) ban đầu trống, tưởng lỗi; test lại `limit=20` trên `/replies` thấy 9-10/20 item có data | Dùng cho `thread_reconstruction.py` — nối chuỗi self-reply thành 1 `ContentUnit` |
-| `is_reply`, `is_reply_owned_by_me` | ✅ Thật — boolean đúng nghĩa (`is_reply=False` trên `/threads`, `True` trên `/replies`) | Phân biệt self-continuation (tác giả tự reply tiếp) vs audience reply |
+| `is_reply`, `is_reply_owned_by_me` | ✅ Thật — boolean đúng nghĩa (`is_reply=False` trên `/threads`, `True` trên `/replies`) | Luôn `True` với data từ `/replies` (endpoint chỉ trả reply của tác giả) — phân vai reply (self-continuation / trả lời follower / ở bài người khác) làm ở Phase D0 (`reply_role`) |
 | `has_replies` | ✅ Thật (test thêm ngoài dự kiến ban đầu) | Tín hiệu nhẹ "post có ai reply chưa" |
 | `is_spoiler_media` | ✅ Thật, luôn `False` trong data hiện có | Tác giả chưa dùng spoiler |
 | `text_attachment` | ✅ Thật, CÓ dùng — verify lại 2026-08-31 khi chạy pipeline ingest trên toàn bộ 140 posts + 1,285 replies (mẫu nhỏ 50+50 ngày 2026-08-30 không bắt được case này). Shape thật là **edge `{"plaintext": "..."}`**, không phải string phẳng như giả định ban đầu — `ThreadsPost` đã thêm `field_validator` tự flatten (giống `children`) | Dùng cho `ContentUnit.text_attachment` |
@@ -69,8 +69,8 @@ POST /me/threads                         # Publish post mới (nếu tích hợp
 ### Auth
 
 - OAuth 2.0, token lưu trong `.env` (không commit)
-- Scope Phase 1 (đang dùng): `threads_basic`, `threads_manage_insights`, `threads_content_publish`, `threads_manage_replies`
-- Scope đã request sẵn ở Standard Access (Phase 2 KOL engine đã bỏ — ADR-0001; `threads_read_replies` vẫn cần cho Phase D0: đọc bình luận follower qua `/conversation`, chưa verify live): `threads_trending_topics`, `threads_keyword_search`, `threads_read_replies`, `threads_profile_discovery`
+- Scope đang dùng: `threads_basic`, `threads_manage_insights`, `threads_manage_replies`. Đã cấp nhưng không dùng: `threads_content_publish` (dự án không đăng bài — ADR-0001)
+- Scope đã request sẵn ở Standard Access nhưng chưa dùng (`threads_read_replies` sẽ cần cho Phase D0: đọc bình luận follower qua `/conversation`, chưa verify live; các scope còn lại chưa có kế hoạch dùng): `threads_trending_topics`, `threads_keyword_search`, `threads_read_replies`, `threads_profile_discovery`
 - Long-lived token: 60 ngày — dùng `refresh_long_lived_token()` trong `src/api/auth.py` trước khi hết hạn; `should_warn_expiry()` cảnh báo khi còn ≤ 7 ngày (chỉ hoạt động sau lần refresh đầu tiên, vì Threads không cho tra hạn còn lại của 1 token bất kỳ)
 - Rate limit chính tài khoản: `4,800 × số impressions` / 24h (rất cao, khó chạm)
 - Token hiện tại lấy trực tiếp qua công cụ **"Tạo mã truy cập"** trong Meta Dashboard (App → Trường hợp sử dụng → Truy cập API Threads → Cài đặt → Công cụ tạo mã người dùng) — công cụ này trả ngay long-lived token cho tester đã approve, không cần tự dựng OAuth redirect flow
@@ -234,7 +234,7 @@ def early_reply_velocity(root_post_id: str, conn: sqlite3.Connection, window_hou
     """Số reply audience / giờ trong window_hours đầu kể từ lúc root đăng."""
 ```
 
-Tính trực tiếp trên graph đã có sẵn trong `posts` (`is_reply`/`replied_to_id`/`root_post_id`/`is_reply_owned_by_me`) — trước giờ 1.285 replies chỉ đóng góp vào `conversation_rate` (đếm gộp). Căn cứ chính thức: Meta Transparency Center liệt kê "engagement của descendant ở level 2 trong 1h/6h" là 1 prediction feature THẬT trong ranking — cho phép trích dẫn khi trình bày hạng mục này. `unique_repliers`/`early_reply_velocity` chỉ tính audience (loại self-continuation của tác giả); `reply_depth` tính trên toàn graph (audience có thể reply vào self-continuation, vẫn là 1 phần cấu trúc thread thật). So sánh nhóm dùng `compare_groups()` ở tầng gọi, không lặp logic thống kê trong module này.
+Tính trực tiếp trên graph đã có sẵn trong `posts` (`is_reply`/`replied_to_id`/`root_post_id`/`is_reply_owned_by_me`) — trước giờ các reply chỉ đóng góp vào `conversation_rate` (đếm gộp). Căn cứ chính thức: Meta Transparency Center liệt kê "engagement của descendant ở level 2 trong 1h/6h" là 1 prediction feature THẬT trong ranking — cho phép trích dẫn khi trình bày hạng mục này. `unique_repliers`/`early_reply_velocity` chỉ tính audience (loại self-continuation của tác giả); `reply_depth` tính trên toàn graph (audience có thể reply vào self-continuation, vẫn là 1 phần cấu trúc thread thật). So sánh nhóm dùng `compare_groups()` ở tầng gọi, không lặp logic thống kê trong module này.
 
 ### Topic Affinity (đổi tên từ `topic_trend_score` — không đo được "đang trend trên Threads" với Standard Access + ~2 post/ngày)
 
@@ -272,7 +272,7 @@ def audience_activity_profile() -> dict[int, float]:
     cho hypothesis timezone VN/Pháp."""
 ```
 
-### V2 (không scope vào sprint hiện tại — cần data tích luỹ hàng tháng)
+### V2 (ngoài roadmap C–F — cần data tích luỹ hàng tháng)
 
 `MomentumIndex`, maturation curve/`Projected72h` theo publish_slot (cần "vài trăm post" — với ~2 post/ngày là hàng tháng), multimodal (vision/ASR ảnh/video), ghost-post/poll/location đưa vào scoring (hiện chỉ lưu schema).
 
@@ -289,7 +289,7 @@ def audience_activity_profile() -> dict[int, float]:
 | Data / Insights | Posts dạng data, số liệu |
 | Divers | Các chủ đề tổng hợp khác |
 
-6 nhãn cố định do tác giả tự định nghĩa. Ban đầu dùng để chọn template carousel; carousel đã bị loại khỏi scope (ADR-0001), nên bộ phân loại có giám sát trên 6 nhãn này giờ là **một câu hỏi nghiên cứu độc lập** (RQ-08, xem `docs/roadmap.md`): so sánh bậc thang baseline có giám sát với **cluster khám phá được** (unsupervised) — xem "NLP Pipeline" bên dưới.
+6 nhãn cố định do tác giả tự định nghĩa. Ban đầu dùng để chọn template ảnh cho bài đăng — tính năng đó đã bị loại khỏi scope (ADR-0001), nên bộ phân loại có giám sát trên 6 nhãn này giờ là **một câu hỏi nghiên cứu độc lập** (RQ-08, xem `docs/roadmap.md`): so sánh bậc thang baseline có giám sát với **cluster khám phá được** (unsupervised) — xem "NLP Pipeline" bên dưới.
 
 ---
 
@@ -336,9 +336,10 @@ Raw post (root + continuations, giữ NGUYÊN — không strip emoji/hashtag)
       ├─ Unsupervised topic discovery (khám phá + visualize, cho analytics)
       │  UMAP (giảm chiều → 3D) + HDBSCAN (cluster trên TOẠ ĐỘ UMAP — xem methodology log bên dưới)
       │
+      │  → LLM (Claude) tóm tắt mỗi cluster → tên + mô tả TIẾNG ANH
+      │  → (RQ-08) so sánh với 6 category cố định (ARI/purity score)
+      │
       └─ Knowledge base (roadmap Phase E) — tái dùng embedding đã persist, hybrid BM25 + dense
-         → LLM (Claude) tóm tắt mỗi cluster → tên + mô tả TIẾNG ANH
-         → so sánh với 6 category cố định (ARI/purity score)
 ```
 
 ### 3 nguyên tắc từ paper "Challenges of Computational Processing of Code-Switching" (áp dụng 2026-08-30)
@@ -373,13 +374,13 @@ CMI = 0                                 nếu n = u
 
 **Vì sao bỏ `underthesea`**: content trộn VI/FR/EN tự nhiên — tokenizer riêng tiếng Việt sẽ segment sai phần tiếng Pháp/Anh. sentence-transformers multilingual tự xử lý đa ngôn ngữ ở tầng embedding.
 
-**Vì sao 2 hệ thống phân loại song song, không phải 1**: đây là 2 bài toán khác nhau. Fixed-category (6 lớp cố định) trả lời câu hỏi nghiên cứu **"nhãn do tác giả định nghĩa có học được từ embedding không, và khớp với cấu trúc tự nhiên của dữ liệu tới đâu"** (RQ-08). Cluster khám phá phục vụ **phân tích/gap analysis/visualize** — không giới hạn số lượng/tên chủ đề, có thể phát hiện chủ đề mới chưa từng nghĩ tới, đúng tinh thần "Topic gap analysis" đã ghi trong roadmap từ đầu. Cả 2 dùng chung embedding, khác nhau ở bước sau.
+**Vì sao 2 hệ thống phân loại song song, không phải 1**: đây là 2 bài toán khác nhau. Fixed-category (6 lớp cố định) trả lời câu hỏi nghiên cứu **"nhãn do tác giả định nghĩa có học được từ embedding không, và khớp với cấu trúc tự nhiên của dữ liệu tới đâu"** (RQ-08). Cluster khám phá phục vụ **phân tích/gap analysis/visualize** — không giới hạn số lượng/tên chủ đề, có thể phát hiện chủ đề mới chưa từng nghĩ tới — nền cho RQ-07 (lỗ hổng knowledge base theo câu hỏi follower). Cả 2 dùng chung embedding, khác nhau ở bước sau.
 
 **Vì sao SVM-RBF làm model chính, LogisticRegression chỉ là baseline**: LogReg là mô hình tuyến tính, chỉ nên đóng vai trò benchmark để biết SVM-RBF (bắt được ranh giới phi tuyến trên embedding) có thực sự tốt hơn không — không phải chọn 1 trong 2 rồi bỏ, mà giữ cả 2 trong bảng kết quả để so sánh minh bạch.
 
 **Vì sao LLM chỉ dùng ở bước labeling cluster, không dùng để classify trực tiếp**: dùng LLM đúng việc nó giỏi nhất — tóm tắt ngôn ngữ tự nhiên sau khi đã có cấu trúc thật từ NLP pipeline (HDBSCAN), không thay thế phần NLP core bằng 1 API call.
 
-**Ranh giới Claude LLM trong pipeline (chốt tường minh 2026-09-03)** — research thị trường (`docs/research/market-scan-2026-09.html`) xác nhận kiến trúc hiện tại ĐÚNG hướng, không cần sửa code, chỉ cần công bố rõ: Claude **CHỈ** dùng ở duy nhất 1 điểm — `label_cluster_with_claude()` (`src/nlp/topics.py`), tóm tắt 1 cluster đã tồn tại (do HDBSCAN tìm ra) thành tên + mô tả tiếng Anh. Claude **KHÔNG BAO GIỜ**: (a) classify/gán nhãn topic trực tiếp cho 1 post (việc đó là HDBSCAN + SVM-RBF/LogReg), (b) tạo embedding (việc đó là `sentence-transformers`), (c) tham gia bất kỳ bước NLP core nào khác (LID, clustering, tokenization). Ranh giới này khớp nguyên tắc chung của dự án: dùng LLM đúng việc "tóm tắt ngôn ngữ tự nhiên", không dùng LLM như black-box thay thế phương pháp luận NLP có cấu trúc — giữ tính reproducible/explainable của pipeline (HDBSCAN/SVM cho kết quả xác định lại được từ embedding, LLM không).
+**Ranh giới Claude LLM trong pipeline (chốt tường minh 2026-09-03)** — research thị trường (`docs/research/market-scan-2026-09.html`) xác nhận kiến trúc hiện tại ĐÚNG hướng, không cần sửa code, chỉ cần công bố rõ: Claude **CHỈ** dùng ở duy nhất 1 điểm — `label_cluster_with_claude()` (`src/nlp/topics.py`), tóm tắt 1 cluster đã tồn tại (do HDBSCAN tìm ra) thành tên + mô tả tiếng Anh. Claude **KHÔNG BAO GIỜ**: (a) classify/gán nhãn topic trực tiếp cho 1 post (việc đó là HDBSCAN; bộ phân loại có giám sát chỉ tồn tại trong RQ-08), (b) tạo embedding (việc đó là `sentence-transformers`), (c) tham gia bất kỳ bước NLP core nào khác (LID, clustering, tokenization). Ranh giới này khớp nguyên tắc chung của dự án: dùng LLM đúng việc "tóm tắt ngôn ngữ tự nhiên", không dùng LLM như black-box thay thế phương pháp luận NLP có cấu trúc — giữ tính reproducible/explainable của pipeline (HDBSCAN cho kết quả xác định lại được từ embedding, LLM không).
 
 > Velocity/Momentum/Longevity/Freshness/Topic Affinity — xem "Metric Architecture" phía trên, không lặp lại ở đây.
 
@@ -434,9 +435,9 @@ Một câu chuyện thống kê tử tế không nhảy thẳng từ số thô s
 
 **Bối cảnh**: cấu hình mặc định ban đầu (`HDBSCAN_MIN_CLUSTER_SIZE=5`, `cluster_selection_method` mặc định `'eom'`, `UMAP_N_NEIGHBORS=15`, xem thực nghiệm phía trên) chỉ tách được **2 cluster** trên 135 content unit sạch — dù đã đổi không gian clustering (raw embedding → UMAP). Tác giả (chính người viết 141 bài, domain expert thật của kênh) đánh giá 2 là quá thô, ước tính kênh có khoảng **6-8 chủ đề chính, tối đa 12 nếu chia nhỏ**. Chẩn đoán: `eom` (Excess of Mass, mặc định `hdbscan`) thiên về gộp thành ít cluster lớn hơn `leaf`; `UMAP_N_NEIGHBORS=15` khá cao so với n=135, thiên về giữ cấu trúc toàn cục/thô thay vì cục bộ.
 
-**Phương pháp**: sweep có hệ thống trên lưới `cluster_selection_method ∈ {eom, leaf}` × `min_cluster_size ∈ {3,4,5}` × `UMAP_N_NEIGHBORS ∈ {5,8,10,15}` (24 tổ hợp), chạy trong WSL2 (script tạm `src/pipeline/cluster_sweep.py`, xoá sau khi chốt). Với mỗi tổ hợp: số cluster, % noise, và **DBCV** (`hdbscan.relative_validity_` — density-based cluster validation, không cần nhãn ground-truth, đo mức chênh lệch mật độ trong-cluster vs ngoài-cluster). Kết quả `eom` xác nhận lại đúng như cấu hình mặc định: **luôn hội tụ về 2-3 cluster** ở mọi `min_cluster_size`/`n_neighbors`, DBCV cao (0.26–0.75) nhưng số cluster không đổi — xác nhận `eom` không phải tham số cần chỉnh, mà `cluster_selection_method` mới là đòn bẩy chính. Toàn bộ ứng viên khả thi (≥6 cluster) đều nằm ở `leaf`.
+**Phương pháp**: sweep có hệ thống trên lưới `cluster_selection_method ∈ {eom, leaf}` × `min_cluster_size ∈ {3,4,5}` × `UMAP_N_NEIGHBORS ∈ {5,8,10,15}` (24 tổ hợp), chạy trong WSL2 (script tạm cluster_sweep.py, đã xoá sau khi chốt). Với mỗi tổ hợp: số cluster, % noise, và **DBCV** (`hdbscan.relative_validity_` — density-based cluster validation, không cần nhãn ground-truth, đo mức chênh lệch mật độ trong-cluster vs ngoài-cluster). Kết quả `eom` xác nhận lại đúng như cấu hình mặc định: **luôn hội tụ về 2-3 cluster** ở mọi `min_cluster_size`/`n_neighbors`, DBCV cao (0.26–0.75) nhưng số cluster không đổi — xác nhận `eom` không phải tham số cần chỉnh, mà `cluster_selection_method` mới là đòn bẩy chính. Toàn bộ ứng viên khả thi (≥6 cluster) đều nằm ở `leaf`.
 
-**3 ứng viên gần nhất với kỳ vọng domain, review trực tiếp nội dung từng cluster** (không chỉ nhìn số, in mẫu bài thật từng cluster — script tạm `src/pipeline/cluster_preview.py`, xoá sau khi chốt):
+**3 ứng viên gần nhất với kỳ vọng domain, review trực tiếp nội dung từng cluster** (không chỉ nhìn số, in mẫu bài thật từng cluster — script tạm cluster_preview.py, đã xoá sau khi chốt):
 
 | Ứng viên | `n_neighbors` | `min_cluster_size` | Số cluster | Noise | DBCV |
 |---|---|---|---|---|---|
@@ -454,7 +455,7 @@ Một câu chuyện thống kê tử tế không nhảy thẳng từ số thô s
 
 - `data/raw/` — archive JSON vĩnh viễn (KHÁC `data/cache/` hiện có, TTL 6h) — cho phép rerun pipeline từ đầu khi model NLP tốt hơn, không cần crawl lại
 - SQLite: `posts`, `content_units`, `insights_snapshots` (time-series), `account_daily_views`, `topics` (id, label_en, description_en, method: "fixed"|"cluster", centroid_embedding), `post_topic_labels` (post_id, topic_id, method, confidence)
-- **Kế hoạch (roadmap Phase D0/E)**: embedding persist trong SQLite (bảng `embeddings`, kèm `content_hash` để chỉ embed lại khi nội dung đổi) + knowledge base cũng trong cùng file SQLite (`kb_documents`, `kb_chunks`, FTS5 cho BM25). Không dùng vector store riêng (Chroma/FAISS) — lý do tại ADR-0006 khi triển khai.
+- **Kế hoạch (roadmap Phase D0/E)**: embedding persist trong SQLite (bảng `embeddings`, kèm `content_hash` để chỉ embed lại khi nội dung đổi) + knowledge base cũng trong cùng file SQLite (`kb_documents`, `kb_chunks`, FTS5 cho BM25). Không dùng vector store riêng ngoài SQLite — lý do sẽ ghi tại ADR-0006 khi triển khai.
 
 ### Knowledge base + RAG (Retrieval-Augmented Generation)
 
@@ -467,4 +468,4 @@ Một câu chuyện thống kê tử tế không nhảy thẳng từ số thô s
 
 - 150 root post + 1.368 reply của tác giả (362 self-continuation, 664 trả lời follower, 342 reply ở bài người khác — số đo 2026-09-30, sẽ phân loại chính thức ở Phase D0)
 - Velocity: xây hạ tầng nhưng chấp nhận chưa có data lịch sử, tích luỹ dần
-- RAG: bản nhẹ (retrieval + generation cơ bản), không multi-turn phức tạp
+- Knowledge base: chỉ truy xuất + đánh giá; phần sinh câu trả lời (chatbot) chỉ làm sau cổng Phase F

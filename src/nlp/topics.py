@@ -3,8 +3,8 @@ TRÊN toạ độ UMAP đó, không phải embedding gốc) + Claude (Bước la
 thành tên/mô tả TIẾNG ANH). Đã verify thật trên 135 content unit thật (post rỗng
 `REPOST_FACADE` đã loại ở bước export trước đó) — không còn DRAFT. Chi tiết đầy
 đủ + số liệu thực nghiệm tại docs/claude/data-model.md "Methodology log:
-clustering space cho HDBSCAN" và decision log tại docs/claude/architecture.md
-(2026-09-02).
+clustering space cho HDBSCAN" và docs/decisions/legacy-log.md
+(các dòng 2026-09-02).
 
 QUAN TRỌNG (2026-09-02) — môi trường chạy: `cluster_embeddings()` (`hdbscan`/
 `umap-learn`, phụ thuộc `scipy.linalg` ở tầng import) bị Smart App Control chặn
@@ -43,7 +43,7 @@ UMAP_N_NEIGHBORS = 10
 CLUSTER_SELECTION_METHOD = "leaf"  # 'eom' (mặc định hdbscan) luôn hội tụ về 2-3 cluster
 # lớn trên dataset này — 'leaf' mới cho granularity khớp domain, xem methodology log.
 
-# Chốt 2026-09-03 (xem docs/claude/architecture.md decision log): giữ claude-opus-5,
+# Chốt 2026-09-03 (xem docs/decisions/legacy-log.md): giữ claude-opus-5,
 # cập nhật lại bảng Tech Stack cho khớp thay vì đổi model.
 CLUSTER_LABELING_MODEL = "claude-opus-5"
 

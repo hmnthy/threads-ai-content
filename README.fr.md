@@ -2,8 +2,8 @@
 
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
-![Status](https://img.shields.io/badge/status-Phase%201%20in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-183%20passing-brightgreen)
+![Status](https://img.shields.io/badge/status-in%20progress-orange)
+![Tests](https://img.shields.io/badge/tests-217%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -125,7 +125,7 @@ threads-ai-content/
 │   ├── pipeline/           Ingestion, cron de snapshot toutes les 4h, pont de clustering Windows↔WSL2 — en ligne
 │   ├── main.py             Point d'entrée FastAPI — en ligne
 │   └── dashboard/          App Next.js : landing page + Overview/Analytics/Topic Explorer — en ligne
-└── tests/                183 tests, ruff + mypy strict propres
+└── tests/                suite pytest, ruff + mypy strict propres
 ```
 
 Flux de données, de bout en bout :
@@ -143,8 +143,8 @@ requête.
 
 ## Points forts de la méthodologie
 
-Quelques décisions considérées comme structurantes pour ce projet, documentées intégralement dans
-[`docs/claude/architecture.md`](docs/claude/architecture.md) et
+Quelques décisions considérées comme structurantes pour ce projet, chacune consignée dans
+[`docs/decisions/`](docs/decisions/) (un fichier par décision) et
 [`docs/claude/data-model.md`](docs/claude/data-model.md) :
 
 - **Médiane en chiffre principal, moyenne en secondaire — jamais un ratio agrégé.** Un ratio
@@ -172,15 +172,17 @@ Quelques décisions considérées comme structurantes pour ce projet, documenté
 **En ligne :** client API Threads, pipeline NLP de découverte de sujets, architecture à 6
 indices, statistiques par fenêtre temporelle, et un dashboard à 3 onglets (Overview, Analytics,
 Topic Explorer) plus cette landing page, en conditions réelles sur des données de production
-(183 tests passants, ruff + mypy strict propres).
+(suite de tests complète au vert, ruff + mypy strict propres).
 
 **Prochaines étapes — un périmètre volontairement resserré (« less is more ») :**
 1. Une analyse NLP plus poussée, rédigée sous forme de questions de recherche explicites
    (stabilité des clusters, comparaison de modèles d'embedding, code-mixing vs. engagement,
    échelle de baselines pour un classifieur supervisé).
 2. Une base de connaissances mise à jour en continu, avec une qualité de recherche mesurée.
-3. Seulement une fois cette base validée : un assistant de questions-réponses qui s'appuie dessus.
+3. Seulement une fois cette base validée : un assistant de questions-réponses qui s'appuie dessus,
+   et une page d'accueil de marque pour le compte.
 
+<!-- consistency: allow ADR0001-generation ADR0001-carousel ADR0001-image-gen -->
 La génération de publications dans le style de l'autrice et la génération d'images carousel ont
 été envisagées puis délibérément abandonnées pour garder le projet ciblé.
 
@@ -190,8 +192,9 @@ La génération de publications dans le style de l'autrice et la génération d'
 # Backend (Python 3.12 via uv)
 pip install --user uv
 uv sync
+uv run pre-commit install          # garde-fous de commit : lint, types, cohérence, tests rapides
 cp .env.example .env               # renseigner THREADS_* et ANTHROPIC_API_KEY
-uv run pytest -q                   # 183 tests
+uv run pytest -q                   # suite complète (~1 min)
 uv run uvicorn src.main:app --reload --port 8000
 
 # Dashboard (Next.js)

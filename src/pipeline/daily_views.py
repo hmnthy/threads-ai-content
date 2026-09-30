@@ -1,4 +1,4 @@
-"""Ingest account-level daily views (Bước 3, xem plan) — khác `snapshot.py` (per-post
+"""Ingest account-level daily views — khác `snapshot.py` (per-post
 lifetime snapshot): đây là 1 điểm/ngày cho TOÀN kênh, từ `threads_insights?metric=
 views&period=day`, verify live 2026-09-03 (xem `src/api/endpoints.py`
 `get_account_daily_views`, cap lookback 729 ngày).

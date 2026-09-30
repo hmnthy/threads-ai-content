@@ -5,7 +5,8 @@
 
 ## Now
 
-- Tái cấu trúc "LESS IS MORE" (ADR-0001, ADR-0003) xong Phase 0, A1, B, A2–A6: hooks, rules theo đường dẫn, 3 subagent, 7 skill, `.mcp.json`. Đã merge vào `main` (chưa push).
+- Tái cấu trúc "LESS IS MORE" (ADR-0001, ADR-0003) xong và đã merge vào `main` (chưa push).
+- Nhánh `chore/consistency-police` (ADR-0008): sổ luật + `check.py` + `consistency-auditor` + `/decision-sweep` + cổng pre-commit; lượt sweep đầu cho ADR-0001/0003/0008 đang hoàn tất.
 
 ## Next
 
@@ -30,9 +31,9 @@
 
 ## Số liệu nhanh
 
-- 150 root post · 1.368 reply của tác giả (362 self-continuation · 664 trả lời follower · 342 ở bài người khác) · 9 cluster · 183 test pass
-- `pytest` trên Windows ~5 phút (chậm bất thường) — kỳ vọng nhanh hơn nhiều sau Phase C
+- 150 root post · 1.368 reply của tác giả (362 self-continuation · 664 trả lời follower · 342 ở bài người khác) · 9 cluster · 217 test pass
+- `pytest` đầy đủ ~51 giây; bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Add project MCP servers (context7, huggingface)
+- `6967a99` Gate commits on consistency, fast tests and dashboard checks (nhánh `chore/consistency-police`)

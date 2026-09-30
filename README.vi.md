@@ -2,8 +2,8 @@
 
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
-![Status](https://img.shields.io/badge/status-Phase%201%20in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-183%20passing-brightgreen)
+![Status](https://img.shields.io/badge/status-in%20progress-orange)
+![Tests](https://img.shields.io/badge/tests-217%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -121,7 +121,7 @@ threads-ai-content/
 │   ├── pipeline/           Ingest, cron snapshot 4h, cầu nối clustering Windows↔WSL2 — đã có
 │   ├── main.py             Entry point FastAPI — đã có
 │   └── dashboard/          App Next.js: landing page + Overview/Analytics/Topic Explorer — đã có
-└── tests/                183 test, ruff + mypy strict sạch
+└── tests/                bộ test pytest, ruff + mypy strict sạch
 ```
 
 Luồng dữ liệu, từ đầu tới cuối:
@@ -138,8 +138,8 @@ chỉ đọc kết quả đã tính sẵn, không bao giờ load model transform
 
 ## Điểm nhấn về methodology
 
-Một vài quyết định dự án coi là nền tảng, tài liệu đầy đủ tại
-[`docs/claude/architecture.md`](docs/claude/architecture.md) và
+Một vài quyết định dự án coi là nền tảng, mỗi quyết định ghi thành 1 file tại
+[`docs/decisions/`](docs/decisions/) và
 [`docs/claude/data-model.md`](docs/claude/data-model.md):
 
 - **Median làm số liệu chính, mean là số phụ — không bao giờ dùng tỉ lệ pooled.** Một tỉ lệ
@@ -164,14 +164,16 @@ Một vài quyết định dự án coi là nền tảng, tài liệu đầy đ�
 
 **Đã có:** client Threads API, pipeline NLP khám phá chủ đề, kiến trúc metric 6-index, thống kê
 theo cửa sổ thời gian, dashboard 3 tab (Overview, Analytics, Topic Explorer) cộng landing page này —
-tất cả chạy thật trên data production (183 test pass, ruff + mypy strict sạch).
+tất cả chạy thật trên data production (toàn bộ test pass, ruff + mypy strict sạch).
 
 **Tiếp theo — phạm vi hẹp có chủ đích ("less is more"):**
 1. Phân tích NLP sâu hơn, viết thành các câu hỏi nghiên cứu rõ ràng (độ ổn định cluster, so sánh
    model embedding, code-mixing vs engagement, bậc thang baseline cho bộ phân loại có giám sát).
 2. Một cơ sở tri thức cập nhật liên tục, có đo chất lượng truy xuất.
-3. Chỉ khi cơ sở tri thức đạt cổng chất lượng: trợ lý hỏi đáp dựa trên nó.
+3. Chỉ khi cơ sở tri thức đạt cổng chất lượng: trợ lý hỏi đáp dựa trên nó, cùng landing page
+   thương hiệu cho kênh.
 
+<!-- consistency: allow ADR0001-generation ADR0001-carousel ADR0001-image-gen -->
 Generate bài theo giọng văn tác giả và generate ảnh carousel đã được cân nhắc và chủ động loại bỏ để
 dự án giữ đúng trọng tâm.
 
@@ -181,8 +183,9 @@ dự án giữ đúng trọng tâm.
 # Backend (Python 3.12 qua uv)
 pip install --user uv
 uv sync
+uv run pre-commit install          # cổng chặn commit: lint, kiểu, nhất quán, test nhanh
 cp .env.example .env               # điền THREADS_* và ANTHROPIC_API_KEY
-uv run pytest -q                   # 183 test
+uv run pytest -q                   # toàn bộ test (~1 phút)
 uv run uvicorn src.main:app --reload --port 8000
 
 # Dashboard (Next.js)
