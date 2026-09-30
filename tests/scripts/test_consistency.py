@@ -215,7 +215,10 @@ def test_doc_limits_and_adr_index(tmp_path: Path) -> None:
         "docs/decisions/0002-b.md": "- **Trạng thái**: Accepted\n",
     }
     root = make_repo(tmp_path, files, rules)
-    got = sorted((v.rule, v.path) for v in check.check_doc_limits(root, check.load_config(root)))
+    got = sorted(
+        (v.rule, v.path)
+        for v in check.check_doc_limits(root, check.load_config(root), check.tracked_files(root))
+    )
     assert got == [
         ("adr-fields", "docs/decisions/0002-b.md"),
         ("adr-index", "docs/decisions/0002-b.md"),
@@ -258,12 +261,16 @@ def test_real_invariants_catch_known_lapses(tmp_path: Path) -> None:
     (root / "docs/decisions").mkdir(parents=True)
     real_toml = (REPO_ROOT / check.INVARIANTS_PATH).read_text(encoding="utf-8")
     (root / check.INVARIANTS_PATH).write_text(real_toml, encoding="utf-8")
-    (root / "notes.md").write_text("\n".join(lapses.values()) + "\n", encoding="utf-8")
+    notes = root / "docs/claude/notes.md"
+    notes.parent.mkdir(parents=True)
+    notes.write_text("\n".join(lapses.values()) + "\n", encoding="utf-8")
     multi = "Decisions, documented in full in\n[`docs/claude/architecture.md`].\n"
     (root / "readme_like.md").write_text(multi, encoding="utf-8")
 
     cfg = check.load_config(root)
-    found = {v.rule for v in check.check_forbid(root, ["notes.md", "readme_like.md"], cfg)}
+    found = {
+        v.rule for v in check.check_forbid(root, ["docs/claude/notes.md", "readme_like.md"], cfg)
+    }
     assert set(lapses) | {"ADR0003-decisions-location"} <= found
 
 
@@ -274,3 +281,21 @@ def test_real_invariants_do_not_flag_threads_api_enum(tmp_path: Path) -> None:
     (root / check.INVARIANTS_PATH).write_text(real_toml, encoding="utf-8")
     (root / "m.py").write_text('CAROUSEL_ALBUM = "CAROUSEL_ALBUM"\n', encoding="utf-8")
     assert check.check_forbid(root, ["m.py"], check.load_config(root)) == []
+
+
+def test_real_sprint_step_rule_ignores_procedure_numbering_in_skills(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    (root / "docs/decisions").mkdir(parents=True)
+    real_toml = (REPO_ROOT / check.INVARIANTS_PATH).read_text(encoding="utf-8")
+    (root / check.INVARIANTS_PATH).write_text(real_toml, encoding="utf-8")
+    skill = root / ".claude/skills/x/SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("## Bước 1 — Quyết định\n", encoding="utf-8")
+    code = root / "src/m.py"
+    code.parent.mkdir(parents=True)
+    code.write_text("# việc của RAG — Bước 10, hoãn\n", encoding="utf-8")
+    cfg = check.load_config(root)
+    files = [".claude/skills/x/SKILL.md", "src/m.py"]
+    got = [(v.path, v.rule) for v in check.check_forbid(root, files, cfg)]
+    assert ("src/m.py", "ADR0003-sprint-steps") in got
+    assert all(path != ".claude/skills/x/SKILL.md" for path, _ in got)

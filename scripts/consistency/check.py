@@ -358,7 +358,8 @@ def check_stale_assets(root: Path, cfg: Config) -> list[Violation]:
 # --- 5. doc_limits + chỉ mục ADR ------------------------------------------------------
 
 
-def check_doc_limits(root: Path, cfg: Config) -> list[Violation]:
+def check_doc_limits(root: Path, cfg: Config, tracked: list[str]) -> list[Violation]:
+    """`tracked` = file git theo dõi (gồm file đã stage) — ADR chưa `git add` không chặn commit."""
     out: list[Violation] = []
     for rule in cfg.max_lines:
         p = root / rule["path"]
@@ -379,7 +380,10 @@ def check_doc_limits(root: Path, cfg: Config) -> list[Violation]:
     index = decisions / "README.md"
     if decisions.exists() and index.exists():
         index_text = index.read_text(encoding="utf-8")
+        tracked_set = set(tracked)
         for adr_file in sorted(decisions.iterdir()):
+            if f"docs/decisions/{adr_file.name}" not in tracked_set:
+                continue
             m = _ADR_FILE.match(adr_file.name)
             if not m or m.group(1) == "0000":
                 continue
@@ -470,7 +474,7 @@ def run(root: Path, mode: str, with_pytest: bool = True) -> list[Violation]:
     violations += check_dead_paths(root, files, tracked, cfg)
     violations += check_readme_sync(root, staged)
     violations += check_stale_assets(root, cfg)
-    violations += check_doc_limits(root, cfg)
+    violations += check_doc_limits(root, cfg, tracked)
     if mode == "all" and with_pytest:
         violations += check_count_facts(root, tracked, cfg, collected_test_count(root))
     return violations

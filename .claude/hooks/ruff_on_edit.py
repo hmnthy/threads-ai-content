@@ -2,7 +2,7 @@
 
 Chạy `ruff format` rồi `ruff check --fix` đúng 1 file. Lỗi lint còn lại (không tự sửa được)
 in ra stderr + exit 2 → Claude thấy và sửa tiếp (PostToolUse không chặn được, chỉ phản hồi).
-Bỏ qua file ngoài repo, file trong `.claude/` và `tools/` (vendored, ruff đã exclude).
+Bỏ qua file ngoài repo, `tools/` (vendored) và `.claude/worktrees/` (bản sao repo khác).
 """
 
 import json
@@ -24,7 +24,7 @@ try:
     rel = target.relative_to(project)
 except ValueError:
     sys.exit(0)
-if rel.parts and rel.parts[0] in {".claude", "tools", ".venv"}:
+if rel.parts and (rel.parts[0] in {"tools", ".venv"} or rel.parts[:2] == (".claude", "worktrees")):
     sys.exit(0)
 if not target.exists():
     sys.exit(0)

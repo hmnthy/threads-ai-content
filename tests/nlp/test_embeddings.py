@@ -8,6 +8,7 @@ def test_model_name_constants_are_documented() -> None:
     assert FALLBACK_MODEL_NAME == "intfloat/multilingual-e5-large"
 
 
+@pytest.mark.slow  # tải model bge-m3 thật, ~13s
 def test_embed_texts_returns_normalized_vectors_and_model_name() -> None:
     # BLOCKED trên máy chạy agent này (2026-08-31): sentence-transformers phụ thuộc
     # scikit-learn -> scipy.linalg._flapack ở tầng import, bị Application Control
