@@ -53,6 +53,10 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "slow: loads a transformer model or runs heavy ML (skipped in CI)",
+    "live: calls the real Threads/Anthropic API (skipped in CI)",
+]
 
 [dependency-groups]
 dev = [
