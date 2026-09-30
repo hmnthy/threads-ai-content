@@ -1,0 +1,208 @@
+# Sổ luật nhất quán — mỗi quyết định (ADR) khai báo những gì nó làm lỗi thời.
+# Được kiểm bởi `scripts/consistency/check.py` (pre-commit chặn commit, /decision-sweep, CI).
+#
+# Thêm luật: mỗi ADR mới PHẢI thêm luật ở đây (skill /record-decision + /decision-sweep).
+# Ngoại lệ có chủ đích: ghi `consistency: allow <id>` trên dòng vi phạm hoặc dòng ngay trước.
+# Glob: `*` khớp mọi ký tự kể cả `/` (fnmatch) — `docs/archive/**` = mọi thứ dưới docs/archive.
+
+[settings]
+# Không quét: lưu trữ nguyên văn, vendored, file sinh tự động, và chính bộ luật + test của nó
+exclude = [
+  "docs/archive/**",
+  "docs/decisions/legacy-log.md",
+  "docs/decisions/invariants.toml",
+  "tools/**",
+  "src/dashboard/mockups/**",
+  "uv.lock",
+  "**package-lock.json",
+  "scripts/consistency/**",
+  "tests/scripts/test_consistency.py",
+]
+# Không kiểm đường dẫn chết (file có placeholder/ví dụ đường dẫn có chủ đích)
+dead_path_exclude = [
+  "docs/decisions/[0-9][0-9][0-9][0-9]-*.md",  # ADR là lịch sử bất biến — nhắc file đã xoá là đúng
+  ".claude/skills/new-rq/template.md",
+  "src/dashboard/AGENTS.md",
+]
+# Đường dẫn được nhắc tới trước khi tồn tại (roadmap) — xoá khỏi đây khi file đã được tạo
+planned_paths = [
+  "src/kb", "src/kb/**",
+  "src/config.py",
+  "src/pipeline/recluster.py",
+  "tests/pipeline/test_recluster.py",
+  "scripts/jobs", "scripts/jobs/**",
+  "experiments", "experiments/**",
+  "docs/rq", "docs/rq/**",
+  ".github/workflows", ".github/workflows/**",
+  ".claude/agent-memory", ".claude/agent-memory/**",
+]
+# Có thật trên máy nhưng gitignored → không tồn tại ở clone mới/CI; chấp nhận khi được nhắc tới
+known_untracked = [
+  ".env", ".venv", ".venv/**",
+  "data", "data/**",
+  "content", "content/**", "Content", "Content/**",
+  "docs/research", "docs/research/**",
+  "output", "output/**",
+  "src/dashboard/.env.local",
+  "src/dashboard/node_modules", "src/dashboard/node_modules/**",
+  ".claude/worktrees", ".claude/worktrees/**",
+  ".claude/settings.local.json", "CLAUDE.local.md",
+]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0001 — scope "less is more": bỏ generation giọng văn, carousel, KOL engine, Phase 1/2
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0001-generation"
+adr = "0001"
+pattern = '(?i)(content[ -]generation|generat(e|ing) (new )?(post|content|text)|text generation|génération de (contenu|publications)|src/generation|giọng văn|author.?s (real |own |documented )*(voice|tone)|few-shot|draft(s|ing)? (new )?post)'
+why = "Generation bài/giọng văn đã bỏ vĩnh viễn (ADR-0001)"
+fix = "Xoá, hoặc diễn đạt lại theo hướng NLP → knowledge base"
+allow = ["docs/decisions/**", "docs/roadmap.md"]
+
+[[forbid]]
+id = "ADR0001-carousel"
+adr = "0001"
+pattern = '(?i)carousel(?![ _]album)'
+why = "Carousel đã bỏ vĩnh viễn (ADR-0001) — chỉ giữ enum CAROUSEL_ALBUM của Threads API"
+fix = "Xoá tham chiếu tới carousel"
+allow = ["docs/decisions/**", "docs/roadmap.md"]
+
+[[forbid]]
+id = "ADR0001-image-gen"
+adr = "0001"
+pattern = '(?i)\bpillow\b|google[ _]sans|image generation'
+why = "Pillow/font Google Sans chỉ phục vụ carousel — đã gỡ (ADR-0001)"
+fix = "Xoá tham chiếu"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0001-kol"
+adr = "0001"
+pattern = '(?i)\bKOL\b|strategy engine'
+why = "KOL Strategy Engine đã bỏ (ADR-0001)"
+fix = "Xoá tham chiếu"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0001-phase12"
+adr = "0001"
+pattern = '(?i)\bphase(%20|[ _-])?[12]\b'
+why = "Khái niệm Phase 1/Phase 2 đã bỏ — mốc hiện tại là phase C..F trong docs/roadmap.md"
+fix = "Xoá, hoặc thay bằng mốc roadmap (VD 'Phase D0')"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0001-coming-soon"
+adr = "0001"
+pattern = '(?i)coming soon|sắp có|bientôt disponible'
+why = "Nhãn trạng thái chuẩn là live / next / research — 'coming soon' gắn với khối generation đã gỡ"
+fix = "Dùng live / next / research"
+allow = ["docs/decisions/**"]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0003 — cấu trúc tài liệu + harness
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0003-old-docs"
+adr = "0003"
+pattern = '(?<![\w/-])(next-steps\.md|sprint-plan\.md|project-summary\.md)|decisions log|Tech Stack đã chốt|Quyết định quan trọng đã chốt'
+why = "3 file kế hoạch cũ đã vào docs/archive/; decisions log trong architecture.md đã tách thành ADR (ADR-0003)"
+fix = "Trỏ tới docs/status.md, docs/roadmap.md, docs/decisions/ (ADR) hoặc docs/decisions/legacy-log.md"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0003-decisions-location"
+adr = "0003"
+multiline = true
+pattern = '(?is)(quy tắc|quyết định|decisions?|décisions)[^.]{0,70}?(đã chốt|documented|documentées|tài liệu)[^.]{0,40}?architecture\.md'
+why = "Quyết định/quy tắc không còn nằm trong architecture.md — đã tách thành ADR trong docs/decisions/ (ADR-0003)"
+fix = "Trỏ tới docs/decisions/ (và CLAUDE.md cho quy tắc tuyệt đối)"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0003-sprint-steps"
+adr = "0003"
+pattern = '\b(Bước|Ngày) \d+(\.\d+)?(?![/\d])'
+why = "Đánh số 'Bước N'/'Ngày N' thuộc sprint plan v3 đã archive — người đọc không tra được nữa"
+fix = "Mô tả bằng tên module/việc, hoặc trỏ phase trong docs/roadmap.md"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0003-skill-path"
+adr = "0003"
+pattern = '\.claude/skills/ui-ux-pro-max'
+why = "ui-ux-pro-max đã chuyển sang tools/ui-ux-pro-max (ADR-0003)"
+fix = "Dùng tools/ui-ux-pro-max hoặc skill ui-lookup"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0003-claude-routing"
+adr = "0003"
+pattern = '(?i)(routing|quy tắc)[^|\n]{0,40}`?CLAUDE\.md`?\s*§'
+why = "Quy tắc design routing đã chuyển từ CLAUDE.md sang .claude/rules/dashboard.md"
+fix = "Trỏ tới .claude/rules/dashboard.md"
+allow = ["docs/decisions/**"]
+
+# ---------------------------------------------------------------------------------------
+# Roadmap Phase E (ADR-0006 sẽ ghi chính thức) — knowledge base nằm trong SQLite
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "KB-no-separate-vectorstore"
+adr = "roadmap-E"
+pattern = '(?i)\b(chroma|faiss)\b'
+why = "Knowledge base dùng SQLite (FTS5 + bảng embeddings), không dùng Chroma/FAISS"
+fix = "Mô tả theo docs/roadmap.md Phase E"
+allow = ["docs/decisions/**", "docs/roadmap.md"]
+
+# ---------------------------------------------------------------------------------------
+# Phát hiện dữ liệu 2026-09-30 (ADR-0004 sẽ ghi chính thức khi làm Phase D0)
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "DATA-replies-are-author"
+adr = "finding-2026-09-30"
+pattern = '(?i)audience/self-repl|\d[.,]\d{3} audience'
+why = "Toàn bộ reply trong `posts` là của tác giả (endpoint /replies chỉ trả reply của chủ tài khoản) — không có reply của follower"
+fix = "Ghi 'reply của tác giả' (1.368 tại 2026-09-30)"
+
+[[forbid]]
+id = "FACT-design-sync-direction"
+adr = "fact-designsync"
+pattern = '(?i)design-sync[^\n]{0,80}\bpull\b|\bpull\b[^\n]{0,60}design-sync'
+why = "/design-sync ĐẨY component từ local lên Claude Design; chiều ngược chỉ đọc từng file (get_file), không pull cả trang"
+fix = "Mô tả đúng hướng đồng bộ"
+
+# ---------------------------------------------------------------------------------------
+# File nhị phân phải làm lại sau ADR
+# ---------------------------------------------------------------------------------------
+
+[[stale_asset]]
+id = "ADR0001-landing-screenshot"
+adr = "0001"
+path = "docs/screenshots/landing.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+# ---------------------------------------------------------------------------------------
+# Giới hạn kích thước (ADR-0003)
+# ---------------------------------------------------------------------------------------
+
+[[max_lines]]
+path = "CLAUDE.md"
+max = 80
+
+[[max_lines]]
+path = "docs/status.md"
+max = 60
+
+# ---------------------------------------------------------------------------------------
+# Số liệu phải khớp thực tế (chỉ chạy ở --all)
+# ---------------------------------------------------------------------------------------
+
+[[count_fact]]
+id = "FACT-test-count"
+pattern = '(?i)(?P<n>\d+)(%20|\s)+tests?\b(?!\s*(file|module))'
+paths = ["README*.md", "docs/status.md", "CLAUDE.md", "docs/claude/**"]

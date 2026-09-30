@@ -15,7 +15,7 @@ repos:
         # Windows path — đổi sang uv/.venv/bin khi chuyển runtime sang WSL2 (roadmap Phase C)
         entry: ./.venv/Scripts/python.exe -m mypy
         language: system
-        files: ^(src|tests)/
+        files: ^(src|tests|scripts)/
         pass_filenames: false
       # Chốt chặn tầng git cho quy tắc "không trailer Co-Authored-By" — áp dụng cả khi
       # commit tay ngoài Claude Code (hook PreToolUse chỉ bảo vệ commit do Claude chạy).
