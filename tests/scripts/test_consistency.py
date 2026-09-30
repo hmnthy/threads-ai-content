@@ -389,7 +389,7 @@ LEARNED_RULES = [
         "ADR0008-pytest-slow",
         "CLAUDE.md",
         "uv run pytest -q   # test (hiện chậm ~5 phút trên Windows)",
-        "nếu job vừa bắt đầu < 5 phút thì chờ",
+        "- `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy)",
     ),
     (
         "ADR0008-mypy-scope",

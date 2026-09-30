@@ -333,7 +333,8 @@ paths = ["docs/claude/dev-rules.md"]
 [[forbid]]
 id = "ADR0008-pytest-slow"
 adr = "0008"
-pattern = '(?i)pytest[^\n]{0,60}~?\s?5 (phút|min)'
+# (?<![\d,.–-]) → không khớp "1,5 phút" / "1–1.5 min" (thời gian thật của bộ đầy đủ)
+pattern = '(?i)pytest[^\n]{0,60}~?\s?(?<![\d,.–-])5 (phút|min)'
 why = "Bộ test đầy đủ ~51 giây, bộ nhanh ~20 giây — con số ~5 phút là lần chạy lạnh đầu tiên"
 fix = "Ghi '~1 phút (đầy đủ); pre-commit chạy bộ nhanh'"
 allow = ["docs/decisions/**"]
