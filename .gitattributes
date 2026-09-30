@@ -1,0 +1,16 @@
+# Chuẩn hoá xuống dòng LF trong repo — script bash/hook chạy trong WSL sẽ hỏng nếu có CRLF.
+* text=auto eol=lf
+
+# Script chỉ chạy trên Windows giữ CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Nhị phân
+*.png binary
+*.jpg binary
+*.JPG binary
+*.ico binary
+*.ttf binary
+*.docx binary
+*.xlsx binary

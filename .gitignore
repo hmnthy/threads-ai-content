@@ -1,21 +1,39 @@
 .env
+.env.*
+!.env.example
+
+# Asset cá nhân của tác giả (ảnh, rate card) — thư mục thật tên `content/` (chữ thường).
+# Ghi cả 2 dạng: Windows không phân biệt hoa/thường, WSL/Linux thì có.
 Content/
+content/
+
 data/cache/
 data/processed/
 data/nlp_exchange/
 data/logs/
+data/raw/*
+!data/raw/.gitkeep
 output/
+experiments/runs/
 __pycache__/
 *.pyc
 .next/
 node_modules/
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
 .venv/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
 *.egg-info/
+
+# Claude Code — trạng thái cục bộ, không chia sẻ
+.claude/worktrees/
+.claude/settings.local.json
+.claude/agent-memory-local/
+CLAUDE.local.md
 
 # Ghi chú cá nhân — không commit
 docs/take note.docx
