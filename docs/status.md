@@ -5,17 +5,18 @@
 
 ## Now
 
-- Nhánh `chore/restructure`: tái cấu trúc "LESS IS MORE" (ADR-0001, ADR-0003) — Phase 0, A1, B, A2 xong; đang A3–A6 (rules, subagents, skills, MCP).
+- Tái cấu trúc "LESS IS MORE" (ADR-0001, ADR-0003) xong Phase 0, A1, B, A2–A6: hooks, rules theo đường dẫn, 3 subagent, 7 skill, `.mcp.json`. Đã merge vào `main` (chưa push).
 
 ## Next
 
-1. Merge `chore/restructure` → `main` sau A6, push.
+1. Push `main` lên `origin` (chờ Thy đồng ý).
 2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
 3. Phase G — CI GitHub Actions.
 4. Phase D0 — `reply_role`, verify live `/conversation`, persist embeddings.
 
 ## Blocked / cần Thy
 
+- Lần mở phiên tới: duyệt 2 MCP server trong `/mcp` (`context7`, `huggingface` — HF đăng nhập OAuth) và thử pop-up khi Claude xong việc.
 - Duyệt bio `LandingAuthor.tsx` + sub-headline tagline `LandingHero.tsx` (còn treo từ 2026-09-03).
 - Phase C cần Thy mở VS Code Remote-WSL (Claude Code chạy trong Linux) — không tự làm được từ phiên Windows.
 - RQ-08 cần Thy gán nhãn tay 150 bài (6 nhãn cố định) + gán lại 30 bài sau 2 tuần.
@@ -34,4 +35,4 @@
 
 ## Last checkpoint
 
-- `3ca48df` Drop text and carousel generation from scope
+- Add project MCP servers (context7, huggingface)
