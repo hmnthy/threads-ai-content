@@ -17,6 +17,28 @@ repos:
         language: system
         files: ^(src|tests|scripts)/
         pass_filenames: false
+      # Cảnh sát nhất quán (ADR-0008): chặn commit đưa vào thông tin lỗi thời so với quyết định
+      # đã chốt, đường dẫn chết, 3 README lệch nhau. Sổ luật: docs/decisions/invariants.toml
+      - id: consistency
+        name: decision consistency (invariants.toml)
+        entry: ./.venv/Scripts/python.exe -m scripts.consistency.check --staged
+        language: system
+        pass_filenames: false
+        always_run: true
+      # Test nhanh (~20s): bỏ test tải model (slow) và gọi API thật (live).
+      # Bộ đầy đủ chạy ở /checkpoint và bước kiểm tra cuối của /decision-sweep.
+      - id: pytest-fast
+        name: pytest (not slow, not live)
+        entry: ./.venv/Scripts/python.exe -m pytest -q -x -m "not slow and not live" -p no:cacheprovider
+        language: system
+        files: ^(src|tests|scripts)/|^pyproject\.toml$|^docs/decisions/invariants\.toml$
+        pass_filenames: false
+      - id: dashboard
+        name: dashboard eslint + tsc
+        entry: ./.venv/Scripts/python.exe scripts/precommit/dashboard_check.py
+        language: system
+        files: ^src/dashboard/(src/|scripts/|package\.json|tsconfig\.json|eslint\.config)
+        pass_filenames: false
       # Chốt chặn tầng git cho quy tắc "không trailer Co-Authored-By" — áp dụng cả khi
       # commit tay ngoài Claude Code (hook PreToolUse chỉ bảo vệ commit do Claude chạy).
       - id: no-coauthor-trailer

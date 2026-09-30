@@ -128,6 +128,8 @@ adr = "0003"
 pattern = '\b(Bước|Ngày) \d+(\.\d+)?(?![/\d])'
 why = "Đánh số 'Bước N'/'Ngày N' thuộc sprint plan v3 đã archive — người đọc không tra được nữa"
 fix = "Mô tả bằng tên module/việc, hoặc trỏ phase trong docs/roadmap.md"
+# Chỉ code + docs tham chiếu: skill/rule dùng "Bước 1..N" để đánh số quy trình của chính nó là hợp lệ
+paths = ["src/**", "tests/**", "scripts/**", "docs/claude/**", "README*.md", "CLAUDE.md"]
 allow = ["docs/decisions/**"]
 
 [[forbid]]
