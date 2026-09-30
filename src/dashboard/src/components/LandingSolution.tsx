@@ -1,4 +1,4 @@
-import { ChartLineUp, Graph, Sparkle } from "@phosphor-icons/react/dist/ssr";
+import { ChartLineUp, Database, Graph } from "@phosphor-icons/react/dist/ssr";
 
 const LAYERS = [
   {
@@ -14,10 +14,10 @@ const LAYERS = [
     body: "Multilingual sentence embeddings (content mixes Vietnamese, French and English naturally) feed UMAP + HDBSCAN for unsupervised topic discovery — see the Topic Explorer. A Code-Mixing Index, not a boolean flag, measures how much a post actually switches languages.",
   },
   {
-    Icon: Sparkle,
-    name: "Generative AI + RAG",
-    status: "coming soon" as const,
-    body: "Claude already labels discovered topic clusters in English. The next layer drafts new post ideas grounded — via retrieval over this channel's own highest-performing content — in the author's real voice, not a generic AI one.",
+    Icon: Database,
+    name: "Knowledge base",
+    status: "next" as const,
+    body: "The channel's own posts and the author's answers to follower questions, turned into a searchable knowledge base: hybrid keyword + semantic retrieval with a reranker, measured against real follower questions (recall@k, nDCG) before anything is built on top of it.",
   },
 ];
 
@@ -29,8 +29,8 @@ export function LandingSolution() {
           How it&apos;s solved
         </h2>
         <p className="max-w-2xl text-text-secondary">
-          Three layers, built and verified in that order — each one grounded in cited methodology,
-          not intuition.
+          Three layers, built in that order — each one grounded in cited methodology, not
+          intuition.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

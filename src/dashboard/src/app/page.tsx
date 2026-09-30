@@ -4,7 +4,6 @@ import { LandingHero } from "@/components/LandingHero";
 import { LandingProblem } from "@/components/LandingProblem";
 import { LandingSolution } from "@/components/LandingSolution";
 import { LandingTechStack } from "@/components/LandingTechStack";
-import { LandingComingSoon } from "@/components/LandingComingSoon";
 import { LandingAuthor } from "@/components/LandingAuthor";
 
 // Landing / story page (Tầng B, scoped — xem docs/claude/design-system.md §7 và
@@ -19,7 +18,6 @@ export default function LandingPage() {
         <LandingProblem />
         <LandingSolution />
         <LandingTechStack />
-        <LandingComingSoon />
         <LandingAuthor />
       </div>
       <footer className="border-t border-border-hairline py-6">
