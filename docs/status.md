@@ -5,16 +5,17 @@
 
 ## Now
 
-- Tái cấu trúc "LESS IS MORE" (ADR-0001, ADR-0003) đã merge vào `main` (chưa push).
-- Nhánh `chore/consistency-police` (ADR-0008) xong: sổ luật `invariants.toml` + `check.py` + `consistency-auditor` + `/decision-sweep` + 7 cổng pre-commit. Lượt sweep đầu cho ADR-0001/0003/0008: tầng 1 = 0 vi phạm, auditor lượt 3 xác nhận. Chờ Thy duyệt merge vào `main`.
-- Đổi tên hiển thị sản phẩm → **Unthreaded** (ADR-0009, slug `threads-ai-content` giữ nguyên) + câu miễn trừ Meta; cùng nhánh `chore/consistency-police`.
+- `main` đã gồm và đã push lên `origin` (2026-09-30):
+  - tái cấu trúc "LESS IS MORE" (ADR-0001, ADR-0003);
+  - cưỡng chế nhất quán (ADR-0008): sổ luật `invariants.toml` + `check.py` + `consistency-auditor` + `/decision-sweep` + 7 cổng pre-commit;
+  - tên hiển thị **Unthreaded** (ADR-0009, slug `threads-ai-content` giữ nguyên) + câu miễn trừ Meta.
+- Sweep ADR-0009: tầng 1 = 0 vi phạm, auditor lượt 2 = 0 phát hiện.
 
 ## Next
 
-1. Thy duyệt → merge `chore/consistency-police` vào `main`, push `origin` (chưa push từ 2026-09-03).
-2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
-3. Phase G — CI GitHub Actions (chạy cả `scripts.consistency.check --all`).
-4. Phase D0 — `reply_role`, verify live `/conversation`, persist embeddings.
+1. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
+2. Phase G — CI GitHub Actions (chạy cả `scripts.consistency.check --all`).
+3. Phase D0 — `reply_role`, verify live `/conversation`, persist embeddings.
 
 ## Blocked / cần Thy
 
@@ -42,4 +43,4 @@
 
 ## Last checkpoint
 
-- `64ba35f` Run the first decision sweep for ADR-0001, 0003 and 0008 (nhánh `chore/consistency-police`)
+- `b914d41` Regenerate README screenshots with the Unthreaded name (sau `ad36131` ADR-0009; fast-forward vào `main`)
