@@ -23,6 +23,7 @@ Tiêu đề: **$ARGUMENTS**
    - **Hệ quả**: việc phải làm theo + điều kiện cụ thể để xem lại.
    - **Người quyết**: ghi đúng — nếu Thy chưa duyệt thì trạng thái `Proposed`, không phải `Accepted`.
 3. Nếu thay thế ADR cũ: đổi trạng thái ADR cũ thành `Superseded by ADR-NNNN` (chỉ sửa dòng trạng thái).
-4. Thêm 1 dòng vào bảng trong `docs/decisions/README.md`; bỏ số khỏi danh sách "Dự kiến" nếu có.
-5. Nếu quyết định đổi công thức/methodology → cập nhật section tương ứng của `docs/claude/data-model.md` (trỏ tới ADR). Đề xuất từ `docs/research/` → ghi rõ đã được Thy duyệt.
-6. Báo lại đường dẫn ADR; gợi ý `/checkpoint`.
+4. Thêm 1 dòng vào bảng trong `docs/decisions/README.md`; bỏ số khỏi danh sách "Dự kiến" nếu có. Quyết định đổi công thức/methodology → cập nhật section tương ứng của `docs/claude/data-model.md` (trỏ tới ADR). Đề xuất từ `docs/research/` → ghi rõ đã được Thy duyệt.
+5. **Bắt buộc — luật nhất quán**: thêm vào `docs/decisions/invariants.toml` những gì ADR này làm lỗi thời (`[[forbid]]` cho tên/khái niệm/đường dẫn/số liệu cũ, `[[stale_asset]]` cho ảnh cần làm lại, `planned_paths` cho file sẽ tạo). ADR không làm gì lỗi thời → ghi rõ "không có luật" trong mục Hệ quả, kèm lý do.
+6. Nếu thay thế ADR cũ: luật cũ của ADR đó có còn đúng không — sửa/xoá trong `invariants.toml` cho khớp.
+7. **Không dừng ở đây**: chạy tiếp `/decision-sweep NNNN` để lan quyết định ra toàn repo (kiểm kê → sửa → kiểm tra cuối). Chỉ sau khi sweep báo 0 vi phạm mới `/checkpoint`.

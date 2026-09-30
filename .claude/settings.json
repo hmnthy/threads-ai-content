@@ -45,6 +45,12 @@
             "type": "command",
             "timeout": 30,
             "command": "uv run --no-sync --project \"${CLAUDE_PROJECT_DIR}\" python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ruff_on_edit.py\""
+          },
+          {
+            "type": "command",
+            "if": "Write(docs/decisions/*)",
+            "timeout": 15,
+            "command": "uv run --no-sync --project \"${CLAUDE_PROJECT_DIR}\" python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/adr_written.py\""
           }
         ]
       }

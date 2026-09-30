@@ -54,4 +54,18 @@ for name in ("scheduled_job.log", "nlp_cluster_job.log"):
         if tail:
             lines.append(f"- Last line of {name}: {tail[-1][:160]}")
 
+# Cảnh sát nhất quán — chỉ đếm (nhanh, không chạy pytest); chi tiết qua /decision-sweep
+checker = subprocess.run(
+    [sys.executable, "-m", "scripts.consistency.check", "--all", "--count"],
+    cwd=project,
+    capture_output=True,
+    text=True,
+    encoding="utf-8",
+    check=False,
+)
+count = checker.stdout.strip()
+if count.isdigit():
+    note = " → run `/decision-sweep` before new work" if count != "0" else ""
+    lines.append(f"- Consistency violations (docs/decisions/invariants.toml): {count}{note}")
+
 print("\n".join(lines[:30]))
