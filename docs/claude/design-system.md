@@ -1,4 +1,4 @@
-# Design System — Threads AI Content
+# Design System — Unthreaded
 
 > **Đọc khi**: làm việc trong `src/dashboard/`, hoặc bất kỳ UI/frontend/mockup/artifact nào của dự án.
 > **Đây là nguồn sự thật DUY NHẤT về design.**

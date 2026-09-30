@@ -25,7 +25,7 @@ export function Nav() {
           </div>
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold tracking-tight text-text-primary">
-              Threads AI Content
+              Unthreaded
             </span>
             <span className="text-xs font-medium text-text-muted">
               The algorithm, read back to you.

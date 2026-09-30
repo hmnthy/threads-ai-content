@@ -1,9 +1,9 @@
-# Threads AI Content
+# Unthreaded
 
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-217%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-225%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -207,3 +207,6 @@ described above.
 Private personal project. All rights reserved — not open source, not accepting external
 contributions. Built as a portfolio piece demonstrating applied NLP/ML engineering on real
 production data.
+
+Not affiliated with Meta. Threads is a trademark of Meta Platforms, Inc. The repository keeps its
+working slug `threads-ai-content`.

@@ -22,7 +22,10 @@ export default function LandingPage() {
       </div>
       <footer className="border-t border-border-hairline py-6">
         <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center justify-between gap-3 px-6 text-xs text-text-muted">
-          <span>Personal project · All rights reserved</span>
+          <span>
+            Personal project · All rights reserved · Not affiliated with Meta. Threads is a trademark
+            of Meta Platforms, Inc.
+          </span>
           <Link href="/overview" className="font-medium text-amber-600 hover:text-amber-700">
             View live dashboard →
           </Link>

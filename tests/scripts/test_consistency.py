@@ -403,6 +403,30 @@ LEARNED_RULES = [
         "--no-verify skips ruff/mypy/commit-msg hooks",
         "skips the ruff, mypy, consistency hooks",
     ),
+    (
+        "ADR0009-old-name",
+        "src/dashboard/src/app/layout.tsx",
+        '  title: "Threads AI Content",',
+        "cd threads-ai-content && uv sync",
+    ),
+    (
+        "ADR0009-slug-as-title",
+        "CLAUDE.md",
+        "# threads-ai-content",
+        "# Unthreaded (repo `threads-ai-content`)",
+    ),
+    (
+        "ADR0009-slug-as-title",
+        "docs/roadmap.md",
+        "# Roadmap — threads-ai-content",
+        "cd threads-ai-content",
+    ),
+    (
+        "ADR0009-old-name-variants",
+        "README.md",
+        "The Threads AI dashboard, see Threads-AI-content.",
+        "Task Scheduler `ThreadsAI_SnapshotJob_4h` in threads-ai-content/",
+    ),
 ]
 
 

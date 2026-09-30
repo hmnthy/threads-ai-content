@@ -51,8 +51,8 @@ from src.db.schema import (
 )
 
 app = FastAPI(
-    title="Threads AI Content API",
-    description="Internal analytics API cho kênh Threads 'thydilammuon'.",
+    title="Unthreaded API",
+    description="Internal analytics API for the Threads channel @thydilammuon.",
     version="0.1.0",
 )
 

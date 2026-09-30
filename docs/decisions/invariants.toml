@@ -188,6 +188,30 @@ adr = "0001"
 path = "docs/screenshots/landing.png"
 regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
 
+[[stale_asset]]
+id = "ADR0009-landing-screenshot"
+adr = "0009"
+path = "docs/screenshots/landing.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0009-overview-screenshot"
+adr = "0009"
+path = "docs/screenshots/overview.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0009-analytics-screenshot"
+adr = "0009"
+path = "docs/screenshots/analytics.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0009-topics-screenshot"
+adr = "0009"
+path = "docs/screenshots/topics.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
 # ---------------------------------------------------------------------------------------
 # Giới hạn kích thước (ADR-0003)
 # ---------------------------------------------------------------------------------------
@@ -352,3 +376,32 @@ adr = "0008"
 pattern = 'ruff/mypy/commit-msg\b(?!\s*/)'
 why = "Pre-commit còn chạy consistency, pytest nhanh, dashboard eslint+tsc"
 fix = "Liệt kê đủ các cổng"
+
+# ADR-0009 — tên hiển thị "Unthreaded" (slug `threads-ai-content` giữ nguyên)
+
+[[forbid]]
+id = "ADR0009-old-name"
+adr = "0009"
+# Chỉ tên có dấu cách — slug `threads-ai-content` (đường dẫn, repo, pyproject) vẫn hợp lệ
+pattern = '(?i)threads ai content'
+why = "Tên hiển thị đã đổi thành Unthreaded (ADR-0009) — 'AI Content' gợi ý generation đã bỏ"
+fix = "Dùng 'Unthreaded'; khi nói tới repo thì dùng slug `threads-ai-content`"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0009-slug-as-title"
+adr = "0009"
+pattern = '^# (threads-ai-content|.*[—–-] threads-ai-content)\s*$'
+why = "Tiêu đề tài liệu là tên hiển thị — dùng 'Unthreaded'; slug chỉ dùng cho định danh kỹ thuật (ADR-0009)"
+fix = "Đổi đuôi tiêu đề thành '— Unthreaded'"
+paths = ["docs/**", "*.md"]
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0009-old-name-variants"
+adr = "0009"
+# Phân biệt hoa/thường: không bắt slug `threads-ai-content` hay tên job `ThreadsAI_*`
+pattern = '\bThreads[ -]AI\b(?![ -]?[Cc]ontent)|\bThreads-AI-[Cc]ontent\b'
+why = "Biến thể của tên cũ — tên hiển thị là Unthreaded (ADR-0009)"
+fix = "Dùng 'Unthreaded'"
+allow = ["docs/decisions/**"]

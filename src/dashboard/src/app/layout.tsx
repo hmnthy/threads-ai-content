@@ -16,7 +16,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Threads AI Content",
+  title: "Unthreaded",
   description:
     "A statistics-first NLP analytics and knowledge-base project, built on one real Threads channel's own data.",
 };

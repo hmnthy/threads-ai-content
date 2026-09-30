@@ -1,4 +1,4 @@
-# Architecture — threads-ai-content
+# Architecture — Unthreaded
 
 > Đọc khi: cần cấu trúc thư mục, tech stack, hoặc luồng dữ liệu tổng thể.
 > Lý do của từng lựa chọn: `docs/decisions/` (ADR) + `docs/decisions/legacy-log.md` (trước 2026-09-30). Kế hoạch: `docs/roadmap.md`.
