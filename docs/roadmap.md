@@ -59,6 +59,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 - Truy xuất: BM25 top50 + dense top50 → RRF → rerank `bge-reranker-v2-m3` → top-k kèm nguồn.
 - Cập nhật tăng dần: `run_job.sh kb` sau ingest, embed lại theo hash, dọn chunk mồ côi, ghi `kb_builds`.
 - Eval: gold set câu hỏi follower thật (loại chính cặp qa đó khỏi index lúc eval) + 30–50 câu tự soạn; recall@5/10, MRR@10, nDCG@10, bootstrap CI.
+- Skill `/kb-eval` (chạy eval truy xuất, so với run trước trong registry) — tạo cùng phase này, không tạo trước khi KB tồn tại.
 - API `GET /kb/search?q&k&mode&rerank`, `/kb/stats`, `/research/runs`. Dashboard `/kb`, `/research` — không hiển thị nguyên văn bình luận follower.
 
 ## F — Cổng mở chatbot + landing thương hiệu (cần 1 ADR để mở)
