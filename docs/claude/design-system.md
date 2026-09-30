@@ -203,7 +203,6 @@ Khi yêu cầu chỉ nói "làm UI" → mặc định tầng A.
 - Chart vào viewport: line vẽ trái→phải; bar grow từ dưới. Metric count-up 600ms — **trừ khi đang kéo timeline brush**, số phải bám tay theo thời gian thực (§5).
 - Loading: **skeleton shimmer**, không spinner. Chờ < 300ms thì không hiện gì.
 - Toast: góc trên phải, 3s, `aria-live="polite"`, không cướp focus.
-- Keyboard: `A` approve / `S` skip khi review content.
 - Không dùng modal cho action nhỏ — inline expand.
 - `prefers-reduced-motion: reduce` → tắt toàn bộ animation, hiện thẳng trạng thái cuối.
 

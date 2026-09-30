@@ -15,8 +15,8 @@ Thuật toán xếp hạng của Threads là một hộp đen — creator không
 làm case study thật: mọi con số trên dashboard đều được tính từ một công thức đã ghi chép rõ ràng,
 có nguồn tham khảo — không bao giờ là một điểm số "hộp đen".
 
-Đây là một **công cụ nội bộ, dùng riêng cho 1 kênh** — vừa để phân tích hiệu suất thật, vừa (sắp
-tới) để generate content — được xây dựng đồng thời làm sản phẩm portfolio cho vị trí NLP/ML
+Đây là một **dự án phân tích + nghiên cứu NLP cho riêng 1 kênh**, hướng tới một **cơ sở tri thức
+(knowledge base)** cập nhật liên tục về những gì kênh đã chia sẻ với follower — được xây dựng đồng thời làm sản phẩm portfolio cho vị trí NLP/ML
 Engineer. Không phải SaaS, không multi-tenant, và không có tham vọng trở thành vậy.
 
 ---
@@ -27,7 +27,7 @@ Sản phẩm qua 4 bước — từ tuyên ngôn tới tận cluster chủ đề
 
 <p align="center">
   <img src="docs/screenshots/landing.png" alt="Landing page: hero, problem, solution, tech stack" width="820"><br>
-  <sub><b>1. Landing</b> — tuyên ngôn, vấn đề, và giải pháp 3 tầng (statistics → NLP → generative AI/RAG), cùng toàn bộ tech stack hiển thị đúng trạng thái live/coming soon.</sub>
+  <sub><b>1. Landing</b> — tuyên ngôn, vấn đề, và giải pháp 3 tầng (statistics → NLP → knowledge base), cùng toàn bộ tech stack hiển thị đúng trạng thái thật.</sub>
 </p>
 
 <p align="center">
@@ -77,14 +77,14 @@ căn cứ.
 
 ## Giải pháp
 
-3 tầng, xây và verify đúng theo thứ tự đó — mỗi tầng đều bám vào methodology có trích dẫn, không
+3 tầng, xây đúng theo thứ tự đó — mỗi tầng đều bám vào methodology có trích dẫn, không
 phải cảm tính.
 
 | Tầng | Trạng thái | Làm gì |
 |---|---|---|
 | **Statistics layer** | Đã có | 6 index tách biệt — popularity, engagement, virality, conversation, velocity, longevity — không bao giờ gộp lại thành 1 điểm số duy nhất. Median luôn đi kèm mean (không bao giờ chỉ báo mean 1 mình), mọi bucket đều có IQR + cờ cảnh báo cỡ mẫu nhỏ, dùng Mann-Whitney U + Cliff's delta cho mọi so sánh nhóm, virality tính theo percentile riêng của từng kênh thay vì 1 ngưỡng cố định tùy tiện. |
 | **NLP layer** | Đã có | Embedding đa ngôn ngữ (content trộn tự nhiên VI/FR/EN nên không dùng tokenizer riêng cho 1 ngôn ngữ) đưa vào UMAP + HDBSCAN để tự động khám phá chủ đề (unsupervised), sau đó Claude gán tên tiếng Anh cho từng cluster tìm được. Code-Mixing Index — một điểm số liên tục, không phải cờ boolean — đo mức độ 1 bài thực sự chuyển đổi ngôn ngữ. |
-| **Generative AI + RAG** | Sắp có | Claude đã gán tên cho các cluster chủ đề. Tầng tiếp theo sẽ draft ý tưởng content mới, dựa trên retrieval trên chính những bài hiệu suất cao nhất của kênh, giữ đúng giọng văn thật của tác giả — không phải giọng AI chung chung. |
+| **Knowledge base** | Tiếp theo | Bài đăng của kênh và câu trả lời của tác giả cho câu hỏi của follower, biến thành cơ sở tri thức tra cứu được: tìm kiếm hybrid (từ khoá BM25 + ngữ nghĩa) kèm reranker, được đo trên câu hỏi thật của follower (recall@k, MRR, nDCG) trước khi xây bất cứ thứ gì — như trợ lý hỏi đáp — lên trên. |
 
 ## Tech stack
 
@@ -104,9 +104,8 @@ Liệt kê đúng trạng thái thật của code hiện tại — không hứa 
 | NLP feature extraction | sentence-transformers, đa ngôn ngữ (bge-m3 / multilingual-e5-large) | Đã có |
 | Topic discovery | UMAP + HDBSCAN (clustering không giám sát) | Đã có |
 | Code quality | ruff (lint+format), mypy (strict), pytest, pre-commit | Đã có |
-| Fixed-category classification | SVM-RBF + Logistic Regression | Sắp có |
-| Vector store / RAG | Chroma hoặc FAISS (tái dùng embedding của clustering) | Sắp có |
-| Image generation | Pillow + font Google Sans (template carousel đã có, code chưa) | Sắp có |
+| Fixed-category classification | SVM-RBF + Logistic Regression (bậc thang baseline so với cluster không giám sát) | Nghiên cứu, chưa bắt đầu |
+| Knowledge base retrieval | SQLite FTS5 (BM25) + dense embedding + cross-encoder reranker | Tiếp theo |
 
 ## Kiến trúc
 
@@ -120,8 +119,6 @@ threads-ai-content/
 │   ├── nlp/              Language ID, embedding đa ngôn ngữ, clustering UMAP+HDBSCAN — đã có
 │   ├── db/                Schema SQLite (posts, content_units, insights_snapshots, topics) — đã có
 │   ├── pipeline/           Ingest, cron snapshot 4h, cầu nối clustering Windows↔WSL2 — đã có
-│   ├── generation/         Generate text bằng RAG — chưa bắt đầu
-│   ├── carousel/           Ghép ảnh carousel bằng Pillow — chưa bắt đầu
 │   ├── main.py             Entry point FastAPI — đã có
 │   └── dashboard/          App Next.js: landing page + Overview/Analytics/Topic Explorer — đã có
 └── tests/                183 test, ruff + mypy strict sạch
@@ -165,16 +162,18 @@ Một vài quyết định dự án coi là nền tảng, tài liệu đầy đ�
 
 ## Trạng thái dự án
 
-**Phase 1 — công cụ phân tích + content cho 1 kênh (đang triển khai).** Client Threads API,
-pipeline NLP khám phá chủ đề, kiến trúc metric 6-index, thống kê theo cửa sổ thời gian, dashboard
-3 tab (Overview, Analytics, Topic Explorer) cộng landing page này — tất cả đã chạy thật trên data
-production (183 test pass, ruff + mypy strict sạch). AI content generation (`src/generation/`) và
-export ảnh carousel (`src/carousel/`) đã thiết kế nhưng chưa xây.
+**Đã có:** client Threads API, pipeline NLP khám phá chủ đề, kiến trúc metric 6-index, thống kê
+theo cửa sổ thời gian, dashboard 3 tab (Overview, Analytics, Topic Explorer) cộng landing page này —
+tất cả chạy thật trên data production (183 test pass, ruff + mypy strict sạch).
 
-**Phase 2 — nghiên cứu hệ sinh thái Threads / "KOL Strategy Engine" (định hướng, chưa cam kết).**
-Mở rộng từ 1 kênh sang nghiên cứu pattern trên nhiều tài khoản cần Meta Advanced Access (Business
-Verification, App Review) — dự án hiện chưa có và cũng chưa cần cho Phase 1. Chưa cam kết timeline
-hay effort kỹ thuật nào — xem đầy đủ lý do tại [`CLAUDE.md`](CLAUDE.md).
+**Tiếp theo — phạm vi hẹp có chủ đích ("less is more"):**
+1. Phân tích NLP sâu hơn, viết thành các câu hỏi nghiên cứu rõ ràng (độ ổn định cluster, so sánh
+   model embedding, code-mixing vs engagement, bậc thang baseline cho bộ phân loại có giám sát).
+2. Một cơ sở tri thức cập nhật liên tục, có đo chất lượng truy xuất.
+3. Chỉ khi cơ sở tri thức đạt cổng chất lượng: trợ lý hỏi đáp dựa trên nó.
+
+Generate bài theo giọng văn tác giả và generate ảnh carousel đã được cân nhắc và chủ động loại bỏ để
+dự án giữ đúng trọng tâm.
 
 ## Chạy thử ở local
 

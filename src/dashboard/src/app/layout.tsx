@@ -18,7 +18,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Threads AI Content",
   description:
-    "A statistics-first NLP/ML analytics and content engine, built on one real Threads channel's own data.",
+    "A statistics-first NLP analytics and knowledge-base project, built on one real Threads channel's own data.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

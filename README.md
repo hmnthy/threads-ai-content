@@ -14,7 +14,8 @@ next one doesn't. This project treats one real Threads channel, **[@thydilammuon
 as a live case study: every number on the dashboard is computed from a documented, cited formula —
 never a black-box score.
 
-It is a working **internal analytics + (eventually) content-generation tool** for that one channel,
+It is a working **analytics + NLP research project** for that one channel, heading toward a
+continuously updated **knowledge base** of what the channel has already taught its followers —
 built and open-sourced-in-spirit as an NLP/ML engineering portfolio piece. Not a SaaS, not
 multi-tenant, not trying to be.
 
@@ -26,7 +27,7 @@ The product in four steps — from the pitch to the raw discovered topics.
 
 <p align="center">
   <img src="docs/screenshots/landing.png" alt="Landing page: hero, problem, solution, tech stack" width="820"><br>
-  <sub><b>1. Landing</b> — the pitch, the problem, and the three-layer solution (statistics → NLP → generative AI/RAG), plus the full tech stack shown live/coming-soon.</sub>
+  <sub><b>1. Landing</b> — the pitch, the problem, and the three-layer solution (statistics → NLP → knowledge base), plus the full tech stack shown with its real status.</sub>
 </p>
 
 <p align="center">
@@ -75,13 +76,13 @@ Threads gives creators just enough data to make confident-sounding, unfounded de
 
 ## How it's solved
 
-Three layers, built and verified in that order — each grounded in cited methodology, not intuition.
+Three layers, built in that order — each grounded in cited methodology, not intuition.
 
 | Layer | Status | What it does |
 |---|---|---|
 | **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, virality, conversation, velocity, longevity — never blended into one score. Median and mean reported together (never a lone mean), IQR and sample-size flags on every bucket, Mann-Whitney U + Cliff's delta for any group comparison, per-channel percentile-relative virality instead of an arbitrary fixed threshold. |
 | **NLP layer** | Live | Multilingual sentence embeddings (content mixes Vietnamese, French and English naturally, so no per-language tokenizer) feed UMAP + HDBSCAN for unsupervised topic discovery, then Claude labels each discovered cluster in English. A Code-Mixing Index — a continuous score, not a boolean flag — measures how much a post actually switches languages. |
-| **Generative AI + RAG** | Coming soon | Claude already labels topic clusters. The next layer drafts new post ideas grounded — via retrieval over this channel's own highest-performing content — in the author's real documented voice, not a generic AI one. |
+| **Knowledge base** | Next | The channel's own posts and the author's answers to follower questions, turned into a searchable knowledge base: hybrid keyword (BM25) + semantic retrieval with a reranker, evaluated against real follower questions (recall@k, MRR, nDCG) before anything — such as a Q&A assistant — is built on top of it. |
 
 ## Tech stack
 
@@ -101,9 +102,8 @@ Shown as it actually stands today — nothing implied that isn't built yet.
 | NLP feature extraction | sentence-transformers, multilingual (bge-m3 / multilingual-e5-large) | Live |
 | Topic discovery | UMAP + HDBSCAN (unsupervised clustering) | Live |
 | Code quality | ruff (lint+format), mypy (strict), pytest, pre-commit | Live |
-| Fixed-category classification | SVM-RBF + Logistic Regression | Coming soon |
-| Vector store / RAG | Chroma or FAISS (reuses clustering embeddings) | Coming soon |
-| Image generation | Pillow + Google Sans font (carousel templates ready, code isn't) | Coming soon |
+| Fixed-category classification | SVM-RBF + Logistic Regression (baseline ladder vs. the unsupervised clusters) | Research, not started |
+| Knowledge base retrieval | SQLite FTS5 (BM25) + dense embeddings + cross-encoder reranker | Next |
 
 ## Architecture
 
@@ -117,8 +117,6 @@ threads-ai-content/
 │   ├── nlp/              language ID, multilingual embeddings, UMAP+HDBSCAN clustering — live
 │   ├── db/                SQLite schema (posts, content_units, insights_snapshots, topics) — live
 │   ├── pipeline/           ingest, 4h snapshot cron, Windows↔WSL2 clustering bridge — live
-│   ├── generation/         AI text generation via RAG — not started
-│   ├── carousel/           Pillow-based carousel image composition — not started
 │   ├── main.py             FastAPI entry point — live
 │   └── dashboard/          Next.js app: landing page + Overview/Analytics/Topic Explorer — live
 └── tests/                183 tests, ruff + mypy strict clean
@@ -161,17 +159,18 @@ A few decisions this project treats as load-bearing, documented in full in
 
 ## Project status
 
-**Phase 1 — analytics + content tool for one channel (in progress).** Threads API client, NLP
-topic-discovery pipeline, 6-index metric architecture, windowed statistics, and a three-tab
-dashboard (Overview, Analytics, Topic Explorer) plus this landing page are live against real
-production data (183 tests passing, ruff + mypy strict clean). AI content generation
-(`src/generation/`) and carousel image export (`src/carousel/`) are designed but not yet built.
+**Live:** Threads API client, NLP topic-discovery pipeline, 6-index metric architecture, windowed
+statistics, and a three-tab dashboard (Overview, Analytics, Topic Explorer) plus this landing page,
+all running against real production data (183 tests passing, ruff + mypy strict clean).
 
-**Phase 2 — Threads ecosystem research / "KOL Strategy Engine" (direction, not committed).**
-Extending from one channel to cross-account pattern research would require Meta's Advanced Access
-tier (Business Verification, App Review) that this project doesn't currently have or need for
-Phase 1. No timeline or engineering effort is committed to this yet — see
-[`CLAUDE.md`](CLAUDE.md) for the full reasoning.
+**Next — deliberately narrow scope ("less is more"):**
+1. Deeper NLP analysis written up as explicit research questions (cluster stability, embedding
+   model comparison, code-mixing vs. engagement, a supervised classifier baseline ladder).
+2. A continuously updated knowledge base with measured retrieval quality.
+3. Only once that knowledge base passes its quality gate: a Q&A assistant grounded in it.
+
+Voice-matched post generation and carousel image generation were considered and deliberately
+dropped to keep the project focused.
 
 ## Local setup
 

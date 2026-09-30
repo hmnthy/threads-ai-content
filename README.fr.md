@@ -16,7 +16,8 @@ vivant en France, qui parle d'alternance, de recherche d'emploi et de vie d'expa
 d'étude en conditions réelles : chaque chiffre affiché sur le dashboard provient d'une formule
 documentée et citée — jamais d'un score « boîte noire ».
 
-C'est un **outil interne d'analyse (et bientôt de génération de contenu)** dédié à ce seul compte,
+C'est un **projet d'analyse et de recherche NLP** dédié à ce seul compte, qui vise une **base de
+connaissances** mise à jour en continu à partir de ce que le compte a déjà partagé avec ses abonnés —
 construit en parallèle comme pièce de portfolio d'ingénierie NLP/ML. Ce n'est pas un SaaS, pas
 multi-tenant, et ça n'a pas vocation à le devenir.
 
@@ -28,7 +29,7 @@ Le produit en quatre étapes — du pitch jusqu'aux sujets bruts découverts par
 
 <p align="center">
   <img src="docs/screenshots/landing.png" alt="Landing page: hero, problem, solution, tech stack" width="820"><br>
-  <sub><b>1. Landing</b> — le pitch, le problème, et la solution à trois couches (statistiques → NLP → IA générative/RAG), avec toute la stack technique affichée selon son statut réel (en ligne / bientôt disponible).</sub>
+  <sub><b>1. Landing</b> — le pitch, le problème, et la solution à trois couches (statistiques → NLP → base de connaissances), avec toute la stack technique affichée selon son statut réel.</sub>
 </p>
 
 <p align="center">
@@ -79,14 +80,14 @@ sûres d'elles, sans réelle base.
 
 ## La solution
 
-Trois couches, construites et vérifiées dans cet ordre — chacune ancrée dans une méthodologie
+Trois couches, construites dans cet ordre — chacune ancrée dans une méthodologie
 citée, jamais dans l'intuition.
 
 | Couche | Statut | Ce qu'elle fait |
 |---|---|---|
 | **Couche statistique** | En ligne | Six indices intrinsèques gardés séparés — popularité, engagement, viralité, conversation, vélocité, longévité — jamais fusionnés en un seul score. Médiane et moyenne toujours rapportées ensemble (jamais une moyenne seule), IQR et alerte de taille d'échantillon sur chaque groupe, test de Mann-Whitney U + delta de Cliff pour toute comparaison de groupes, viralité calculée en percentile propre à chaque compte plutôt qu'avec un seuil fixe arbitraire. |
 | **Couche NLP** | En ligne | Des embeddings de phrases multilingues (le contenu mélange naturellement vietnamien, français et anglais, donc aucun tokenizer propre à une langue) alimentent UMAP + HDBSCAN pour une découverte de sujets non supervisée, puis Claude nomme chaque cluster découvert en anglais. Un Code-Mixing Index — un score continu, pas un simple booléen — mesure à quel point une publication mélange réellement les langues. |
-| **IA générative + RAG** | Bientôt disponible | Claude nomme déjà les clusters de sujets. La prochaine couche proposera de nouvelles idées de publications, ancrées — via une recherche dans les contenus les plus performants du compte — dans le ton réel et documenté de l'autrice, pas dans une voix IA générique. |
+| **Base de connaissances** | Prochaine étape | Les publications du compte et les réponses de l'autrice aux questions des abonnés, transformées en base de connaissances interrogeable : recherche hybride (mots-clés BM25 + sémantique) avec reranker, évaluée sur de vraies questions d'abonnés (recall@k, MRR, nDCG) avant de construire quoi que ce soit — comme un assistant de questions-réponses — par-dessus. |
 
 ## Stack technique
 
@@ -107,9 +108,8 @@ l'est pas.
 | Extraction de features NLP | sentence-transformers, multilingue (bge-m3 / multilingual-e5-large) | En ligne |
 | Découverte de sujets | UMAP + HDBSCAN (clustering non supervisé) | En ligne |
 | Qualité du code | ruff (lint+format), mypy (strict), pytest, pre-commit | En ligne |
-| Classification à catégories fixes | SVM-RBF + Régression logistique | Bientôt disponible |
-| Vector store / RAG | Chroma ou FAISS (réutilise les embeddings du clustering) | Bientôt disponible |
-| Génération d'images | Pillow + police Google Sans (templates carousel prêts, code non écrit) | Bientôt disponible |
+| Classification à catégories fixes | SVM-RBF + Régression logistique (échelle de baselines vs. clusters non supervisés) | Recherche, non commencé |
+| Recherche dans la base de connaissances | SQLite FTS5 (BM25) + embeddings denses + reranker cross-encoder | Prochaine étape |
 
 ## Architecture
 
@@ -123,8 +123,6 @@ threads-ai-content/
 │   ├── nlp/              Détection de langue, embeddings multilingues, clustering UMAP+HDBSCAN — en ligne
 │   ├── db/                Schéma SQLite (posts, content_units, insights_snapshots, topics) — en ligne
 │   ├── pipeline/           Ingestion, cron de snapshot toutes les 4h, pont de clustering Windows↔WSL2 — en ligne
-│   ├── generation/         Génération de texte via RAG — non commencé
-│   ├── carousel/           Composition d'images carousel avec Pillow — non commencé
 │   ├── main.py             Point d'entrée FastAPI — en ligne
 │   └── dashboard/          App Next.js : landing page + Overview/Analytics/Topic Explorer — en ligne
 └── tests/                183 tests, ruff + mypy strict propres
@@ -171,18 +169,20 @@ Quelques décisions considérées comme structurantes pour ce projet, documenté
 
 ## État du projet
 
-**Phase 1 — outil d'analyse + contenu pour un seul compte (en cours).** Client API Threads,
-pipeline NLP de découverte de sujets, architecture à 6 indices, statistiques par fenêtre
-temporelle, et un dashboard à 3 onglets (Overview, Analytics, Topic Explorer) plus cette landing
-page tournent en conditions réelles sur des données de production (183 tests passants, ruff + mypy
-strict propres). La génération de contenu par IA (`src/generation/`) et l'export d'images carousel
-(`src/carousel/`) sont conçus mais pas encore construits.
+**En ligne :** client API Threads, pipeline NLP de découverte de sujets, architecture à 6
+indices, statistiques par fenêtre temporelle, et un dashboard à 3 onglets (Overview, Analytics,
+Topic Explorer) plus cette landing page, en conditions réelles sur des données de production
+(183 tests passants, ruff + mypy strict propres).
 
-**Phase 2 — recherche sur l'écosystème Threads / « KOL Strategy Engine » (orientation, non
-engagée).** Étendre l'analyse d'un seul compte à une recherche de patterns cross-comptes
-nécessiterait le niveau Advanced Access de Meta (vérification d'entreprise, App Review), que ce
-projet n'a pas et n'a pas besoin d'avoir pour la Phase 1. Aucun calendrier ni effort d'ingénierie
-n'est engagé pour l'instant — voir le raisonnement complet dans [`CLAUDE.md`](CLAUDE.md).
+**Prochaines étapes — un périmètre volontairement resserré (« less is more ») :**
+1. Une analyse NLP plus poussée, rédigée sous forme de questions de recherche explicites
+   (stabilité des clusters, comparaison de modèles d'embedding, code-mixing vs. engagement,
+   échelle de baselines pour un classifieur supervisé).
+2. Une base de connaissances mise à jour en continu, avec une qualité de recherche mesurée.
+3. Seulement une fois cette base validée : un assistant de questions-réponses qui s'appuie dessus.
+
+La génération de publications dans le style de l'autrice et la génération d'images carousel ont
+été envisagées puis délibérément abandonnées pour garder le projet ciblé.
 
 ## Installation en local
 

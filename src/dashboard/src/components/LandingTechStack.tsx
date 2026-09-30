@@ -1,7 +1,7 @@
 interface StackItem {
   layer: string;
   tech: string;
-  status: "live" | "coming soon";
+  status: "live" | "next" | "research";
   note: string;
 }
 
@@ -14,7 +14,7 @@ const STACK: StackItem[] = [
   { layer: "Package manager", tech: "uv", status: "live", note: "Lockfile + venv management, replaces pip/poetry." },
   { layer: "Threads API client", tech: "httpx", status: "live", note: "Async, pairs naturally with FastAPI." },
   { layer: "Validation", tech: "Pydantic v2", status: "live", note: "Every API response and Threads payload is a typed model." },
-  { layer: "AI / LLM", tech: "Claude API", status: "live", note: "Labels discovered topic clusters in English today; drafting content is the next layer." },
+  { layer: "AI / LLM", tech: "Claude API", status: "live", note: "Labels discovered topic clusters in English." },
   { layer: "Dashboard", tech: "Next.js + Recharts", status: "live", note: "This site, deployed on Vercel." },
   { layer: "Database", tech: "SQLite", status: "live", note: "Dev database now; PostgreSQL planned before any multi-user use." },
   { layer: "Metric scoring", tech: "6-index architecture", status: "live", note: "Popularity / engagement / virality / conversation / velocity / longevity, kept separate." },
@@ -22,9 +22,8 @@ const STACK: StackItem[] = [
   { layer: "NLP feature extraction", tech: "sentence-transformers (multilingual)", status: "live", note: "bge-m3 / multilingual-e5-large embeddings, no per-language tokenizer." },
   { layer: "Topic discovery", tech: "UMAP + HDBSCAN", status: "live", note: "Unsupervised clustering — see the Topic Explorer." },
   { layer: "Code quality", tech: "ruff, mypy (strict), pytest, pre-commit", status: "live", note: "Enforced on every commit, not just at the end." },
-  { layer: "Fixed-category classification", tech: "SVM-RBF + Logistic Regression", status: "coming soon", note: "A supervised complement to the unsupervised clusters above — deferred, not started." },
-  { layer: "Vector store / RAG", tech: "Chroma or FAISS", status: "coming soon", note: "Will reuse the embeddings already computed for clustering — no separate index yet." },
-  { layer: "Image generation", tech: "Pillow + Google Sans font", status: "coming soon", note: "Carousel templates and font are ready; the generation code isn't written." },
+  { layer: "Fixed-category classification", tech: "SVM-RBF + Logistic Regression", status: "research", note: "A supervised baseline ladder compared against the unsupervised clusters — a standalone research question, not started." },
+  { layer: "Knowledge base retrieval", tech: "SQLite FTS5 (BM25) + dense embeddings", status: "next", note: "Hybrid keyword + semantic search with a reranker, in the same SQLite file — not built yet." },
 ];
 
 export function LandingTechStack() {

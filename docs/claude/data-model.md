@@ -1,6 +1,6 @@
 # Data Model — Threads AI Content
 
-> Đọc khi: làm việc trong `src/api/`, `src/analysis/`, hoặc cần biết field/metrics/response shape thật của Threads API, công thức Virality Index, hay mapping chủ đề↔template.
+> Đọc khi: làm việc trong `src/api/`, `src/analysis/`, hoặc cần biết field/metrics/response shape thật của Threads API, công thức Virality Index, NLP pipeline, hay thiết kế knowledge base.
 > Xem thêm: [`architecture.md`](architecture.md) cho tech stack/cấu trúc thư mục, [`CLAUDE.md`](../../CLAUDE.md) cho mission/status.
 
 ---
@@ -278,18 +278,18 @@ def audience_activity_profile() -> dict[int, float]:
 
 ---
 
-## Chủ đề content hiện có (từ carousel templates)
+## 6 fixed category (câu hỏi nghiên cứu RQ-08)
 
-| Chủ đề | Template | Posts điển hình |
-|--------|----------|-----------------|
-| Alternance | Alternance/ (7 slides) | Kinh nghiệm alternance, tìm chỗ thực tập |
-| CV | CV/ (9 slides) | Cách viết CV Pháp, tips hồ sơ |
-| Entretien | Entretien/ (12 slides) | Tips phỏng vấn, câu hỏi thường gặp |
-| Lifestyle / Đi đâu chơi gì | Photos/ | Địa điểm, trải nghiệm tại Pháp |
-| Data / Insights | Scripts | Posts dạng data, số liệu |
-| Divers | Scripts | Các chủ đề tổng hợp khác |
+| Chủ đề | Posts điển hình |
+|--------|-----------------|
+| Alternance | Kinh nghiệm alternance, tìm chỗ thực tập |
+| CV | Cách viết CV Pháp, tips hồ sơ |
+| Entretien | Tips phỏng vấn, câu hỏi thường gặp |
+| Lifestyle / Đi đâu chơi gì | Địa điểm, trải nghiệm tại Pháp |
+| Data / Insights | Posts dạng data, số liệu |
+| Divers | Các chủ đề tổng hợp khác |
 
-6 chủ đề trên là **fixed category** dùng để chọn template carousel — xem "NLP Pipeline" bên dưới để biết cách chúng khác với **cluster khám phá được** (unsupervised).
+6 nhãn cố định do tác giả tự định nghĩa. Ban đầu dùng để chọn template carousel; carousel đã bị loại khỏi scope (ADR-0001), nên bộ phân loại có giám sát trên 6 nhãn này giờ là **một câu hỏi nghiên cứu độc lập** (RQ-08, xem `docs/roadmap.md`): so sánh bậc thang baseline có giám sát với **cluster khám phá được** (unsupervised) — xem "NLP Pipeline" bên dưới.
 
 ---
 
@@ -315,7 +315,9 @@ class ContentUnit:
     media: list[ThreadsPost]
 ```
 
-**Audience replies KHÔNG gộp vào `full_text`** — chúng là tín hiệu `conversation_rate`, không phải nội dung. Embedding/topic detection chạy trên `full_text` của `ContentUnit`, không phải riêng root post.
+**Audience replies KHÔNG gộp vào `full_text`** — chúng là tín hiệu `conversation_rate`, không phải nội dung.
+
+> ⚠️ **Code hiện tại lệch với thiết kế này (phát hiện 2026-09-30)**: `thread_reconstruction.py` coi MỌI reply của tác giả dưới 1 root là continuation — gồm 362 self-reply nối chuỗi thật **và 664 câu trả lời của tác giả cho bình luận follower** (bình luận gốc không được lưu). Sửa ở roadmap Phase D0 (`posts.reply_role`), kèm ADR-0004. Embedding/topic detection chạy trên `full_text` của `ContentUnit`, không phải riêng root post.
 
 **Schema mở rộng cho field mới Meta công bố** (context feature, KHÔNG nhét vào scoring formula tới khi có post thật dùng): `is_ephemeral` (ghost post tự hết hạn 24h → cohort longevity riêng), `format_type`, `location_id`, `reply_approvals_enabled` (nếu bật → `conversation_rate` bị selection bias).
 
@@ -328,12 +330,13 @@ Raw post (root + continuations, giữ NGUYÊN — không strip emoji/hashtag)
       ↓ embed()            sentence-transformers multilingual (bge-m3 / multilingual-e5-large)
       │                    — luôn chạy trên MỌI post, không có bước "chọn model theo ngôn ngữ"
       │
-      ├─ Fixed-category classification (6 lớp, cho carousel routing)
-      │  SVM-RBF (model chính) + LogisticRegression (baseline so sánh)
-      │  train/eval bằng stratified k-fold CV trên gold label user tự gán (140/140 post)
+      ├─ Fixed-category classification (6 lớp — câu hỏi nghiên cứu RQ-08, CHƯA LÀM)
+      │  bậc thang baseline → SVM-RBF, nested CV + bootstrap CI trên gold label tác giả tự gán
       │
-      └─ Unsupervised topic discovery (khám phá + visualize, cho analytics)
-         UMAP (giảm chiều → 3D) + HDBSCAN (cluster trên embedding gốc, density-based)
+      ├─ Unsupervised topic discovery (khám phá + visualize, cho analytics)
+      │  UMAP (giảm chiều → 3D) + HDBSCAN (cluster trên TOẠ ĐỘ UMAP — xem methodology log bên dưới)
+      │
+      └─ Knowledge base (roadmap Phase E) — tái dùng embedding đã persist, hybrid BM25 + dense
          → LLM (Claude) tóm tắt mỗi cluster → tên + mô tả TIẾNG ANH
          → so sánh với 6 category cố định (ARI/purity score)
 ```
@@ -370,7 +373,7 @@ CMI = 0                                 nếu n = u
 
 **Vì sao bỏ `underthesea`**: content trộn VI/FR/EN tự nhiên — tokenizer riêng tiếng Việt sẽ segment sai phần tiếng Pháp/Anh. sentence-transformers multilingual tự xử lý đa ngôn ngữ ở tầng embedding.
 
-**Vì sao 2 hệ thống phân loại song song, không phải 1**: đây là 2 bài toán khác nhau. Fixed-category (6 lớp cố định) phục vụ **chọn đúng template carousel** — cần nhãn cố định, có thể dùng ngay. Cluster khám phá phục vụ **phân tích/gap analysis/visualize** — không giới hạn số lượng/tên chủ đề, có thể phát hiện chủ đề mới chưa từng nghĩ tới, đúng tinh thần "Topic gap analysis" đã ghi trong roadmap từ đầu. Cả 2 dùng chung embedding, khác nhau ở bước sau.
+**Vì sao 2 hệ thống phân loại song song, không phải 1**: đây là 2 bài toán khác nhau. Fixed-category (6 lớp cố định) trả lời câu hỏi nghiên cứu **"nhãn do tác giả định nghĩa có học được từ embedding không, và khớp với cấu trúc tự nhiên của dữ liệu tới đâu"** (RQ-08). Cluster khám phá phục vụ **phân tích/gap analysis/visualize** — không giới hạn số lượng/tên chủ đề, có thể phát hiện chủ đề mới chưa từng nghĩ tới, đúng tinh thần "Topic gap analysis" đã ghi trong roadmap từ đầu. Cả 2 dùng chung embedding, khác nhau ở bước sau.
 
 **Vì sao SVM-RBF làm model chính, LogisticRegression chỉ là baseline**: LogReg là mô hình tuyến tính, chỉ nên đóng vai trò benchmark để biết SVM-RBF (bắt được ranh giới phi tuyến trên embedding) có thực sự tốt hơn không — không phải chọn 1 trong 2 rồi bỏ, mà giữ cả 2 trong bảng kết quả để so sánh minh bạch.
 
@@ -450,19 +453,18 @@ Một câu chuyện thống kê tử tế không nhảy thẳng từ số thô s
 ### Storage
 
 - `data/raw/` — archive JSON vĩnh viễn (KHÁC `data/cache/` hiện có, TTL 6h) — cho phép rerun pipeline từ đầu khi model NLP tốt hơn, không cần crawl lại
-- SQLite: `posts`, `content_units`, `insights_snapshots` (time-series), `topics` (id, label_en, description_en, method: "fixed"|"cluster", centroid_embedding), `post_topic_labels` (post_id, topic_id, method, confidence)
-- Vector store riêng (Chroma hoặc FAISS) — tách khỏi SQLite, phục vụ semantic search cho RAG, tái dùng chính embedding đã tính ở bước `embed()` (chạy trên `ContentUnit.full_text`)
+- SQLite: `posts`, `content_units`, `insights_snapshots` (time-series), `account_daily_views`, `topics` (id, label_en, description_en, method: "fixed"|"cluster", centroid_embedding), `post_topic_labels` (post_id, topic_id, method, confidence)
+- **Kế hoạch (roadmap Phase D0/E)**: embedding persist trong SQLite (bảng `embeddings`, kèm `content_hash` để chỉ embed lại khi nội dung đổi) + knowledge base cũng trong cùng file SQLite (`kb_documents`, `kb_chunks`, FTS5 cho BM25). Không dùng vector store riêng (Chroma/FAISS) — lý do tại ADR-0006 khi triển khai.
 
-### RAG (Retrieval-Augmented Generation)
+### Knowledge base + RAG (Retrieval-Augmented Generation)
 
-Tái dùng trực tiếp vector store ở trên — không xây hạ tầng riêng:
-1. **Retrieval**: query → semantic search trên vector store → top-k post/reply liên quan
-2. **Generation**: đưa post lấy được làm context cho Claude → trả lời/tóm tắt/gợi ý **grounded trên content thật đã đăng**
+Đích đến của dự án (ADR-0001): một **knowledge base** (cơ sở tri thức) tra cứu được, cập nhật liên tục, gồm bài đăng của kênh và câu trả lời của tác giả cho câu hỏi follower. Thiết kế đầy đủ tại `docs/roadmap.md` Phase E:
+1. **Retrieval**: hybrid BM25 + dense → RRF → cross-encoder rerank → top-k, kèm nguồn (permalink)
+2. **Eval**: gold set từ cặp (câu hỏi follower, câu trả lời tác giả) thật — recall@k, MRR, nDCG, bootstrap CI
+3. **Generation** (chatbot) — CHỈ sau khi KB đạt cổng chất lượng (roadmap Phase F), không làm trước
 
-Ứng dụng cụ thể: hỗ trợ bước Content Generation (Giai đoạn 3) — thay vì chỉ dựa vài ví dụ giọng văn tĩnh, RAG kéo đúng post liên quan chủ đề nhất làm few-shot context động.
+### Phạm vi hiện tại
 
-### Phạm vi V1
-
-- Chỉ 140 posts — **1,285 replies để sau** (mang tính tương tác/hội thoại, phù hợp hướng phân tích khác — graph tương tác — không phải NLP content pipeline này)
+- 150 root post + 1.368 reply của tác giả (362 self-continuation, 664 trả lời follower, 342 reply ở bài người khác — số đo 2026-09-30, sẽ phân loại chính thức ở Phase D0)
 - Velocity: xây hạ tầng nhưng chấp nhận chưa có data lịch sử, tích luỹ dần
 - RAG: bản nhẹ (retrieval + generation cơ bản), không multi-turn phức tạp

@@ -1,6 +1,6 @@
 # Dev Rules — Threads AI Content
 
-> Đọc khi: setup môi trường, chạy lệnh dev, hoặc implement `src/generation/`/`src/carousel/` (cần biết đúng workflow và ràng buộc).
+> Đọc khi: setup môi trường, chạy lệnh dev, hoặc phối hợp giữa Claude Code / Claude Design / Claude Cowork.
 > Xem thêm: [`architecture.md`](architecture.md) cho tech stack, [`data-model.md`](data-model.md) cho API/virality, [`CLAUDE.md`](../../CLAUDE.md) cho quy tắc tuyệt đối và mission.
 
 ---
@@ -74,45 +74,3 @@ Dự án dùng song song 3 bề mặt Claude khác nhau trên cùng 1 repo: **Cl
 - `design-system.md` là trọng tài khi có mâu thuẫn — sửa spec trước, sync/code sau, không làm ngược.
 - Commit nhỏ, thường xuyên, message rõ nghĩa — git log là kênh giao tiếp DUY NHẤT giữa các tool (không chia sẻ bộ nhớ).
 
----
-
-## Content Generation (TEXT)
-
-**Nguyên tắc quan trọng nhất**: Học giọng văn từ `Content/Scripts/` trước khi generate.
-
-Đặc điểm giọng văn tác giả (cần xác nhận sau khi đọc scripts):
-- Tiếng Việt thân thiện, gần gũi, đôi khi xen tiếng Pháp tự nhiên
-- Kể chuyện theo góc nhìn cá nhân ("mình", "tớ")
-- Kết hợp thông tin thực tế + cảm xúc cá nhân
-- Hook mạnh ở câu đầu tiên
-
-**Workflow generate text**:
-1. Đọc scripts gốc để extract giọng văn (few-shot examples cho Claude)
-2. Phân tích gap: chủ đề nào chưa có / chưa đủ sâu
-3. Propose 3–5 content ideas với title + brief
-4. Với mỗi idea: generate 3 phiên bản độ dài khác nhau:
-   - **Short** (≤150 ký tự): hook only, phù hợp standalone Threads
-   - **Medium** (150–400 ký tự): hook + body + CTA nhẹ
-   - **Long** (400–500 ký tự, max Threads): full story arc
-5. Gán Virality Index dự đoán cho mỗi version (công thức tại [`data-model.md`](data-model.md#virality-index))
-6. Tác giả chọn → có thể edit → approve
-
-**Không tự đăng bài khi chưa có explicit approval từ tác giả.**
-
----
-
-## Carousel Generation (IMAGE)
-
-**Chỉ generate khi tác giả đã approve content text và yêu cầu.**
-
-Template hiện có theo chủ đề:
-- `Alternance/` → 7 slides (dùng khi content về alternance, thực tập, đi làm)
-- `CV/` → 9 slides (dùng khi content về viết CV, hồ sơ xin việc)
-- `Entretien/` → 12 slides (dùng khi content về phỏng vấn xin việc)
-
-Quy trình:
-1. Map content topic → đúng template folder (bảng mapping đầy đủ tại [`data-model.md`](data-model.md#chủ-đề-content-hiện-có-từ-carousel-templates))
-2. Dùng Pillow để overlay text lên từng slide PNG
-3. Giữ nguyên font, màu sắc, layout từ template — chỉ thay text
-4. Export ra `output/carousel_YYYY-MM-DD_topic/` dưới dạng PNG sequence
-5. Không tự modify template gốc trong `Content/Content - Photo carousel/`

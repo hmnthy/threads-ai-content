@@ -1,7 +1,7 @@
 [project]
 name = "threads-ai-content"
 version = "0.1.0"
-description = "Internal AI tool for analyzing and generating content for the 'Thy di lam muon' Threads channel"
+description = "NLP analysis and knowledge base for the 'thydilammuon' Threads channel"
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.2.0",
@@ -10,7 +10,6 @@ dependencies = [
     "httpx>=0.28.1",
     "lingua-language-detector>=2.2.0",
     "numpy>=2.5.2",
-    "pillow>=12.3.0",
     "pydantic>=2.13.5",
     "python-dotenv>=1.2.3",
     "scikit-learn>=1.9.0",
