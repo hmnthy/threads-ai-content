@@ -10,7 +10,7 @@ threads-ai-content/
 ├── CLAUDE.md                  # ≤80 dòng: mission, quy tắc tuyệt đối, bản đồ tài liệu
 ├── .claude/
 │   ├── settings.json          # hooks, attribution tắt, deny .env
-│   ├── hooks/                 # session_status / guard_commit / ruff_on_edit / adr_written / tests_only / notify+toast
+│   ├── hooks/                 # session_status / guard_commit / ruff_on_edit / adr_written / tests_only / notify+toast; SubagentStart/Stop (settings.json) → scripts/review_gate.py ghi dấu review vào `<git-common-dir>/claude-review/` (chung mọi worktree)
 │   ├── rules/                 # quy tắc theo đường dẫn (paths:) — chỉ nạp khi chạm đúng mảng code
 │   ├── agents/                # code-reviewer, qa-tester, researcher, consistency-auditor
 │   └── skills/                # /prime /checkpoint /record-decision /decision-sweep /new-rq /recluster /wt ui-lookup
@@ -36,7 +36,7 @@ threads-ai-content/
 │   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
 │                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)
 ├── tools/ui-ux-pro-max/       # CLI tra cứu UI (vendored) — gọi qua skill ui-lookup
-├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard), job_health.py (sức khoẻ cron), set_job_actions.ps1 (Action Task Scheduler)
+├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard), job_health.py (sức khoẻ cron), set_job_actions.ps1 (Action Task Scheduler), review_gate.py (cổng review tầng 2 ADR-0015: ghi dấu + kiểm ở git hook pre-commit)
 ├── tests/                     # pytest (marker slow/live), respx mock HTTP
 ├── .github/workflows/ci.yml   # CI: chạy lại các cổng trên máy sạch (ADR-0014)
 ├── data/                      # gitignored: threads.db, logs/, cache/, raw/
@@ -60,7 +60,7 @@ threads-ai-content/
 | Dashboard | Next.js 16 + Tailwind v4 + chart SVG tự dựng + Plotly (bản đồ topic) + Phosphor icons | Live (chưa deploy cố định) |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
-| Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán (toàn repo, `--commit`), pytest nhanh, eslint+tsc, commit-msg | Live |
+| Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán (toàn repo, `--commit`), cổng review tầng 2 (chỉ commit của Claude, ADR-0015), pytest nhanh, eslint+tsc, commit-msg | Live |
 | CI | GitHub Actions (`.github/workflows/ci.yml`: job py + web, ADR-0014) | Có file, chạy lần đầu khi push (Roadmap G) |
 
 ## Luồng dữ liệu
