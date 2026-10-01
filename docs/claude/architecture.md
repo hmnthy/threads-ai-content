@@ -38,6 +38,7 @@ threads-ai-content/
 ├── tools/ui-ux-pro-max/       # CLI tra cứu UI (vendored) — gọi qua skill ui-lookup
 ├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard)
 ├── tests/                     # pytest (marker slow/live), respx mock HTTP
+├── .github/workflows/ci.yml   # CI: chạy lại các cổng trên máy sạch (ADR-0014)
 ├── data/                      # gitignored: threads.db, logs/, cache/, raw/
 └── content/                   # gitignored: asset cá nhân của tác giả
 ```
@@ -59,8 +60,8 @@ threads-ai-content/
 | Dashboard | Next.js 16 + Tailwind v4 + chart SVG tự dựng + Plotly (bản đồ topic) + Phosphor icons | Live (chưa deploy cố định) |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
-| Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán, pytest nhanh, eslint+tsc, commit-msg | Live |
-| CI | GitHub Actions | Roadmap G |
+| Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán (toàn repo, `--commit`), pytest nhanh, eslint+tsc, commit-msg | Live |
+| CI | GitHub Actions (`.github/workflows/ci.yml`: job py + web, ADR-0014) | Có file, chạy lần đầu khi push (Roadmap G) |
 
 ## Luồng dữ liệu
 

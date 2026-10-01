@@ -177,6 +177,23 @@ def test_readme_must_change_together_when_staged(tmp_path: Path) -> None:
     assert check.check_readme_sync(root, staged=staged_all) == []
 
 
+def test_commit_mode_scans_whole_repo_but_keeps_readme_together(tmp_path: Path) -> None:
+    # Lỗ hổng 2026-10-01: pre-commit chỉ quét file stage → vi phạm ở file KHÁC lọt qua.
+    same = "# T\n"
+    files = {"README.md": same, "README.vi.md": same, "README.fr.md": same}
+    root = make_repo(tmp_path, {**files, "docs/old.md": "ok\n"}, PHASE_RULE)
+    (root / "docs/old.md").write_text("Phase 1 plan\n", encoding="utf-8")  # sửa, không stage
+    (root / "README.md").write_text("# T\n\nx\n", encoding="utf-8")
+    _git(root, "add", "README.md")
+
+    def rules(mode: str) -> list[str]:
+        return sorted(v.rule for v in check.run(root, mode, with_pytest=False))
+
+    assert rules("staged") == ["readme-together"]  # bỏ lọt docs/old.md
+    assert rules("commit") == ["R-phase", "readme-together"]
+    assert rules("all") == ["R-phase"]  # --all không biết file nào đang stage
+
+
 # --- stale_asset ----------------------------------------------------------------------
 
 ASSET_RULE = """
@@ -202,6 +219,52 @@ def test_asset_older_than_adr_is_stale_until_regenerated(tmp_path: Path) -> None
     _git(root, "add", "-A")
     _git(root, "commit", "-q", "-m", "regen", date="2026-03-01T00:00:00")
     assert check.check_stale_assets(root, cfg) == []
+
+
+def test_asset_regenerated_with_same_timestamp_or_same_commit_is_fresh(tmp_path: Path) -> None:
+    # Squash/rebase merge trên GitHub: cùng committer date, hoặc ADR + ảnh trong 1 commit.
+    # So theo timestamp (`<=`) từng báo sai vĩnh viễn; so theo tổ tiên commit thì đúng.
+    root = make_repo(tmp_path, {"docs/shot.png": "old"}, ASSET_RULE)
+    cfg = check.load_config(root)
+    adr = root / "docs/decisions/0001-x.md"
+    adr.parent.mkdir(parents=True, exist_ok=True)
+    adr.write_text("# ADR\n", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "adr", date="2026-02-01T00:00:00")
+    (root / "docs/shot.png").write_text("new", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "regen", date="2026-02-01T00:00:00")  # cùng giây
+    assert check.check_stale_assets(root, cfg) == []
+
+    (tmp_path / "sq").mkdir()
+    squashed = make_repo(tmp_path / "sq", {"docs/shot.png": "x"}, ASSET_RULE)
+    sq_adr = squashed / "docs/decisions/0001-x.md"
+    sq_adr.parent.mkdir(parents=True, exist_ok=True)
+    sq_adr.write_text("# ADR\n", encoding="utf-8")
+    (squashed / "docs/shot.png").write_text("new", encoding="utf-8")
+    _git(squashed, "add", "-A")
+    _git(squashed, "commit", "-q", "-m", "adr + regen", date="2026-02-01T00:00:00")
+    assert check.check_stale_assets(squashed, check.load_config(squashed)) == []
+
+
+def test_commit_mode_accepts_tracked_dirs_and_module_refs(tmp_path: Path) -> None:
+    files = {
+        "docs/a.md": "See `src/pkg/mod.func` and `src/pkg` and `src/pkg/`\n",
+        "src/pkg/mod.py": "def func() -> None: ...\n",
+    }
+    root = make_repo(tmp_path, files)
+    assert check.run(root, "commit", with_pytest=False) == []
+
+
+def test_commit_mode_dead_path_requires_tracked_file(tmp_path: Path) -> None:
+    # Doc đã track nhắc file chưa `git add`: trên đĩa có, ở clone sạch / CI thì không
+    root = make_repo(tmp_path, {"docs/a.md": "See `src/new_mod.py`\n"})
+    (root / "src").mkdir()
+    (root / "src/new_mod.py").write_text("x = 1\n", encoding="utf-8")  # chưa track
+    assert [v.rule for v in check.run(root, "all", with_pytest=False)] == []
+    assert [v.rule for v in check.run(root, "commit", with_pytest=False)] == ["dead-path"]
+    _git(root, "add", "src/new_mod.py")
+    assert check.run(root, "commit", with_pytest=False) == []
 
 
 # --- doc_limits + chỉ mục ADR ---------------------------------------------------------
@@ -243,6 +306,22 @@ paths = ["README*.md"]
     cfg = check.load_config(root)
     got = check.check_count_facts(root, ["README.md"], cfg, actual=183)
     assert [v.line for v in got] == [3]
+
+
+def test_commit_mode_does_not_count_untracked_test_files(tmp_path: Path) -> None:
+    # File test dở dang chưa `git add` không thuộc commit → không được làm sai số đếm
+    rules = """
+[[count_fact]]
+id = "R-count"
+pattern = '(?P<n>\\d+) tests?'
+paths = ["README*.md"]
+"""
+    test_src = "def test_x() -> None:\n    assert True\n"
+    root = make_repo(tmp_path, {"README.md": "1 test\n", "tests/test_a.py": test_src}, rules)
+    (root / "tests/test_wip.py").write_text(test_src, encoding="utf-8")  # chưa track
+    assert check.collected_test_count(root) == 2
+    assert [v.rule for v in check.run(root, "all")] == ["R-count"]  # --all: báo để cập nhật
+    assert check.run(root, "commit") == []
 
 
 # --- sổ luật thật ---------------------------------------------------------------------

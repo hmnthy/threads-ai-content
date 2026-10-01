@@ -18,10 +18,12 @@ repos:
         files: ^(src|tests|scripts)/
         pass_filenames: false
       # Cảnh sát nhất quán (ADR-0008): chặn commit đưa vào thông tin lỗi thời so với quyết định
-      # đã chốt, đường dẫn chết, 3 README lệch nhau. Sổ luật: docs/decisions/invariants.toml
+      # đã chốt, đường dẫn chết, 3 README lệch nhau, số test sai. Sổ luật: docs/decisions/invariants.toml
+      # --commit quét TOÀN repo (~6s), không chỉ file stage: lỗi đếm số / đường dẫn chết thường
+      # nằm ở file khác file đang sửa (lỗ hổng 2026-10-01).
       - id: consistency
         name: decision consistency (invariants.toml)
-        entry: ./.venv/Scripts/python.exe -m scripts.consistency.check --staged
+        entry: ./.venv/Scripts/python.exe -m scripts.consistency.check --commit
         language: system
         pass_filenames: false
         always_run: true

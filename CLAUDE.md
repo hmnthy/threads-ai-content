@@ -55,7 +55,8 @@ Quy tắc theo mảng code nằm ở `.claude/rules/` và **tự nạp** khi đ�
 - **Subagents**: `@agent-code-reviewer` trước commit có logic/thống kê · `@agent-qa-tester` viết/chạy test (chỉ sửa `tests/`) ·
   `@agent-researcher` tìm paper/model/docs có trích nguồn (web + MCP `huggingface`, `context7`) ·
   `@agent-consistency-auditor` kiểm toán độc lập 1 ADR (dùng trong `/decision-sweep`).
-- **Cổng pre-commit** (chặn commit): ruff, mypy, sổ luật nhất quán, pytest nhanh, eslint + tsc khi chạm dashboard, commit-msg.
+- **Cổng pre-commit** (chặn commit): ruff, mypy, sổ luật nhất quán (quét TOÀN repo, ~6s), pytest nhanh, eslint + tsc khi chạm dashboard, commit-msg.
+  CI (`.github/workflows/ci.yml`) chạy lại các cổng trên máy sạch khi push.
   Hook đầu phiên báo số vi phạm ≠ 0 → chạy `/decision-sweep` trước việc mới.
 - **Phiên mới**: đọc status do hook in ra; cần thêm context cho 1 task → `/prime <task>`.
 - Thy dùng song song Claude Design/Cowork trên cùng repo → `git status` trước khi sửa; thấy thay đổi lạ thì hỏi, không ghi đè.
