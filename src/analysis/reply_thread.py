@@ -51,8 +51,9 @@ def unique_repliers(root_post_id: str, conn: sqlite3.Connection) -> int:
     **LUÔN = 0 với data hiện tại (phát hiện 2026-09-30):** endpoint `/replies` chỉ trả
     reply của chính chủ tài khoản → mọi row reply trong `posts` có
     `is_reply_owned_by_me=True`, không có reply của follower nào để đếm. Giữ hàm theo
-    quyết định của Thy (2026-09-30), chờ Phase D0: `reply_role` + verify live
-    `/conversation` — nếu endpoint đó trả được bình luận follower thì hàm có data thật.
+    quyết định của Thy (2026-09-30). Verify live 2026-10-01: `/conversation` CÓ trả
+    bình luận follower (ADR-0004) — hàm có data thật khi lưu được chúng (cần ADR-0007,
+    privacy).
     Không hiển thị kết quả hàm này trên dashboard trước khi đó.
     """
     identities: set[str] = set()
@@ -103,8 +104,9 @@ def early_reply_velocity(
     **LUÔN = 0 với data hiện tại (phát hiện 2026-09-30):** endpoint `/replies` chỉ trả
     reply của chính chủ tài khoản → mọi row reply trong `posts` có
     `is_reply_owned_by_me=True`, không có reply của follower nào để đếm. Giữ hàm theo
-    quyết định của Thy (2026-09-30), chờ Phase D0: `reply_role` + verify live
-    `/conversation` — nếu endpoint đó trả được bình luận follower thì hàm có data thật.
+    quyết định của Thy (2026-09-30). Verify live 2026-10-01: `/conversation` CÓ trả
+    bình luận follower (ADR-0004) — hàm có data thật khi lưu được chúng (cần ADR-0007,
+    privacy).
     Không hiển thị kết quả hàm này trên dashboard trước khi đó.
     """
     if window_hours <= 0:

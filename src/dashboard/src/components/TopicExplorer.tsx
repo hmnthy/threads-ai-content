@@ -10,7 +10,7 @@ import { getContentUnits, getTopics, type ContentUnit, type Topic } from "@/lib/
 // during SSR/build (Next.js would otherwise fail `next build`).
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
-// Không tô 9 cluster bằng 9 màu: trên scatter, không bảng màu nào giữ được ≥3 màu
+// Không tô mỗi cluster 1 màu: trên scatter, không bảng màu nào giữ được ≥3 màu
 // phân biệt nổi với người mù màu (skill dataviz, "--pairs all"), và design-system.md
 // chỉ có amber. Thay vào đó: mọi điểm xám, topic đang chọn tô --amber-600 — danh
 // sách topic (horizontal bar, §9 "Phân bổ topic") là khối chính, bản đồ là phụ.
@@ -69,7 +69,10 @@ export function TopicExplorer() {
   }, []);
 
   const embedded = useMemo(() => units?.filter((unit) => unit.umap !== null) ?? [], [units]);
-  const waiting = (units?.length ?? 0) - embedded.length;
+  // Bài không có chữ (VD repost không kèm caption) không bao giờ được embed — khác với bài
+  // có chữ nhưng chưa tới lượt job NLP chạy
+  const noText = units?.filter((unit) => unit.umap === null && !unit.full_text.trim()).length ?? 0;
+  const waiting = (units?.length ?? 0) - embedded.length - noText;
   const unclusteredCount = embedded.filter((unit) => unit.topic === null).length;
 
   // Tử số và mẫu số cùng 1 nguồn: đếm trên chính các bài đã embed (không dùng
@@ -176,9 +179,9 @@ export function TopicExplorer() {
       <div className="flex gap-3 rounded-xl border border-border-hairline bg-bg-surface p-4 text-[13px] leading-snug text-text-secondary">
         <Info size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-text-primary" />
         <p>
-          <span className="font-semibold text-text-primary">Provisional clusters.</span> The text each post is
-          clustered on currently also includes the author&apos;s replies to followers under that post, which
-          blurs topics. A data fix is scheduled; clusters and names will be recomputed after it.
+          <span className="font-semibold text-text-primary">What a post means here.</span> Each post is
+          clustered on its own text plus the author&apos;s follow-up parts of the same thread. Replies to
+          followers are kept out, so topics reflect what was published, not the conversation under it.
         </p>
       </div>
 
@@ -188,6 +191,7 @@ export function TopicExplorer() {
         embedded={embedded.length}
         unclustered={unclusteredCount}
         waiting={waiting}
+        noText={noText}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
@@ -266,12 +270,14 @@ function StatRow({
   embedded,
   unclustered,
   waiting,
+  noText,
 }: {
   units: number;
   topics: number;
   embedded: number;
   unclustered: number;
   waiting: number;
+  noText: number;
 }) {
   const unclusteredShare = embedded > 0 ? Math.round((unclustered / embedded) * 100) : 0;
   const stats = [
@@ -295,9 +301,12 @@ function StatRow({
           </div>
         ))}
       </div>
-      {waiting > 0 && (
+      {(noText > 0 || waiting > 0) && (
         <p className="text-xs text-text-muted">
-          {waiting} newest {waiting === 1 ? "post is" : "posts are"} waiting for the next NLP run and not shown yet.
+          {noText > 0 &&
+            `${noText} ${noText === 1 ? "post has" : "posts have"} no text of their own (for example a repost without a caption), so there is nothing to embed. `}
+          {waiting > 0 &&
+            `${waiting} ${waiting === 1 ? "post is" : "posts are"} waiting for the next NLP run and not shown yet.`}
         </p>
       )}
     </div>

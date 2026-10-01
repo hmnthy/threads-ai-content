@@ -12,7 +12,8 @@ export interface ContentUnitMetrics {
 export interface TopicLabel {
   topic_id: string;
   method: string;
-  confidence: number | null;
+  // cosine tới tâm cụm (không phải xác suất)
+  centroid_similarity: number | null;
 }
 
 export interface ContentUnit {

@@ -3,7 +3,7 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-229%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-277%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -121,7 +121,7 @@ threads-ai-content/
 │   ├── processing/       Reconstruction des threads (racine + chaîne de self-reply), nettoyage texte — en ligne
 │   ├── analysis/         Scoring 6 indices + statistiques par fenêtre temporelle (médiane/moyenne/IQR) — en ligne
 │   ├── nlp/              Détection de langue, embeddings multilingues, clustering UMAP+HDBSCAN — en ligne
-│   ├── db/                Schéma SQLite (posts, content_units, insights_snapshots, topics) — en ligne
+│   ├── db/                Schéma SQLite (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — en ligne
 │   ├── pipeline/           Ingestion, cron de snapshot toutes les 4h, pont de clustering Windows↔WSL2 — en ligne
 │   ├── main.py             Point d'entrée FastAPI — en ligne
 │   └── dashboard/          App Next.js : landing page + Overview/Analytics/Topic Explorer — en ligne

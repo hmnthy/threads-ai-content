@@ -218,6 +218,12 @@ adr = "0010"
 path = "docs/screenshots/landing.png"
 regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
 
+[[stale_asset]]
+id = "ADR0004-topics-screenshot"
+adr = "0004"
+path = "docs/screenshots/topics.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
 # ---------------------------------------------------------------------------------------
 # Giới hạn kích thước (ADR-0003)
 # ---------------------------------------------------------------------------------------
@@ -299,7 +305,7 @@ id = "DATA-audience-reply-field"
 adr = "finding-2026-09-30"
 pattern = '(?i)vs audience repl'
 why = "Data từ /replies chỉ gồm reply của tác giả — is_reply_owned_by_me không phân biệt được reply của follower"
-fix = "Ghi rõ: luôn True với data /replies; phân vai reply ở Phase D0 (reply_role)"
+fix = "Ghi rõ: luôn True với data /replies; vai của reply ở posts.reply_role (ADR-0004)"
 
 [[forbid]]
 id = "ADR0003-arch-decision-pointer"
@@ -425,3 +431,93 @@ allow = ["docs/decisions/**"]
 # ADR-0011 — bài views = 0 là dữ liệu thiếu. KHÔNG có luật regex: đây là hành vi code
 # (`split_measurable()` trong src/analysis/stats.py), được giữ bằng test
 # (tests/analysis/test_stats.py, tests/test_main.py), không phải bằng chữ trong docs.
+
+# ADR-0004 — phân vai reply, full_text sạch, lưu embedding + hồ sơ cụm
+
+[[forbid]]
+id = "ADR0004-inflated-continuations"
+adr = "0004"
+pattern = '(?i)\b6[.,]84\b[^\n]{0,25}(continuation|đoạn|/bài|mỗi bài)'
+why = "6,84 continuation/bài là số bị thổi phồng do gộp câu trả lời follower (ADR-0004) — thật 2,35 (2026-10-01)"
+fix = "Bỏ số, hoặc dùng số đo sau ADR-0004 kèm ngày"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0004-loose-role-counts"
+adr = "0004"
+pattern = '(?i)\b362\b[^\n]{0,30}(self|continuation|nối chuỗi)|\b664\b[^\n]{0,30}(trả lời|answer|follower)'
+why = "362/664 dùng quy tắc phân vai lỏng — số chính thức ADR-0004: 353 self_continuation / 674 author_answer / 342 outbound (2026-10-01)"
+fix = "Dùng 353/674/342 kèm ngày đo"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0004-comment-replies"
+adr = "0004"
+pattern = '(?i)posts and comment replies'
+why = "Mô tả cụm từng lẫn câu trả lời follower — đã sửa ở ADR-0004"
+fix = "Gom cụm lại; mô tả cụm chỉ dựa trên nội dung bài"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0004-fixed-method"
+adr = "0004"
+pattern = 'method\s*=\s*.fixed.'
+why = "CHECK method chỉ còn 'cluster' (ADR-0004) — bộ phân loại 6 nhãn là RQ-08, kết quả ở experiments/"
+fix = "Xoá tham chiếu, hoặc ghi rõ 'đã bỏ ở ADR-0004'"
+paths = ["docs/claude/**", ".claude/rules/**", "src/**", "README*.md", "CLAUDE.md"]
+allow = ["docs/decisions/**"]
+
+# Luật học được từ consistency-auditor (sweep ADR-0004, 2026-10-01)
+
+[[forbid]]
+id = "ADR0004-fixed-schema-option"
+adr = "0004"
+pattern = '"fixed"\s*\|\s*"cluster"|fixed hoặc cluster'
+why = "topics.method chỉ còn 'cluster' (ADR-0004) — 6 nhãn cố định là RQ-08, không phải lựa chọn trong schema"
+fix = "Ghi method = 'cluster'"
+paths = ["docs/claude/**", "src/**"]
+allow = ["docs/decisions/**", "src/db/schema.py"]
+
+[[forbid]]
+id = "ADR0004-conversation-unverified"
+adr = "0004"
+pattern = '(?i)conversation`?[^\n]{0,80}(chưa verify|sẽ verify)|(chưa verify|sẽ verify)[^\n]{0,60}conversation'
+why = "/conversation đã verify live 2026-10-01 (ADR-0004): trả bình luận follower có text + username"
+fix = "Ghi 'đã verify 2026-10-01; chưa lưu — cần ADR-0007'"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0004-ari-not-measurable"
+adr = "0004"
+pattern = '(?i)\bARI\b[^\n]{0,120}chưa (có|đo được)'
+why = "ARI giữa 2 lần gom cụm đã được ghi ở cluster_runs.ari_vs_previous (ADR-0004)"
+fix = "Đọc cluster_runs"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0004-role-count-english"
+adr = "0004"
+pattern = '\b(286|740|741|664|362)\s*(author_answer|self_continuation)\b|\b(author_answer|self_continuation)\s*[:=]?\s*(286|740|741|664|362)\b'
+why = "Số vai reply chính thức 2026-10-01: 353 self_continuation / 674 author_answer / 342 outbound (286/741 là của bản cài đặt duyệt theo timestamp — sai)"
+fix = "Dùng 353/674/342 kèm ngày đo"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0004-dbcv-unnamed"
+adr = "0004"
+# Chữ "DBCV" (viết hoa — không bắt tên biến `dbcv` trong code) đi với 1 số trong 25 ký tự
+# trước/sau, mà trong 60 ký tự ngay sau "DBCV" không có tên hàm đo
+pattern = '\bDBCV\b(?![^\n]{0,60}(validity_index|relative_validity))[^\n]{0,25}?\b0[.,]\d|\b0[.,]\d+\s*DBCV\b(?![^\n]{0,60}(validity_index|relative_validity))'
+why = "DBCV có 2 thước đo khác thang (validity_index vs relative_validity_) — số trần không so được (ADR-0004)"
+fix = "Ghi tên hàm cạnh con số, VD 'validity_index 0,317'"
+paths = ["docs/claude/**", "docs/status.md", "docs/roadmap.md", "src/**", "README*.md", ".claude/**"]
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0004-nn10-current"
+adr = "0004"
+pattern = 'n_neighbors\s*=\s*10\b'
+why = "UMAP n_neighbors calibrate lại 10 → 8 ngày 2026-10-01 (ADR-0004)"
+fix = "Ghi n_neighbors=8"
+paths = ["docs/claude/architecture.md", "README*.md", ".claude/**", "src/**"]
+allow = ["docs/decisions/**"]

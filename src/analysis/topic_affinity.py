@@ -22,11 +22,9 @@ def is_author_reply_event(post: ThreadsPost, root_content_unit: ContentUnit) -> 
     `root_content_unit.continuations` — tác giả đang chủ động trả lời vào cuộc
     trò chuyện của audience, không phải tự nối tiếp nội dung của chính mình.
 
-    **Gần như luôn False với data hiện tại (phát hiện 2026-09-30):**
-    `thread_reconstruction.py` đang gộp MỌI reply của tác giả dưới 1 root vào
-    `continuations` (gồm cả 664 câu trả lời follower), nên phép loại trừ ở đây không
-    còn gì để giữ lại. Giữ hàm theo quyết định của Thy (2026-09-30), chờ Phase D0
-    (`reply_role` tách `self_continuation` khỏi `author_answer`).
+    Từ ADR-0004 (2026-10-01) `continuations` chỉ còn `self_continuation`, nên hàm
+    này trả True đúng cho các reply vai `author_answer` (trả lời follower) dưới bài
+    của tác giả — trùng với `posts.reply_role = 'author_answer'`.
     """
     if not post.is_reply_owned_by_me:
         return False

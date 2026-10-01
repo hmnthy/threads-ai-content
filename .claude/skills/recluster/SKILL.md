@@ -14,7 +14,7 @@ Job này **ghi vào `data/threads.db` thật** (xoá + ghi lại các topic `met
 
 1. Chạy từ **checkout chính** (không phải worktree — trước Phase C mỗi worktree có DB riêng).
 2. Tránh chạy chồng job snapshot 4h (gây `database is locked`): xem dòng cuối `data/logs/scheduled_job.log`; nếu job vừa bắt đầu < 5 phút thì chờ.
-3. Ghi lại trạng thái trước: số topic + phân bố cluster hiện tại (query `topics` / `post_topic_labels` với `method='cluster'`).
+3. Ghi lại trạng thái trước: dòng mới nhất của `cluster_runs` (số cụm, nhiễu, `dbcv` = validity_index, `dbcv_relative` = relative_validity_) + tên topic hiện tại (`topics`).
 
 ## Chạy
 
@@ -23,6 +23,7 @@ Job này **ghi vào `data/threads.db` thật** (xoá + ghi lại các topic `met
 
 ## Báo cáo
 
-- Kết quả từng bước trong log (dòng `{'content_units': ..., 'n_clusters': ..., 'n_noise': ...}`); lỗi thì dán traceback cuối.
-- Trước → sau: số cluster, % noise, tên cluster mới.
-- ARI (Adjusted Rand Index — độ giống nhau giữa 2 cách phân cụm) giữa lần trước và lần này: **chưa có** cho tới khi embeddings được persist (Phase D0) và RQ-01 thêm tính toán này — ghi rõ là chưa đo được, không ước lượng.
+- Kết quả từng bước trong log (dòng `{'content_units': ..., 'n_clusters': ..., 'n_noise': ..., 'dbcv_validity_index': ..., 'dbcv_relative_validity': ...}`); lỗi thì dán traceback cuối.
+- Trước → sau (đọc 2 dòng mới nhất của `cluster_runs`): số cụm, % nhiễu, `dbcv` (validity_index) và `dbcv_relative` (relative_validity_ — dao động mạnh, không dùng làm ngưỡng), tên + từ khoá cụm mới. Hai lần chạy khác nhau cả dữ liệu lẫn tham số → ghi ARI là hiệu ứng gộp.
+- ARI (Adjusted Rand Index — độ giống nhau giữa 2 cách phân cụm) so với lần trước: cột `ari_vs_previous` của `cluster_runs` (ADR-0004).
+- Muốn xem trước khi ghi đè topic: `python -m src.pipeline.clustering_import --dry-run` (không ghi, không gọi Claude).
