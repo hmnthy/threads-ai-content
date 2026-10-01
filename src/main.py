@@ -28,13 +28,12 @@ from pydantic import BaseModel
 from src.analysis.conversation import conversation_rate
 from src.analysis.engagement import (
     EngagementBucketStats,
-    average_engagement_rate,
     engagement_by_hour,
     engagement_by_weekday,
     top_posts_by_engagement,
 )
 from src.analysis.popularity import popularity_index
-from src.analysis.stats import DistributionStats, window_stats
+from src.analysis.stats import DistributionStats, split_measurable, window_stats
 from src.analysis.virality import virality_index
 from src.api.models import PostInsights, ThreadsPost
 from src.db.schema import (
@@ -166,8 +165,15 @@ class TimezoneEngagement(BaseModel):
 
 
 class AnalyticsOverviewOut(BaseModel):
+    """`engagement` là median+mean+IQR+n của engagement rate TỪNG root post trên toàn
+    kênh — thay `average_engagement_rate` (chỉ mean, bị bài viral kéo lệch) để trang
+    Analytics hiện median làm số chính, đúng tầng 3 "Narrative Layering Principle"."""
+
     post_count: int
-    average_engagement_rate: float
+    # ADR-0011: bài có views = 0 (insight thiếu) bị loại khỏi MỌI phân phối rate
+    # bên dưới — `post_count` chỉ đếm bài đo được, số bị loại báo riêng ở đây.
+    excluded_no_views: int
+    engagement: DistributionStatsOut
     top_by_engagement: list[TopPostEntry]
     top_by_virality: list[TopPostEntry]
     top_by_conversation: list[TopPostEntry]
@@ -203,6 +209,9 @@ class WindowAnalyticsOut(BaseModel):
     end: str
     views: int
     content_unit_count: int
+    # ADR-0011: số bài trong cửa sổ có views = 0 — bị loại khỏi engagement/virality/
+    # conversation (vẫn tính trong `content_unit_count`)
+    excluded_no_views: int
     interactions: int
     engagement: DistributionStatsOut
     virality: DistributionStatsOut
@@ -361,7 +370,7 @@ def get_analytics_overview() -> AnalyticsOverviewOut:
     timezone"). Thuần đọc + tính arithmetic từ SQLite, KHÔNG gọi
     lại Threads API, KHÔNG chạy lại pipeline NLP."""
     with _db() as conn:
-        posts, insights = _load_root_posts_with_insights(conn)
+        posts, insights, excluded = split_measurable(*_load_root_posts_with_insights(conn))
         top_engagement_pairs = top_posts_by_engagement(posts, insights, limit=ANALYTICS_TOP_N)
 
         timezones = [
@@ -385,7 +394,8 @@ def get_analytics_overview() -> AnalyticsOverviewOut:
 
         return AnalyticsOverviewOut(
             post_count=len(posts),
-            average_engagement_rate=average_engagement_rate(insights),
+            excluded_no_views=excluded,
+            engagement=_to_stats_out(window_stats(insights, lambda i: i.engagement_rate)),
             top_by_engagement=[
                 _to_top_post_entry(post, item) for post, item in top_engagement_pairs
             ],
@@ -446,15 +456,17 @@ def get_analytics_window(start: date_cls, end: date_cls) -> WindowAnalyticsOut:
             item.likes + item.replies + item.reposts + item.quotes for item in insights
         )
         top_content_units = _top_by(posts, insights, popularity_index, ANALYTICS_WINDOW_TOP_N)
+        _, measurable, excluded = split_measurable(posts, insights)
 
         return WindowAnalyticsOut(
             start=start_s,
             end=end_s,
             views=sum(row["views"] for row in daily_rows),
             content_unit_count=len(posts),
+            excluded_no_views=excluded,
             interactions=interactions,
-            engagement=_to_stats_out(window_stats(insights, lambda i: i.engagement_rate)),
-            virality=_to_stats_out(window_stats(insights, virality_index)),
-            conversation=_to_stats_out(window_stats(insights, conversation_rate)),
+            engagement=_to_stats_out(window_stats(measurable, lambda i: i.engagement_rate)),
+            virality=_to_stats_out(window_stats(measurable, virality_index)),
+            conversation=_to_stats_out(window_stats(measurable, conversation_rate)),
             top_content_units=top_content_units,
         )

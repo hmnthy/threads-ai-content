@@ -74,7 +74,10 @@ export interface TimezoneEngagement {
 
 export interface AnalyticsOverview {
   post_count: number;
-  average_engagement_rate: number;
+  // ADR-0011: bài views = 0 (insight thiếu) — bị loại khỏi mọi phân phối rate, báo riêng
+  excluded_no_views: number;
+  // Engagement rate toàn kênh, tính theo từng root post — median là số chính
+  engagement: DistributionStats;
   top_by_engagement: TopPostEntry[];
   top_by_virality: TopPostEntry[];
   top_by_conversation: TopPostEntry[];
@@ -103,6 +106,8 @@ export interface WindowAnalytics {
   end: string;
   views: number;
   content_unit_count: number;
+  // ADR-0011: bài trong cửa sổ có views = 0 — loại khỏi engagement/virality/conversation
+  excluded_no_views: number;
   interactions: number;
   engagement: DistributionStats;
   virality: DistributionStats;

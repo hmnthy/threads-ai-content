@@ -427,6 +427,12 @@ LEARNED_RULES = [
         "The Threads AI dashboard, see Threads-AI-content.",
         "Task Scheduler `ThreadsAI_SnapshotJob_4h` in threads-ai-content/",
     ),
+    (
+        "ADR0010-postgres",
+        "README.md",
+        "| Database | SQLite (dev) → PostgreSQL (planned before any multi-user use) | Live (dev) |",
+        "| Database | SQLite — one file, one writer, knowledge base included | Live |",
+    ),
 ]
 
 

@@ -212,6 +212,12 @@ adr = "0009"
 path = "docs/screenshots/topics.png"
 regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
 
+[[stale_asset]]
+id = "ADR0010-landing-screenshot"
+adr = "0010"
+path = "docs/screenshots/landing.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
 # ---------------------------------------------------------------------------------------
 # Giới hạn kích thước (ADR-0003)
 # ---------------------------------------------------------------------------------------
@@ -405,3 +411,17 @@ pattern = '\bThreads[ -]AI\b(?![ -]?[Cc]ontent)|\bThreads-AI-[Cc]ontent\b'
 why = "Biến thể của tên cũ — tên hiển thị là Unthreaded (ADR-0009)"
 fix = "Dùng 'Unthreaded'"
 allow = ["docs/decisions/**"]
+
+# ADR-0010 — SQLite là CSDL duy nhất, bỏ lời hứa PostgreSQL
+
+[[forbid]]
+id = "ADR0010-postgres"
+adr = "0010"
+pattern = '(?i)postgres'
+why = "SQLite là CSDL duy nhất (ADR-0010) — PostgreSQL không có trong roadmap"
+fix = "Xoá; mô tả SQLite là lựa chọn có chủ đích (1 file, 1 tiến trình ghi, gồm cả knowledge base)"
+allow = ["docs/decisions/**"]
+
+# ADR-0011 — bài views = 0 là dữ liệu thiếu. KHÔNG có luật regex: đây là hành vi code
+# (`split_measurable()` trong src/analysis/stats.py), được giữ bằng test
+# (tests/analysis/test_stats.py, tests/test_main.py), không phải bằng chữ trong docs.

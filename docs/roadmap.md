@@ -33,7 +33,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 
 1. `posts.reply_role ∈ {root, self_continuation, author_answer, outbound}` — continuation khi `replied_to ∈ {root} ∪ {continuation trước đó}`. Đối chiếu số thật 362/664/342.
 2. `full_text` = root + self_continuation + `text_attachment`. Câu trả lời cho follower lưu riêng.
-   - Quyết định kèm (hỏi Thy): topic `method='fixed'` trong schema/`/topics` chỉ dành cho kết quả RQ-08 hay bỏ khỏi CHECK — bộ phân loại không còn là thành phần sản phẩm (ADR-0001).
+   - Cùng migration: bỏ `'fixed'` khỏi CHECK `method` của `topics`/`post_topic_labels` (Thy chốt 2026-09-30) — bộ phân loại 6 nhãn không còn là thành phần sản phẩm (ADR-0001); nhãn tay + kết quả RQ-08 lưu ở `experiments/`, không vào DB sản phẩm. SQLite không sửa CHECK tại chỗ → tạo lại 2 bảng (topic sinh lại được).
 3. **Verify live** `GET /{root_id}/conversation`: Standard Access có trả text bình luận follower không. Có → bảng `audience_replies` (username pseudonymize bằng hash có salt — GDPR), ADR-0007. Không → gold set dùng câu hỏi tự soạn.
 4. Bảng `qa_pairs` (bình luận follower ↔ câu trả lời tác giả).
 5. Bảng `embeddings(object_type, object_id, model_id, content_hash, vector)` — chỉ embed lại khi hash đổi; điền `topics.centroid_embedding_json`.
