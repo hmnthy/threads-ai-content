@@ -33,7 +33,6 @@ planned_paths = [
   "scripts/jobs", "scripts/jobs/**",
   "experiments", "experiments/**",
   "docs/rq", "docs/rq/**",
-  ".github/workflows", ".github/workflows/**",
   ".claude/agent-memory", ".claude/agent-memory/**",
 ]
 # Có thật trên máy nhưng gitignored → không tồn tại ở clone mới/CI; chấp nhận khi được nhắc tới

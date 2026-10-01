@@ -25,9 +25,10 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 - 4 entry local của pre-commit (mypy, consistency, pytest-fast, dashboard) → đường dẫn Linux (`.venv/bin/python`).
 - **Xong khi**: test xanh trong WSL; 2 job chạy chồng thì job sau chờ; 3 ngày log xanh liên tục.
 
-## G — CI (GitHub Actions)
+## G — CI (GitHub Actions) — ADR-0014
 
-- Job `py`: `setup-uv` → `uv sync --frozen` → ruff → mypy → `python -m scripts.consistency.check --all --no-pytest` → `pytest -m "not live and not slow"`. Job `web`: `npm ci` → lint → `tsc --noEmit` → build. Không data thật, không secrets.
+- ✅ (2026-10-01) `.github/workflows/ci.yml` viết xong; mô phỏng job `py` trong WSL2. **Xong khi**: lần chạy đầu trên GitHub (sau push) xanh.
+- Job `py`: `setup-uv` → `uv sync --frozen` (bỏ torch + gói CUDA, danh sách sinh từ `uv.lock`) → ruff + `ruff format --check` → mypy → `python -m scripts.consistency.check --all` (kể cả đếm số test, quét cả file chưa track) → `pytest -m "not live and not slow"`. Job `web`: `npm ci` → lint → `tsc --noEmit` → build. Không data thật, không secrets.
 
 ## D0 — Sửa tính đúng của dữ liệu (chặn D và E) — ADR-0004
 

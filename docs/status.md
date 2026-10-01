@@ -12,12 +12,13 @@
 - Sweep ADR-0009: tầng 1 = 0 vi phạm, auditor lượt 2 = 0 phát hiện.
 - Nhánh `feat/dashboard-honesty-p0`: P0 của bản phản biện dashboard (median + n + IQR lên UI, heatmap giờ đăng, Topic Explorer 1 màu nhấn + banner dữ liệu tạm) + ADR-0010 (SQLite là CSDL duy nhất) + ADR-0011 (bài views = 0 là dữ liệu thiếu — 6/150 bài bị loại khỏi phân phối rate, UI ghi số bị loại). Sweep 0010 + 0011: tầng 1 = 0, auditor xác nhận. Đã commit (`7de4444`, `94e8361`).
 - Nhánh `feat/dashboard-p1` (tách từ P0, chưa merge/push): Bước 1 xong — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, calibrate lại n_neighbors 8 → 9 cụm, nhiễu 36%; `/conversation` trả được bình luận follower). Commit `ae8494c`, `a47e35d`.
+- ADR-0014 (Thy duyệt 2026-10-01): pre-commit quét toàn repo (`--commit`), `--all` quét cả file chưa track, CI GitHub Actions.
 
 ## Next
 
 1. Dashboard P1 Bước 2 — nhãn viral (Thy đã chốt: P90 toàn lịch sử + sàn views P25, dùng chung cho bảng top; Mann-Whitney trên biến giải thích + Holm) → ADR-0012. Rồi Bước 3–4: API NLP (CMI, topic stats) + UI + tab Knowledge base (DAG RAG).
 2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
-3. Phase G — CI GitHub Actions (chạy cả `scripts.consistency.check --all`).
+3. Phase G — CI: file `.github/workflows/ci.yml` đã có (ADR-0014), chạy lần đầu khi push lên GitHub.
 4. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
 
 ## Blocked / cần Thy
@@ -37,9 +38,9 @@
 
 ## Số liệu nhanh
 
-- 150 root post · 1.369 reply của tác giả (353 self_continuation · 674 author_answer · 342 outbound — ADR-0004) · 9 cluster (`validity_index` 0,317, nhiễu 36%) · 277 test pass
+- 150 root post · 1.369 reply của tác giả (353 self_continuation · 674 author_answer · 342 outbound — ADR-0004) · 9 cluster (`validity_index` 0,317, nhiễu 36%) · 282 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- `b914d41` Regenerate README screenshots with the Unthreaded name (sau `ad36131` ADR-0009; fast-forward vào `main`)
+- Gate commits on the whole repo and add CI (ADR-0014)
