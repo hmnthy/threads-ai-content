@@ -28,7 +28,7 @@ cd src/dashboard && npm run dev            # http://localhost:3000 (cần backen
 ```
 
 ML (embedding/UMAP/HDBSCAN) **chỉ chạy trong WSL2** — Smart App Control chặn DLL trên Windows. Cron: Task Scheduler
-`ThreadsAI_SnapshotJob_4h`, `ThreadsAI_NLPClusterJob_Daily` (xem log `data/logs/`).
+`ThreadsAI_SnapshotJob_4h`, `ThreadsAI_NLPClusterJob_Daily` (sức khoẻ: `python -m scripts.job_health`; log `data/logs/`).
 
 ## Bản đồ tài liệu
 

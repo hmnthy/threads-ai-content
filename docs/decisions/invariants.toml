@@ -520,3 +520,24 @@ why = "UMAP n_neighbors calibrate lại 10 → 8 ngày 2026-10-01 (ADR-0004)"
 fix = "Ghi n_neighbors=8"
 paths = ["docs/claude/architecture.md", "README*.md", ".claude/**", "src/**"]
 allow = ["docs/decisions/**"]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0013 — cron job chạy bằng pythonw (không console), job tự ghi log, hook đo độ tươi từ DB
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0013-bat-launcher"
+adr = "0013"
+pattern = 'run_(snapshot|nlp_cluster)_job\.bat'
+why = "2 launcher .bat đã bỏ: console của chúng làm job bị giết (0xC000013A) — ADR-0013"
+fix = "Task Scheduler gọi pythonw -m src.pipeline.scheduled_job / src.pipeline.nlp_cluster_job --log …; chạy tay: uv run python -m …"
+allow = ["docs/decisions/**", "docs/roadmap.md"]
+
+[[forbid]]
+id = "ADR0013-lastline-health"
+adr = "0013"
+# Phát hiện của consistency-auditor 2026-10-01: suy trạng thái job từ dòng cuối log là sai
+pattern = '(?i)(dòng cuối|last line)[^\n]{0,40}(scheduled_job|nlp_cluster_job)\.log'
+why = "Job bị giết giữa chừng không ghi dòng kết thúc → dòng cuối log không nói được job khoẻ hay đang chạy (ADR-0013)"
+fix = "Dùng `python -m scripts.job_health` (độ tươi từ DB + LastTaskResult, có 'task running now')"
+allow = ["docs/decisions/**"]
