@@ -19,9 +19,15 @@ from dataclasses import dataclass
 # đó cho lý do đầy đủ. Import trực tiếp thay vì định nghĩa lại để tránh 2 hằng số
 # có thể lệch nhau qua thời gian.
 from src.analysis.engagement import MIN_N_PER_BUCKET as MIN_N_PER_BUCKET
-from src.api.models import PostInsights
+from src.api.models import PostInsights, ThreadsPost
 
-__all__ = ["DistributionStats", "MIN_N_PER_BUCKET", "distribution_stats", "window_stats"]
+__all__ = [
+    "DistributionStats",
+    "MIN_N_PER_BUCKET",
+    "distribution_stats",
+    "split_measurable",
+    "window_stats",
+]
 
 
 @dataclass(frozen=True)
@@ -61,6 +67,23 @@ def distribution_stats(values: list[float]) -> DistributionStats:
         iqr_high=q3,
         insufficient_data=n < MIN_N_PER_BUCKET,
     )
+
+
+def split_measurable(
+    posts: list[ThreadsPost], insights: list[PostInsights]
+) -> tuple[list[ThreadsPost], list[PostInsights], int]:
+    """Tách các bài ĐO ĐƯỢC rate (snapshot mới nhất có `views > 0`) khỏi các bài
+    `views == 0` — ADR-0011: views = 0 là insight thiếu, không phải 0% tương tác.
+    `PostInsights.engagement_rate` trả 0.0 khi views = 0 (guard chia 0), nếu để lọt
+    vào phân phối thì thành số 0 giả kéo lệch median/n.
+
+    Trả `(posts_giữ, insights_giữ, số_bài_bị_loại)` — người gọi PHẢI báo số bị loại
+    ra ngoài (`excluded_no_views`), không được loại ngầm. Bài không có insight nào
+    không được tính vào số bị loại (chúng vốn đã không nằm trong phân tích)."""
+    measurable = [item for item in insights if item.views > 0]
+    kept_ids = {item.post_id for item in measurable}
+    kept_posts = [post for post in posts if post.id in kept_ids]
+    return kept_posts, measurable, len(insights) - len(measurable)
 
 
 def window_stats(

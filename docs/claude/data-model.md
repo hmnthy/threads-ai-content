@@ -199,7 +199,7 @@ def late_engagement_share(snap_24h: InsightSnapshot, snap_72h: InsightSnapshot) 
     có thể sống tới 3 ngày."""
 ```
 
-Chỉ tính được cho post **có đủ snapshot phủ 24h và 72h** — 140 post cũ (1 snapshot duy nhất) không tính được, chỉ áp dụng post mới từ lúc job snapshot chạy.
+Chỉ tính được cho post **có snapshot ở mốc 24h và 72h sau khi đăng** — post đăng trước khi job snapshot 4h chạy (2026-08-31) có snapshot nhưng không có 2 mốc này, nên không tính được; chỉ áp dụng post đăng từ ngày đó.
 
 ### Freshness (tách hẳn khỏi virality)
 
@@ -413,6 +413,8 @@ Raw-embedding-space **kém ổn định hẳn** khi bỏ 6 điểm neo (noise t�
 **Công cụ**: mọi biểu đồ so sánh dùng SVG thuần (không dùng Plotly `scatter3d`/WebGL — artifact sandbox không render WebGL, `scatter3d` cho canvas trống không báo lỗi rõ ràng; small-multiples 2D (X-Y/X-Z/Y-Z) từ cùng toạ độ 3D cho khả năng đánh giá tương đương mà không cần rotate).
 
 ### Narrative Layering Principle
+
+> **Điều kiện đầu vào (ADR-0011, 2026-09-30):** bài có `views == 0` ở snapshot mới nhất là insight thiếu — bị loại khỏi mọi phân phối rate (tầng 2–5) qua `split_measurable()`, số bị loại luôn được báo kèm (`excluded_no_views`). Lúc quyết: 6/150 root post như vậy (02/2026, 0 ở cả 72 snapshot).
 
 > Thêm 2026-09-03 — quy tắc **trình bày**, áp dụng cho MỌI output phân tích hướng ra ngoài (dashboard, report, README) — không phải logic code, nhưng mọi hàm mới trong `src/analysis/` (Layer 2-9) được thiết kế để cắm vừa đúng 6 tầng này, không tầng nào được nhảy cóc lên trước tầng thấp hơn nó phụ thuộc.
 

@@ -194,6 +194,10 @@ def test_analytics_overview_ranks_top_posts_per_metric_and_breaks_down_by_timezo
     assert data["top_by_engagement"][0]["id"] == "post-a"
     assert data["top_by_conversation"][0]["id"] == "post-a"
     assert data["top_by_virality"][0]["id"] == "post-b"
+    # Engagement toàn kênh: median/mean/n từng post (21% và 10%), không chỉ mean
+    assert data["engagement"]["median"] == pytest.approx(15.5)
+    assert data["engagement"]["mean"] == pytest.approx(15.5)
+    assert data["engagement"]["n"] == 2
 
     timezone_names = [tz["timezone"] for tz in data["timezones"]]
     assert timezone_names == ["Europe/Paris", "Asia/Ho_Chi_Minh"]
@@ -226,7 +230,62 @@ def test_analytics_overview_excludes_posts_without_insight_snapshot(
     data = response.json()
     assert data["post_count"] == 0
     assert data["top_by_engagement"] == []
-    assert data["average_engagement_rate"] == 0.0
+    assert data["engagement"]["n"] == 0
+    assert data["engagement"]["insufficient_data"] is True
+    assert data["excluded_no_views"] == 0
+
+
+def test_analytics_overview_excludes_zero_view_posts_and_reports_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # ADR-0011: views = 0 là insight thiếu — không được thành engagement 0% trong median/n
+    db_path = tmp_path / "analytics-zero-views.db"
+    monkeypatch.setattr(main_module, "DEFAULT_DB_PATH", db_path)
+
+    conn = connect(db_path)
+    create_schema(conn)
+    for post_id, views, likes in [("p-ok", 100, 4), ("p-zero", 0, 0)]:
+        post = ThreadsPost(
+            id=post_id,
+            timestamp=datetime(2026, 2, 3, 9, 0, tzinfo=UTC),
+            media_type=MediaType.TEXT_POST,
+        )
+        upsert_post(conn, post)
+        upsert_content_unit(conn, ContentUnit(root=post, full_text=post_id))
+        insert_insight_snapshot(
+            conn,
+            InsightSnapshot(
+                post_id=post_id,
+                fetched_at=datetime(2026, 8, 30, tzinfo=UTC),
+                views=views,
+                likes=likes,
+                replies=0,
+                reposts=0,
+                quotes=0,
+            ),
+        )
+    conn.commit()
+    conn.close()
+
+    with TestClient(main_module.app) as test_client:
+        overview = test_client.get("/analytics/overview").json()
+        window = test_client.get(
+            "/analytics/window", params={"start": "2026-02-01", "end": "2026-02-28"}
+        ).json()
+
+    assert overview["post_count"] == 1
+    assert overview["excluded_no_views"] == 1
+    assert overview["engagement"]["n"] == 1
+    assert overview["engagement"]["median"] == pytest.approx(4.0)
+    for ranking in ("top_by_engagement", "top_by_virality", "top_by_conversation"):
+        assert [entry["id"] for entry in overview[ranking]] == ["p-ok"]
+    for tz in overview["timezones"]:
+        assert sum(bucket["stats"]["n"] for bucket in tz["by_hour"]) == 1
+        assert sum(bucket["stats"]["n"] for bucket in tz["by_weekday"]) == 1
+    assert window["content_unit_count"] == 2
+    assert window["excluded_no_views"] == 1
+    for metric in ("engagement", "virality", "conversation"):
+        assert window[metric]["n"] == 1
 
 
 def test_analytics_overview_excludes_reply_posts_from_the_posts_table(

@@ -10,7 +10,7 @@ paths:
 - Python 3.12, quản lý bằng `uv` (`uv add`, `uv run`) — không `pip install` vào venv.
 - ruff (lint + format, line-length 100) chạy tự động sau mỗi Edit/Write qua hook; mypy **strict** trên `src/` + `tests/` + `scripts/` — không thêm `# type: ignore` nếu chưa thử sửa đúng kiểu.
 - Model dữ liệu: pydantic v2 cho payload API/response; `@dataclass(frozen=True)` cho domain model (`src/models/`).
-- Mọi rate phải guard `views == 0`. Mọi hằng số heuristic: đặt tên HOA + docstring ghi "hypothesis, chưa calibrate" hoặc nguồn bằng chứng.
+- Mọi rate phải guard `views == 0`. Bài `views == 0` là insight thiếu, không phải 0%: mọi phân phối rate (median/IQR/bucket/xếp hạng) đi qua `split_measurable()` (`src/analysis/stats.py`) và trả số bị loại ra ngoài (ADR-0011). Mọi hằng số heuristic: đặt tên HOA + docstring ghi "hypothesis, chưa calibrate" hoặc nguồn bằng chứng.
 - Comment/docstring tiếng Việt; tên biến/hàm tiếng Anh.
 
 ## Test

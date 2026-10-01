@@ -10,20 +10,18 @@
   - cưỡng chế nhất quán (ADR-0008): sổ luật `invariants.toml` + `check.py` + `consistency-auditor` + `/decision-sweep` + 7 cổng pre-commit;
   - tên hiển thị **Unthreaded** (ADR-0009, slug `threads-ai-content` giữ nguyên) + câu miễn trừ Meta.
 - Sweep ADR-0009: tầng 1 = 0 vi phạm, auditor lượt 2 = 0 phát hiện.
+- Nhánh `feat/dashboard-honesty-p0`: P0 của bản phản biện dashboard (median + n + IQR lên UI, heatmap giờ đăng, Topic Explorer 1 màu nhấn + banner dữ liệu tạm) + ADR-0010 (SQLite là CSDL duy nhất) + ADR-0011 (bài views = 0 là dữ liệu thiếu — 6/150 bài bị loại khỏi phân phối rate, UI ghi số bị loại). Sweep 0010 + 0011: tầng 1 = 0, auditor xác nhận.
 
 ## Next
 
-1. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
-2. Phase G — CI GitHub Actions (chạy cả `scripts.consistency.check --all`).
-3. Phase D0 — `reply_role`, verify live `/conversation`, persist embeddings.
+1. Dashboard P1 — cần Thy duyệt methodology trước (floor views cho `is_viral` + bảng top, thống kê theo topic, panel CMI) → ADR.
+2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
+3. Phase G — CI GitHub Actions (chạy cả `scripts.consistency.check --all`).
+4. Phase D0 — `reply_role`, verify live `/conversation`, persist embeddings.
 
 ## Blocked / cần Thy
 
-- Quyết định còn mở từ lượt sweep đầu (chưa sửa, chờ Thy):
-  - Landing ghi "This site, deployed on Vercel" — hiện có bản deploy cố định không?
-  - "SQLite → PostgreSQL planned" (README ×3, landing) — giữ hay bỏ?
-  - Topic `method='fixed'` trong schema và `/topics` (xem roadmap D0).
-  - Chữ "audience" trong phân tích reply (`reply_thread.py`, `topic_affinity.py`) — luôn = 0 cho tới Phase D0.
+- Landing ghi "This site, deployed on Vercel" — giữ tới khi deploy thật (Thy: chỉnh nội dung thêm 1 vòng rồi mới deploy).
 - Lần mở phiên tới: duyệt 2 MCP server trong `/mcp` (`context7`, `huggingface` — HF đăng nhập OAuth) và thử pop-up khi Claude xong việc.
 - Duyệt bio `LandingAuthor.tsx` + sub-headline tagline `LandingHero.tsx` (còn treo từ 2026-09-03).
 - Phase C cần Thy mở VS Code Remote-WSL (Claude Code chạy trong Linux) — không tự làm được từ phiên Windows.
@@ -38,7 +36,7 @@
 
 ## Số liệu nhanh
 
-- 150 root post · 1.368 reply của tác giả (362 self-continuation · 664 trả lời follower · 342 ở bài người khác) · 9 cluster · 225 test pass
+- 150 root post · 1.368 reply của tác giả (362 self-continuation · 664 trả lời follower · 342 ở bài người khác) · 9 cluster · 229 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint

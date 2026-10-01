@@ -30,7 +30,7 @@ export function HeroBand({ data }: { data: WindowAnalytics | null }) {
           {engagement
             ? `mean ${engagement.mean.toFixed(2)}% · n=${engagement.n}${
                 engagement.insufficient_data ? " (insufficient data)" : ""
-              }`
+              }${data && data.excluded_no_views > 0 ? ` · ${data.excluded_no_views} excluded: no views recorded` : ""}`
             : "(likes + replies + reposts + quotes) / views × 100"}
         </span>
       </div>

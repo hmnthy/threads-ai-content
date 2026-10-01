@@ -56,7 +56,7 @@ threads-ai-content/
 | Topic discovery | UMAP (3D) + HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=10`) | Live, re-cluster hằng ngày |
 | LLM | Claude API `claude-opus-5` — CHỈ đặt tên cluster (tiếng Anh) | Live |
 | Thống kê | median/IQR, Mann-Whitney U + Cliff's δ + bootstrap CI (scipy) | Live |
-| Dashboard | Next.js 16 + Tailwind v4 + Recharts + Phosphor icons | Live (chưa deploy cố định) |
+| Dashboard | Next.js 16 + Tailwind v4 + chart SVG tự dựng + Plotly (bản đồ topic) + Phosphor icons | Live (chưa deploy cố định) |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
 | Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán, pytest nhanh, eslint+tsc, commit-msg | Live |

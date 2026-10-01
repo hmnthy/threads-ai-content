@@ -3,7 +3,7 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-225%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-229%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -97,8 +97,8 @@ Liệt kê đúng trạng thái thật của code hiện tại — không hứa 
 | Threads API client | httpx (async) | Đã có |
 | Validation | Pydantic v2 | Đã có |
 | AI / LLM | Claude API (`claude-opus-5`, gán tên cluster + prompt caching) | Đã có |
-| Dashboard | Next.js 16 + Tailwind v4 + Recharts | Đã có |
-| Database | SQLite (dev) → PostgreSQL (dự kiến trước khi có nhiều user) | Đã có (dev) |
+| Dashboard | Next.js 16 + Tailwind v4, chart SVG tự dựng + Plotly (bản đồ topic) | Đã có |
+| Database | SQLite — 1 file, 1 tiến trình ghi; knowledge base cũng sẽ nằm trong đó | Đã có |
 | Metric scoring | Kiến trúc 6 index (popularity/engagement/virality/conversation/velocity/longevity) | Đã có |
 | Language ID | lingua-py + Code-Mixing Index | Đã có |
 | NLP feature extraction | sentence-transformers, đa ngôn ngữ (bge-m3 / multilingual-e5-large) | Đã có |

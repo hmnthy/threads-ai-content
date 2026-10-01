@@ -3,7 +3,7 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-225%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-229%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -101,8 +101,8 @@ l'est pas.
 | Client API Threads | httpx (async) | En ligne |
 | Validation | Pydantic v2 | En ligne |
 | IA / LLM | Claude API (`claude-opus-5`, nommage des clusters + prompt caching) | En ligne |
-| Dashboard | Next.js 16 + Tailwind v4 + Recharts | En ligne |
-| Base de données | SQLite (dev) → PostgreSQL (prévu avant tout usage multi-utilisateur) | En ligne (dev) |
+| Dashboard | Next.js 16 + Tailwind v4, graphiques SVG faits main + Plotly (carte des sujets) | En ligne |
+| Base de données | SQLite — un fichier, un seul processus d'écriture ; la base de connaissances y vivra aussi | En ligne |
 | Scoring des métriques | Architecture à 6 indices (popularité/engagement/viralité/conversation/vélocité/longévité) | En ligne |
 | Détection de langue | lingua-py + Code-Mixing Index | En ligne |
 | Extraction de features NLP | sentence-transformers, multilingue (bge-m3 / multilingual-e5-large) | En ligne |

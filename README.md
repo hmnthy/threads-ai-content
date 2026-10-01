@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-225%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-229%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -95,8 +95,8 @@ Shown as it actually stands today — nothing implied that isn't built yet.
 | Threads API client | httpx (async) | Live |
 | Validation | Pydantic v2 | Live |
 | AI / LLM | Claude API (`claude-opus-5`, cluster labeling + prompt caching) | Live |
-| Dashboard | Next.js 16 + Tailwind v4 + Recharts | Live |
-| Database | SQLite (dev) → PostgreSQL (planned before any multi-user use) | Live (dev) |
+| Dashboard | Next.js 16 + Tailwind v4, hand-built SVG charts + Plotly (topic map) | Live |
+| Database | SQLite — one file, one writer; the knowledge base will live in it too | Live |
 | Metric scoring | 6-index architecture (popularity/engagement/virality/conversation/velocity/longevity) | Live |
 | Language ID | lingua-py + Code-Mixing Index | Live |
 | NLP feature extraction | sentence-transformers, multilingual (bge-m3 / multilingual-e5-large) | Live |

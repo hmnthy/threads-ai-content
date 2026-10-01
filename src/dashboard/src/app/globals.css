@@ -20,17 +20,6 @@
 
   --positive: #15803d; /* 4.9:1 */
   --negative: #c42a2f; /* 5.1:1 */
-
-  /* Alias sang tên token cũ (v2 dark) — Nav.tsx/TopicExplorer.tsx/topics/page.tsx
-     CHƯA refactor sang v3.1 trong đợt sync này (xem mockups/README.md "Chưa làm"),
-     giữ alias để 2 trang đó không vỡ layout thay vì để nguyên giá trị dark cũ. Xoá
-     alias này khi các file đó được refactor thẳng sang token v3.1 ở trên. */
-  --bg-primary: var(--bg-page);
-  --bg-elevated: var(--bg-surface);
-  --bg-border: var(--border-hairline);
-  --accent-purple: var(--amber-600);
-  --accent-purple-soft: var(--amber-soft);
-  --neutral: var(--text-muted);
 }
 
 @theme inline {
@@ -49,14 +38,6 @@
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
-
-  /* Alias — xem ghi chú trong :root */
-  --color-bg-primary: var(--bg-primary);
-  --color-bg-elevated: var(--bg-elevated);
-  --color-bg-border: var(--bg-border);
-  --color-accent-purple: var(--accent-purple);
-  --color-accent-purple-soft: var(--accent-purple-soft);
-  --color-neutral: var(--neutral);
 
   --font-sans: var(--font-inter);
   --font-mono: var(--font-ibm-plex-mono);

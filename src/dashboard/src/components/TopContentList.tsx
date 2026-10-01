@@ -1,5 +1,5 @@
 import type { WindowAnalytics } from "@/lib/api";
-import { daysBetweenInclusive, formatDateLabel } from "@/lib/dates";
+import { daysBetweenInclusive, formatFullDate, formatPostDateParis } from "@/lib/dates";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
@@ -10,7 +10,7 @@ function formatNumber(n: number): string {
 // (post-level views) — KHÁC `data.views` ở hero/KPI strip (account-level).
 export function TopContentList({ data }: { data: WindowAnalytics | null }) {
   const windowLabel = data
-    ? `${formatDateLabel(data.start)} → ${formatDateLabel(data.end)} · ${daysBetweenInclusive(data.start, data.end)} days`
+    ? `${formatFullDate(data.start)} → ${formatFullDate(data.end)} · ${daysBetweenInclusive(data.start, data.end)} days`
     : "—";
 
   const entries = data?.top_content_units ?? [];
@@ -41,7 +41,7 @@ export function TopContentList({ data }: { data: WindowAnalytics | null }) {
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="text-sm leading-normal text-text-primary">{entry.text ?? "(no text)"}</span>
                   <span className="text-xs tabular-nums text-text-muted">
-                    {formatDateLabel(entry.timestamp.slice(0, 10))}
+                    {formatPostDateParis(entry.timestamp)}
                   </span>
                 </div>
                 <span className="h-2 w-[220px] flex-none overflow-hidden rounded-full bg-bg-surface">

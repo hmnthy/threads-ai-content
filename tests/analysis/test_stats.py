@@ -1,5 +1,7 @@
-from src.analysis.stats import MIN_N_PER_BUCKET, distribution_stats, window_stats
-from src.api.models import PostInsights
+from datetime import UTC, datetime
+
+from src.analysis.stats import MIN_N_PER_BUCKET, distribution_stats, split_measurable, window_stats
+from src.api.models import MediaType, PostInsights, ThreadsPost
 
 
 def _insights(post_id: str, *, views: int, likes: int) -> PostInsights:
@@ -64,3 +66,37 @@ def test_window_stats_is_not_a_pooled_ratio() -> None:
     stats = window_stats(insights, lambda item: item.engagement_rate)
     assert stats.median == 2.0  # không bị "tiny" kéo lệch
     assert stats.mean != stats.median  # mean vẫn bị kéo — 2 số nên đi cùng nhau
+
+
+def _post(post_id: str) -> ThreadsPost:
+    return ThreadsPost(
+        id=post_id, timestamp=datetime(2026, 2, 1, tzinfo=UTC), media_type=MediaType.TEXT_POST
+    )
+
+
+def test_split_measurable_drops_zero_view_posts_and_counts_them() -> None:
+    # ADR-0011: views = 0 là insight thiếu — không được thành engagement 0% trong phân phối
+    posts = [_post("a"), _post("b"), _post("c")]
+    insights = [
+        _insights("a", views=100, likes=5),
+        _insights("b", views=0, likes=0),
+        _insights("c", views=200, likes=4),
+    ]
+    kept_posts, kept_insights, excluded = split_measurable(posts, insights)
+    assert [p.id for p in kept_posts] == ["a", "c"]
+    assert [i.post_id for i in kept_insights] == ["a", "c"]
+    assert excluded == 1
+    # Không loại thì median bị số 0 giả kéo xuống
+    with_zero = window_stats(insights, lambda i: i.engagement_rate)
+    without = window_stats(kept_insights, lambda i: i.engagement_rate)
+    assert with_zero.median == 2.0
+    assert without.median == 3.5
+
+
+def test_split_measurable_ignores_posts_without_insight() -> None:
+    kept_posts, kept_insights, excluded = split_measurable(
+        [_post("a"), _post("x")], [_insights("a", views=10, likes=1)]
+    )
+    assert [p.id for p in kept_posts] == ["a"]
+    assert len(kept_insights) == 1
+    assert excluded == 0
