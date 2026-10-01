@@ -27,6 +27,15 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      # Cổng review tầng 2 (ADR-0015): chỉ khi CLAUDECODE=1 (commit do Claude chạy) — file logic
+      # / ADR sắp commit phải có dấu code-reviewer / consistency-auditor khớp đúng nội dung.
+      # Đặt trước pytest-fast: thiếu dấu thì báo ngay, không chờ ~20s test.
+      - id: review-gate
+        name: tier-2 review gate (Claude commits only)
+        entry: ./.venv/Scripts/python.exe scripts/review_gate.py check
+        language: system
+        pass_filenames: false
+        always_run: true
       # Test nhanh (~20s): bỏ test tải model (slow) và gọi API thật (live).
       # Bộ đầy đủ chạy ở /checkpoint và bước kiểm tra cuối của /decision-sweep.
       - id: pytest-fast

@@ -541,3 +541,15 @@ pattern = '(?i)(dòng cuối|last line)[^\n]{0,40}(scheduled_job|nlp_cluster_job
 why = "Job bị giết giữa chừng không ghi dòng kết thúc → dòng cuối log không nói được job khoẻ hay đang chạy (ADR-0013)"
 fix = "Dùng `python -m scripts.job_health` (độ tươi từ DB + LastTaskResult, có 'task running now')"
 allow = ["docs/decisions/**"]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0015 — review tầng 2 bắt buộc: dấu review khớp nội dung + git hook pre-commit chặn commit của Claude
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0015-optional-review"
+adr = "0015"
+pattern = '(?i)(đề xuất|nên|có thể) gọi `?@agent-code-reviewer'
+why = "Review code-reviewer trước commit chạm logic là BẮT BUỘC, git hook pre-commit chặn commit của Claude nếu thiếu (ADR-0015)"
+fix = "Ghi là bắt buộc, VD '`@agent-code-reviewer` bắt buộc trước commit chạm logic (ADR-0015)'"
+allow = ["docs/decisions/**"]

@@ -24,7 +24,7 @@ ADR: **$ARGUMENTS**
 ## Bước 2 — Kiểm kê (2 tầng song song, độc lập)
 
 - Tầng 1: `uv run --no-sync python -m scripts.consistency.check --all`
-- Tầng 2: gọi `@agent-consistency-auditor` với ADR $ARGUMENTS (chạy nền trong lúc xem tầng 1).
+- Tầng 2: gọi `@agent-consistency-auditor` với ADR-$ARGUMENTS (chạy nền trong lúc xem tầng 1) — prompt phải nêu rõ `ADR-NNNN` (VD `ADR-0015`), không chỉ số trần — không thì lượt chạy không được ghi dấu (ADR-0015).
 - Gộp thành **1 danh sách khử trùng**, mỗi mục phân loại đúng 1 nhóm:
   - **Sửa** — thông tin sai/lỗi thời hiện tại.
   - **Ngoại lệ có chủ đích** — câu lịch sử hoặc câu nói rõ "đã bỏ" → gắn `consistency: allow <rule-id>` (markdown: `<!-- … -->` trên dòng trước; code: comment cùng dòng). Không lạm dụng: mỗi ngoại lệ phải tự giải thích được.
@@ -43,6 +43,7 @@ ADR: **$ARGUMENTS**
 1. `uv run --no-sync python -m scripts.consistency.check --all` → **0 vi phạm** (có cả kiểm tra số test).
 2. `uv run ruff check .` · `uv run mypy` · `uv run pytest -q` (**bộ đầy đủ**, không chỉ test nhanh).
 3. Có chạm `src/dashboard/**` → trong `src/dashboard`: `npm run lint` · `npx tsc --noEmit` · `npm run build`.
-4. Gọi lại `@agent-consistency-auditor` lần 2 → phải là "0 phát hiện ngoài tầng 1". Còn phát hiện → quay lại Bước 2.
+4. Gọi lại `@agent-consistency-auditor` lần 2 → phải là "0 phát hiện ngoài tầng 1". Còn phát hiện → quay lại Bước 2. Lượt này là **lượt ghi dấu** cho git hook pre-commit chặn commit (ADR-0015): chạy SAU lần sửa cuối của ADR, không sửa ADR trong lúc nó chạy; sửa ADR sau đó → chạy lại.
 5. Báo cáo ngắn: số vi phạm trước → sau, luật mới đã thêm, ngoại lệ đã gắn (và vì sao), kết quả từng lệnh kiểm tra.
-6. → `/checkpoint` (chờ Thy đồng ý commit).
+6. Diff có `invariants.toml` hoặc file logic → cần `@agent-code-reviewer` (ADR-0015) — `/checkpoint` bước 2b làm.
+7. → `/checkpoint` (chờ Thy đồng ý commit).

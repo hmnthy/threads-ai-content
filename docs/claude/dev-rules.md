@@ -17,7 +17,7 @@ uv sync
 # 3. Copy env template và điền credentials (đã điền sẵn trên máy hiện tại)
 copy .env.example .env
 
-# 4. Bật các cổng chặn commit (1 lần): ruff, mypy, sổ luật nhất quán, pytest nhanh, dashboard eslint+tsc, commit-msg
+# 4. Bật các cổng chặn commit (1 lần): ruff, mypy, sổ luật nhất quán, cổng review tầng 2 (chỉ commit của Claude, ADR-0015), pytest nhanh, dashboard eslint+tsc, commit-msg
 uv run pre-commit install
 
 # 5. Chạy test suite (~1 phút; pre-commit chạy bộ nhanh ~20s)
@@ -76,4 +76,5 @@ Dự án dùng song song 3 bề mặt Claude khác nhau trên cùng 1 repo: **Cl
 - Trước khi chạm `src/dashboard/` (hoặc bất kỳ file nào) ở tool nào — `git status` trước. Có uncommitted work từ tool khác → không ghi đè, hỏi lại user.
 - `design-system.md` là trọng tài khi có mâu thuẫn — sửa spec trước, sync/code sau, không làm ngược.
 - Commit nhỏ, thường xuyên, message rõ nghĩa — git log là kênh giao tiếp DUY NHẤT giữa các tool (không chia sẻ bộ nhớ).
+- Cổng review tầng 2 (ADR-0015) chặn commit do Claude chạy (kể cả lệnh `!` trong Claude Code) mà chạm file logic/ADR chưa có dấu review khớp nội dung; merge không xung đột không chạy hook. Lối thoát khi cổng hỏng: commit tay từ terminal ngoài Claude Code.
 

@@ -1,6 +1,6 @@
 ---
 name: consistency-auditor
-description: Independent audit of threads-ai-content against one decision (ADR) — finds every place in the repo whose content is now obsolete or contradicts that decision, including paraphrases that the regex rule book cannot catch. Use inside /decision-sweep after a decision is recorded, and again after fixes to confirm zero findings. Read-only — reports, never edits.
+description: Independent audit of threads-ai-content against one decision (ADR) — finds every place in the repo whose content is now obsolete or contradicts that decision, including paraphrases that the regex rule book cannot catch. Use inside /decision-sweep after a decision is recorded, and again after fixes to confirm zero findings; its last clean run, after the final edit to the ADR, is the stamp required to commit that ADR (ADR-0015) — the prompt must name it as `ADR-NNNN`, a bare number earns no stamp. Read-only — reports, never edits.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 color: yellow

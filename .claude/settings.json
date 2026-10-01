@@ -24,6 +24,30 @@
         ]
       }
     ],
+    "SubagentStart": [
+      {
+        "matcher": "code-reviewer|consistency-auditor",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 20,
+            "command": "uv run --no-sync --project \"${CLAUDE_PROJECT_DIR}\" python \"${CLAUDE_PROJECT_DIR}/scripts/review_gate.py\" start"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "code-reviewer|consistency-auditor",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 20,
+            "command": "uv run --no-sync --project \"${CLAUDE_PROJECT_DIR}\" python \"${CLAUDE_PROJECT_DIR}/scripts/review_gate.py\" stop"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
@@ -31,6 +55,34 @@
           {
             "type": "command",
             "if": "Bash(git *)",
+            "timeout": 20,
+            "command": "uv run --no-sync --project \"${CLAUDE_PROJECT_DIR}\" python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_commit.py\""
+          },
+          {
+            "type": "command",
+            "if": "Bash(env *)",
+            "timeout": 20,
+            "command": "uv run --no-sync --project \"${CLAUDE_PROJECT_DIR}\" python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_commit.py\""
+          },
+          {
+            "type": "command",
+            "if": "Bash(bash *)",
+            "timeout": 20,
+            "command": "uv run --no-sync --project \"${CLAUDE_PROJECT_DIR}\" python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_commit.py\""
+          },
+          {
+            "type": "command",
+            "if": "Bash(sh *)",
+            "timeout": 20,
+            "command": "uv run --no-sync --project \"${CLAUDE_PROJECT_DIR}\" python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_commit.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
             "timeout": 20,
             "command": "uv run --no-sync --project \"${CLAUDE_PROJECT_DIR}\" python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_commit.py\""
           }

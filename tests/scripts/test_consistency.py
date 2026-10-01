@@ -596,6 +596,12 @@ LEARNED_RULES = [
         "2. Xem dòng cuối `data/logs/scheduled_job.log`; nếu job vừa bắt đầu thì chờ.",
         '2. `uv run python -m scripts.job_health` — ghi "task running now" thì chờ.',
     ),
+    (
+        "ADR0015-optional-review",
+        ".claude/skills/checkpoint/SKILL.md",
+        "Thay đổi có logic → đề xuất gọi `@agent-code-reviewer` trước.",
+        "Diff có file logic → `@agent-code-reviewer` bắt buộc (ADR-0015).",
+    ),
 ]
 
 
