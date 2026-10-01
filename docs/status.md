@@ -11,11 +11,11 @@
   - tên hiển thị **Unthreaded** (ADR-0009, slug `threads-ai-content` giữ nguyên) + câu miễn trừ Meta.
 - Sweep ADR-0009: tầng 1 = 0 vi phạm, auditor lượt 2 = 0 phát hiện.
 - Nhánh `feat/dashboard-honesty-p0`: P0 của bản phản biện dashboard (median + n + IQR lên UI, heatmap giờ đăng, Topic Explorer 1 màu nhấn + banner dữ liệu tạm) + ADR-0010 (SQLite là CSDL duy nhất) + ADR-0011 (bài views = 0 là dữ liệu thiếu — 6/150 bài bị loại khỏi phân phối rate, UI ghi số bị loại). Sweep 0010 + 0011: tầng 1 = 0, auditor xác nhận. Đã commit (`7de4444`, `94e8361`).
-- Nhánh `feat/dashboard-p1` (chưa commit): Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, calibrate lại + gom cụm: 9 cụm, nhiễu 36%; `/conversation` trả được bình luận follower). Tiếp: Bước 2 nhãn viral (ADR-0012), Bước 3–4 API NLP + UI + tab Knowledge base.
+- Nhánh `feat/dashboard-p1` (tách từ P0, chưa merge/push): Bước 1 xong — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, calibrate lại n_neighbors 8 → 9 cụm, nhiễu 36%; `/conversation` trả được bình luận follower). Commit `ae8494c`, `a47e35d`.
 
 ## Next
 
-1. Dashboard P1 — cần Thy duyệt methodology trước (floor views cho `is_viral` + bảng top, thống kê theo topic, panel CMI) → ADR.
+1. Dashboard P1 Bước 2 — nhãn viral (Thy đã chốt: P90 toàn lịch sử + sàn views P25, dùng chung cho bảng top; Mann-Whitney trên biến giải thích + Holm) → ADR-0012. Rồi Bước 3–4: API NLP (CMI, topic stats) + UI + tab Knowledge base (DAG RAG).
 2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
 3. Phase G — CI GitHub Actions (chạy cả `scripts.consistency.check --all`).
 4. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
@@ -28,11 +28,11 @@
 - Phase C cần Thy mở VS Code Remote-WSL (Claude Code chạy trong Linux) — không tự làm được từ phiên Windows.
 - RQ-08 cần Thy gán nhãn tay 150 bài (6 nhãn cố định) + gán lại 30 bài sau 2 tuần.
 
-## Job health (kiểm 2026-09-30)
+## Job health (kiểm 2026-10-01)
 
 | Job | Kết quả gần nhất | Ghi chú |
 |---|---|---|
-| `ThreadsAI_SnapshotJob_4h` | OK (0) | 10.481 snapshot, dữ liệu tới 2026-09-30 |
+| `ThreadsAI_SnapshotJob_4h` | **Lỗi** (1 lúc 10:13, 0xC000013A lúc 13:15 ngày 2026-10-01) | Hỏng mọi lần chạy tự động từ tối 2026-09-30, không ghi log; chạy tay OK — chưa rõ nguyên nhân |
 | `ThreadsAI_NLPClusterJob_Daily` | **Lỗi chập chờn** (267014) | WSL `HCS_E_CONNECTION_TIMEOUT` + `database is locked` khi chạy chồng snapshot — sửa ở Phase C |
 
 ## Số liệu nhanh
