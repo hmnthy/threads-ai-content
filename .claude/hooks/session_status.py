@@ -46,26 +46,41 @@ if status_md.exists():
         lines.append("- From docs/status.md:")
         lines += [f"  {line}" for line in block[:12]]
 
-logs = project / "data" / "logs"
-for name in ("scheduled_job.log", "nlp_cluster_job.log"):
-    log = logs / name
-    if log.exists():
-        tail = [ln for ln in log.read_text(encoding="utf-8", errors="replace").splitlines() if ln]
-        if tail:
-            lines.append(f"- Last line of {name}: {tail[-1][:160]}")
+
+# Mỗi subprocess có timeout < timeout của hook (20s, .claude/settings.json): hook bị giết
+# là mất TOÀN BỘ status đầu phiên, không riêng phần chậm.
+def run_quiet(*args: str, timeout: float) -> subprocess.CompletedProcess[str] | None:
+    try:
+        return subprocess.run(
+            [sys.executable, *args],
+            cwd=project,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+
+
+# Sức khoẻ cron job — đo độ tươi từ DB + LastTaskResult (ADR-0013), không đọc dòng cuối log:
+# job bị giết giữa chừng không ghi dòng nào, dòng cuối cũ trông như "OK".
+health = run_quiet("-m", "scripts.job_health", timeout=10)
+if health is None or health.returncode != 0:
+    lines.append("- Job health check timed out/failed — run `python -m scripts.job_health`")
+else:
+    for job_line in health.stdout.strip().splitlines():
+        note = "  → tell Thy before trusting fresh data" if job_line.startswith("WARN") else ""
+        lines.append(f"- Job: {job_line}{note}")
 
 # Cảnh sát nhất quán — chỉ đếm (nhanh, không chạy pytest); chi tiết qua /decision-sweep
-checker = subprocess.run(
-    [sys.executable, "-m", "scripts.consistency.check", "--all", "--count"],
-    cwd=project,
-    capture_output=True,
-    text=True,
-    encoding="utf-8",
-    check=False,
-)
-count = checker.stdout.strip()
+checker = run_quiet("-m", "scripts.consistency.check", "--all", "--count", timeout=6)
+count = checker.stdout.strip() if checker else ""
 if count.isdigit():
     note = " → run `/decision-sweep` before new work" if count != "0" else ""
     lines.append(f"- Consistency violations (docs/decisions/invariants.toml): {count}{note}")
+else:
+    lines.append("- Consistency count unavailable — run `python -m scripts.consistency.check`")
 
 print("\n".join(lines[:30]))

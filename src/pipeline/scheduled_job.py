@@ -3,30 +3,37 @@
 `use_cache=False`: tần suất 4h < TTL cache 6h (xem `run_ingest` docstring), dùng cache
 sẽ có nguy cơ bỏ lỡ post đăng giữa 2 lần chạy.
 
-Chạy tay: `.venv/Scripts/python.exe -m src.pipeline.scheduled_job`
-Log ra stdout, Task Scheduler tự redirect vào file log qua `run_snapshot_job.bat`
-(lý do dùng launcher .bat: docs/decisions/legacy-log.md, dòng 2026-09-01).
+Task Scheduler gọi (không console, ADR-0013):
+`.venv\\Scripts\\pythonw.exe -m src.pipeline.scheduled_job --log data\\logs\\scheduled_job.log`
+Chạy tay (in ra màn hình): `uv run python -m src.pipeline.scheduled_job`
+
+Chỉ import thư viện chuẩn + `job_log` ở đầu file: module dự án import trong `_snapshot`
+để lỗi import (VD đang `uv sync` dở) cũng có traceback trong log.
 """
 
 from __future__ import annotations
 
 import asyncio
 import sys
-from datetime import UTC, datetime
+from collections.abc import Sequence
+from pathlib import Path
 
-from src.pipeline.ingest import run_ingest
+from src.pipeline.job_log import run_job
 
 
-async def _main() -> None:
-    started = datetime.now(UTC)
-    try:
-        result = await run_ingest(use_cache=False)
-    except Exception as exc:  # noqa: BLE001 — job chạy không giám sát, log lỗi thay vì crash im lặng
-        print(f"[{started.isoformat()}] scheduled_job LỖI: {exc!r}", file=sys.stderr)
-        raise
-    finished = datetime.now(UTC)
-    print(f"[{started.isoformat()} -> {finished.isoformat()}] scheduled_job xong: {result}")
+def _snapshot() -> object:
+    from src.pipeline.ingest import run_ingest
+
+    return asyncio.run(run_ingest(use_cache=False))
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+LOG_PATH = REPO_ROOT / "data" / "logs" / "scheduled_job.log"  # log chuẩn (cron + job_health)
+
+
+def main(argv: Sequence[str] | None = None, status_log: Path | None = LOG_PATH) -> int:
+    return run_job("scheduled_job", "Snapshot job (4h)", _snapshot, argv, status_log)
 
 
 if __name__ == "__main__":
-    asyncio.run(_main())
+    sys.exit(main())

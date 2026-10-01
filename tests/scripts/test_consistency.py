@@ -584,6 +584,18 @@ LEARNED_RULES = [
         "| Topic discovery | HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=10`) | Live |",
         "| Topic discovery | HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8`) | Live |",
     ),
+    (
+        "ADR0013-bat-launcher",
+        ".claude/skills/recluster/SKILL.md",
+        "- Chạy: `cmd //c run_nlp_cluster_job.bat` — export → cluster → import",
+        "- Chạy: `uv run python -m src.pipeline.nlp_cluster_job`",
+    ),
+    (
+        "ADR0013-lastline-health",
+        ".claude/skills/recluster/SKILL.md",
+        "2. Xem dòng cuối `data/logs/scheduled_job.log`; nếu job vừa bắt đầu thì chờ.",
+        '2. `uv run python -m scripts.job_health` — ghi "task running now" thì chờ.',
+    ),
 ]
 
 

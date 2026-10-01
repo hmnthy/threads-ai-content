@@ -31,12 +31,12 @@ threads-ai-content/
 │   ├── nlp/                   # language (CMI + LID cấp từ), embeddings (bge-m3), topics (UMAP+HDBSCAN+Claude label), topic_profile (c-TF-IDF, bài đại diện, ARI)
 │   ├── analysis/              # 6 index + stats/significance/reply_thread/topic_affinity
 │   ├── db/schema.py           # SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs
-│   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job, cầu nối clustering Win↔WSL2 (bỏ ở Phase C)
+│   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job + nlp_cluster_job (cron, pythonw — ADR-0013), job_log, cầu nối clustering Win↔WSL2 (bỏ ở Phase C)
 │   ├── main.py                # FastAPI — chỉ đọc SQLite, không load model trong request
 │   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
 │                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)
 ├── tools/ui-ux-pro-max/       # CLI tra cứu UI (vendored) — gọi qua skill ui-lookup
-├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard)
+├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard), job_health.py (sức khoẻ cron), set_job_actions.ps1 (Action Task Scheduler)
 ├── tests/                     # pytest (marker slow/live), respx mock HTTP
 ├── .github/workflows/ci.yml   # CI: chạy lại các cổng trên máy sạch (ADR-0014)
 ├── data/                      # gitignored: threads.db, logs/, cache/, raw/
@@ -66,10 +66,10 @@ threads-ai-content/
 ## Luồng dữ liệu
 
 ```
-Threads Graph API ──(Task Scheduler, 4h: run_snapshot_job.bat)──► src/pipeline/scheduled_job
+Threads Graph API ──(Task Scheduler, 4h, pythonw)──► src/pipeline/scheduled_job
         │   posts + replies + per-post insights + account daily views
         ▼
-SQLite data/threads.db ◄──(hằng ngày 3h: run_nlp_cluster_job.bat)── export → WSL2 embed+cluster → import+Claude label
+SQLite data/threads.db ◄──(hằng ngày 3h: src/pipeline/nlp_cluster_job)── export → WSL2 embed+cluster → import+Claude label
         │
         ▼
 FastAPI src/main.py  ──►  Next.js dashboard (landing + 3 tab)
