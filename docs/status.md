@@ -1,7 +1,7 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-09-30
+> Cập nhật: 2026-10-01
 
 ## Now
 
@@ -10,14 +10,15 @@
   - cưỡng chế nhất quán (ADR-0008): sổ luật `invariants.toml` + `check.py` + `consistency-auditor` + `/decision-sweep` + 7 cổng pre-commit;
   - tên hiển thị **Unthreaded** (ADR-0009, slug `threads-ai-content` giữ nguyên) + câu miễn trừ Meta.
 - Sweep ADR-0009: tầng 1 = 0 vi phạm, auditor lượt 2 = 0 phát hiện.
-- Nhánh `feat/dashboard-honesty-p0`: P0 của bản phản biện dashboard (median + n + IQR lên UI, heatmap giờ đăng, Topic Explorer 1 màu nhấn + banner dữ liệu tạm) + ADR-0010 (SQLite là CSDL duy nhất) + ADR-0011 (bài views = 0 là dữ liệu thiếu — 6/150 bài bị loại khỏi phân phối rate, UI ghi số bị loại). Sweep 0010 + 0011: tầng 1 = 0, auditor xác nhận.
+- Nhánh `feat/dashboard-honesty-p0`: P0 của bản phản biện dashboard (median + n + IQR lên UI, heatmap giờ đăng, Topic Explorer 1 màu nhấn + banner dữ liệu tạm) + ADR-0010 (SQLite là CSDL duy nhất) + ADR-0011 (bài views = 0 là dữ liệu thiếu — 6/150 bài bị loại khỏi phân phối rate, UI ghi số bị loại). Sweep 0010 + 0011: tầng 1 = 0, auditor xác nhận. Đã commit (`7de4444`, `94e8361`).
+- Nhánh `feat/dashboard-p1` (chưa commit): Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, calibrate lại + gom cụm: 9 cụm, nhiễu 36%; `/conversation` trả được bình luận follower). Tiếp: Bước 2 nhãn viral (ADR-0012), Bước 3–4 API NLP + UI + tab Knowledge base.
 
 ## Next
 
 1. Dashboard P1 — cần Thy duyệt methodology trước (floor views cho `is_viral` + bảng top, thống kê theo topic, panel CMI) → ADR.
 2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
 3. Phase G — CI GitHub Actions (chạy cả `scripts.consistency.check --all`).
-4. Phase D0 — `reply_role`, verify live `/conversation`, persist embeddings.
+4. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
 
 ## Blocked / cần Thy
 
@@ -36,7 +37,7 @@
 
 ## Số liệu nhanh
 
-- 150 root post · 1.368 reply của tác giả (362 self-continuation · 664 trả lời follower · 342 ở bài người khác) · 9 cluster · 229 test pass
+- 150 root post · 1.369 reply của tác giả (353 self_continuation · 674 author_answer · 342 outbound — ADR-0004) · 9 cluster (`validity_index` 0,317, nhiễu 36%) · 277 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint

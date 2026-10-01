@@ -3,7 +3,7 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-229%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-277%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -117,7 +117,7 @@ threads-ai-content/
 │   ├── processing/       Ghép lại thread (root + chuỗi self-reply), làm sạch text — đã có
 │   ├── analysis/         Metric 6-index + thống kê theo cửa sổ thời gian (median/mean/IQR) — đã có
 │   ├── nlp/              Language ID, embedding đa ngôn ngữ, clustering UMAP+HDBSCAN — đã có
-│   ├── db/                Schema SQLite (posts, content_units, insights_snapshots, topics) — đã có
+│   ├── db/                Schema SQLite (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — đã có
 │   ├── pipeline/           Ingest, cron snapshot 4h, cầu nối clustering Windows↔WSL2 — đã có
 │   ├── main.py             Entry point FastAPI — đã có
 │   └── dashboard/          App Next.js: landing page + Overview/Analytics/Topic Explorer — đã có

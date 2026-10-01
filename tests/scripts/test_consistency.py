@@ -433,6 +433,78 @@ LEARNED_RULES = [
         "| Database | SQLite (dev) → PostgreSQL (planned before any multi-user use) | Live (dev) |",
         "| Database | SQLite — one file, one writer, knowledge base included | Live |",
     ),
+    (
+        "ADR0004-inflated-continuations",
+        "docs/status.md",
+        "trung bình 6.84 continuation mỗi bài",
+        "trung bình 1.91 continuation mỗi bài (đo 2026-10-01)",
+    ),
+    (
+        "ADR0004-loose-role-counts",
+        "docs/claude/x.md",
+        "1.368 reply (362 self-continuation, 664 trả lời follower)",
+        "353 self_continuation / 674 author_answer / 342 outbound",
+    ),
+    (
+        "ADR0004-comment-replies",
+        "src/x.py",
+        "# Posts and comment replies recommending groceries",
+        "# Posts recommending groceries",
+    ),
+    (
+        "ADR0004-fixed-method",
+        ".claude/rules/x.md",
+        "không đụng `method='fixed'`",
+        "chỉ còn method cluster",
+    ),
+    (
+        "ADR0004-fixed-schema-option",
+        "docs/claude/x.md",
+        '`topics` (id, method: "fixed"|"cluster")',
+        "## 6 fixed category (câu hỏi nghiên cứu RQ-08)",
+    ),
+    (
+        "ADR0004-conversation-unverified",
+        ".claude/rules/x.md",
+        "bình luận follower chưa ingest (Phase D0 sẽ verify `/{id}/conversation`)",
+        "`/{id}/conversation` đã verify live 2026-10-01; chưa lưu — cần ADR-0007",
+    ),
+    (
+        "ADR0004-ari-not-measurable",
+        ".claude/skills/x/SKILL.md",
+        "- ARI giữa lần trước và lần này: **chưa có** cho tới khi embeddings được persist",
+        "- ARI so với lần trước: cột `ari_vs_previous` của `cluster_runs`",
+    ),
+    (
+        "ADR0004-role-count-english",
+        "src/x.py",
+        "# 286 self_continuation / 741 author_answer / 342 outbound",
+        "# 353 self_continuation / 674 author_answer / 342 outbound",
+    ),
+    (
+        "ADR0004-dbcv-unnamed",
+        "docs/status.md",
+        "- 9 cluster (DBCV 0,317, nhiễu 36%)",
+        "- 9 cluster (`validity_index` 0,317, nhiễu 36%)",
+    ),
+    (
+        "ADR0004-dbcv-unnamed",
+        "docs/claude/x.md",
+        "validity_index 0,317 và DBCV 0,205",
+        "| B | DBCV (`relative_validity_`) | 0.205 |",
+    ),
+    (
+        "ADR0004-dbcv-unnamed",
+        "src/x.py",
+        "# | B | DBCV | 0.205 |",
+        "    dbcv=0.3,  # validity_index",
+    ),
+    (
+        "ADR0004-nn10-current",
+        "docs/claude/architecture.md",
+        "| Topic discovery | HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=10`) | Live |",
+        "| Topic discovery | HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8`) | Live |",
+    ),
 ]
 
 

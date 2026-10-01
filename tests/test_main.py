@@ -89,7 +89,7 @@ def test_content_units_endpoint_returns_metrics_and_topic(client: TestClient) ->
     assert unit["metrics"]["virality_index"] == pytest.approx((5 + 2) / 1000 * 100)
     assert unit["metrics"]["conversation_rate"] == pytest.approx(10 / 1000 * 100)
     assert unit["topic"]["topic_id"] == "cluster-0"
-    assert unit["topic"]["confidence"] == pytest.approx(0.9)
+    assert unit["topic"]["centroid_similarity"] == pytest.approx(0.9)
     assert unit["umap"] is None  # NLP pipeline chưa gán toạ độ cho unit này
 
 

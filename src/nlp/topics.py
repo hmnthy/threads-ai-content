@@ -1,6 +1,8 @@
 """Unsupervised topic discovery — UMAP (giảm chiều → 3D) rồi HDBSCAN (cluster
 TRÊN toạ độ UMAP đó, không phải embedding gốc) + Claude (Bước labeling cluster
-thành tên/mô tả TIẾNG ANH). Đã verify thật trên 135 content unit thật (post rỗng
+thành tên/mô tả TIẾNG ANH). Calibrate lại 2026-10-01 trên `full_text` sạch (ADR-0004):
+n_neighbors 8 → 9 cụm, nhiễu 36%, `validity_index` 0,317 (bảng `cluster_runs`).
+Lần calibrate đầu (2026-09-03) verify trên 135 content unit thật (post rỗng
 `REPOST_FACADE` đã loại ở bước export trước đó) — không còn DRAFT. Chi tiết đầy
 đủ + số liệu thực nghiệm tại docs/claude/data-model.md "Methodology log:
 clustering space cho HDBSCAN" và docs/decisions/legacy-log.md
@@ -17,8 +19,9 @@ trên `.venv` Windows. `label_cluster_with_claude()` (chỉ cần `anthropic`, k
 Tham số HDBSCAN/UMAP đã calibrate bằng sweep 24 tổ hợp + review nội dung thật
 từng cluster (2026-09-03) — xem docs/claude/data-model.md "Methodology log:
 hiệu chỉnh tham số HDBSCAN cho số lượng topic" cho đầy đủ bằng chứng 3 ứng viên
-đã so sánh (7/8/12 cluster) và lý do chọn 8 cluster (DBCV cao nhất + nội dung
-mạch lạc nhất, không chỉ dựa trên số lượng khớp kỳ vọng domain).
+đã so sánh (7/8/12 cluster) và lý do chọn 8 cluster lúc đó (n_neighbors 10,
+`relative_validity_` cao nhất + nội dung mạch lạc nhất). Đã thay bằng n_neighbors 8
+ngày 2026-10-01 (xem hằng số bên dưới).
 """
 
 from __future__ import annotations
@@ -32,14 +35,17 @@ from anthropic import Anthropic
 if TYPE_CHECKING:
     import numpy as np
 
-# Đã calibrate bằng sweep 24 tổ hợp + review nội dung thật từng cluster (2026-09-03)
-# — chốt ứng viên "B" (8 cluster, DBCV=0.205 cao nhất trong 3 ứng viên so sánh, nội
-# dung mạch lạc nhất). Chi tiết đầy đủ: docs/claude/data-model.md "Methodology log:
-# hiệu chỉnh tham số HDBSCAN cho số lượng topic".
+# Calibrate lại 2026-10-01 trên `full_text` sạch (ADR-0004): sweep 24 tổ hợp × 3 seed +
+# review từ khoá từng cụm. Tham số cũ (n_neighbors 10, chọn 2026-09-03 trên văn bản lẫn
+# câu trả lời follower) cho nhiễu 45–50%. Thy chọn n_neighbors 8 / min_cluster_size 4:
+# 8–9 cụm ổn định qua 3 seed, nhiễu ~36%, nội dung rõ nghĩa nhất; đánh đổi đã biết:
+# `relative_validity_` thấp (median sweep 0,046; lần chạy chốt 0,008) so với ứng viên
+# mcs 5 (median 0,291, nhưng có 1 cụm tạp
+# 31 bài). Chi tiết: docs/claude/data-model.md "Methodology log" (2026-10-01).
 HDBSCAN_MIN_CLUSTER_SIZE = 4
 UMAP_N_COMPONENTS = 3
 UMAP_RANDOM_STATE = 42
-UMAP_N_NEIGHBORS = 10
+UMAP_N_NEIGHBORS = 8
 CLUSTER_SELECTION_METHOD = "leaf"  # 'eom' (mặc định hdbscan) luôn hội tụ về 2-3 cluster
 # lớn trên dataset này — 'leaf' mới cho granularity khớp domain, xem methodology log.
 
@@ -52,6 +58,10 @@ CLUSTER_LABELING_MODEL = "claude-opus-5"
 class ClusterResult:
     labels: np.ndarray  # -1 = noise (HDBSCAN), theo thứ tự input embeddings
     umap_coords: np.ndarray  # shape (n, 3) — dùng để visualize VÀ làm input cho HDBSCAN
+    # `hdbscan.HDBSCAN.relative_validity_` — DBCV xấp xỉ nhanh trên cây khung nhỏ nhất,
+    # ĐÚNG thước đo đã dùng khi calibrate 2026-09-03 (0,205). Khác thang với
+    # `validity_index` (DBCV đầy đủ) — không so 2 số này với nhau.
+    relative_validity: float | None = None
 
 
 def cluster_embeddings(embeddings: np.ndarray) -> ClusterResult:
@@ -80,10 +90,18 @@ def cluster_embeddings(embeddings: np.ndarray) -> ClusterResult:
         min_cluster_size=HDBSCAN_MIN_CLUSTER_SIZE,
         cluster_selection_method=CLUSTER_SELECTION_METHOD,
         metric="euclidean",
+        gen_min_span_tree=True,
     )
     labels = clusterer.fit_predict(coords)
+    # < 2 cụm: hdbscan vẫn trả 1 số (0.0 khi toàn nhiễu) — không có nghĩa, trả None
+    relative: float | None = None
+    if len({int(label) for label in labels if label != -1}) >= 2:
+        try:
+            relative = float(clusterer.relative_validity_)
+        except (AttributeError, ValueError, ZeroDivisionError):
+            relative = None
 
-    return ClusterResult(labels=labels, umap_coords=coords)
+    return ClusterResult(labels=labels, umap_coords=coords, relative_validity=relative)
 
 
 @dataclass(frozen=True)

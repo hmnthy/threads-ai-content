@@ -31,13 +31,13 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 
 ## D0 — Sửa tính đúng của dữ liệu (chặn D và E) — ADR-0004
 
-1. `posts.reply_role ∈ {root, self_continuation, author_answer, outbound}` — continuation khi `replied_to ∈ {root} ∪ {continuation trước đó}`. Đối chiếu số thật 362/664/342.
-2. `full_text` = root + self_continuation + `text_attachment`. Câu trả lời cho follower lưu riêng.
-   - Cùng migration: bỏ `'fixed'` khỏi CHECK `method` của `topics`/`post_topic_labels` (Thy chốt 2026-09-30) — bộ phân loại 6 nhãn không còn là thành phần sản phẩm (ADR-0001); nhãn tay + kết quả RQ-08 lưu ở `experiments/`, không vào DB sản phẩm. SQLite không sửa CHECK tại chỗ → tạo lại 2 bảng (topic sinh lại được).
-3. **Verify live** `GET /{root_id}/conversation`: Standard Access có trả text bình luận follower không. Có → bảng `audience_replies` (username pseudonymize bằng hash có salt — GDPR), ADR-0007. Không → gold set dùng câu hỏi tự soạn.
-4. Bảng `qa_pairs` (bình luận follower ↔ câu trả lời tác giả).
-5. Bảng `embeddings(object_type, object_id, model_id, content_hash, vector)` — chỉ embed lại khi hash đổi; điền `topics.centroid_embedding_json`.
-6. Chạy lại clustering; RQ-00 đo tác động (ARI cũ vs mới).
+1. ✅ (2026-10-01) `posts.reply_role ∈ {self_continuation, author_answer, outbound}` — continuation khi `replied_to ∈ {root} ∪ {continuation trước đó}`. Số thật: 353 / 674 / 342 (suy từ đồ thị `replied_to`, không từ timestamp).
+2. ✅ (2026-10-01) `full_text` = root + self_continuation + `text_attachment`. Câu trả lời cho follower giữ trong `posts` với vai `author_answer`.
+   - ✅ Cùng migration: bỏ `'fixed'` khỏi CHECK `method` của `topics`/`post_topic_labels` (Thy chốt 2026-09-30) — bộ phân loại 6 nhãn không còn là thành phần sản phẩm (ADR-0001); nhãn tay + kết quả RQ-08 lưu ở `experiments/`, không vào DB sản phẩm. SQLite không sửa CHECK tại chỗ → tạo lại 2 bảng (topic sinh lại được).
+3. ✅ **Verify live** `GET /{root_id}/conversation` (2026-10-01): **có** trả text + username bình luận follower → bảng `audience_replies` (username pseudonymize bằng hash có salt — GDPR) cần ADR-0007 trước; gold set dùng được câu hỏi thật.
+4. Bảng `qa_pairs` (bình luận follower ↔ câu trả lời tác giả) — sau ADR-0007.
+5. ✅ (2026-10-01) Bảng `embeddings(object_type, object_id, model_id, content_hash, dim, vector)` — chỉ embed lại khi hash đổi; điền `topics.centroid_embedding_json` + từ khoá c-TF-IDF + bài đại diện.
+6. ✅ (2026-10-01) Chạy lại clustering, calibrate lại n_neighbors 8: 9 cụm, nhiễu 36,1%, `validity_index` 0,317; ARI so với cụm cũ: gộp 0,22, riêng phần dữ liệu 0,13, riêng phần tham số 0,38 (có tính nhiễu) — ADR-0004. RQ-00 phân tích sâu tác động.
 
 ## D — Câu hỏi nghiên cứu (`docs/rq/RQ-xx.md`, tracking JSON + git — ADR-0005)
 

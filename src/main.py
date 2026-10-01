@@ -91,7 +91,9 @@ class ContentUnitMetrics(BaseModel):
 class TopicLabel(BaseModel):
     topic_id: str
     method: str
-    confidence: float | None
+    # cosine giữa bài và tâm cụm (cột `post_topic_labels.confidence`, ADR-0004) — KHÔNG
+    # phải xác suất thuộc cụm; bge-m3 thường cho 0,5–0,9
+    centroid_similarity: float | None
 
 
 class ContentUnitOut(BaseModel):
@@ -253,7 +255,7 @@ def get_content_units() -> list[ContentUnitOut]:
                 topic = TopicLabel(
                     topic_id=topic_row["topic_id"],
                     method=topic_row["method"],
-                    confidence=topic_row["confidence"],
+                    centroid_similarity=topic_row["confidence"],
                 )
 
             umap: list[float] | None = None
@@ -278,7 +280,7 @@ def get_content_units() -> list[ContentUnitOut]:
 
 @app.get("/topics", response_model=list[TopicOut])
 def get_topics() -> list[TopicOut]:
-    """List topic đã gán (fixed hoặc cluster) kèm số post thuộc mỗi topic — phục vụ
+    """List topic cluster đã gán kèm số post thuộc mỗi topic — phục vụ
     legend/filter của Topic Explorer (dashboard)."""
     with _db() as conn:
         topic_rows = conn.execute("SELECT * FROM topics").fetchall()

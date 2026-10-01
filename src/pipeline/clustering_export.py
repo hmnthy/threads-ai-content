@@ -40,10 +40,16 @@ from pathlib import Path
 from src.db.schema import (
     DEFAULT_DB_PATH,
     connect,
+    content_hash,
     list_content_units,
+    load_embeddings,
     update_content_unit_language,
 )
+from src.nlp.embeddings import PRIMARY_MODEL_NAME
 from src.nlp.language import detect_language_info
+
+# Import an toàn trên Windows: sentence-transformers chỉ được import lười bên trong hàm
+EXPECTED_MODEL_ID = PRIMARY_MODEL_NAME
 
 EXPORT_PATH = Path("data/nlp_exchange/texts_export.json")
 
@@ -61,21 +67,40 @@ def run_export(db_path: Path = DEFAULT_DB_PATH) -> dict[str, int | str]:
             mix_score=info.language_mix_score,
         )
     conn.commit()
-    conn.close()
 
     clusterable = [row for row in rows if (row["full_text"] or "").strip()]
     n_excluded = len(rows) - len(clusterable)
     ids = [row["id"] for row in clusterable]
     texts = [row["full_text"] for row in clusterable]
+    hashes = [content_hash(text) for text in texts]
+
+    # ADR-0004: vector đã lưu với ĐÚNG hash hiện tại thì WSL dùng lại, không embed lại
+    stored = load_embeddings(conn, object_type="content_unit", model_id=EXPECTED_MODEL_ID)
+    conn.close()
+    cached = {
+        uid: stored[uid][1]
+        for uid, text_hash in zip(ids, hashes, strict=True)
+        if uid in stored and stored[uid][0] == text_hash
+    }
 
     EXPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with EXPORT_PATH.open("w", encoding="utf-8") as f:
-        json.dump({"ids": ids, "texts": texts}, f)
+        json.dump(
+            {
+                "ids": ids,
+                "texts": texts,
+                "hashes": hashes,
+                "cached_model_id": EXPECTED_MODEL_ID,
+                "cached_vectors": cached,
+            },
+            f,
+        )
 
     return {
         "content_units_total": len(rows),
         "content_units_exported": len(ids),
         "excluded_empty_full_text": n_excluded,
+        "reused_embeddings": len(cached),
         "export_path": str(EXPORT_PATH),
     }
 
