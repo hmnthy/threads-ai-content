@@ -574,3 +574,25 @@ pattern = '(?i)prompt[- ]caching|caching des prompts|mise en cache (des|du) prom
 why = "Code không dùng cache_control — prompt mỗi cụm khác nhau nên cache không giúp (ADR-0016)"
 fix = "Bỏ cụm 'prompt caching' khỏi mô tả"
 paths = ["README*.md", "docs/claude/**"]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0017 — job NLP chạy 12:30 (không còn 3h sáng); script cấu hình task là configure_jobs.ps1
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0017-nlp-3am"
+adr = "0017"
+# Mốc giờ đêm: 3h / 3h30 / 03h00 / 03:00 / 3 AM / 3:00 a.m. / 3 giờ sáng; hoặc lối nói "chạy hằng đêm"
+# — trong cùng dòng với job NLP / gom cụm / đặt tên cụm. `am\b`: không bắt "3 amplification". Test hit/miss: tests/scripts/test_consistency.py
+pattern = '(?i)(nlp|recluster|cụm|cluster(ing)?|đặt tên|label(ing)?)[^\n]{0,60}(\b0?3(h|h\d\d|:\d\d)?\s?(am\b|a\.m\.)|\b0?3h(\d\d)?\b|\b03:00\b|3 giờ sáng|nightly|overnight|hằng đêm|mỗi đêm|chaque nuit)|(\b0?3(h|h\d\d|:\d\d)?\s?(am\b|a\.m\.)|\b0?3h(\d\d)?\b|\b03:00\b|3 giờ sáng|nightly|overnight|hằng đêm|mỗi đêm|chaque nuit)[^\n]{0,40}(nlp|recluster|cụm|cluster(ing)?|đặt tên|label(ing)?)'
+why = "Job NLP chạy 12:30 từ 2026-10-04 — chạy đêm bị Modern Standby đóng băng (ADR-0017)"
+fix = "Ghi 12:30 (lịch trong scripts/configure_jobs.ps1); câu lịch sử có chủ đích → 'consistency: allow ADR0017-nlp-3am'"
+allow = ["docs/decisions/**", "tests/**"]
+
+[[forbid]]
+id = "ADR0017-old-script"
+adr = "0017"
+pattern = 'set_job_actions'
+why = "Script đổi tên thành scripts/configure_jobs.ps1 và đặt cả lịch + cờ pin (ADR-0017)"
+fix = "Ghi scripts/configure_jobs.ps1"
+allow = ["docs/decisions/**"]

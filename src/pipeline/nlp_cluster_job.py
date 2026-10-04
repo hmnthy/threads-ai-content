@@ -1,4 +1,4 @@
-"""Job gom cụm hằng ngày (Task Scheduler 3h sáng) — thay launcher .bat cũ (ADR-0013).
+"""Job gom cụm hằng ngày (Task Scheduler 12:30, ADR-0017) — thay launcher .bat cũ (ADR-0013).
 
 3 bước, dừng ngay khi 1 bước lỗi (import không bao giờ chạy trên export hỏng):
 1. export (Windows) — `src.pipeline.clustering_export`

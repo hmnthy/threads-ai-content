@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-397%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-425%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.

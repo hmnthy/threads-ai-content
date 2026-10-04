@@ -4,13 +4,13 @@ paths:
   - "src/db/**"
   - "scripts/jobs/**"   # sẽ tạo ở Phase C (roadmap) — glob đặt sẵn
   - "scripts/job_health.py"
-  - "scripts/set_job_actions.ps1"
+  - "scripts/configure_jobs.ps1"
 ---
 
 # Pipeline + SQLite
 
 - DB duy nhất: `data/threads.db` (gitignored). Hiện `DEFAULT_DB_PATH` là đường dẫn **tương đối** (`src/db/schema.py`) → phải chạy từ root repo; mỗi worktree có bản DB riêng (có thể cũ). Phase C thay bằng `src/config.py::db_path()` + `$THREADS_DB_PATH`.
-- 2 cron (Windows Task Scheduler) gọi thẳng `pythonw.exe` (không console — ADR-0013): `ThreadsAI_SnapshotJob_4h` → `src.pipeline.scheduled_job`; `ThreadsAI_NLPClusterJob_Daily` (3h sáng) → `src.pipeline.nlp_cluster_job`. Đổi Action bằng `scripts/set_job_actions.ps1`. Job tự ghi log UTF-8 (`--log`, dòng "bắt đầu" + dòng kết thúc có mã thoát). Trước khi tin data mới: `python -m scripts.job_health` (độ tươi từ DB + `LastTaskResult`; hook đầu phiên đã chạy sẵn).
+- 2 cron (Windows Task Scheduler) gọi thẳng `pythonw.exe` (không console — ADR-0013): `ThreadsAI_SnapshotJob_4h` → `src.pipeline.scheduled_job`; `ThreadsAI_NLPClusterJob_Daily` (12:30 — máy dùng Modern Standby, job đêm bị đóng băng: ADR-0017) → `src.pipeline.nlp_cluster_job`. Cả 2 chạy cả khi dùng pin. Đổi cấu hình task (Action, lịch, cờ pin) chỉ bằng `scripts/configure_jobs.ps1`, không sửa tay. Job tự ghi log UTF-8 (`--log`, dòng "bắt đầu" + dòng kết thúc có mã thoát). Trước khi tin data mới: `python -m scripts.job_health` (độ tươi từ DB + `LastTaskResult`; hook đầu phiên đã chạy sẵn).
 - Lỗi đã biết: job NLP gặp `database is locked` khi chạy chồng snapshot và `HCS_E_CONNECTION_TIMEOUT` khi WSL khởi động chậm — Phase C sửa bằng WAL + `busy_timeout` + `flock` + retry.
 - Ghi DB phải **idempotent** (chạy lại không nhân đôi): UNIQUE constraint + upsert. Kết quả cluster: xoá toàn bộ topic `cluster` rồi ghi lại (label HDBSCAN không ổn định giữa các lần chạy); mỗi lần gom cụm ghi 1 dòng `cluster_runs` (DBCV, nhiễu, ARI) và lưu vector vào `embeddings` (ADR-0004).
 - Snapshot insight là time-series **không hồi cứu được** — không bao giờ xoá/ghi đè `insights_snapshots`.

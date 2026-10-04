@@ -32,7 +32,7 @@ const INDICES: IndexCard[] = [
     name: "View velocity",
     formula: "Δviews / Δt",
     status: "deferred",
-    note: "Snapshots are taken every 4 hours since Aug 31, 2026, so every post has a views time series from that date. The velocity view is not built yet.",
+    note: "Snapshots are scheduled every 4 hours since Aug 31, 2026, but only run while the collecting laptop is awake, so the series has long overnight gaps. The velocity view is not built yet.",
   },
   {
     name: "Longevity",

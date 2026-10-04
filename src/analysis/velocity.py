@@ -40,8 +40,9 @@ def window_velocity(snapshots: list[InsightSnapshot]) -> float:
     "Metric Architecture" mục "Velocity & Momentum"): `view_velocity` chỉ nhìn 2
     điểm đầu-cuối, nhạy với nhiễu do lịch cron snapshot không hoàn hảo (VD 1 lần
     gọi API bị trễ/lỗi khiến khoảng cách giữa 2 điểm đầu-cuối không đại diện đúng
-    tốc độ trung bình cả window). Hồi quy trên TOÀN BỘ điểm quan sát được (VD ~6
-    điểm/24h với cron 4h) ổn định hơn trước nhiễu đó.
+    tốc độ trung bình cả window). Hồi quy trên TOÀN BỘ điểm quan sát được ổn định hơn
+    trước nhiễu đó. Lịch cron 4h nhưng máy ngủ ban đêm → thực tế thường < 3 điểm trong 24h
+    đầu (ADR-0017; số hiện tại: `python -m scripts.snapshot_coverage`).
 
     Không tự sắp xếp `snapshots` theo `fetched_at` trước khi trả về — nhưng KHÔNG
     yêu cầu input đã sắp xếp sẵn (mốc thời gian tương đối tự tính từ `min(fetched_at)`

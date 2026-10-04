@@ -36,7 +36,7 @@ threads-ai-content/
 │   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
 │                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)
 ├── tools/ui-ux-pro-max/       # CLI tra cứu UI (vendored) — gọi qua skill ui-lookup
-├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard), job_health.py (sức khoẻ cron), set_job_actions.ps1 (Action Task Scheduler), review_gate.py (cổng review tầng 2 ADR-0015: ghi dấu + kiểm ở git hook pre-commit)
+├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard), job_health.py (sức khoẻ cron), configure_jobs.ps1 (cấu hình Task Scheduler: Action, lịch, cờ pin), snapshot_coverage.py (độ phủ chuỗi snapshot — nguồn số liệu giới hạn lấy mẫu, ADR-0017), review_gate.py (cổng review tầng 2 ADR-0015: ghi dấu + kiểm ở git hook pre-commit)
 ├── tests/                     # pytest (marker slow/live), respx mock HTTP
 ├── .github/workflows/ci.yml   # CI: chạy lại các cổng trên máy sạch (ADR-0014)
 ├── data/                      # gitignored: threads.db, logs/, cache/, raw/
@@ -69,7 +69,7 @@ threads-ai-content/
 Threads Graph API ──(Task Scheduler, 4h, pythonw)──► src/pipeline/scheduled_job
         │   posts + replies + per-post insights + account daily views
         ▼
-SQLite data/threads.db ◄──(hằng ngày 3h: src/pipeline/nlp_cluster_job)── export → WSL2 embed+cluster → import+Claude label
+SQLite data/threads.db ◄──(hằng ngày 12:30: src/pipeline/nlp_cluster_job)── export → WSL2 embed+cluster → import+Claude label
         │
         ▼
 FastAPI src/main.py  ──►  Next.js dashboard (landing + 3 tab)
