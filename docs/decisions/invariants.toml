@@ -553,3 +553,24 @@ pattern = '(?i)(đề xuất|nên|có thể) gọi `?@agent-code-reviewer'
 why = "Review code-reviewer trước commit chạm logic là BẮT BUỘC, git hook pre-commit chặn commit của Claude nếu thiếu (ADR-0015)"
 fix = "Ghi là bắt buộc, VD '`@agent-code-reviewer` bắt buộc trước commit chạm logic (ADR-0015)'"
 allow = ["docs/decisions/**"]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0016 — đặt tên cụm bằng claude-sonnet-5-5; không hứa prompt caching
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0016-opus-labeling"
+adr = "0016"
+# `.` cuối câu vẫn bắt; chỉ loại đuôi phiên bản -5 / .5 / 0
+pattern = 'claude-opus-5(?![-\d]|\.\d)'
+why = "Model đặt tên cụm là claude-sonnet-5-5 từ 2026-10-04 (ADR-0016)"
+fix = "Ghi claude-sonnet-5-5 (hằng số CLUSTER_LABELING_MODEL trong src/nlp/topics.py)"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0016-prompt-caching"
+adr = "0016"
+pattern = '(?i)prompt[- ]caching|caching des prompts|mise en cache (des|du) prompts?'
+why = "Code không dùng cache_control — prompt mỗi cụm khác nhau nên cache không giúp (ADR-0016)"
+fix = "Bỏ cụm 'prompt caching' khỏi mô tả"
+paths = ["README*.md", "docs/claude/**"]

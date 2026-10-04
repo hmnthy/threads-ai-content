@@ -100,7 +100,7 @@ l'est pas.
 | Gestionnaire de paquets | uv (`pyproject.toml` + `uv.lock`) | En ligne |
 | Client API Threads | httpx (async) | En ligne |
 | Validation | Pydantic v2 | En ligne |
-| IA / LLM | Claude API (`claude-opus-5`, nommage des clusters + prompt caching) | En ligne |
+| IA / LLM | Claude API (`claude-sonnet-5-5`, nommage des clusters) | En ligne |
 | Dashboard | Next.js 16 + Tailwind v4, graphiques SVG faits main + Plotly (carte des sujets) | En ligne |
 | Base de données | SQLite — un fichier, un seul processus d'écriture ; la base de connaissances y vivra aussi | En ligne |
 | Scoring des métriques | Architecture à 6 indices (popularité/engagement/viralité/conversation/vélocité/longévité) | En ligne |
