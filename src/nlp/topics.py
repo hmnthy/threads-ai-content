@@ -52,6 +52,10 @@ CLUSTER_SELECTION_METHOD = "leaf"  # 'eom' (mặc định hdbscan) luôn hội t
 # ADR-0016 (2026-10-04): Sonnet 5.5 thay Opus 5 — đặt tên đúng chủ đề 9/9 cụm thật (đánh giá
 # định tính, n = 9), chi phí mỗi lần đặt tên thấp hơn.
 CLUSTER_LABELING_MODEL = "claude-sonnet-5-5"
+# ADR-0018: tăng khi đổi prompt đặt tên → topic đặt bằng phiên bản cũ được đặt tên lại 1 lần.
+# v1 = prompt gốc; v2 = thêm quy tắc Title Case / ≤ 5 chữ / chỉ nhắc người Việt khi đúng
+# (Thy duyệt 2026-10-04 sau khi so trên 9 cụm thật).
+LABEL_PROMPT_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -125,8 +129,13 @@ def label_cluster_with_claude(
         "about work, job hunting, alternance, and lifestyle). Below are sample "
         'posts from ONE cluster. Return a JSON object with exactly two keys: "label" '
         '(a short English topic name, 2-5 words) and "description" (one English '
-        "sentence describing what this cluster is about). Only return the JSON "
-        "object, nothing else — no markdown fences, no extra text.\n\n"
+        "sentence describing what this cluster is about). "
+        'Rules for "label": Title Case, at most 5 words, name the concrete subject. '
+        "Mention Vietnamese identity (e.g. 'Vietnamese', 'Viet') ONLY if most sample posts "
+        "are explicitly about being Vietnamese in France (identity, racism, Vietnamese food "
+        "or community, comparisons with Vietnam); otherwise do not add it. Never use generic "
+        "framings like 'Abroad' or 'Expat Life' when a more specific subject fits. "
+        "Only return the JSON object, nothing else — no markdown fences, no extra text.\n\n"
         f"Sample posts:\n{joined}"
     )
     response = anthropic_client.messages.create(

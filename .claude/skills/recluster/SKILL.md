@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /recluster — chạy lại clustering trên DB thật
 
-Job này **ghi vào `data/threads.db` thật** (xoá + ghi lại các topic `method='cluster'`) và gọi Claude API để đặt tên cluster (tốn phí nhỏ).
+Job này **ghi vào `data/threads.db` thật** (gán lại bài → topic; giữ id + tên topic khi cụm không đổi — ADR-0018) và chỉ gọi Claude API cho cụm mới/tách/nhập, cụm đã trôi khỏi bản neo lúc đặt tên, hoặc khi đổi model/prompt (tốn phí nhỏ). Xem trước sự kiện (`kept/kept_semantic/relabeled/new/split/merged/retired`) mà không ghi kết quả gom cụm, không gọi Claude: `uv run python -m src.pipeline.clustering_import --dry-run` — lưu ý dry-run VẪN migrate schema của DB.
 
 ## Trước khi chạy
 

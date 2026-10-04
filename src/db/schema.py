@@ -1,6 +1,7 @@
 """SQLite schema — `posts`, `content_units`, `insights_snapshots`, `topics`,
-`post_topic_labels`, `account_daily_views`, `embeddings`, `cluster_runs` (2 bảng cuối từ
-ADR-0004), theo đúng spec tại docs/claude/data-model.md mục "Storage".
+`post_topic_labels`, `account_daily_views`, `embeddings`, `cluster_runs` (2 bảng từ
+ADR-0004), `topic_label_history` (ADR-0018), theo đúng spec tại docs/claude/data-model.md
+mục "Storage".
 
 Cột `umap_x/y/z` + `language_primary`/`language_mix_score` nằm thẳng trong
 `content_units` (không phải bảng riêng) để dashboard Topic Explorer đọc trực tiếp toạ độ
@@ -34,7 +35,13 @@ CREATE TABLE IF NOT EXISTS topics (
     centroid_embedding_json TEXT,
     -- c-TF-IDF top từ khoá + id bài gần tâm cụm nhất (src/nlp/topic_profile.py)
     keywords_json TEXT,
-    representative_ids_json TEXT
+    representative_ids_json TEXT,
+    -- ADR-0018: tên được đặt lúc nào, bằng model + phiên bản prompt nào (đặt lại khi khác)
+    labeled_at TEXT,
+    label_model TEXT,
+    label_prompt_version INTEGER,
+    -- bản neo: id các bài của cụm lúc đặt tên — đặt lại tên khi cụm trôi khỏi bản neo
+    label_anchor_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS post_topic_labels (
@@ -131,7 +138,27 @@ CREATE TABLE IF NOT EXISTS cluster_runs (
     ari_vs_previous REAL,
     ari_clustered_only REAL,
     transitions_json TEXT,
-    labels_json TEXT NOT NULL
+    labels_json TEXT NOT NULL,
+    -- ADR-0018: {topic_id: kept|kept_semantic|relabeled|new|split|merged|retired} của lần chạy này
+    topic_events_json TEXT
+);
+
+-- ADR-0018: mỗi lần 1 topic được (đặt lại) tên = 1 dòng; không xoá khi topic biến mất —
+-- giữ dấu vết danh tính cụm qua thời gian (RQ-06) và để không tái dùng id cũ.
+CREATE TABLE IF NOT EXISTS topic_label_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic_id TEXT NOT NULL,
+    label_en TEXT NOT NULL,
+    description_en TEXT,
+    labeled_at TEXT NOT NULL,
+    label_model TEXT NOT NULL,
+    label_prompt_version INTEGER NOT NULL,
+    -- new | split | merged | drift | config_change | retired (topic biến mất — giữ để không
+    -- tái dùng id). Dòng `retired`: labeled_at = lúc xoá; topic từ trước ADR-0018 ghi
+    -- label_model = 'unknown', label_prompt_version = 0.
+    reason TEXT NOT NULL,
+    -- topic cũ liên quan (cha khi nhập, topic gốc khi tách)
+    sources_json TEXT
 );
 
 -- Account-level daily views (Threads `threads_insights?metric=views&period=day`,
@@ -210,12 +237,22 @@ def _in_one_transaction(conn: sqlite3.Connection, statements: list[str]) -> None
 def _rebuild_topic_tables(conn: sqlite3.Connection) -> None:
     """Tạo lại `topics`/`post_topic_labels` với CHECK mới, chỉ giữ dòng `cluster`."""
     old_cols = _columns(conn, "topics")
+    shared = [
+        c
+        for c in (
+            "id",
+            "label_en",
+            "description_en",
+            "method",
+            "centroid_embedding_json",
+            "keywords_json",
+            "representative_ids_json",
+        )
+        if c in old_cols
+    ]
+    cols = ", ".join(shared)
     copy_topics = (
-        "INSERT INTO topics SELECT * FROM topics_old WHERE method = 'cluster'"
-        if "keywords_json" in old_cols
-        else "INSERT INTO topics (id, label_en, description_en, method, "
-        "centroid_embedding_json) SELECT id, label_en, description_en, method, "
-        "centroid_embedding_json FROM topics_old WHERE method = 'cluster'"
+        f"INSERT INTO topics ({cols}) SELECT {cols} FROM topics_old WHERE method = 'cluster'"
     )
     create = [stmt.strip() for stmt in _TOPICS_DDL.split(";") if stmt.strip()]
     _in_one_transaction(
@@ -273,14 +310,35 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("dbcv_relative", "REAL"),
         ("ari_clustered_only", "REAL"),
         ("transitions_json", "TEXT"),
+        ("topic_events_json", "TEXT"),
     ):
         if column not in run_cols:
             conn.execute(f"ALTER TABLE cluster_runs ADD COLUMN {column} {kind}")
 
     topic_cols = _columns(conn, "topics")
-    for column in ("keywords_json", "representative_ids_json"):
+    for column, kind in (
+        ("keywords_json", "TEXT"),
+        ("representative_ids_json", "TEXT"),
+        ("labeled_at", "TEXT"),
+        ("label_model", "TEXT"),
+        ("label_prompt_version", "INTEGER"),
+        ("label_anchor_json", "TEXT"),
+    ):
         if column not in topic_cols:
-            conn.execute(f"ALTER TABLE topics ADD COLUMN {column} TEXT")
+            conn.execute(f"ALTER TABLE topics ADD COLUMN {column} {kind}")
+
+    # ADR-0018: id theo vị trí HDBSCAN (`cluster_N`) → id bền (`topic_N`, giữ số N lần đầu).
+    # Topic được ghép lại ở lần gom cụm sau; `labeled_at` rỗng → được đặt tên lại 1 lần.
+    if conn.execute("SELECT 1 FROM topics WHERE id LIKE 'cluster\\_%' ESCAPE '\\'").fetchone():
+        _in_one_transaction(
+            conn,
+            [
+                "UPDATE post_topic_labels SET topic_id = 'topic_' || substr(topic_id, 9) "
+                "WHERE topic_id LIKE 'cluster\\_%' ESCAPE '\\'",
+                "UPDATE topics SET id = 'topic_' || substr(id, 9) "
+                "WHERE id LIKE 'cluster\\_%' ESCAPE '\\'",
+            ],
+        )
 
 
 # --- posts -------------------------------------------------------------------
@@ -471,21 +529,30 @@ def upsert_topic(
     centroid_embedding: list[float] | None = None,
     keywords: list[str] | None = None,
     representative_ids: list[str] | None = None,
+    labeled_at: str | None = None,
+    label_model: str | None = None,
+    label_prompt_version: int | None = None,
+    label_anchor: list[str] | None = None,
 ) -> None:
     conn.execute(
         """
         INSERT INTO topics (
             id, label_en, description_en, method, centroid_embedding_json,
-            keywords_json, representative_ids_json
+            keywords_json, representative_ids_json, labeled_at, label_model,
+            label_prompt_version, label_anchor_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             label_en = excluded.label_en,
             description_en = excluded.description_en,
             method = excluded.method,
             centroid_embedding_json = excluded.centroid_embedding_json,
             keywords_json = excluded.keywords_json,
-            representative_ids_json = excluded.representative_ids_json
+            representative_ids_json = excluded.representative_ids_json,
+            labeled_at = excluded.labeled_at,
+            label_model = excluded.label_model,
+            label_prompt_version = excluded.label_prompt_version,
+            label_anchor_json = excluded.label_anchor_json
         """,
         (
             topic_id,
@@ -495,6 +562,74 @@ def upsert_topic(
             json.dumps(centroid_embedding) if centroid_embedding is not None else None,
             json.dumps(keywords, ensure_ascii=False) if keywords is not None else None,
             json.dumps(representative_ids) if representative_ids is not None else None,
+            labeled_at,
+            label_model,
+            label_prompt_version,
+            json.dumps(sorted(label_anchor)) if label_anchor is not None else None,
+        ),
+    )
+
+
+def topic_assignments(conn: sqlite3.Connection) -> dict[str, str]:
+    """`{content_unit_id: topic_id}` của các topic `cluster` đang lưu (ADR-0018: đầu vào ghép)."""
+    rows = conn.execute(
+        "SELECT post_id, topic_id FROM post_topic_labels WHERE method = 'cluster'"
+    ).fetchall()
+    return {row["post_id"]: row["topic_id"] for row in rows}
+
+
+def topic_label_states(conn: sqlite3.Connection) -> dict[str, sqlite3.Row]:
+    """Trạng thái tên của từng topic đang lưu: nhãn, mô tả, labeled_at, model, phiên bản prompt,
+    bản neo (`label_anchor_json`)."""
+    rows = conn.execute(
+        "SELECT id, label_en, description_en, labeled_at, label_model, label_prompt_version, "
+        "label_anchor_json "
+        "FROM topics WHERE method = 'cluster'"
+    ).fetchall()
+    return {row["id"]: row for row in rows}
+
+
+def next_topic_number(conn: sqlite3.Connection) -> int:
+    """Số cho `topic_N` kế tiếp — lớn hơn mọi N từng dùng (cả topic đã biến mất, theo lịch
+    sử tên) để 1 id không bao giờ chỉ 2 chủ đề khác nhau."""
+    highest = -1
+    for (topic_id,) in conn.execute(
+        "SELECT id FROM topics UNION SELECT topic_id FROM topic_label_history"
+    ):
+        prefix, _, number = str(topic_id).partition("_")
+        if prefix == "topic" and number.isdigit():
+            highest = max(highest, int(number))
+    return highest + 1
+
+
+def insert_topic_label_history(
+    conn: sqlite3.Connection,
+    *,
+    topic_id: str,
+    label_en: str,
+    description_en: str | None,
+    labeled_at: str,
+    label_model: str,
+    label_prompt_version: int,
+    reason: str,
+    sources: list[str],
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO topic_label_history (
+            topic_id, label_en, description_en, labeled_at, label_model,
+            label_prompt_version, reason, sources_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            topic_id,
+            label_en,
+            description_en,
+            labeled_at,
+            label_model,
+            label_prompt_version,
+            reason,
+            json.dumps(sources),
         ),
     )
 
@@ -529,25 +664,17 @@ def get_post_topic_label(
     return row  # type: ignore[no-any-return]
 
 
-def delete_cluster_topics(conn: sqlite3.Connection) -> None:
-    """Xoá sạch mọi `topics`/`post_topic_labels` có `method='cluster'` — dùng
-    TRƯỚC khi `src/pipeline/clustering_import.py` ghi lại kết quả cluster mới.
-
-    Lý do (Layer 10, xem docs/claude/data-model.md): `topic_id = f"cluster_{n}"`
-    lấy theo VỊ TRÍ nhãn HDBSCAN trả về, thứ tự này không ổn định giữa các lần
-    chạy — cùng 1 `topic_id` số có thể đại diện 2 chủ đề khác nhau ở 2 lần chạy.
-    Vì `clustering_import.py` vốn đã là full-recompute mỗi lần (không có logic
-    incremental), xoá-rồi-ghi-lại là đúng và an toàn hơn hẳn upsert-theo-vị-trí:
-    tránh (a) cluster cũ không còn ở lần chạy mới vẫn tồn tại vĩnh viễn (rác),
-    (b) `post_topic_labels` của bài chuyển sang noise không được dọn (trỏ topic
-    cũ sai). Từ ADR-0004 CHECK chỉ còn `method='cluster'`; điều kiện WHERE giữ lại
-    để rõ ý đồ nếu sau này có method khác.
-    """
+def replace_cluster_topics(conn: sqlite3.Connection, keep_topic_ids: set[str]) -> None:
+    """Dọn trước khi ghi kết quả gom cụm mới (ADR-0018): xoá MỌI `post_topic_labels`
+    `cluster` (gán lại toàn bộ ngay sau đó) và xoá topic KHÔNG còn ở lần chạy này. Topic
+    được mang tiếp (`keep_topic_ids`) giữ nguyên dòng — id + tên — rồi được cập nhật hồ sơ
+    (từ khoá, bài đại diện, tâm cụm). Lịch sử tên (`topic_label_history`) không bị xoá."""
     conn.execute("DELETE FROM post_topic_labels WHERE method = 'cluster'")
-    conn.execute("DELETE FROM topics WHERE method = 'cluster'")
-
-
-# --- account_daily_views ---------------------------------------------------------
+    placeholders = ",".join("?" * len(keep_topic_ids))
+    conn.execute(
+        f"DELETE FROM topics WHERE method = 'cluster' AND id NOT IN ({placeholders})",
+        sorted(keep_topic_ids),
+    )
 
 
 def upsert_daily_views(conn: sqlite3.Connection, *, date: str, views: int, fetched_at: str) -> None:
@@ -674,14 +801,15 @@ def insert_cluster_run(
     dbcv_relative: float | None = None,
     ari_clustered_only: float | None = None,
     transitions: dict[str, int] | None = None,
+    topic_events: dict[str, str] | None = None,
 ) -> None:
     conn.execute(
         """
         INSERT INTO cluster_runs (
             run_at, model_id, params_json, n_units, n_clusters, noise_ratio, dbcv,
             dbcv_relative, ari_vs_previous, ari_clustered_only, transitions_json,
-            labels_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            labels_json, topic_events_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             run_at,
@@ -696,6 +824,7 @@ def insert_cluster_run(
             ari_clustered_only,
             json.dumps(transitions, sort_keys=True) if transitions is not None else None,
             json.dumps(labels, sort_keys=True),
+            json.dumps(topic_events, sort_keys=True) if topic_events is not None else None,
         ),
     )
 
