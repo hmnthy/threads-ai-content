@@ -19,5 +19,6 @@ Mỗi quyết định kiến trúc/methodology = 1 file ngắn `NNNN-ten-ngan.md
 | [0013](0013-headless-cron-jobs.md) | Cron job chạy bằng pythonw (không console), job tự ghi log UTF-8, hook đo độ tươi từ DB | Accepted | 2026-10-01 |
 | [0014](0014-whole-repo-gates-and-ci.md) | Pre-commit quét toàn repo (`--commit`), `--all` quét cả file chưa track, CI GitHub Actions | Accepted | 2026-10-01 |
 | [0015](0015-mandatory-tier2-review.md) | Bắt buộc review tầng 2: dấu review khớp nội dung (hook SubagentStart/Stop) + git hook pre-commit chặn commit do Claude chạy | Accepted | 2026-10-01 |
+| [0016](0016-sonnet-cluster-labeling.md) | Đặt tên cụm bằng `claude-sonnet-5-5` thay `claude-opus-5`; bỏ lời hứa prompt caching | Accepted | 2026-10-04 |
 
 Dự kiến (đánh số giữ chỗ theo `docs/roadmap.md` và plan P1 dashboard): 0002 runtime WSL2 · 0005 experiment tracking JSON + git · 0006 lưu trữ + truy xuất KB · 0007 dữ liệu bình luận follower & privacy · 0012 nhãn viral + kiểm định biến giải thích (plan P1 Bước 2).

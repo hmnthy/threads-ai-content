@@ -94,7 +94,7 @@ Shown as it actually stands today — nothing implied that isn't built yet.
 | Package manager | uv (`pyproject.toml` + `uv.lock`) | Live |
 | Threads API client | httpx (async) | Live |
 | Validation | Pydantic v2 | Live |
-| AI / LLM | Claude API (`claude-opus-5`, cluster labeling + prompt caching) | Live |
+| AI / LLM | Claude API (`claude-sonnet-5-5`, cluster labeling) | Live |
 | Dashboard | Next.js 16 + Tailwind v4, hand-built SVG charts + Plotly (topic map) | Live |
 | Database | SQLite — one file, one writer; the knowledge base will live in it too | Live |
 | Metric scoring | 6-index architecture (popularity/engagement/virality/conversation/velocity/longevity) | Live |

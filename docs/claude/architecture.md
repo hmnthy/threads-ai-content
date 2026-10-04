@@ -55,7 +55,7 @@ threads-ai-content/
 | Language ID | lingua-py + Code-Mixing Index (Gambäck & Das 2014) | Live |
 | Embedding | sentence-transformers `BAAI/bge-m3` (1024D, 8.192 token, MIT) | Live, chạy trong WSL2 |
 | Topic discovery | UMAP (3D) + HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8` — calibrate lại 2026-10-01, ADR-0004) | Live, re-cluster hằng ngày |
-| LLM | Claude API `claude-opus-5` — CHỈ đặt tên cluster (tiếng Anh) | Live |
+| LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — CHỈ đặt tên cluster (tiếng Anh) | Live |
 | Thống kê | median/IQR, Mann-Whitney U + Cliff's δ + bootstrap CI (scipy) | Live |
 | Dashboard | Next.js 16 + Tailwind v4 + chart SVG tự dựng + Plotly (bản đồ topic) + Phosphor icons | Live (chưa deploy cố định) |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |

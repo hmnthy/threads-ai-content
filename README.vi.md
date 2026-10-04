@@ -96,7 +96,7 @@ Liệt kê đúng trạng thái thật của code hiện tại — không hứa 
 | Package manager | uv (`pyproject.toml` + `uv.lock`) | Đã có |
 | Threads API client | httpx (async) | Đã có |
 | Validation | Pydantic v2 | Đã có |
-| AI / LLM | Claude API (`claude-opus-5`, gán tên cluster + prompt caching) | Đã có |
+| AI / LLM | Claude API (`claude-sonnet-5-5`, gán tên cluster) | Đã có |
 | Dashboard | Next.js 16 + Tailwind v4, chart SVG tự dựng + Plotly (bản đồ topic) | Đã có |
 | Database | SQLite — 1 file, 1 tiến trình ghi; knowledge base cũng sẽ nằm trong đó | Đã có |
 | Metric scoring | Kiến trúc 6 index (popularity/engagement/virality/conversation/velocity/longevity) | Đã có |

@@ -49,9 +49,9 @@ UMAP_N_NEIGHBORS = 8
 CLUSTER_SELECTION_METHOD = "leaf"  # 'eom' (mặc định hdbscan) luôn hội tụ về 2-3 cluster
 # lớn trên dataset này — 'leaf' mới cho granularity khớp domain, xem methodology log.
 
-# Chốt 2026-09-03 (xem docs/decisions/legacy-log.md): giữ claude-opus-5,
-# cập nhật lại bảng Tech Stack cho khớp thay vì đổi model.
-CLUSTER_LABELING_MODEL = "claude-opus-5"
+# ADR-0016 (2026-10-04): Sonnet 5.5 thay Opus 5 — đặt tên đúng chủ đề 9/9 cụm thật (đánh giá
+# định tính, n = 9), chi phí đặt tên hằng đêm thấp hơn.
+CLUSTER_LABELING_MODEL = "claude-sonnet-5-5"
 
 
 @dataclass(frozen=True)
