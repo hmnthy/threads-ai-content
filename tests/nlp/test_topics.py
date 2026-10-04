@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 import pytest
 
+from src.nlp import topics as topics_module
 from src.nlp.topics import (
     HDBSCAN_MIN_CLUSTER_SIZE,
     UMAP_N_COMPONENTS,
@@ -107,3 +109,34 @@ def test_cluster_embeddings_on_toy_data() -> None:
 
     assert result.labels.shape[0] == 20
     assert result.umap_coords.shape == (20, 3)
+
+
+class _RecordingMessages:
+    def __init__(self) -> None:
+        self.kwargs: dict[str, Any] = {}
+
+    def create(self, **kwargs: Any) -> _FakeResponse:
+        self.kwargs = kwargs
+        return _FakeResponse([_FakeTextBlock('{"label": "X", "description": "Y."}')])
+
+
+class _RecordingClient:
+    def __init__(self) -> None:
+        self.messages = _RecordingMessages()
+
+
+def test_label_prompt_v2_rules_are_sent_and_versioned() -> None:
+    """Prompt v2 (ADR-0018, Thy duyệt 2026-10-04). Sửa prompt → tăng LABEL_PROMPT_VERSION để
+    các topic đặt bằng bản cũ được đặt tên lại; test này nhắc việc đó."""
+    client = _RecordingClient()
+    label_cluster_with_claude(["post"], client=client)  # type: ignore[arg-type]
+    prompt = client.messages.kwargs["messages"][0]["content"]
+    assert "Title Case, at most 5 words" in prompt
+    assert "Mention Vietnamese identity" in prompt and "ONLY if most sample posts" in prompt
+    assert "'Abroad' or 'Expat Life'" in prompt
+    assert client.messages.kwargs["model"] == topics_module.CLUSTER_LABELING_MODEL
+    # Khoá TOÀN VĂN prompt theo phiên bản: sửa bất kỳ chữ nào → test đỏ → tăng
+    # LABEL_PROMPT_VERSION (topic đặt bằng bản cũ được đặt tên lại) rồi thêm hash mới vào đây
+    prompt_hashes = {2: "ed7eceddc783642e39eeeb0b5a88b3b389ab89762bd61004f298f24f380ee51d"}
+    digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    assert prompt_hashes.get(topics_module.LABEL_PROMPT_VERSION) == digest

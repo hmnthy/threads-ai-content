@@ -356,7 +356,8 @@ def test_migration_upgrades_old_db_and_is_idempotent(tmp_path: Path) -> None:
     create_schema(conn)
     create_schema(conn)  # chạy lại không lỗi, không nhân đôi
 
-    assert {r["id"] for r in conn.execute("SELECT id FROM topics")} == {"cluster_0"}
+    # ADR-0018: id theo vị trí `cluster_N` được đổi thành id bền `topic_N`
+    assert {r["id"] for r in conn.execute("SELECT id FROM topics")} == {"topic_0"}
     assert [r["method"] for r in conn.execute("SELECT method FROM post_topic_labels")] == [
         "cluster"
     ]
@@ -467,7 +468,7 @@ def test_migration_failure_rolls_back_everything(
 
     monkeypatch.setattr(schema_module, "_in_one_transaction", original)
     create_schema(conn)  # chạy lại sau lỗi → thành công, dữ liệu còn nguyên
-    assert [r[0] for r in conn.execute("SELECT id FROM topics")] == ["cluster_0"]
+    assert [r[0] for r in conn.execute("SELECT id FROM topics")] == ["topic_0"]  # ADR-0018
     assert conn.execute("SELECT COUNT(*) FROM post_topic_labels").fetchone()[0] == 1
 
 
@@ -485,7 +486,7 @@ def test_migration_recovers_db_left_half_renamed_by_old_version(tmp_path: Path) 
     create_schema(conn)
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert "post_topic_labels_old" not in tables
-    assert conn.execute("SELECT topic_id FROM post_topic_labels").fetchone()[0] == "cluster_0"
+    assert conn.execute("SELECT topic_id FROM post_topic_labels").fetchone()[0] == "topic_0"
     assert (
         "'fixed'"
         not in conn.execute("SELECT sql FROM sqlite_master WHERE name = 'topics'").fetchone()[0]

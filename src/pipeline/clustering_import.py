@@ -11,12 +11,20 @@ không đụng scipy/umap/hdbscan). Đọc `data/nlp_exchange/cluster_results.js
    hàm), ARI so với lần trước (có tính nhiễu + chỉ trên bài có cụm) và số bài chuyển
    giữa cụm ↔ nhiễu.
 
-Claude được gọi cho MỌI cụm trước; chỉ khi đặt tên xong hết mới xoá topic cũ và ghi
-topic mới + `cluster_runs` trong 1 transaction — Claude lỗi giữa chừng thì topic cũ còn
-nguyên, không có trạng thái nửa vời.
+**Danh tính cụm bền (ADR-0018)**: cụm mới được ghép với topic đang lưu theo thành viên rồi
+theo ngữ nghĩa (`src/nlp/topic_identity.py`). Cụm `kept` mang tiếp id `topic_N` + tên cũ —
+KHÔNG gọi Claude — trừ khi nội dung đã trôi khỏi bản neo lúc đặt tên (`drift`, so cùng quy
+tắc với ghép) hoặc tên được đặt bằng model/phiên bản prompt khác hiện tại (`config_change`).
+Cụm `new`/`split`/`merged` nhận id mới + tên mới. Topic biến mất ghi 1 dòng `retired` (để id
+không bao giờ bị tái dùng). Mỗi lần đặt tên ghi 1 dòng `topic_label_history`; sự kiện của lần
+chạy ghi vào `cluster_runs.topic_events_json`.
 
-`dry_run=True`: tính và trả mọi số liệu (kể cả ARI, từ khoá) nhưng không ghi dữ liệu
-gom cụm và KHÔNG gọi Claude (vẫn có thể migrate schema qua `create_schema`).
+Claude được gọi cho mọi cụm CẦN tên trước; chỉ khi đặt tên xong hết mới ghi topic +
+`cluster_runs` trong 1 transaction — Claude lỗi giữa chừng thì topic cũ còn nguyên.
+
+`dry_run=True`: tính và trả mọi số liệu (kể cả ARI, từ khoá, sự kiện topic dự kiến) nhưng
+không ghi kết quả gom cụm và KHÔNG gọi Claude — VẪN migrate schema qua `create_schema`
+(lần đầu sau ADR-0018: đổi id `cluster_N` → `topic_N`).
 `baseline_db`: lấy nhãn "lần trước" từ 1 DB khác (VD bản sao lưu trước ADR-0004) thay
 vì từ `cluster_runs`. Nếu 2 lần khác nhau ở hơn 1 yếu tố (dữ liệu VÀ tham số), ARI là
 hiệu ứng GỘP — muốn tách phải có 1 lần chạy chỉ đổi 1 yếu tố (RQ-00).
@@ -24,9 +32,8 @@ hiệu ứng GỘP — muốn tách phải có 1 lần chạy chỉ đổi 1 y�
 Chạy tay: `.venv/Scripts/python.exe -m src.pipeline.clustering_import [--dry-run]
 [--baseline-db PATH]`
 
-**Full-recompute** (Layer 10, 2026-09-03): mỗi lần chạy XOÁ SẠCH `topics`/
-`post_topic_labels` `method='cluster'` rồi ghi lại — `topic_id = f"cluster_{n}"` theo
-vị trí nhãn HDBSCAN, không ổn định giữa các lần chạy (xem `delete_cluster_topics`).
+Gán bài → topic vẫn tính lại toàn bộ mỗi lần (`replace_cluster_topics`: xoá mọi
+`post_topic_labels` rồi gán lại, xoá topic không còn); chỉ id + tên topic là bền.
 """
 
 from __future__ import annotations
@@ -35,6 +42,7 @@ import hashlib
 import json
 import sys
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -46,25 +54,93 @@ from src.db.schema import (
     connect,
     content_hash,
     create_schema,
-    delete_cluster_topics,
     get_content_unit,
     insert_cluster_run,
+    insert_topic_label_history,
     latest_cluster_run,
+    next_topic_number,
+    replace_cluster_topics,
+    topic_assignments,
+    topic_label_states,
     update_content_unit_embedding_coords,
     upsert_embedding,
     upsert_post_topic_label,
     upsert_topic,
 )
+from src.nlp.topic_identity import TopicMatch, anchor_holds, match_topics, semantic_reference
 from src.nlp.topic_profile import (
     REPRESENTATIVES_PER_TOPIC,
     adjusted_rand_index,
     class_tfidf_keywords,
     representatives,
 )
-from src.nlp.topics import label_cluster_with_claude
+from src.nlp.topics import (
+    CLUSTER_LABELING_MODEL,
+    LABEL_PROMPT_VERSION,
+    TopicLabelResult,
+    label_cluster_with_claude,
+)
 
 RESULTS_PATH = Path("data/nlp_exchange/cluster_results.json")
 EXPORT_PATH = Path("data/nlp_exchange/texts_export.json")
+
+
+@dataclass(frozen=True)
+class TopicPlan:
+    topic_id: str
+    event: str  # kept | new | split | merged (topic_identity)
+    # Lý do đặt tên lần này: new | split | merged | drift | config_change; None = giữ tên cũ
+    reason: str | None
+    sources: tuple[str, ...]
+    via: str | None = None  # membership | semantic khi kept
+
+
+def plan_topic_names(
+    matches: dict[int, TopicMatch],
+    states: dict[str, Any],
+    first_new_number: int,
+    drifted: set[int],
+) -> dict[int, TopicPlan]:
+    """Quyết định id + có gọi Claude hay không cho từng cụm mới (ADR-0018). `states`: trạng
+    thái tên của topic đang lưu (`topic_label_states`); `drifted`: cụm `kept` đã trôi khỏi bản
+    neo lúc đặt tên (`anchor_holds` = False). Cụm `kept` chỉ đặt tên lại khi tên chưa có mốc
+    (DB trước ADR-0018), đặt bằng model/phiên bản prompt khác, hoặc đã trôi."""
+    plans: dict[int, TopicPlan] = {}
+    number = first_new_number
+    for cluster in sorted(matches):
+        match = matches[cluster]
+        if match.event == "kept" and match.topic_id is not None:
+            state = states.get(match.topic_id)
+            if (
+                state is None
+                or state["labeled_at"] is None
+                or state["label_model"] != CLUSTER_LABELING_MODEL
+                or state["label_prompt_version"] != LABEL_PROMPT_VERSION
+            ):
+                reason: str | None = "config_change"
+            elif cluster in drifted:
+                reason = "drift"
+            else:
+                reason = None
+            plans[cluster] = TopicPlan(match.topic_id, "kept", reason, match.sources, match.via)
+        else:
+            plans[cluster] = TopicPlan(f"topic_{number}", match.event, match.event, match.sources)
+            number += 1
+    return plans
+
+
+def topic_events(plans: dict[int, TopicPlan], retired: list[str]) -> dict[str, str]:
+    """{topic_id: sự kiện} của 1 lần chạy — ghi vào `cluster_runs.topic_events_json`."""
+    events: dict[str, str] = {}
+    for plan in plans.values():
+        if plan.event != "kept":
+            events[plan.topic_id] = plan.event
+        elif plan.reason is not None:
+            events[plan.topic_id] = "relabeled"
+        else:
+            events[plan.topic_id] = "kept_semantic" if plan.via == "semantic" else "kept"
+    events.update({topic_id: "retired" for topic_id in retired})
+    return events
 
 
 def _previous_labels(conn: Any, *, use_runs: bool = True) -> dict[str, int]:
@@ -204,17 +280,47 @@ def run_import(
         "transitions": transitions,
         "cluster_sizes": sorted((len(m) for m in clusters.values()), reverse=True),
     }
+
+    # ADR-0018: ghép với topic đang lưu (thành viên → ngữ nghĩa) → id bền; chỉ gọi Claude
+    # cho cụm cần tên (mới/tách/nhập, đã trôi khỏi bản neo, hoặc đổi model/prompt)
+    vectors = dict(zip(ids, embeddings, strict=True)) if embeddings is not None else None
+    previous_topics = topic_assignments(conn)
+    reference = semantic_reference(previous_topics, vectors) if vectors is not None else None
+    matches = match_topics(previous_topics, new_by_id, vectors, reference)
+    states = topic_label_states(conn)
+    drifted = {
+        c
+        for c, m in matches.items()
+        if m.topic_id is not None
+        and (state := states.get(m.topic_id)) is not None
+        and state["label_anchor_json"] is not None
+        and not anchor_holds(
+            set(profiles[c]["unit_ids"]),
+            set(json.loads(state["label_anchor_json"])),
+            new_by_id,
+            vectors,
+            reference,
+        )
+    }
+    plans = plan_topic_names(matches, states, next_topic_number(conn), drifted)
+    kept_ids = {plan.topic_id for plan in plans.values() if plan.event == "kept"}
+    retired = sorted(set(states) - kept_ids)
+    events = topic_events(plans, retired)
+    summary["topic_events"] = events
+    summary["n_named_now"] = sum(1 for plan in plans.values() if plan.reason is not None)
+    summary["semantic_reference"] = reference
     if dry_run:
-        summary["keywords"] = {f"cluster_{k}": v["keywords"] for k, v in profiles.items()}
+        summary["keywords"] = {plans[k].topic_id: v["keywords"] for k, v in profiles.items()}
         conn.close()
         return summary
 
     # Đặt tên TRƯỚC khi đụng vào DB — Claude lỗi thì topic cũ còn nguyên
-    names = {
+    names: dict[int, TopicLabelResult] = {
         label: label_cluster_with_claude(
-            [full_texts.get(uid, "") for uid in profile["ordered_ids"]]
+            [full_texts.get(uid, "") for uid in profiles[label]["ordered_ids"]]
         )
-        for label, profile in profiles.items()
+        for label, plan in plans.items()
+        if plan.reason is not None
     }
 
     now = datetime.now(UTC).isoformat()
@@ -240,19 +346,61 @@ def run_import(
     )
     for unit_id, coords in zip(ids, umap_coords, strict=True):
         update_content_unit_embedding_coords(conn, unit_id, x=coords[0], y=coords[1], z=coords[2])
-    delete_cluster_topics(conn)
+    # Topic biến mất: ghi `retired` vào lịch sử TRƯỚC khi xoá — `next_topic_number` đọc lịch sử
+    # nên id không bao giờ bị tái dùng (kể cả topic chưa từng được đặt tên lại sau migration)
+    for topic_id in retired:
+        state = states[topic_id]
+        insert_topic_label_history(
+            conn,
+            topic_id=topic_id,
+            label_en=state["label_en"],
+            description_en=state["description_en"],
+            labeled_at=now,
+            label_model=state["label_model"] or "unknown",
+            label_prompt_version=state["label_prompt_version"] or 0,
+            reason="retired",
+            sources=[],
+        )
+    replace_cluster_topics(conn, kept_ids)
     for label, profile in profiles.items():
-        topic_id = f"cluster_{label}"
-        result = names[label]
+        plan = plans[label]
+        topic_id = plan.topic_id
+        if plan.reason is None:  # giữ tên + bản neo: chỉ cập nhật hồ sơ cụm
+            state = states[topic_id]
+            label_en, description_en = state["label_en"], state["description_en"]
+            labeled_at, label_model = state["labeled_at"], state["label_model"]
+            prompt_version = state["label_prompt_version"]
+            anchor = json.loads(state["label_anchor_json"]) if state["label_anchor_json"] else None
+        else:
+            result = names[label]
+            label_en, description_en = result.label_en, result.description_en
+            labeled_at, label_model = now, CLUSTER_LABELING_MODEL
+            prompt_version = LABEL_PROMPT_VERSION
+            anchor = profile["unit_ids"]  # bản neo mới = thành viên lúc đặt tên
+            insert_topic_label_history(
+                conn,
+                topic_id=topic_id,
+                label_en=label_en,
+                description_en=description_en,
+                labeled_at=now,
+                label_model=CLUSTER_LABELING_MODEL,
+                label_prompt_version=LABEL_PROMPT_VERSION,
+                reason=plan.reason,
+                sources=list(plan.sources),
+            )
         upsert_topic(
             conn,
             topic_id=topic_id,
-            label_en=result.label_en,
-            description_en=result.description_en,
+            label_en=label_en,
+            description_en=description_en,
             method="cluster",
             centroid_embedding=profile["centroid"],
             keywords=profile["keywords"],
             representative_ids=profile["representatives"],
+            labeled_at=labeled_at,
+            label_model=label_model,
+            label_prompt_version=prompt_version,
+            label_anchor=anchor,
         )
         for uid in profile["unit_ids"]:
             # cột `confidence` lưu cosine giữa bài và tâm cụm (None nếu không có embedding);
@@ -279,6 +427,7 @@ def run_import(
         ari_clustered_only=ari_clustered,
         transitions=transitions,
         labels=new_by_id,
+        topic_events=events,
     )
     conn.commit()
     conn.close()

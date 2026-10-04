@@ -596,3 +596,16 @@ pattern = 'set_job_actions'
 why = "Script đổi tên thành scripts/configure_jobs.ps1 và đặt cả lịch + cờ pin (ADR-0017)"
 fix = "Ghi scripts/configure_jobs.ps1"
 allow = ["docs/decisions/**"]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0018 — danh tính cụm bền: không còn "xoá rồi ghi lại toàn bộ topic" / id cluster_N
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0018-full-recompute-topics"
+adr = "0018"
+# + lịch đặt lại tên hằng tháng (bản nháp đầu, thay bằng đặt lại theo độ trôi)
+pattern = '(?i)(xoá|xóa)( \+| toàn bộ| sạch|[^\n]{0,15}rồi) ghi lại[^\n]{0,40}topic|full-recompute|f"cluster_\{|delete_cluster_topics|RELABEL_AFTER|đặt (lại )?tên[^\n]{0,40}(mỗi|hằng) tháng'
+why = "Từ ADR-0018 id + tên topic bền (topic_N); chỉ gán bài → topic được tính lại"
+fix = "Mô tả theo ADR-0018: ghép cụm theo thành viên, giữ id + tên khi cụm không đổi"
+allow = ["docs/decisions/**", "tests/**"]
