@@ -46,7 +46,7 @@ def test_failed_run_after_newest_data_warns() -> None:
 
 
 def test_failed_run_then_successful_manual_run_is_a_note_not_warn() -> None:
-    # Lần 03:24 lỗi 0x41306, chạy tay thành công 13:35 → không WARN dính tới 03:00 hôm sau
+    # Lượt lịch lỗi 0x41306, chạy tay thành công sau đó → không WARN dính tới lượt lịch kế tiếp
     last_run = NOW - timedelta(hours=9)
     ok_end = NOW - timedelta(hours=1)
     line = job_health.assess(NLP, ok_end, NOW, task(0x41306, last_run), last_ok=ok_end)

@@ -50,7 +50,7 @@ CLUSTER_SELECTION_METHOD = "leaf"  # 'eom' (mặc định hdbscan) luôn hội t
 # lớn trên dataset này — 'leaf' mới cho granularity khớp domain, xem methodology log.
 
 # ADR-0016 (2026-10-04): Sonnet 5.5 thay Opus 5 — đặt tên đúng chủ đề 9/9 cụm thật (đánh giá
-# định tính, n = 9), chi phí đặt tên hằng đêm thấp hơn.
+# định tính, n = 9), chi phí mỗi lần đặt tên thấp hơn.
 CLUSTER_LABELING_MODEL = "claude-sonnet-5-5"
 
 

@@ -364,6 +364,52 @@ def test_real_invariants_do_not_flag_threads_api_enum(tmp_path: Path) -> None:
     assert check.check_forbid(root, ["m.py"], check.load_config(root)) == []
 
 
+@pytest.mark.parametrize(
+    ("rule", "text", "flagged"),
+    [
+        # ADR-0016: model cũ, kể cả cuối câu; không bắt đời mới hơn
+        ("ADR0016-opus-labeling", "Clusters are labeled by claude-opus-5.", True),
+        ("ADR0016-opus-labeling", "`claude-opus-5`", True),
+        ("ADR0016-opus-labeling", "fallback: claude-opus-5-5", False),
+        ("ADR0016-opus-labeling", "claude-opus-5.5 or claude-opus-50", False),
+        ("ADR0016-prompt-caching", "Claude API (cluster labeling + prompt caching)", True),
+        ("ADR0016-prompt-caching", "uses Prompt-Caching", True),
+        ("ADR0016-prompt-caching", "mise en cache du prompt", True),
+        ("ADR0016-prompt-caching", "Threads API client with response caching", False),
+        # ADR-0017: job NLP không còn chạy đêm
+        ("ADR0017-nlp-3am", "`ThreadsAI_NLPClusterJob_Daily` (3h sáng)", True),
+        ("ADR0017-nlp-3am", "(hằng ngày 3h: src/pipeline/nlp_cluster_job)", True),
+        ("ADR0017-nlp-3am", "the NLP job runs at 3:00 AM", True),
+        ("ADR0017-nlp-3am", "recluster lúc 03h00", True),
+        ("ADR0017-nlp-3am", "nightly cluster refresh", True),
+        ("ADR0017-nlp-3am", "chi phí gom cụm hằng đêm", True),
+        ("ADR0017-nlp-3am", "chi phí đặt tên hằng đêm thấp hơn", True),
+        ("ADR0017-nlp-3am", "NLP job at 3h30", True),
+        ("ADR0017-nlp-3am", "NLP job daily at 12:30", False),
+        ("ADR0017-nlp-3am", "3 amplification metrics per cluster", False),
+        ("ADR0017-nlp-3am", "cluster 3 among 9", False),
+        ("ADR0017-nlp-3am", "delta amplification over 3h -> 2.0/h", False),
+        ("ADR0017-nlp-3am", "snapshot every 4h", False),
+        ("ADR0017-old-script", "run scripts/set_job_actions.ps1", True),
+        ("ADR0017-old-script", "run scripts/configure_jobs.ps1", False),
+    ],
+)
+def test_real_rules_for_model_and_schedule_decisions(
+    tmp_path: Path, rule: str, text: str, flagged: bool
+) -> None:
+    root = tmp_path / "repo"
+    (root / "docs/decisions").mkdir(parents=True)
+    real_toml = (REPO_ROOT / check.INVARIANTS_PATH).read_text(encoding="utf-8")
+    (root / check.INVARIANTS_PATH).write_text(real_toml, encoding="utf-8")
+    notes = root / "docs/claude/notes.md"  # nằm trong `paths` của luật prompt-caching
+    notes.parent.mkdir(parents=True)
+    notes.write_text(text + "\n", encoding="utf-8")
+    found = {
+        v.rule for v in check.check_forbid(root, ["docs/claude/notes.md"], check.load_config(root))
+    }
+    assert (rule in found) is flagged
+
+
 def test_real_sprint_step_rule_ignores_procedure_numbering_in_skills(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     (root / "docs/decisions").mkdir(parents=True)
