@@ -12,7 +12,7 @@ Job này **ghi vào `data/threads.db` thật** (gán lại bài → topic; giữ
 
 !`git status -sb`
 
-1. Chạy từ **checkout chính** (không phải worktree — trước Phase C mỗi worktree có DB riêng).
+1. Chạy từ **checkout chính** (không phải worktree — trước Phase C mỗi worktree có DB riêng), và thư mục chính phải **ở `main`, không có code cron chưa commit** (ADR-0019): `uv run python -m scripts.git_hygiene` in WARN → dừng, báo Thy — job ghi DB thật bằng đúng code đang nằm trên đĩa.
 2. Tránh chạy chồng job snapshot 4h (gây `database is locked`): `uv run python -m scripts.job_health` — dòng snapshot ghi "task running now" thì chờ (job ~2 phút). Không suy từ dòng cuối log (job bị giết giữa chừng để lại dòng "bắt đầu" mãi — ADR-0013).
 3. Ghi lại trạng thái trước: dòng mới nhất của `cluster_runs` (số cụm, nhiễu, `dbcv` = validity_index, `dbcv_relative` = relative_validity_) + tên topic hiện tại (`topics`).
 

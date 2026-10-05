@@ -1,13 +1,14 @@
 ---
 name: checkpoint
 description: Propose a git checkpoint commit for threads-ai-content once a step is done and green — run the relevant checks, update docs/status.md, draft an English commit message, and wait for Thy's explicit OK before committing. Use proactively after finishing any meaningful step, and whenever the session status reports uncommitted files.
-allowed-tools: Bash(git status *) Bash(git diff *) Bash(git log *) Bash(uv run ruff *) Bash(uv run mypy *) Bash(uv run pytest *) Bash(uv run --no-sync python -m scripts.consistency.check *)
+allowed-tools: Bash(git status *) Bash(git diff *) Bash(git log *) Bash(git branch *) Bash(git worktree list *) Bash(uv run ruff *) Bash(uv run mypy *) Bash(uv run pytest *) Bash(uv run --no-sync python -m scripts.consistency.check *)
 ---
 
 # /checkpoint — commit tại điểm dừng an toàn
 
 ## 1. Xem thay đổi
 
+- **Đúng chỗ chưa** (ADR-0019): `git branch --show-current` + `git worktree list`. Đang ở `main`, hoặc đang ở thư mục chính (mục đầu của `git worktree list`) với file đã sửa → **dừng**, không commit ở đây: chuyển việc sang worktree trên nhánh riêng (`/git-flow start`, chuyển thay đổi bằng patch — `docs/claude/git-workflow.md` mục 5).
 - `git status --short` và `git diff --stat` (cả staged). Không có gì → báo "không có gì để commit" và dừng.
 - Phân loại file: thuộc cùng 1 đơn vị việc không? Nếu lẫn 2 việc khác nhau → đề xuất tách thành 2 commit.
 - **Không bao giờ** đưa vào commit: `.env*`, `data/`, `content/`, `docs/research/`, file tạm, `node_modules/`.
@@ -45,4 +46,4 @@ Sửa "Now"/"Next"/"Blocked" nếu đã đổi; "Last checkpoint" = subject củ
 
 ## 5. Chờ xác nhận
 
-Trình bày cho Thy: danh sách file, kết quả kiểm tra, **tóm tắt phát hiện của tầng 2 và cách đã xử lý**, commit message. **Chỉ commit khi Thy đồng ý rõ ràng** trong lượt này. Sau khi commit: báo hash; nếu nhánh đã đủ chín thì gợi ý push / merge.
+Trình bày cho Thy: danh sách file, kết quả kiểm tra, **tóm tắt phát hiện của tầng 2 và cách đã xử lý**, commit message. **Chỉ commit khi Thy đồng ý rõ ràng** trong lượt này. Sau khi commit: báo hash; nếu đợt việc của nhánh đã xong thì chuyển sang `/git-flow finish` (Thy push → PR → CI xanh → Create a merge commit → pull + `uv sync` ở thư mục chính).

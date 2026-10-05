@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "timeout": 20,
+            "timeout": 25,
             "command": "uv run --no-sync --project \"${CLAUDE_PROJECT_DIR}\" python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session_status.py\""
           }
         ]

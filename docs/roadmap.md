@@ -27,7 +27,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 
 ## G — CI (GitHub Actions) — ADR-0014
 
-- ✅ (2026-10-01) `.github/workflows/ci.yml` viết xong; mô phỏng job `py` trong WSL2. **Xong khi**: lần chạy đầu trên GitHub (sau push) xanh.
+- ✅ (2026-10-01) `.github/workflows/ci.yml` viết xong; mô phỏng job `py` trong WSL2. **Xong khi**: lần chạy đầu trên GitHub xanh — CI chỉ chạy khi mở PR hoặc push vào `main` (PR đầu tiên: `feat/dashboard-p1` → `main`, ADR-0019).
 - Job `py`: `setup-uv` → `uv sync --frozen` (bỏ torch + gói CUDA, danh sách sinh từ `uv.lock`) → ruff + `ruff format --check` → mypy → `python -m scripts.consistency.check --all` (kể cả đếm số test, quét cả file chưa track) → `pytest -m "not live and not slow"`. Job `web`: `npm ci` → lint → `tsc --noEmit` → build. Không data thật, không secrets.
 
 ## D0 — Sửa tính đúng của dữ liệu (chặn D và E) — ADR-0004
