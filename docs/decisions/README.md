@@ -22,5 +22,6 @@ Mỗi quyết định kiến trúc/methodology = 1 file ngắn `NNNN-ten-ngan.md
 | [0016](0016-sonnet-cluster-labeling.md) | Đặt tên cụm bằng `claude-sonnet-5-5` thay `claude-opus-5`; bỏ lời hứa prompt caching | Accepted | 2026-10-04 |
 | [0017](0017-daytime-nlp-job.md) | Job NLP chạy 12:30 (Modern Standby đóng băng job đêm); cả 2 cron chạy khi dùng pin; cấu hình task bằng `configure_jobs.ps1` | Accepted | 2026-10-04 |
 | [0018](0018-stable-topic-identity.md) | Danh tính cụm bền (`topic_N`): ghép theo thành viên (đa số hai chiều, bỏ nhiễu, lõi giữ tên) + ngữ nghĩa; đặt lại tên khi trôi khỏi bản neo; prompt đặt tên v2 | Accepted | 2026-10-04 |
+| [0019](0019-git-workflow.md) | Quy trình git: thư mục chính luôn ở `main`, mọi thay đổi trong worktree trên nhánh riêng, PR + CI + merge commit; nhắc tự động ở hook đầu phiên, skill `/git-flow` | Accepted | 2026-10-05 |
 
 Dự kiến (đánh số giữ chỗ theo `docs/roadmap.md` và plan P1 dashboard): 0002 runtime WSL2 · 0005 experiment tracking JSON + git · 0006 lưu trữ + truy xuất KB · 0007 dữ liệu bình luận follower & privacy · 0012 nhãn viral + kiểm định biến giải thích (plan P1 Bước 2).
