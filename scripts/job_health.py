@@ -243,6 +243,19 @@ def report(
     return lines
 
 
+def main_checkout(repo: Path = REPO_ROOT) -> Path:
+    """Thư mục chính (nơi cron chạy + DB thật). Phiên trong worktree (ADR-0019) không có
+    `data/threads.db` riêng hoặc chỉ có bản sao cũ → luôn đo sức khoẻ trên thư mục chính."""
+    import time
+
+    from scripts.git_hygiene import Git, parse_worktrees
+
+    git = Git(deadline_s=2, start=time.monotonic())
+    trees = parse_worktrees(git(repo, "worktree", "list", "--porcelain"))
+    return trees[0].path if trees else repo
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
-    print("\n".join(report()))
+    root = main_checkout()
+    print("\n".join(report(root / "data" / "threads.db", repo=root)))
