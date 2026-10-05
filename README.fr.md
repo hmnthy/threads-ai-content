@@ -3,7 +3,7 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-225%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-459%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -100,9 +100,9 @@ l'est pas.
 | Gestionnaire de paquets | uv (`pyproject.toml` + `uv.lock`) | En ligne |
 | Client API Threads | httpx (async) | En ligne |
 | Validation | Pydantic v2 | En ligne |
-| IA / LLM | Claude API (`claude-opus-5`, nommage des clusters + prompt caching) | En ligne |
-| Dashboard | Next.js 16 + Tailwind v4 + Recharts | En ligne |
-| Base de données | SQLite (dev) → PostgreSQL (prévu avant tout usage multi-utilisateur) | En ligne (dev) |
+| IA / LLM | Claude API (`claude-sonnet-5-5`, nommage des clusters) | En ligne |
+| Dashboard | Next.js 16 + Tailwind v4, graphiques SVG faits main + Plotly (carte des sujets) | En ligne |
+| Base de données | SQLite — un fichier, un seul processus d'écriture ; la base de connaissances y vivra aussi | En ligne |
 | Scoring des métriques | Architecture à 6 indices (popularité/engagement/viralité/conversation/vélocité/longévité) | En ligne |
 | Détection de langue | lingua-py + Code-Mixing Index | En ligne |
 | Extraction de features NLP | sentence-transformers, multilingue (bge-m3 / multilingual-e5-large) | En ligne |
@@ -121,7 +121,7 @@ threads-ai-content/
 │   ├── processing/       Reconstruction des threads (racine + chaîne de self-reply), nettoyage texte — en ligne
 │   ├── analysis/         Scoring 6 indices + statistiques par fenêtre temporelle (médiane/moyenne/IQR) — en ligne
 │   ├── nlp/              Détection de langue, embeddings multilingues, clustering UMAP+HDBSCAN — en ligne
-│   ├── db/                Schéma SQLite (posts, content_units, insights_snapshots, topics) — en ligne
+│   ├── db/                Schéma SQLite (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — en ligne
 │   ├── pipeline/           Ingestion, cron de snapshot toutes les 4h, pont de clustering Windows↔WSL2 — en ligne
 │   ├── main.py             Point d'entrée FastAPI — en ligne
 │   └── dashboard/          App Next.js : landing page + Overview/Analytics/Topic Explorer — en ligne

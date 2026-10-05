@@ -27,3 +27,7 @@ Lệnh: **$ARGUMENTS**
 2. `git worktree remove <path>` → `git branch -d <branch>` (chỉ `-D` khi Thy đồng ý bỏ commit) → `git worktree prune`.
 3. **Windows**: worktree có `node_modules` hay lỗi "Filename too long" khi xoá — git sẽ gỡ đăng ký nhưng để lại thư mục. Xoá phần còn lại bằng PowerShell: `Remove-Item -LiteralPath "\\?\<đường dẫn tuyệt đối>" -Recurse -Force`.
 4. Xác nhận `git worktree list` chỉ còn những worktree đang dùng.
+
+## Review tầng 2 trong worktree (ADR-0015)
+
+Dấu review chỉ ghi cho worktree của **phiên** (cwd của hook). Muốn commit trong 1 worktree → mở phiên Claude Code ở worktree đó (hoặc dùng công cụ worktree của Claude Code) rồi chạy `@agent-code-reviewer` — không `cd` tay sang worktree từ phiên ở checkout chính.

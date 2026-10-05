@@ -21,6 +21,10 @@ def is_author_reply_event(post: ThreadsPost, root_content_unit: ContentUnit) -> 
     """True nếu `post.is_reply_owned_by_me=True` VÀ `post` không nằm trong
     `root_content_unit.continuations` — tác giả đang chủ động trả lời vào cuộc
     trò chuyện của audience, không phải tự nối tiếp nội dung của chính mình.
+
+    Từ ADR-0004 (2026-10-01) `continuations` chỉ còn `self_continuation`, nên hàm
+    này trả True đúng cho các reply vai `author_answer` (trả lời follower) dưới bài
+    của tác giả — trùng với `posts.reply_role = 'author_answer'`.
     """
     if not post.is_reply_owned_by_me:
         return False

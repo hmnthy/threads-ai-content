@@ -28,7 +28,7 @@ cd src/dashboard && npm run dev            # http://localhost:3000 (cần backen
 ```
 
 ML (embedding/UMAP/HDBSCAN) **chỉ chạy trong WSL2** — Smart App Control chặn DLL trên Windows. Cron: Task Scheduler
-`ThreadsAI_SnapshotJob_4h`, `ThreadsAI_NLPClusterJob_Daily` (xem log `data/logs/`).
+`ThreadsAI_SnapshotJob_4h`, `ThreadsAI_NLPClusterJob_Daily` (sức khoẻ: `python -m scripts.job_health`; log `data/logs/`).
 
 ## Bản đồ tài liệu
 
@@ -52,10 +52,11 @@ Quy tắc theo mảng code nằm ở `.claude/rules/` và **tự nạp** khi đ�
   → `/decision-sweep` lan ra toàn repo. Pre-commit **chặn** commit vi phạm sổ luật; ngoại lệ có chủ đích ghi `consistency: allow <id>`.
 - **Git**: không làm trực tiếp trên `main` cho việc nhiều bước — branch hoặc worktree (`/wt`). Mọi worktree dùng chung DB
   của checkout chính (sau Phase C); trước đó `data/` của worktree là bản riêng, có thể cũ.
-- **Subagents**: `@agent-code-reviewer` trước commit có logic/thống kê · `@agent-qa-tester` viết/chạy test (chỉ sửa `tests/`) ·
+- **Subagents**: `@agent-code-reviewer` **bắt buộc** trước commit chạm logic (git hook pre-commit chặn nếu thiếu, ADR-0015) · `@agent-qa-tester` viết/chạy test (chỉ sửa `tests/`) ·
   `@agent-researcher` tìm paper/model/docs có trích nguồn (web + MCP `huggingface`, `context7`) ·
-  `@agent-consistency-auditor` kiểm toán độc lập 1 ADR (dùng trong `/decision-sweep`).
-- **Cổng pre-commit** (chặn commit): ruff, mypy, sổ luật nhất quán, pytest nhanh, eslint + tsc khi chạm dashboard, commit-msg.
+  `@agent-consistency-auditor` kiểm toán độc lập 1 ADR (dùng trong `/decision-sweep`; **bắt buộc** trước commit ADR — git hook pre-commit chặn, ADR-0015).
+- **Cổng pre-commit** (chặn commit): ruff, mypy, sổ luật nhất quán (quét TOÀN repo, ~6s), pytest nhanh, eslint + tsc khi chạm dashboard, cổng review tầng 2 (chỉ commit của Claude), commit-msg.
+  CI (`.github/workflows/ci.yml`) chạy lại các cổng trên máy sạch khi push.
   Hook đầu phiên báo số vi phạm ≠ 0 → chạy `/decision-sweep` trước việc mới.
 - **Phiên mới**: đọc status do hook in ra; cần thêm context cho 1 task → `/prime <task>`.
 - Thy dùng song song Claude Design/Cowork trên cùng repo → `git status` trước khi sửa; thấy thay đổi lạ thì hỏi, không ghi đè.

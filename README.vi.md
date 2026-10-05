@@ -3,7 +3,7 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-225%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-459%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -96,9 +96,9 @@ Liệt kê đúng trạng thái thật của code hiện tại — không hứa 
 | Package manager | uv (`pyproject.toml` + `uv.lock`) | Đã có |
 | Threads API client | httpx (async) | Đã có |
 | Validation | Pydantic v2 | Đã có |
-| AI / LLM | Claude API (`claude-opus-5`, gán tên cluster + prompt caching) | Đã có |
-| Dashboard | Next.js 16 + Tailwind v4 + Recharts | Đã có |
-| Database | SQLite (dev) → PostgreSQL (dự kiến trước khi có nhiều user) | Đã có (dev) |
+| AI / LLM | Claude API (`claude-sonnet-5-5`, gán tên cluster) | Đã có |
+| Dashboard | Next.js 16 + Tailwind v4, chart SVG tự dựng + Plotly (bản đồ topic) | Đã có |
+| Database | SQLite — 1 file, 1 tiến trình ghi; knowledge base cũng sẽ nằm trong đó | Đã có |
 | Metric scoring | Kiến trúc 6 index (popularity/engagement/virality/conversation/velocity/longevity) | Đã có |
 | Language ID | lingua-py + Code-Mixing Index | Đã có |
 | NLP feature extraction | sentence-transformers, đa ngôn ngữ (bge-m3 / multilingual-e5-large) | Đã có |
@@ -117,7 +117,7 @@ threads-ai-content/
 │   ├── processing/       Ghép lại thread (root + chuỗi self-reply), làm sạch text — đã có
 │   ├── analysis/         Metric 6-index + thống kê theo cửa sổ thời gian (median/mean/IQR) — đã có
 │   ├── nlp/              Language ID, embedding đa ngôn ngữ, clustering UMAP+HDBSCAN — đã có
-│   ├── db/                Schema SQLite (posts, content_units, insights_snapshots, topics) — đã có
+│   ├── db/                Schema SQLite (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — đã có
 │   ├── pipeline/           Ingest, cron snapshot 4h, cầu nối clustering Windows↔WSL2 — đã có
 │   ├── main.py             Entry point FastAPI — đã có
 │   └── dashboard/          App Next.js: landing page + Overview/Analytics/Topic Explorer — đã có

@@ -1,6 +1,6 @@
-# Pop-up (toast) góc màn hình Windows cho hook Stop/Notification và cho cron job lỗi.
+# Pop-up (toast) góc màn hình Windows cho hook Stop/Notification (cron job lỗi: dự kiến Phase C, `scripts/jobs/wsl_job.ps1`).
 # Phải chạy bằng Windows PowerShell 5.1 (powershell.exe) — pwsh 7 không có WinRT projection.
-# Đọc JSON của hook từ stdin (nếu có); -Title/-Message cho phép gọi trực tiếp (VD từ cron).
+# Đọc JSON của hook từ stdin (nếu có); -Title/-Message cho phép gọi trực tiếp (VD từ script khác).
 # Lỗi WinRT → fallback MessageBox (ví dụ chính thức trong docs hooks của Claude Code).
 param(
     [string]$Event = "stop",

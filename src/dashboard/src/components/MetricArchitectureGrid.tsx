@@ -9,12 +9,12 @@ interface IndexCard {
 // tách riêng, không blend thành 1 điểm số. Nội dung tĩnh, không phụ thuộc cửa sổ
 // thời gian đang chọn.
 const INDICES: IndexCard[] = [
-  { name: "Popularity", formula: "views", status: "live", note: "Raw reach. Kept unnormalised so it can anchor the other five." },
+  { name: "Popularity", formula: "views", status: "live", note: "Raw reach — how many times the post was seen. Every rate below divides by it." },
   {
     name: "Engagement",
     formula: "(likes + replies + reposts + quotes) / views × 100",
     status: "live",
-    note: "Quotes were missing from the original formula until the 2026-08-30 fix.",
+    note: "Share of views that led to any reaction. The denominator is views, not followers: interactions per view of the post.",
   },
   {
     name: "Virality",
@@ -32,13 +32,13 @@ const INDICES: IndexCard[] = [
     name: "View velocity",
     formula: "Δviews / Δt",
     status: "deferred",
-    note: "Needs two snapshots per post. The 4-hour job has not run long enough yet.",
+    note: "Snapshots are scheduled every 4 hours since Aug 31, 2026, but only run while the collecting laptop is awake, so the series has long overnight gaps. The velocity view is not built yet.",
   },
   {
     name: "Longevity",
-    formula: "not implemented",
+    formula: "(interactions at 72h − at 24h) / interactions at 72h",
     status: "deferred",
-    note: "Waiting on a longer snapshot history before a formula is committed.",
+    note: "Formula specified, not implemented yet. It needs snapshots at 24 h and 72 h after posting."
   },
 ];
 

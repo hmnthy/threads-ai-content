@@ -10,24 +10,28 @@ layer"). Chạy tay: `.venv/Scripts/python.exe -m src.pipeline.ingest`.
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 from pathlib import Path
 
 from src.api.auth import load_credentials
 from src.api.cache import Cache
 from src.api.client import ThreadsClient
 from src.api.endpoints import get_posts, get_replies
+from src.api.models import ThreadsPost
 from src.db.schema import (
     DEFAULT_DB_PATH,
     connect,
     create_schema,
     update_content_unit_text,
+    update_reply_roles,
     upsert_content_unit,
     upsert_post,
 )
+from src.models.content_unit import ContentUnit
 from src.pipeline.daily_views import fetch_and_store_daily_views
 from src.pipeline.snapshot import fetch_and_store_insights_snapshot
 from src.processing.text import normalize_text
-from src.processing.thread_reconstruction import build_content_units
+from src.processing.thread_reconstruction import assign_reply_roles, build_content_units
 
 
 async def run_ingest(db_path: Path = DEFAULT_DB_PATH, *, use_cache: bool = True) -> dict[str, int]:
@@ -52,14 +56,8 @@ async def run_ingest(db_path: Path = DEFAULT_DB_PATH, *, use_cache: bool = True)
 
         for post in [*posts, *replies]:
             upsert_post(conn, post)
-        for unit in units:
-            upsert_content_unit(conn, unit)
-            update_content_unit_text(
-                conn,
-                unit.id,
-                raw_text=unit.full_text,
-                normalized_text=normalize_text(unit.full_text),
-            )
+        update_reply_roles(conn, assign_reply_roles(posts, replies))
+        _store_units(conn, units)
         conn.commit()
 
         snapshot_count = await fetch_and_store_insights_snapshot(
@@ -76,6 +74,37 @@ async def run_ingest(db_path: Path = DEFAULT_DB_PATH, *, use_cache: bool = True)
         "insight_snapshots": snapshot_count,
         "daily_views_points": daily_views_count,
     }
+
+
+def _store_units(conn: sqlite3.Connection, units: list[ContentUnit]) -> None:
+    for unit in units:
+        upsert_content_unit(conn, unit)
+        update_content_unit_text(
+            conn,
+            unit.id,
+            raw_text=unit.full_text,
+            normalized_text=normalize_text(unit.full_text),
+        )
+
+
+def rebuild_content_units(conn: sqlite3.Connection) -> dict[str, int]:
+    """Dựng lại vai reply + content unit từ `posts` đã lưu (`raw_json`), KHÔNG gọi API —
+    dùng khi đổi luật dựng content unit (ADR-0004) mà không muốn chờ job ingest. Chỉ
+    ghi đè `posts.reply_role` và `content_units` (continuation, full_text); không đụng
+    `insights_snapshots` (time-series không hồi cứu được) hay toạ độ UMAP/ngôn ngữ."""
+    rows = conn.execute("SELECT raw_json, is_reply FROM posts").fetchall()
+    parsed = [(ThreadsPost.model_validate_json(row["raw_json"]), row["is_reply"]) for row in rows]
+    posts = [post for post, is_reply in parsed if not is_reply]
+    replies = [post for post, is_reply in parsed if is_reply]
+    roles = assign_reply_roles(posts, replies)
+    update_reply_roles(conn, roles)
+    units = build_content_units(posts, replies)
+    _store_units(conn, units)
+    conn.commit()
+    counts: dict[str, int] = {"content_units": len(units)}
+    for role in roles.values():
+        counts[role] = counts.get(role, 0) + 1
+    return counts
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-225%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-459%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -94,9 +94,9 @@ Shown as it actually stands today — nothing implied that isn't built yet.
 | Package manager | uv (`pyproject.toml` + `uv.lock`) | Live |
 | Threads API client | httpx (async) | Live |
 | Validation | Pydantic v2 | Live |
-| AI / LLM | Claude API (`claude-opus-5`, cluster labeling + prompt caching) | Live |
-| Dashboard | Next.js 16 + Tailwind v4 + Recharts | Live |
-| Database | SQLite (dev) → PostgreSQL (planned before any multi-user use) | Live (dev) |
+| AI / LLM | Claude API (`claude-sonnet-5-5`, cluster labeling) | Live |
+| Dashboard | Next.js 16 + Tailwind v4, hand-built SVG charts + Plotly (topic map) | Live |
+| Database | SQLite — one file, one writer; the knowledge base will live in it too | Live |
 | Metric scoring | 6-index architecture (popularity/engagement/virality/conversation/velocity/longevity) | Live |
 | Language ID | lingua-py + Code-Mixing Index | Live |
 | NLP feature extraction | sentence-transformers, multilingual (bge-m3 / multilingual-e5-large) | Live |
@@ -115,7 +115,7 @@ threads-ai-content/
 │   ├── processing/       thread reconstruction (root + self-reply chains), text cleaning — live
 │   ├── analysis/         6-index metric scoring + windowed statistics (median/mean/IQR) — live
 │   ├── nlp/              language ID, multilingual embeddings, UMAP+HDBSCAN clustering — live
-│   ├── db/                SQLite schema (posts, content_units, insights_snapshots, topics) — live
+│   ├── db/                SQLite schema (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — live
 │   ├── pipeline/           ingest, 4h snapshot cron, Windows↔WSL2 clustering bridge — live
 │   ├── main.py             FastAPI entry point — live
 │   └── dashboard/          Next.js app: landing page + Overview/Analytics/Topic Explorer — live

@@ -20,24 +20,25 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 - `pyproject.toml`: index torch CPU. Bỏ venv `~/threads-clustering-env`.
 - `src/config.py::db_path()` — `$THREADS_DB_PATH` hoặc DB của checkout chính (qua `git --git-common-dir`) → mọi worktree dùng chung 1 DB. Thay `DEFAULT_DB_PATH` (`src/db/schema.py`).
 - `connect()`: WAL + `busy_timeout=30000` + retry khi "database is locked".
-- `scripts/jobs/run_job.sh {snapshot|nlp|kb}` bọc `flock`; job NLP gộp thành `src/pipeline/recluster.py`. Xoá cầu nối `clustering_export.py`/`cluster_wsl.py`/`clustering_import.py` + 2 file `.bat`.
-- `scripts/jobs/wsl_job.ps1` cho Task Scheduler: retry khi WSL khởi động chậm (`HCS_E_CONNECTION_TIMEOUT`), pop-up khi thất bại hẳn.
-- 4 entry local của pre-commit (mypy, consistency, pytest-fast, dashboard) → đường dẫn Linux (`.venv/bin/python`).
+- `scripts/jobs/run_job.sh {snapshot|nlp|kb}` bọc `flock`; job NLP gộp thành `src/pipeline/recluster.py`. Xoá cầu nối `clustering_export.py`/`cluster_wsl.py`/`clustering_import.py` + `nlp_cluster_job.py` (launcher Windows của ADR-0013). Giữ nguyên hành vi danh tính cụm của ADR-0018 (ghép thành viên + ngữ nghĩa, bản neo, `retired`) — test `tests/pipeline/test_clustering_import.py` chuyển theo.
+- `scripts/jobs/wsl_job.ps1` cho Task Scheduler: retry khi WSL khởi động chậm (`HCS_E_CONNECTION_TIMEOUT`), pop-up khi thất bại hẳn. Mang theo lịch NLP 12:30 + cờ chạy khi dùng pin (ADR-0017, `scripts/configure_jobs.ps1`).
+- 5 entry local của pre-commit (mypy, consistency, review-gate, pytest-fast, dashboard) → đường dẫn Linux (`.venv/bin/python`).
 - **Xong khi**: test xanh trong WSL; 2 job chạy chồng thì job sau chờ; 3 ngày log xanh liên tục.
 
-## G — CI (GitHub Actions)
+## G — CI (GitHub Actions) — ADR-0014
 
-- Job `py`: `setup-uv` → `uv sync --frozen` → ruff → mypy → `python -m scripts.consistency.check --all --no-pytest` → `pytest -m "not live and not slow"`. Job `web`: `npm ci` → lint → `tsc --noEmit` → build. Không data thật, không secrets.
+- ✅ (2026-10-01) `.github/workflows/ci.yml` viết xong; mô phỏng job `py` trong WSL2. **Xong khi**: lần chạy đầu trên GitHub (sau push) xanh.
+- Job `py`: `setup-uv` → `uv sync --frozen` (bỏ torch + gói CUDA, danh sách sinh từ `uv.lock`) → ruff + `ruff format --check` → mypy → `python -m scripts.consistency.check --all` (kể cả đếm số test, quét cả file chưa track) → `pytest -m "not live and not slow"`. Job `web`: `npm ci` → lint → `npm run typecheck` (`next typegen` + `tsc --noEmit`) → build. Không data thật, không secrets.
 
 ## D0 — Sửa tính đúng của dữ liệu (chặn D và E) — ADR-0004
 
-1. `posts.reply_role ∈ {root, self_continuation, author_answer, outbound}` — continuation khi `replied_to ∈ {root} ∪ {continuation trước đó}`. Đối chiếu số thật 362/664/342.
-2. `full_text` = root + self_continuation + `text_attachment`. Câu trả lời cho follower lưu riêng.
-   - Quyết định kèm (hỏi Thy): topic `method='fixed'` trong schema/`/topics` chỉ dành cho kết quả RQ-08 hay bỏ khỏi CHECK — bộ phân loại không còn là thành phần sản phẩm (ADR-0001).
-3. **Verify live** `GET /{root_id}/conversation`: Standard Access có trả text bình luận follower không. Có → bảng `audience_replies` (username pseudonymize bằng hash có salt — GDPR), ADR-0007. Không → gold set dùng câu hỏi tự soạn.
-4. Bảng `qa_pairs` (bình luận follower ↔ câu trả lời tác giả).
-5. Bảng `embeddings(object_type, object_id, model_id, content_hash, vector)` — chỉ embed lại khi hash đổi; điền `topics.centroid_embedding_json`.
-6. Chạy lại clustering; RQ-00 đo tác động (ARI cũ vs mới).
+1. ✅ (2026-10-01) `posts.reply_role ∈ {self_continuation, author_answer, outbound}` — continuation khi `replied_to ∈ {root} ∪ {continuation trước đó}`. Số thật: 353 / 674 / 342 (suy từ đồ thị `replied_to`, không từ timestamp).
+2. ✅ (2026-10-01) `full_text` = root + self_continuation + `text_attachment`. Câu trả lời cho follower giữ trong `posts` với vai `author_answer`.
+   - ✅ Cùng migration: bỏ `'fixed'` khỏi CHECK `method` của `topics`/`post_topic_labels` (Thy chốt 2026-09-30) — bộ phân loại 6 nhãn không còn là thành phần sản phẩm (ADR-0001); nhãn tay + kết quả RQ-08 lưu ở `experiments/`, không vào DB sản phẩm. SQLite không sửa CHECK tại chỗ → tạo lại 2 bảng (topic sinh lại được).
+3. ✅ **Verify live** `GET /{root_id}/conversation` (2026-10-01): **có** trả text + username bình luận follower → bảng `audience_replies` (username pseudonymize bằng hash có salt — GDPR) cần ADR-0007 trước; gold set dùng được câu hỏi thật.
+4. Bảng `qa_pairs` (bình luận follower ↔ câu trả lời tác giả) — sau ADR-0007.
+5. ✅ (2026-10-01) Bảng `embeddings(object_type, object_id, model_id, content_hash, dim, vector)` — chỉ embed lại khi hash đổi; điền `topics.centroid_embedding_json` + từ khoá c-TF-IDF + bài đại diện.
+6. ✅ (2026-10-01) Chạy lại clustering, calibrate lại n_neighbors 8: 9 cụm, nhiễu 36,1%, `validity_index` 0,317; ARI so với cụm cũ: gộp 0,22, riêng phần dữ liệu 0,13, riêng phần tham số 0,38 (có tính nhiễu) — ADR-0004. RQ-00 phân tích sâu tác động.
 
 ## D — Câu hỏi nghiên cứu (`docs/rq/RQ-xx.md`, tracking JSON + git — ADR-0005)
 

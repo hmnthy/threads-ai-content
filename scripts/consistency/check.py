@@ -6,13 +6,18 @@ có ngày). Script chỉ dùng thư viện chuẩn để chạy được ở pre
 Các kiểm tra:
 1. forbid       — mẫu (regex) lỗi thời bị cấm, trừ vùng `allow` và ngoại lệ có chú thích
 2. dead_path    — đường dẫn trong backtick / link markdown phải tồn tại (trừ planned/untracked)
-3. readme_sync  — 3 README (EN/VI/FR) cùng cấu trúc; sửa 1 bản phải sửa cả 3 (chế độ --staged)
-4. stale_asset  — file nhị phân phải được làm lại sau commit tạo ADR làm nó lỗi thời
+3. readme_sync  — 3 README (EN/VI/FR) cùng cấu trúc; sửa 1 bản phải sửa cả 3 (--staged/--commit)
+4. stale_asset  — file nhị phân phải được làm lại trong/sau commit tạo ADR làm nó lỗi thời
 5. doc_limits   — giới hạn số dòng (CLAUDE.md, status.md) + chỉ mục ADR đầy đủ
-6. count_fact   — số test ghi trong docs khớp số test thật (chỉ --all)
+6. count_fact   — số test ghi trong docs khớp số test thật (--all/--commit)
 
 Ngoại lệ có dấu vết: chú thích `consistency: allow <rule-id>` trên cùng dòng hoặc dòng
 ngay trước. Dùng:  uv run python -m scripts.consistency.check --all [--json]
+
+Chế độ: --all (toàn repo; hook đầu phiên, sweep, CI) · --commit (pre-commit: toàn repo +
+luật "3 README sửa cùng nhau" theo file đang stage — ~6 giây) · --staged (chỉ file stage).
+Pre-commit quét toàn repo vì luật đếm số / ảnh lỗi thời / đường dẫn chết hỏng do file KHÁC
+file đang sửa (VD thêm test làm README ghi sai số test) — chỉ quét file stage thì lọt.
 """
 
 from __future__ import annotations
@@ -83,7 +88,8 @@ def _matches(path: str, globs: list[str]) -> bool:
 
 def _git(root: Path, *args: str) -> str:
     result = subprocess.run(
-        ["git", "-C", str(root), *args],
+        # quotepath=off: tên file có dấu (tiếng Việt) không bị git trả về dạng "r\303\251…"
+        ["git", "-C", str(root), "-c", "core.quotepath=off", *args],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -94,6 +100,13 @@ def _git(root: Path, *args: str) -> str:
 
 def tracked_files(root: Path) -> list[str]:
     return [p for p in _git(root, "ls-files").splitlines() if p]
+
+
+def untracked_files(root: Path) -> list[str]:
+    """File mới chưa `git add` (bỏ file gitignored) — --all quét cả chúng: file mới viết
+    xong chưa stage vẫn phải được kiểm trước khi tới pre-commit (lỗ hổng 2026-10-01)."""
+    out = _git(root, "ls-files", "--others", "--exclude-standard")
+    return [p for p in out.splitlines() if p]
 
 
 def staged_files(root: Path) -> list[str]:
@@ -204,21 +217,37 @@ def _clean_candidate(raw: str) -> str | None:
     return cand or None
 
 
-def _path_ok(root: Path, rel_path: str, cfg: Config) -> bool:
+def _tracked_index(tracked: list[str]) -> frozenset[str]:
+    """File đã track + mọi thư mục cha của chúng (để kiểm cả đường dẫn thư mục)."""
+    out: set[str] = set(tracked)
+    for f in tracked:
+        parts = f.split("/")
+        out.update("/".join(parts[:i]) for i in range(1, len(parts)))
+    return frozenset(out)
+
+
+def _path_ok(root: Path, rel_path: str, cfg: Config, tracked: frozenset[str] | None = None) -> bool:
+    """`tracked` (chế độ commit): đường dẫn phải có trong git, không chỉ trên đĩa — doc nhắc
+    file chưa `git add` qua được pre-commit rồi hỏng ở clone sạch / CI."""
     norm = rel_path.rstrip("/")
-    if (root / norm).exists():
+
+    def present(rel: str) -> bool:
+        return rel in tracked if tracked is not None else (root / rel).exists()
+
+    if present(norm):
         return True
     # Tham chiếu kiểu module Python: src/api/endpoints.get_x → src/api/endpoints.py
     head, _, last = norm.rpartition("/")
-    if "." in last and (root / head / (last.split(".", 1)[0] + ".py")).exists():
+    if "." in last and present(f"{head}/{last.split('.', 1)[0]}.py"):
         return True
     return _matches(norm, cfg.planned_paths) or _matches(norm, cfg.known_untracked)
 
 
 def check_dead_paths(
-    root: Path, files: list[str], tracked: list[str], cfg: Config
+    root: Path, files: list[str], tracked: list[str], cfg: Config, strict: bool = False
 ) -> list[Violation]:
     tops = _top_level_names(root, tracked, cfg)
+    index = _tracked_index(tracked) if strict else None
     out: list[Violation] = []
     for rel in files:
         if _matches(rel, cfg.exclude) or _matches(rel, cfg.dead_path_exclude):
@@ -249,7 +278,7 @@ def check_dead_paths(
                     if cand.split("/", 1)[0] not in tops:
                         continue
                     rel_target = cand
-                if _path_ok(root, rel_target, cfg):
+                if _path_ok(root, rel_target, cfg, index):
                     continue
                 if _allowed_inline(lines, i, "dead-path"):
                     continue
@@ -319,14 +348,26 @@ def check_readme_sync(root: Path, staged: list[str] | None) -> list[Violation]:
 # --- 4. stale_asset -------------------------------------------------------------------
 
 
-def _first_commit_time(root: Path, pattern: str) -> int | None:
-    out = _git(root, "log", "--diff-filter=A", "--format=%ct", "--", pattern).split()
-    return int(out[-1]) if out else None
+# So theo TỔ TIÊN commit, không theo timestamp: squash/rebase merge trên GitHub đặt cùng
+# 1 committer date cho cả chuỗi → so `<=` thời gian báo sai vĩnh viễn (code-reviewer
+# 2026-10-01). ADR và asset trong CÙNG commit = asset đã được làm lại cùng ADR → hợp lệ.
+def _first_commit(root: Path, pattern: str) -> str | None:
+    out = _git(root, "log", "--diff-filter=A", "--format=%H", "--", pattern).split()
+    return out[-1] if out else None
 
 
-def _last_commit_time(root: Path, path: str) -> int | None:
-    out = _git(root, "log", "-1", "--format=%ct", "--", path).strip()
-    return int(out) if out else None
+def _last_commit(root: Path, path: str) -> str | None:
+    out = _git(root, "log", "-1", "--format=%H", "--", path).strip()
+    return out or None
+
+
+def _is_ancestor(root: Path, ancestor: str, commit: str) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(root), "merge-base", "--is-ancestor", ancestor, commit],
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
 
 
 def check_stale_assets(root: Path, cfg: Config) -> list[Violation]:
@@ -334,13 +375,13 @@ def check_stale_assets(root: Path, cfg: Config) -> list[Violation]:
     for rule in cfg.stale_assets:
         path = rule["path"]
         adr = str(rule["adr"])
-        adr_time = _first_commit_time(root, f"docs/decisions/{adr}-*.md")
-        if adr_time is None:
+        adr_commit = _first_commit(root, f"docs/decisions/{adr}-*.md")
+        if adr_commit is None:
             continue  # ADR chưa commit — chưa có mốc để so
         if _git(root, "status", "--porcelain", "--", path).strip():
             continue  # đang được làm lại trong working tree / staged
-        asset_time = _last_commit_time(root, path)
-        if asset_time is None or asset_time <= adr_time:
+        asset_commit = _last_commit(root, path)
+        if asset_commit is None or not _is_ancestor(root, adr_commit, asset_commit):
             out.append(
                 Violation(
                     check="stale_asset",
@@ -418,9 +459,11 @@ def check_doc_limits(root: Path, cfg: Config, tracked: list[str]) -> list[Violat
 # --- 6. count_fact --------------------------------------------------------------------
 
 
-def collected_test_count(root: Path) -> int | None:
+def collected_test_count(root: Path, ignore: list[str] | None = None) -> int | None:
+    """`ignore`: file test chưa track (chế độ commit) — không thuộc commit nên không đếm."""
+    extra = [f"--ignore={p}" for p in ignore or []]
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", *extra],
         cwd=root,
         capture_output=True,
         text=True,
@@ -468,15 +511,23 @@ def check_count_facts(
 def run(root: Path, mode: str, with_pytest: bool = True) -> list[Violation]:
     cfg = load_config(root)
     tracked = tracked_files(root)
-    staged = staged_files(root) if mode == "staged" else None
-    files = staged if staged is not None else tracked
+    staged = staged_files(root) if mode in ("staged", "commit") else None
+    if mode == "staged" and staged is not None:
+        files = staged
+    elif mode == "all":
+        files = tracked + untracked_files(root)
+    else:  # commit: file chưa track không thuộc commit (pre-commit không cất chúng đi)
+        files = tracked
     violations = check_forbid(root, files, cfg)
-    violations += check_dead_paths(root, files, tracked, cfg)
+    violations += check_dead_paths(root, files, tracked, cfg, strict=mode == "commit")
     violations += check_readme_sync(root, staged)
     violations += check_stale_assets(root, cfg)
     violations += check_doc_limits(root, cfg, tracked)
-    if mode == "all" and with_pytest:
-        violations += check_count_facts(root, tracked, cfg, collected_test_count(root))
+    if mode in ("all", "commit") and with_pytest:
+        ignore = None
+        if mode == "commit":  # pre-commit không cất file chưa track → loại khỏi lần đếm
+            ignore = [f for f in untracked_files(root) if f.startswith("tests/")]
+        violations += check_count_facts(root, files, cfg, collected_test_count(root, ignore))
     return violations
 
 
@@ -504,16 +555,19 @@ def format_report(violations: list[Violation]) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--all", action="store_true", help="quét toàn bộ file git theo dõi")
-    group.add_argument("--staged", action="store_true", help="chỉ file đang stage (pre-commit)")
+    group.add_argument("--all", action="store_true", help="toàn repo, kể cả file chưa track")
+    group.add_argument("--staged", action="store_true", help="chỉ file đang stage")
+    group.add_argument(
+        "--commit", action="store_true", help="pre-commit: toàn repo + README theo file stage"
+    )
     parser.add_argument("--json", action="store_true", help="xuất JSON")
     parser.add_argument("--no-pytest", action="store_true", help="bỏ kiểm tra số test")
     parser.add_argument("--count", action="store_true", help="chỉ in số vi phạm")
-    args = parser.parse_args(argv)
-
+    # Trước parse_args: --help in tiếng Việt, cp1252 mặc định của Windows sẽ crash
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+    args = parser.parse_args(argv)
     root = Path(_git(Path.cwd(), "rev-parse", "--show-toplevel").strip() or ".")
-    mode = "staged" if args.staged else "all"
+    mode = "staged" if args.staged else "commit" if args.commit else "all"
     try:
         violations = run(root, mode, with_pytest=not (args.no_pytest or args.count))
     except (tomllib.TOMLDecodeError, re.error, KeyError) as exc:
