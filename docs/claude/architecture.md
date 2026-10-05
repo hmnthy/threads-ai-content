@@ -61,7 +61,7 @@ threads-ai-content/
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
 | Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán (toàn repo, `--commit`), cổng review tầng 2 (chỉ commit của Claude, ADR-0015), pytest nhanh, eslint+tsc, commit-msg | Live |
-| CI | GitHub Actions (`.github/workflows/ci.yml`: job py + web, ADR-0014) | Có file, chạy lần đầu khi mở PR `feat/dashboard-p1` → `main` — CI chỉ chạy khi mở PR hoặc push vào `main` (Roadmap G, ADR-0019) |
+| CI | GitHub Actions (`.github/workflows/ci.yml`: job py + web, ADR-0014) | Live — chạy lần đầu 2026-10-05 (PR #1: `web` đỏ vì `LayoutProps` → `67c3bf8` → xanh); chỉ chạy khi mở/cập nhật PR, push vào `main` hoặc chạy tay (Roadmap G, ADR-0019) |
 
 ## Luồng dữ liệu
 

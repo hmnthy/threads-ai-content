@@ -31,7 +31,7 @@ Ba quy tắc: **thư mục chính luôn ở `main`** (2 cron chạy code ở đ�
 Checklist — dừng ở bước nào chưa đạt và nói rõ cho Thy:
 1. Việc của nhánh đã xong, `/checkpoint` cuối đã commit; `git status` sạch trong worktree.
 2. `main` trên GitHub có commit mới? `git fetch origin` → `git merge origin/main` trong worktree, sửa xung đột, chạy lại test.
-3. Full `uv run pytest -q`, ruff, mypy, `check --all` xanh (dashboard: lint + tsc + build).
+3. Full `uv run pytest -q`, ruff, mypy, `check --all` xanh (dashboard: `npm run lint` + `npm run typecheck` + `npm run build`).
 4. Thy push: `git push -u origin <nhánh>` (lệnh push của Claude bị chặn — chỉ đưa lệnh).
 5. Thy mở PR: `https://github.com/hmnthy/threads-ai-content/compare/main...<nhánh>`; tiêu đề = tóm tắt đợt việc (tiếng Anh), mô tả liệt kê ADR/commit chính.
 6. CI (tab *Checks*: job `py` + `web`) xanh. Đỏ → đọc log, sửa trên cùng nhánh, Thy push lại.

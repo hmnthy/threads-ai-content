@@ -42,7 +42,7 @@ ADR: **$ARGUMENTS**
 
 1. `uv run --no-sync python -m scripts.consistency.check --all` → **0 vi phạm** (có cả kiểm tra số test).
 2. `uv run ruff check .` · `uv run mypy` · `uv run pytest -q` (**bộ đầy đủ**, không chỉ test nhanh).
-3. Có chạm `src/dashboard/**` → trong `src/dashboard`: `npm run lint` · `npx tsc --noEmit` · `npm run build`.
+3. Có chạm `src/dashboard/**` → trong `src/dashboard`: `npm run lint` · `npm run typecheck` · `npm run build`.
 4. Gọi lại `@agent-consistency-auditor` lần 2 → phải là "0 phát hiện ngoài tầng 1". Còn phát hiện → quay lại Bước 2. Lượt này là **lượt ghi dấu** cho git hook pre-commit chặn commit (ADR-0015): chạy SAU lần sửa cuối của ADR, không sửa ADR trong lúc nó chạy; sửa ADR sau đó → chạy lại.
 5. Báo cáo ngắn: số vi phạm trước → sau, luật mới đã thêm, ngoại lệ đã gắn (và vì sao), kết quả từng lệnh kiểm tra.
 6. Diff có `invariants.toml` hoặc file logic → cần `@agent-code-reviewer` (ADR-0015) — `/checkpoint` bước 2b làm.
