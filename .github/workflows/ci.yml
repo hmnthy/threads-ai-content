@@ -57,5 +57,5 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" # chỉ dùng cho `npm run screenshots` trên máy
       - run: npm run lint
-      - run: npx tsc --noEmit
+      - run: npm run typecheck # next typegen && tsc --noEmit — kiểu route sinh vào .next/ (gitignored)
       - run: npm run build
