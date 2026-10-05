@@ -48,7 +48,7 @@ repos:
         name: dashboard eslint + tsc
         entry: ./.venv/Scripts/python.exe scripts/precommit/dashboard_check.py
         language: system
-        files: ^src/dashboard/(src/|scripts/|package\.json|tsconfig\.json|eslint\.config)
+        files: ^src/dashboard/(src/|scripts/|package\.json|tsconfig\.json|eslint\.config|next\.config)
         pass_filenames: false
       # Chốt chặn tầng git cho quy tắc "không trailer Co-Authored-By" — áp dụng cả khi
       # commit tay ngoài Claude Code (hook PreToolUse chỉ bảo vệ commit do Claude chạy).
