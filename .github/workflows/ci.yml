@@ -1,0 +1,61 @@
+# CI (roadmap Phase G): chạy lại các cổng pre-commit trên máy sạch — clone mới chưa
+# `pre-commit install` vẫn bị kiểm. Không data thật, không secrets (test live/slow bị bỏ).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  py:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # stale_asset so tổ tiên commit; clone nông thì mọi file như mới thêm → bỏ lọt
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install (no torch/CUDA — fast suite never imports them)
+        run: |
+          # torch + ~20 gói CUDA nặng vài GB chỉ cần cho test `slow` (bị bỏ ở CI).
+          # Sinh danh sách từ uv.lock để không lệch khi lock đổi.
+          skip=$(grep -oP '^name = "\K(torch|triton|nvidia-[^"]+|cuda-[^"]+)(?=")' uv.lock \
+            | sed 's/^/--no-install-package /' | tr '\n' ' ')
+          uv sync --frozen $skip
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync ruff format --check .
+      - run: uv run --no-sync mypy
+      - name: Consistency (whole repo, incl. test-count facts)
+        run: uv run --no-sync python -m scripts.consistency.check --all
+      - run: uv run --no-sync pytest -q -m "not slow and not live" -p no:cacheprovider
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/dashboard/package-lock.json
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" # chỉ dùng cho `npm run screenshots` trên máy
+      - run: npm run lint
+      - run: npm run typecheck # next typegen && tsc --noEmit — kiểu route sinh vào .next/ (gitignored)
+      - run: npm run build

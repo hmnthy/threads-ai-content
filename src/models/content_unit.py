@@ -15,12 +15,12 @@ from src.api.models import ThreadsPost
 
 @dataclass(frozen=True)
 class ContentUnit:
-    """1 "bài content" hoàn chỉnh — root post + chuỗi self-reply continuations do
-    CHÍNH tác giả đăng tiếp (is_reply_owned_by_me=True), nối theo root_post/replied_to.
+    """1 "bài content" hoàn chỉnh — root post + các reply vai `self_continuation`
+    (tác giả viết tiếp bài của mình, nối theo replied_to — ADR-0004).
 
-    Audience replies KHÔNG gộp vào đây — chúng là tín hiệu `conversation_rate`, không
-    phải nội dung. Embedding/topic detection chạy trên `full_text`, không phải riêng
-    `root.text`.
+    Câu trả lời của tác giả cho follower (`author_answer`) và bình luận follower KHÔNG
+    gộp vào đây — đó là hội thoại, không phải nội dung bài. Embedding/topic detection
+    chạy trên `full_text`, không phải riêng `root.text`.
     """
 
     root: ThreadsPost

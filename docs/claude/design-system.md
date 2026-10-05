@@ -214,8 +214,9 @@ Khi yêu cầu chỉ nói "làm UI" → mặc định tầng A.
 |---|---|---|
 | Engagement theo thời gian | Line + area fill | Series chính `--amber-600`, so sánh `--text-muted` |
 | Top posts / topics | Ranked horizontal bar | Không dùng vertical bar — nhãn tiếng Việt dài |
-| Giờ/thứ đăng hiệu quả | Heatmap | Thang tuần tự 1 hue (amber), không dùng thang cầu vồng |
+| Giờ/thứ đăng hiệu quả | Heatmap | Thang tuần tự 1 hue (amber), không dùng thang cầu vồng. Mỗi ô ghi n; ô `insufficient_data` gạch chéo, không tô theo giá trị |
 | Phân bổ topic | Horizontal bar | **Không dùng pie khi > 5 nhóm** |
+| Bản đồ topic (scatter UMAP) | Scatter xám + 1 topic tô `--amber-600` | Không tô mỗi cluster 1 màu: trên scatter không bảng màu nào giữ > 3 màu phân biệt được với người mù màu. Chọn topic từ danh sách horizontal bar để làm nổi |
 | Virality distribution | Histogram | |
 
 Bắt buộc mọi chart:
@@ -314,6 +315,12 @@ Kết quả trả về là **khuyến nghị**, không phải lệnh. Nếu mâu
 
 ## 13. Decision log
 
+### 2026-09-30 — Bản đồ topic 1 màu nhấn; heatmap giờ đăng có n
+
+- Topic Explorer bỏ bảng 8 màu v2 (3 tông tím trùng nhau, hex rời): mọi điểm dùng `--text-muted`, topic đang chọn dùng `--amber-600`. Lý do: 9 cluster trên scatter vượt giới hạn phân biệt màu (skill dataviz: tối đa 3 slot an toàn khi mọi cặp màu cùng hiện). Danh sách topic dạng horizontal bar (§9) thành khối chính.
+- Heatmap giờ/thứ (§9) thay 4 bar chart dọc: màu = `color-mix` giữa `--amber-soft` và `--amber-700`, trần 65% để `--text-primary` vẫn đạt ≥ 4.5:1 trên ô đậm nhất. Ô thiếu dữ liệu gạch chéo 45°.
+- Xoá alias token v2 (`--accent-purple`, `--bg-border`…) khỏi `globals.css` — không còn file nào dùng.
+
 ### 2026-09-03 — v3.1: bỏ violet, dùng amber
 
 | Quyết định | Lý do |
@@ -328,7 +335,7 @@ Kết quả trả về là **khuyến nghị**, không phải lệnh. Nếu mâu
 
 Nguồn đầy đủ (research, ảnh style guide, mockup tương tác): `src/dashboard/mockups/` — README của thư mục đó liệt kê từng file.
 
-**Sync 2026-09-03**: `docs/claude/design-system.md` (file này) cập nhật theo v3.1 từ bản `design-system-v3.1-amber.md` trong mockups (đã xoá sau khi sync) để không còn 2 nguồn song song. `globals.css` + `AnalyticsOverview.tsx` refactor sang token v3.1 (bỏ zebra striping, bỏ gradient bar ngoài hero, bỏ hex hardcode trong Recharts). **Chưa làm**: `Nav.tsx`, `TopicExplorer.tsx`, `topics/page.tsx` vẫn dùng token cũ (alias sang giá trị amber trong `globals.css` để không vỡ layout, nhưng chưa refactor cấu trúc/component theo §5–§6). (Cập nhật: `Nav.tsx` đã xong ở `c31d756`, landing Tầng B bản scoped đã dựng ở `7534faa`; `TopicExplorer.tsx` + `topics/page.tsx` vẫn ở token cũ — theo dõi ở `docs/status.md`.)
+**Sync 2026-09-03**: `docs/claude/design-system.md` (file này) cập nhật theo v3.1 từ bản `design-system-v3.1-amber.md` trong mockups (đã xoá sau khi sync) để không còn 2 nguồn song song. `globals.css` + `AnalyticsOverview.tsx` refactor sang token v3.1 (bỏ zebra striping, bỏ gradient bar ngoài hero, bỏ hex hardcode trong Recharts). **Chưa làm**: `Nav.tsx`, `TopicExplorer.tsx`, `topics/page.tsx` vẫn dùng token cũ (alias sang giá trị amber trong `globals.css` để không vỡ layout, nhưng chưa refactor cấu trúc/component theo §5–§6). (Cập nhật: `Nav.tsx` đã xong ở `c31d756`, landing Tầng B bản scoped đã dựng ở `7534faa`; `TopicExplorer.tsx` + `topics/page.tsx` chuyển sang token v3.1 ngày 2026-09-30 — xem mục đầu của decision log.)
 
 ### 2026-09-02 — v3 thay v2: dark → light
 

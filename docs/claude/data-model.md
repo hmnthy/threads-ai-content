@@ -41,7 +41,7 @@ POST /me/threads                         # Đăng bài — KHÔNG dùng: dự á
 | Field | Kết quả verify | Ghi chú |
 |---|---|---|
 | `root_post`, `replied_to` | ✅ Thật — trả `{"id": "..."}`. Mẫu nhỏ (limit=3) ban đầu trống, tưởng lỗi; test lại `limit=20` trên `/replies` thấy 9-10/20 item có data | Dùng cho `thread_reconstruction.py` — nối chuỗi self-reply thành 1 `ContentUnit` |
-| `is_reply`, `is_reply_owned_by_me` | ✅ Thật — boolean đúng nghĩa (`is_reply=False` trên `/threads`, `True` trên `/replies`) | Luôn `True` với data từ `/replies` (endpoint chỉ trả reply của tác giả) — phân vai reply (self-continuation / trả lời follower / ở bài người khác) làm ở Phase D0 (`reply_role`) |
+| `is_reply`, `is_reply_owned_by_me` | ✅ Thật — boolean đúng nghĩa (`is_reply=False` trên `/threads`, `True` trên `/replies`) | Luôn `True` với data từ `/replies` (endpoint chỉ trả reply của tác giả) — vai của từng reply nằm ở `posts.reply_role` (self_continuation / author_answer / outbound — ADR-0004) |
 | `has_replies` | ✅ Thật (test thêm ngoài dự kiến ban đầu) | Tín hiệu nhẹ "post có ai reply chưa" |
 | `is_spoiler_media` | ✅ Thật, luôn `False` trong data hiện có | Tác giả chưa dùng spoiler |
 | `text_attachment` | ✅ Thật, CÓ dùng — verify lại 2026-08-31 khi chạy pipeline ingest trên toàn bộ 140 posts + 1,285 replies (mẫu nhỏ 50+50 ngày 2026-08-30 không bắt được case này). Shape thật là **edge `{"plaintext": "..."}`**, không phải string phẳng như giả định ban đầu — `ThreadsPost` đã thêm `field_validator` tự flatten (giống `children`) | Dùng cho `ContentUnit.text_attachment` |
@@ -70,7 +70,7 @@ POST /me/threads                         # Đăng bài — KHÔNG dùng: dự á
 
 - OAuth 2.0, token lưu trong `.env` (không commit)
 - Scope đang dùng: `threads_basic`, `threads_manage_insights`, `threads_manage_replies`. Đã cấp nhưng không dùng: `threads_content_publish` (dự án không đăng bài — ADR-0001)
-- Scope đã request sẵn ở Standard Access nhưng chưa dùng (`threads_read_replies` sẽ cần cho Phase D0: đọc bình luận follower qua `/conversation`, chưa verify live; các scope còn lại chưa có kế hoạch dùng): `threads_trending_topics`, `threads_keyword_search`, `threads_read_replies`, `threads_profile_discovery`
+- Scope đã request sẵn ở Standard Access nhưng chưa dùng (`threads_read_replies`: `/conversation` đã verify live 2026-10-01 — trả bình luận follower có text + username; chưa lưu, cần ADR-0007; các scope còn lại chưa có kế hoạch dùng): `threads_trending_topics`, `threads_keyword_search`, `threads_read_replies`, `threads_profile_discovery`
 - Long-lived token: 60 ngày — dùng `refresh_long_lived_token()` trong `src/api/auth.py` trước khi hết hạn; `should_warn_expiry()` cảnh báo khi còn ≤ 7 ngày (chỉ hoạt động sau lần refresh đầu tiên, vì Threads không cho tra hạn còn lại của 1 token bất kỳ)
 - Rate limit chính tài khoản: `4,800 × số impressions` / 24h (rất cao, khó chạm)
 - Token hiện tại lấy trực tiếp qua công cụ **"Tạo mã truy cập"** trong Meta Dashboard (App → Trường hợp sử dụng → Truy cập API Threads → Cài đặt → Công cụ tạo mã người dùng) — công cụ này trả ngay long-lived token cho tester đã approve, không cần tự dựng OAuth redirect flow
@@ -185,7 +185,9 @@ def window_velocity(snapshots: list[InsightSnapshot]) -> float:
     (2 điểm dùng view_velocity)."""
 ```
 
-**"Window velocity" (Layer 5, 2026-09-03)** — bổ sung `view_velocity`/`amplification_velocity` (2 điểm, "velocity hiện tại"), KHÔNG thay thế: với 1 post có ≥3 snapshot trong 1 window xác định (VD 24h — cron 4h → ~6 điểm), hồi quy trên TOÀN BỘ chuỗi ổn định hơn trước nhiễu do lịch cron không hoàn hảo, thay vì chỉ lấy 2 điểm đầu-cuối (nhạy với 1 điểm lỗi/trễ). Ở tầng trình bày, LUÔN hiện chuỗi snapshot thô (timestamp, views — tầng 1 "Narrative Layering Principle") TRƯỚC khi hiện slope tính ra (tầng 2/3).
+**"Window velocity" (Layer 5, 2026-09-03)** — bổ sung `view_velocity`/`amplification_velocity` (2 điểm, "velocity hiện tại"), KHÔNG thay thế: với 1 post có ≥3 snapshot trong 1 window xác định (VD 24h — cron 4h, nhưng xem giới hạn lấy mẫu bên dưới: thực tế thường < 3 điểm), hồi quy trên TOÀN BỘ chuỗi ổn định hơn trước nhiễu do lịch cron không hoàn hảo, thay vì chỉ lấy 2 điểm đầu-cuối (nhạy với 1 điểm lỗi/trễ). Ở tầng trình bày, LUÔN hiện chuỗi snapshot thô (timestamp, views — tầng 1 "Narrative Layering Principle") TRƯỚC khi hiện slope tính ra (tầng 2/3).
+
+**Giới hạn lấy mẫu — snapshot hở ban đêm (ADR-0017, 2026-10-04):** máy chạy cron dùng Modern Standby, tiến trình bị đóng băng khi máy ngủ → lượt snapshot ban đêm thường không hoàn thành. Số liệu lấy bằng `python -m scripts.snapshot_coverage` (chạy lại trước khi trích; lần đo 2026-09-10 → 2026-10-04): 2,4 lượt/ngày (lịch 6); khoảng trống > 5h: n = 29, trung vị 15,7h; 4h–8h giờ Paris không có lượt nào; số snapshot trong 24h đầu của 1 root post: n = 6, trung vị 2. Hệ quả: (1) mọi velocity/slope tính theo khoảng thời gian THẬT giữa 2 snapshot (`fetched_at` — `view_velocity` đã làm vậy), không giả định cách đều 4h; (2) slope qua đêm là nội suy qua khoảng trống ~16h, không phải quan sát — không kết luận gì về tăng trưởng ban đêm Paris (= sáng/trưa Việt Nam, khung giờ audience VN có thể hoạt động mạnh); (3) `window_velocity` 24h (≥ 3 điểm) thường không tính được — báo số bài bị loại; (4) mốc 24h/72h của longevity chưa có quy tắc chọn snapshot (độ lệch tối đa cho phép) — chốt bằng ADR/RQ trước khi tính, bài lệch quá ngưỡng bị loại và báo số bị loại (tinh thần ADR-0011); (5) 2 lượt chạy chồng (VD chạy bù khi máy thức + lượt theo lịch) có thể ghi 2 dòng cho cùng bài cách nhau ~1 phút — gom theo lượt trước khi tính slope (như `snapshot_coverage.py`), tới khi Phase C khoá chống chạy chồng.
 
 `MomentumIndex = CurrentVelocity / HistoricalMedianVelocity(age, publish_slot)` — **V2, không phải V1**: cần đủ nhiều post × nhiều snapshot tích luỹ hàng tháng mới có "historical median" ý nghĩa. Chỉ hook sẵn interface, chưa implement.
 
@@ -199,7 +201,7 @@ def late_engagement_share(snap_24h: InsightSnapshot, snap_72h: InsightSnapshot) 
     có thể sống tới 3 ngày."""
 ```
 
-Chỉ tính được cho post **có đủ snapshot phủ 24h và 72h** — 140 post cũ (1 snapshot duy nhất) không tính được, chỉ áp dụng post mới từ lúc job snapshot chạy.
+Chỉ tính được cho post **có snapshot ở mốc 24h và 72h sau khi đăng** — post đăng trước khi job snapshot 4h chạy (2026-08-31) có snapshot nhưng không có 2 mốc này, nên không tính được; chỉ áp dụng post đăng từ ngày đó.
 
 ### Freshness (tách hẳn khỏi virality)
 
@@ -234,7 +236,7 @@ def early_reply_velocity(root_post_id: str, conn: sqlite3.Connection, window_hou
     """Số reply audience / giờ trong window_hours đầu kể từ lúc root đăng."""
 ```
 
-Tính trực tiếp trên graph đã có sẵn trong `posts` (`is_reply`/`replied_to_id`/`root_post_id`/`is_reply_owned_by_me`) — trước giờ các reply chỉ đóng góp vào `conversation_rate` (đếm gộp). Căn cứ chính thức: Meta Transparency Center liệt kê "engagement của descendant ở level 2 trong 1h/6h" là 1 prediction feature THẬT trong ranking — cho phép trích dẫn khi trình bày hạng mục này. `unique_repliers`/`early_reply_velocity` chỉ tính audience (loại self-continuation của tác giả); `reply_depth` tính trên toàn graph (audience có thể reply vào self-continuation, vẫn là 1 phần cấu trúc thread thật). So sánh nhóm dùng `compare_groups()` ở tầng gọi, không lặp logic thống kê trong module này.
+Tính trực tiếp trên graph đã có sẵn trong `posts` (`is_reply`/`replied_to_id`/`root_post_id`/`is_reply_owned_by_me`) — trước giờ các reply chỉ đóng góp vào `conversation_rate` (đếm gộp). Căn cứ chính thức: Meta Transparency Center liệt kê "engagement của descendant ở level 2 trong 1h/6h" là 1 prediction feature THẬT trong ranking — cho phép trích dẫn khi trình bày hạng mục này. `unique_repliers`/`early_reply_velocity` chỉ tính audience (loại mọi reply của tác giả) — **= 0 với data hiện tại** vì bình luận follower chưa được lưu; có số thật sau ADR-0007, không hiển thị trên dashboard trước đó; `reply_depth` tính trên toàn graph (audience có thể reply vào self-continuation, vẫn là 1 phần cấu trúc thread thật). So sánh nhóm dùng `compare_groups()` ở tầng gọi, không lặp logic thống kê trong module này.
 
 ### Topic Affinity (đổi tên từ `topic_trend_score` — không đo được "đang trend trên Threads" với Standard Access + ~2 post/ngày)
 
@@ -309,15 +311,17 @@ Threads cho phép: (a) post đơn ≤500 ký tự, (b) `text_attachment` tới 1
 @dataclass(frozen=True)
 class ContentUnit:
     root: ThreadsPost
-    continuations: list[ThreadsPost]   # self-reply do CHÍNH tác giả đăng tiếp (is_reply_owned_by_me=True)
+    continuations: list[ThreadsPost]   # reply vai self_continuation (tác giả viết tiếp bài — ADR-0004)
     text_attachment: str | None
-    full_text: str                     # root.text + " ".join(continuations text)
+    full_text: str                     # root + continuations + text_attachment
     media: list[ThreadsPost]
 ```
 
-**Audience replies KHÔNG gộp vào `full_text`** — chúng là tín hiệu `conversation_rate`, không phải nội dung.
+**Câu trả lời của tác giả cho follower (`author_answer`) KHÔNG gộp vào `full_text`** — đó là hội thoại, không phải nội dung bài; bình luận của follower chưa được lưu (ADR-0007).
 
-> ⚠️ **Code hiện tại lệch với thiết kế này (phát hiện 2026-09-30)**: `thread_reconstruction.py` coi MỌI reply của tác giả dưới 1 root là continuation — gồm 362 self-reply nối chuỗi thật **và 664 câu trả lời của tác giả cho bình luận follower** (bình luận gốc không được lưu). Sửa ở roadmap Phase D0 (`posts.reply_role`), kèm ADR-0004. Embedding/topic detection chạy trên `full_text` của `ContentUnit`, không phải riêng root post.
+> **Phân vai reply (ADR-0004, 2026-10-01)**: `/me/replies` chỉ trả reply của chính tác giả, với 3 vai — `self_continuation` (đi ngược `replied_to` qua các đoạn nối chuỗi tới được root → gộp vào `full_text`), `author_answer` (trả lời bình luận follower, kể cả viết tiếp dưới câu trả lời đó, hoặc `replied_to` rỗng → không gộp), `outbound` (bài người khác). Chỉ suy từ đồ thị `replied_to`, không từ timestamp (composer nhiều phần cho timestamp trùng/ngược). Số đo 2026-10-01: 353 / 674 / 342. Trước ADR-0004, code gộp cả câu trả lời follower vào `full_text` (số đoạn gộp vào mỗi bài gần gấp 3 số đoạn viết tiếp thật, 2,35/bài) — topic và CMI tính trên văn bản lẫn. `full_text` = root + self_continuation (thứ tự đọc của cây) + `text_attachment`.
+>
+> **Verify live `/{root_id}/conversation` (2026-10-01, chỉ đọc, 1 bài)**: trả cả bình luận follower có `text` + `username` (8/8). Chưa lưu — cần ADR-0007 (privacy, pseudonymize username) trước khi có bảng `audience_replies`/`qa_pairs`.
 
 **Schema mở rộng cho field mới Meta công bố** (context feature, KHÔNG nhét vào scoring formula tới khi có post thật dùng): `is_ephemeral` (ghost post tự hết hạn 24h → cohort longevity riêng), `format_type`, `location_id`, `reply_approvals_enabled` (nếu bật → `conversation_rate` bị selection bias).
 
@@ -414,6 +418,8 @@ Raw-embedding-space **kém ổn định hẳn** khi bỏ 6 điểm neo (noise t�
 
 ### Narrative Layering Principle
 
+> **Điều kiện đầu vào (ADR-0011, 2026-09-30):** bài có `views == 0` ở snapshot mới nhất là insight thiếu — bị loại khỏi mọi phân phối rate (tầng 2–5) qua `split_measurable()`, số bị loại luôn được báo kèm (`excluded_no_views`). Lúc quyết: 6/150 root post như vậy (02/2026, 0 ở cả 72 snapshot).
+
 > Thêm 2026-09-03 — quy tắc **trình bày**, áp dụng cho MỌI output phân tích hướng ra ngoài (dashboard, report, README) — không phải logic code, nhưng mọi hàm mới trong `src/analysis/` (Layer 2-9) được thiết kế để cắm vừa đúng 6 tầng này, không tầng nào được nhảy cóc lên trước tầng thấp hơn nó phụ thuộc.
 
 Một câu chuyện thống kê tử tế không nhảy thẳng từ số thô sang kết luận — nó đi qua từng tầng, mỗi tầng trả lời 1 câu hỏi cụ thể hơn tầng trước:
@@ -435,11 +441,11 @@ Một câu chuyện thống kê tử tế không nhảy thẳng từ số thô s
 
 **Bối cảnh**: cấu hình mặc định ban đầu (`HDBSCAN_MIN_CLUSTER_SIZE=5`, `cluster_selection_method` mặc định `'eom'`, `UMAP_N_NEIGHBORS=15`, xem thực nghiệm phía trên) chỉ tách được **2 cluster** trên 135 content unit sạch — dù đã đổi không gian clustering (raw embedding → UMAP). Tác giả (chính người viết 141 bài, domain expert thật của kênh) đánh giá 2 là quá thô, ước tính kênh có khoảng **6-8 chủ đề chính, tối đa 12 nếu chia nhỏ**. Chẩn đoán: `eom` (Excess of Mass, mặc định `hdbscan`) thiên về gộp thành ít cluster lớn hơn `leaf`; `UMAP_N_NEIGHBORS=15` khá cao so với n=135, thiên về giữ cấu trúc toàn cục/thô thay vì cục bộ.
 
-**Phương pháp**: sweep có hệ thống trên lưới `cluster_selection_method ∈ {eom, leaf}` × `min_cluster_size ∈ {3,4,5}` × `UMAP_N_NEIGHBORS ∈ {5,8,10,15}` (24 tổ hợp), chạy trong WSL2 (script tạm cluster_sweep.py, đã xoá sau khi chốt). Với mỗi tổ hợp: số cluster, % noise, và **DBCV** (`hdbscan.relative_validity_` — density-based cluster validation, không cần nhãn ground-truth, đo mức chênh lệch mật độ trong-cluster vs ngoài-cluster). Kết quả `eom` xác nhận lại đúng như cấu hình mặc định: **luôn hội tụ về 2-3 cluster** ở mọi `min_cluster_size`/`n_neighbors`, DBCV cao (0.26–0.75) nhưng số cluster không đổi — xác nhận `eom` không phải tham số cần chỉnh, mà `cluster_selection_method` mới là đòn bẩy chính. Toàn bộ ứng viên khả thi (≥6 cluster) đều nằm ở `leaf`.
+**Phương pháp**: sweep có hệ thống trên lưới `cluster_selection_method ∈ {eom, leaf}` × `min_cluster_size ∈ {3,4,5}` × `UMAP_N_NEIGHBORS ∈ {5,8,10,15}` (24 tổ hợp), chạy trong WSL2 (script tạm cluster_sweep.py, đã xoá sau khi chốt). Với mỗi tổ hợp: số cluster, % noise, và **DBCV** (`hdbscan.relative_validity_` — density-based cluster validation, không cần nhãn ground-truth, đo mức chênh lệch mật độ trong-cluster vs ngoài-cluster). Kết quả `eom` xác nhận lại đúng như cấu hình mặc định: **luôn hội tụ về 2-3 cluster** ở mọi `min_cluster_size`/`n_neighbors`, DBCV (`relative_validity_`) cao (0.26–0.75) nhưng số cluster không đổi — xác nhận `eom` không phải tham số cần chỉnh, mà `cluster_selection_method` mới là đòn bẩy chính. Toàn bộ ứng viên khả thi (≥6 cluster) đều nằm ở `leaf`.
 
 **3 ứng viên gần nhất với kỳ vọng domain, review trực tiếp nội dung từng cluster** (không chỉ nhìn số, in mẫu bài thật từng cluster — script tạm cluster_preview.py, đã xoá sau khi chốt):
 
-| Ứng viên | `n_neighbors` | `min_cluster_size` | Số cluster | Noise | DBCV |
+| Ứng viên | `n_neighbors` | `min_cluster_size` | Số cluster | Noise | DBCV (`relative_validity_`) |
 |---|---|---|---|---|---|
 | A | 10 | 5 | 7 | 33/135 (24.4%) | 0.089 |
 | B | 10 | 4 | 8 | 46/135 (34.1%) | **0.205** |
@@ -449,13 +455,31 @@ Một câu chuyện thống kê tử tế không nhảy thẳng từ số thô s
 - **B (8 cluster)**: giống A nhưng tách thêm cluster "học/lỗi tiếng Pháp + văn hoá công sở Pháp" (rõ nét, khác hẳn cluster du học) và cluster "thuê nhà + đời sống thường ngày" (hơi lẫn 2 ý phụ, nhưng vẫn đọc được chủ đề chính). DBCV cao nhất trong cả 3 ứng viên — không chỉ nhiều cluster hơn A, mà mật độ trong-cluster/ngoài-cluster tách bạch rõ hơn cả.
 - **C (12 cluster)**: tách quá tay — cluster "review đồ ăn" (A/B gộp 1) vỡ thành 3 mảnh chồng chéo (matcha/cà phê, so sánh Pháp-Việt, sản phẩm mỹ phẩm/retail), có 2 cluster chỉ n=3 (housing riêng, tư vấn du học riêng) — sát ngưỡng `min_cluster_size`, khó phân biệt với noise thật. DBCV **thấp nhất trong 3 ứng viên** (0.083, thấp hơn cả A) dù nhiều cluster nhất — bằng chứng định lượng cho thấy các cluster thêm vào không có mật độ/ranh giới rõ, nhiều khả năng là mảnh vỡ của cluster lớn hơn bị ép tách bởi `min_cluster_size` quá nhỏ so với n=135, không phải chủ đề thật riêng biệt.
 
-**Kết luận methodology**: **B** là lựa chọn cân bằng nhất theo cả 2 tiêu chí — định lượng (DBCV cao nhất, tốt hơn cả A) và định tính (nội dung từng cluster đọc mạch lạc, khớp với 8 chủ đề tác giả tự ước tính là "6-8 chủ đề chính"). C tuy đúng số lượng tối đa tác giả kỳ vọng (12) nhưng bằng chứng (DBCV thấp nhất + nội dung cluster chồng chéo/vỡ vụn) cho thấy đây là over-fitting tham số trên tập dữ liệu nhỏ (n=135), không phải cấu trúc chủ đề thật — minh hoạ đúng nguyên tắc "domain expectation là giả thuyết cần đối chiếu bằng chứng, không phải câu trả lời đúng sẵn". **Chốt**: `HDBSCAN_MIN_CLUSTER_SIZE=4`, `cluster_selection_method="leaf"`, `UMAP_N_NEIGHBORS=10`.
+**Kết luận methodology** (2026-09-03 — đã thay bằng n_neighbors 8 ngày 2026-10-01, xem mục ngay dưới): **B** là lựa chọn cân bằng nhất theo cả 2 tiêu chí — định lượng (DBCV cao nhất, tốt hơn cả A) và định tính (nội dung từng cluster đọc mạch lạc, khớp với 8 chủ đề tác giả tự ước tính là "6-8 chủ đề chính"). C tuy đúng số lượng tối đa tác giả kỳ vọng (12) nhưng bằng chứng (DBCV thấp nhất + nội dung cluster chồng chéo/vỡ vụn) cho thấy đây là over-fitting tham số trên tập dữ liệu nhỏ (n=135), không phải cấu trúc chủ đề thật — minh hoạ đúng nguyên tắc "domain expectation là giả thuyết cần đối chiếu bằng chứng, không phải câu trả lời đúng sẵn". **Chốt**: `HDBSCAN_MIN_CLUSTER_SIZE=4`, `cluster_selection_method="leaf"`, `UMAP_N_NEIGHBORS=10`.
+
+### Methodology log: gom cụm lại trên `full_text` sạch (ADR-0004, thực nghiệm 2026-10-01)
+
+Sau khi bỏ câu trả lời follower khỏi `full_text`, chạy lại đúng tham số đã calibrate (ứng viên B: UMAP 3D, n_neighbors 10, HDBSCAN leaf, min_cluster_size 4), embedding bge-m3 trên 144 content unit (6 bài rỗng `REPOST_FACADE` vẫn loại):
+
+| Lần chạy | Văn bản | Tham số (nn / mcs) | Cụm | Nhiễu | `relative_validity_` | `validity_index` |
+|---|---|---|---|---|---|---|
+| 2026-09-03 (calibrate) | `full_text` lẫn câu trả lời follower | 10 / 4 | 8 | 34,1% | 0,205 | không đo |
+| 2026-09-30 (job hằng ngày) | như trên | 10 / 4 | 9 | 23% | không lưu | không lưu |
+| 2026-10-01, tham số cũ | `full_text` sạch | 10 / 4 | 10 | 50,0% | 0,059 | 0,269 |
+| **2026-10-01, chốt** | `full_text` sạch | **8 / 4** | **9** | **36,1%** | 0,008 | **0,317** |
+
+- Tham số cũ trên văn bản sạch cho nhiễu 50% → sweep lại 24 tổ hợp (eom/leaf × min_cluster_size 3/4/5 × n_neighbors 5/8/10/15) × 3 seed. `eom` ra 2–8 cụm và nhảy giữa seed (VD 2/7/2) → loại. Leaf: mcs 5 / nn 8 cho chỉ số cao nhất (`relative_validity_` median 0,291, `validity_index` 0,398, 7–8 cụm, nhiễu 32%) nhưng có 1 cụm tạp 31 bài; **Thy chọn mcs 4 / nn 8** — 8–9 cụm ổn định qua seed, nhiễu ~36%, nội dung rõ nghĩa nhất (đánh đổi: `relative_validity_` thấp).
+- `relative_validity_` (xấp xỉ trên cây khung nhỏ nhất) dao động mạnh giữa các lần chạy cùng tham số (0,008–0,069) → chỉ báo cáo, không dùng làm ngưỡng; `validity_index` ổn định hơn. 2 thước đo khác thang — không so chéo, luôn ghi tên hàm.
+- So với cụm trước ADR-0004 (bản sao lưu DB), tách bằng 1 lần chạy chỉ đổi 1 yếu tố (cùng embedding, seed 42): **chỉ đổi dữ liệu** ARI 0,13 (chỉ bài có cụm: 0,73; 49 bài cụm → nhiễu); **chỉ đổi tham số** ARI 0,38 (0,91; 29 bài nhiễu → cụm); **gộp** ARI 0,22 (0,78). Làm sạch dữ liệu đổi cấu trúc thật; đổi tham số chủ yếu kéo bài nhiễu về cụm. ARI chỉ-trên-bài-có-cụm có điều kiện chọn mẫu (phần lõi sống sót) nên thiên cao. n = 144, 1 seed — biến thiên giữa seed thuộc RQ-01.
+- Từ khoá cụm: **c-TF-IDF** (`src/nlp/topic_profile.py`) trên âm tiết + bigram, chỉ term có mặt ở ≥ 2 bài của cụm; nhiễu là lớp nền của IDF (như BERTopic tính cả lớp -1); loại term có mặt ở ≥ 80% số cụm (đo trên 9 cụm chốt: từ chức năng "những", "tại", "nha" ở 8–9/9 cụm, từ nội dung "ăn", "học" ≤ 6/9). Kết quả đọc được ngay: "học phí, miễn, eu" · "cty, alternance, phỏng vấn" · "brocante, đồ cũ".
+- Bài đại diện = 3 bài gần tâm cụm nhất (cosine trên embedding đã lưu) — lưu để hiển thị; Claude đặt tên dựa trên tối đa 15 bài xếp theo độ gần tâm. `post_topic_labels.confidence` = cosine tới tâm cụm.
+- **Danh tính cụm bền (ADR-0018)**: HDBSCAN đánh số cụm lại mỗi lần → ghép cụm mới với topic đang lưu (`src/nlp/topic_identity.py`): (1) theo thành viên, "đa số hai chiều" (> 1/2 cả hai phía, không tham số chỉnh tay); phép thử giữ **bỏ bài rơi vào nhiễu** khỏi mẫu số phía topic cũ (nhiễu = không thuộc cụm nào lần này, không phải đổi chủ đề), phép thử nhập tính cả nhiễu; **lõi giữ tên** khi tách (cụm nhận > 1/2 topic cũ); (2) theo ngữ nghĩa cho cụm mới/tách (không cho cụm nhập): giữ id topic cũ có tâm gần hơn mốc của lần đó — cosine lớn nhất giữa 2 topic khác nhau của lần trước (suy từ data mỗi lần, không phải ngưỡng toàn cục). Tên chỉ đặt lại khi cụm trôi khỏi **bản neo** lúc đặt tên (cùng phép thử) hoặc đổi model/phiên bản prompt. Bằng chứng (`scripts/topic_identity_eval.py`, 10 seed cùng data, 90 cặp, 828 cụm, CI95 bootstrap hai chiều theo seed): quy tắc cũ đổi tên 30,6% [21,0; 40,3] cụm khi data không đổi, quy tắc chốt 15,2% [10,7; 19,9]; đổi lại giữ id cho topic đã bị xoá hẳn 4/698 (0,6%). Ở các biến thể chỉ dùng thành viên, 85–89% cụm bị đổi tên có tâm gần topic cũ hơn mốc của chính cặp đó — HDBSCAN xáo thành viên mạnh hơn nội dung đổi. Gọi lại prompt trên cùng 9 cụm → 4/9 tên đổi: đặt tên mỗi lần chạy làm tên trôi. Danh tính bền là khoá nối các lần chạy cho RQ-06. Tài liệu + bảng đầy đủ: ADR-0018.
 
 ### Storage
 
 - `data/raw/` — archive JSON vĩnh viễn (KHÁC `data/cache/` hiện có, TTL 6h) — cho phép rerun pipeline từ đầu khi model NLP tốt hơn, không cần crawl lại
-- SQLite: `posts`, `content_units`, `insights_snapshots` (time-series), `account_daily_views`, `topics` (id, label_en, description_en, method: "fixed"|"cluster", centroid_embedding), `post_topic_labels` (post_id, topic_id, method, confidence)
-- **Kế hoạch (roadmap Phase D0/E)**: embedding persist trong SQLite (bảng `embeddings`, kèm `content_hash` để chỉ embed lại khi nội dung đổi) + knowledge base cũng trong cùng file SQLite (`kb_documents`, `kb_chunks`, FTS5 cho BM25). Không dùng vector store riêng ngoài SQLite — lý do sẽ ghi tại ADR-0006 khi triển khai.
+- SQLite: `posts`, `content_units`, `insights_snapshots` (time-series), `account_daily_views`, `topics` (id `topic_N` bền, label_en, description_en, method — chỉ "cluster", centroid_embedding_json, keywords_json, representative_ids_json, labeled_at, label_model, label_prompt_version, label_anchor_json = bản neo thành viên lúc đặt tên — ADR-0018), `topic_label_history` (mỗi lần đặt tên 1 dòng: lý do, topic nguồn), `post_topic_labels` (post_id, topic_id, method, confidence = cosine tới tâm cụm), `embeddings` (vector theo `content_hash`), `cluster_runs` (DBCV, nhiễu, ARI, sự kiện topic mỗi lần gom cụm) — ADR-0004
+- **Đã có (ADR-0004)**: embedding lưu trong SQLite (bảng `embeddings`, kèm `content_hash` để chỉ embed lại khi nội dung đổi). **Kế hoạch (Phase E)**: knowledge base cũng trong cùng file SQLite (`kb_documents`, `kb_chunks`, FTS5 cho BM25). Không dùng vector store riêng ngoài SQLite — lý do sẽ ghi tại ADR-0006 khi triển khai.
 
 ### Knowledge base + RAG (Retrieval-Augmented Generation)
 
@@ -466,6 +490,6 @@ Một câu chuyện thống kê tử tế không nhảy thẳng từ số thô s
 
 ### Phạm vi hiện tại
 
-- 150 root post + 1.368 reply của tác giả (362 self-continuation, 664 trả lời follower, 342 reply ở bài người khác — số đo 2026-09-30, sẽ phân loại chính thức ở Phase D0)
+- 150 root post + 1.369 reply của tác giả: 353 self_continuation · 674 author_answer · 342 outbound (`posts.reply_role`, ADR-0004, số đo 2026-10-01)
 - Velocity: xây hạ tầng nhưng chấp nhận chưa có data lịch sử, tích luỹ dần
 - Knowledge base: chỉ truy xuất + đánh giá; phần sinh câu trả lời (chatbot) chỉ làm sau cổng Phase F

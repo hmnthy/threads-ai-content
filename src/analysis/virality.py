@@ -1,3 +1,8 @@
+"""Điều kiện đầu vào cho MỌI hàm phân phối/xếp hạng rate trong module này (ADR-0011):
+`insights` đã qua `split_measurable()` (`src/analysis/stats.py`) — bài `views == 0` là
+insight thiếu; để lọt vào đây thì rate 0.0 (guard chia 0) thành số 0 giả trong phân phối.
+"""
+
 from __future__ import annotations
 
 import numpy as np

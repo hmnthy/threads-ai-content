@@ -24,7 +24,10 @@ export function KpiStrip({ data }: { data: WindowAnalytics | null }) {
     {
       label: "Content units",
       value: data ? formatNumber(data.content_unit_count) : "—",
-      caption: "root posts in window",
+      caption:
+        data && data.excluded_no_views > 0
+          ? `root posts in window · ${data.excluded_no_views} without views, left out of rates`
+          : "root posts in window",
       dot: false,
     },
     {

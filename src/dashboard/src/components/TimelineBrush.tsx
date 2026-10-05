@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DailyViewsPoint } from "@/lib/api";
-import { addDays, formatDateLabel } from "@/lib/dates";
+import { addDays, formatFullDate, formatMonthYear } from "@/lib/dates";
 
 // Thành phần chữ ký của sản phẩm (docs/claude/design-system.md §5) — port từ
 // src/dashboard/mockups/overview-amber.dc.html (pointer-capture drag 2 tay cầm +
@@ -232,7 +232,7 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
   });
 
   const axisLabels = [0, 0.25, 0.5, 0.75, 1].map((f) =>
-    formatDateLabel(addDays(minDate!, Math.round(f * (days - 1)))),
+    formatMonthYear(addDays(minDate!, Math.round(f * (days - 1)))),
   );
 
   const presets: { key: "30d" | "60d" | "90d" | "peak"; label: string }[] = [
@@ -247,10 +247,10 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-text-primary">
-            Daily views · drag the window to rescale every metric
+            Daily views, whole account (replies included) · drag the window to rescale the metrics below
           </span>
           <span className="font-mono text-xs tabular-nums text-text-muted">
-            {formatDateLabel(startDate)} → {formatDateLabel(endDate)} · {spanDays} days
+            {formatFullDate(startDate)} → {formatFullDate(endDate)} · {spanDays} days
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -322,7 +322,7 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
           aria-valuemin={0}
           aria-valuemax={days - 1}
           aria-valuenow={i0}
-          aria-valuetext={formatDateLabel(startDate)}
+          aria-valuetext={formatFullDate(startDate)}
           onPointerDown={onStartDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -339,7 +339,7 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
           aria-valuemin={0}
           aria-valuemax={days - 1}
           aria-valuenow={i1}
-          aria-valuetext={formatDateLabel(endDate)}
+          aria-valuetext={formatFullDate(endDate)}
           onPointerDown={onEndDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}

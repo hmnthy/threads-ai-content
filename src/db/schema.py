@@ -1,18 +1,23 @@
 """SQLite schema — `posts`, `content_units`, `insights_snapshots`, `topics`,
-`post_topic_labels`, theo đúng spec tại docs/claude/data-model.md mục "Storage".
+`post_topic_labels`, `account_daily_views`, `embeddings`, `cluster_runs` (2 bảng từ
+ADR-0004), `topic_label_history` (ADR-0018), theo đúng spec tại docs/claude/data-model.md
+mục "Storage".
 
 Cột `umap_x/y/z` + `language_primary`/`language_mix_score` nằm thẳng trong
 `content_units` (không phải bảng riêng) để dashboard Topic Explorer đọc trực tiếp toạ độ
-scatter. Embedding + knowledge base sẽ nằm trong chính file SQLite này (bảng
-`embeddings`, `kb_*`, FTS5) — xem docs/roadmap.md Phase D0/E.
+scatter. Embedding đã nằm trong chính file SQLite này (bảng `embeddings`); knowledge
+base (`kb_*`, FTS5) cũng sẽ ở đây — xem docs/roadmap.md Phase E (ADR-0010).
 
 Đây là raw archive + derived layer, KHÁC `data/cache/` (TTL 6h) — không tự xoá.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
+import struct
+from collections.abc import Mapping
 from pathlib import Path
 
 from src.api.models import PostInsights, ThreadsPost
@@ -21,7 +26,35 @@ from src.models.insight_snapshot import InsightSnapshot
 
 DEFAULT_DB_PATH = Path("data/threads.db")
 
-SCHEMA_SQL = """
+_TOPICS_DDL = """
+CREATE TABLE IF NOT EXISTS topics (
+    id TEXT PRIMARY KEY,
+    label_en TEXT NOT NULL,
+    description_en TEXT,
+    method TEXT NOT NULL CHECK (method IN ('cluster')),
+    centroid_embedding_json TEXT,
+    -- c-TF-IDF top từ khoá + id bài gần tâm cụm nhất (src/nlp/topic_profile.py)
+    keywords_json TEXT,
+    representative_ids_json TEXT,
+    -- ADR-0018: tên được đặt lúc nào, bằng model + phiên bản prompt nào (đặt lại khi khác)
+    labeled_at TEXT,
+    label_model TEXT,
+    label_prompt_version INTEGER,
+    -- bản neo: id các bài của cụm lúc đặt tên — đặt lại tên khi cụm trôi khỏi bản neo
+    label_anchor_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS post_topic_labels (
+    post_id TEXT NOT NULL REFERENCES posts(id),
+    topic_id TEXT NOT NULL REFERENCES topics(id),
+    method TEXT NOT NULL CHECK (method IN ('cluster')),
+    confidence REAL,
+    PRIMARY KEY (post_id, method)
+);
+"""
+
+SCHEMA_SQL = (
+    """
 CREATE TABLE IF NOT EXISTS posts (
     id TEXT PRIMARY KEY,
     text TEXT,
@@ -33,7 +66,9 @@ CREATE TABLE IF NOT EXISTS posts (
     has_replies INTEGER NOT NULL DEFAULT 0,
     root_post_id TEXT,
     replied_to_id TEXT,
-    raw_json TEXT NOT NULL
+    raw_json TEXT NOT NULL,
+    -- ADR-0004: self_continuation | author_answer | outbound (NULL với root post)
+    reply_role TEXT
 );
 
 CREATE TABLE IF NOT EXISTS content_units (
@@ -66,20 +101,64 @@ CREATE TABLE IF NOT EXISTS insights_snapshots (
 CREATE INDEX IF NOT EXISTS idx_insights_snapshots_post_id
     ON insights_snapshots (post_id, fetched_at);
 
-CREATE TABLE IF NOT EXISTS topics (
-    id TEXT PRIMARY KEY,
-    label_en TEXT NOT NULL,
-    description_en TEXT,
-    method TEXT NOT NULL CHECK (method IN ('fixed', 'cluster')),
-    centroid_embedding_json TEXT
+"""
+    + _TOPICS_DDL
+    + """
+
+-- Vector embedding đã tính (ADR-0004; roadmap D0 bước 5) — chỉ embed lại khi
+-- `content_hash` đổi. float32 little-endian, `dim` phần tử. Dùng lại cho bài đại
+-- diện của topic và cho knowledge base (Phase E) — cùng file SQLite (ADR-0010).
+CREATE TABLE IF NOT EXISTS embeddings (
+    object_type TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    dim INTEGER NOT NULL,
+    vector BLOB NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (object_type, object_id, model_id)
 );
 
-CREATE TABLE IF NOT EXISTS post_topic_labels (
-    post_id TEXT NOT NULL REFERENCES posts(id),
-    topic_id TEXT NOT NULL REFERENCES topics(id),
-    method TEXT NOT NULL CHECK (method IN ('fixed', 'cluster')),
-    confidence REAL,
-    PRIMARY KEY (post_id, method)
+-- 1 dòng mỗi lần gom cụm: tham số + chất lượng (DBCV, tỉ lệ nhiễu) + nhãn từng bài
+-- để tính ARI với lần sau. Trước đây các số này chỉ in ra log rồi mất.
+CREATE TABLE IF NOT EXISTS cluster_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_at TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+    params_json TEXT NOT NULL,
+    n_units INTEGER NOT NULL,
+    n_clusters INTEGER NOT NULL,
+    noise_ratio REAL NOT NULL,
+    -- dbcv = validity_index (DBCV đầy đủ); dbcv_relative = relative_validity_ (xấp xỉ,
+    -- thước đo lúc calibrate 2026-09-03). 2 thang khác nhau — không so chéo.
+    dbcv REAL,
+    dbcv_relative REAL,
+    -- ARI tính nhiễu là 1 nhóm (lẫn cả việc bài chuyển sang/ra nhiễu) và ARI chỉ trên bài
+    -- có cụm ở cả 2 lần; transitions_json đếm cụm→nhiễu / nhiễu→cụm.
+    ari_vs_previous REAL,
+    ari_clustered_only REAL,
+    transitions_json TEXT,
+    labels_json TEXT NOT NULL,
+    -- ADR-0018: {topic_id: kept|kept_semantic|relabeled|new|split|merged|retired} của lần chạy này
+    topic_events_json TEXT
+);
+
+-- ADR-0018: mỗi lần 1 topic được (đặt lại) tên = 1 dòng; không xoá khi topic biến mất —
+-- giữ dấu vết danh tính cụm qua thời gian (RQ-06) và để không tái dùng id cũ.
+CREATE TABLE IF NOT EXISTS topic_label_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic_id TEXT NOT NULL,
+    label_en TEXT NOT NULL,
+    description_en TEXT,
+    labeled_at TEXT NOT NULL,
+    label_model TEXT NOT NULL,
+    label_prompt_version INTEGER NOT NULL,
+    -- new | split | merged | drift | config_change | retired (topic biến mất — giữ để không
+    -- tái dùng id). Dòng `retired`: labeled_at = lúc xoá; topic từ trước ADR-0018 ghi
+    -- label_model = 'unknown', label_prompt_version = 0.
+    reason TEXT NOT NULL,
+    -- topic cũ liên quan (cha khi nhập, topic gốc khi tách)
+    sources_json TEXT
 );
 
 -- Account-level daily views (Threads `threads_insights?metric=views&period=day`,
@@ -95,6 +174,7 @@ CREATE TABLE IF NOT EXISTS account_daily_views (
     fetched_at TEXT NOT NULL
 );
 """
+)
 
 
 def connect(db_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -109,7 +189,156 @@ def connect(db_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
 
 def create_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA_SQL)
+    _migrate(conn)
     conn.commit()
+
+
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def _table_exists(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)
+    ).fetchone()
+    return row is not None
+
+
+def _in_one_transaction(conn: sqlite3.Connection, statements: list[str]) -> None:
+    """Chạy các lệnh (kể cả DDL) trong ĐÚNG 1 transaction tường minh, tắt khoá ngoại
+    trong lúc tạo lại bảng. `PRAGMA foreign_keys` không đổi được bên trong transaction
+    nên đặt trước BEGIN; không dùng `executescript()` (nó tự COMMIT trước khi chạy).
+    Lỗi giữa chừng → ROLLBACK, DB về nguyên trạng.
+
+    Chỉ dùng trong `_migrate()` (gọi sau `executescript`, lúc chưa có transaction nào
+    mở). Kiểm khoá ngoại chỉ trên 2 bảng được tạo lại — vi phạm có sẵn ở bảng khác (VD
+    bản DB cũ của worktree) không được chặn migration ở mọi lần chạy cron."""
+    conn.commit()
+    previous_fk = conn.execute("PRAGMA foreign_keys").fetchone()[0]
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN")
+        try:
+            for statement in statements:
+                conn.execute(statement)
+            for table in ("topics", "post_topic_labels"):
+                if conn.execute(f"PRAGMA foreign_key_check({table})").fetchall():
+                    raise sqlite3.IntegrityError(f"foreign_key_check({table}) có vi phạm")
+            conn.execute("COMMIT")
+        except Exception:
+            # SQLite có thể đã tự rollback (SQLITE_FULL/IOERR) — đừng che lỗi gốc
+            if conn.in_transaction:
+                conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.execute(f"PRAGMA foreign_keys = {'ON' if previous_fk else 'OFF'}")
+
+
+def _rebuild_topic_tables(conn: sqlite3.Connection) -> None:
+    """Tạo lại `topics`/`post_topic_labels` với CHECK mới, chỉ giữ dòng `cluster`."""
+    old_cols = _columns(conn, "topics")
+    shared = [
+        c
+        for c in (
+            "id",
+            "label_en",
+            "description_en",
+            "method",
+            "centroid_embedding_json",
+            "keywords_json",
+            "representative_ids_json",
+        )
+        if c in old_cols
+    ]
+    cols = ", ".join(shared)
+    copy_topics = (
+        f"INSERT INTO topics ({cols}) SELECT {cols} FROM topics_old WHERE method = 'cluster'"
+    )
+    create = [stmt.strip() for stmt in _TOPICS_DDL.split(";") if stmt.strip()]
+    _in_one_transaction(
+        conn,
+        [
+            "ALTER TABLE post_topic_labels RENAME TO post_topic_labels_old",
+            "ALTER TABLE topics RENAME TO topics_old",
+            *create,
+            copy_topics,
+            "INSERT INTO post_topic_labels SELECT * FROM post_topic_labels_old "
+            "WHERE method = 'cluster'",
+            "DROP TABLE post_topic_labels_old",
+            "DROP TABLE topics_old",
+        ],
+    )
+
+
+def _restore_interrupted_rebuild(conn: sqlite3.Connection) -> None:
+    """Phục hồi DB bị dừng giữa lần tạo lại bảng của phiên bản migration cũ (không
+    nguyên tử): bảng `*_old` mới là dữ liệu thật; bảng cùng tên hiện có (nếu có) do
+    `SCHEMA_SQL` vừa tạo rỗng → bỏ đi và đổi tên `*_old` về chỗ cũ. Sau đó migration
+    chạy lại bình thường."""
+    statements: list[str] = []
+    for name in ("post_topic_labels", "topics"):
+        if _table_exists(conn, f"{name}_old"):
+            if _table_exists(conn, name):
+                statements.append(f"DROP TABLE {name}")
+            statements.append(f"ALTER TABLE {name}_old RENAME TO {name}")
+    _in_one_transaction(conn, statements)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Đưa DB cũ lên schema hiện tại — idempotent, chạy ở MỌI `create_schema()` (job
+    cron gọi hàm này mỗi lần chạy). `CREATE TABLE IF NOT EXISTS` không sửa bảng đã có,
+    nên cột mới/ràng buộc mới phải thêm ở đây.
+
+    ADR-0004: thêm `posts.reply_role`; bỏ `'fixed'` khỏi CHECK `method` của
+    `topics`/`post_topic_labels` (bộ phân loại 6 nhãn không còn là thành phần sản
+    phẩm — ADR-0001). SQLite không sửa CHECK tại chỗ → tạo lại 2 bảng, chỉ giữ dòng
+    `method='cluster'` (topic sinh lại được từ lần gom cụm sau)."""
+    if "reply_role" not in _columns(conn, "posts"):
+        conn.execute("ALTER TABLE posts ADD COLUMN reply_role TEXT")
+
+    if _table_exists(conn, "topics_old") or _table_exists(conn, "post_topic_labels_old"):
+        _restore_interrupted_rebuild(conn)
+
+    topics_sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'topics'"
+    ).fetchone()[0]
+    if "'fixed'" in topics_sql:
+        _rebuild_topic_tables(conn)
+
+    run_cols = _columns(conn, "cluster_runs")
+    for column, kind in (
+        ("dbcv_relative", "REAL"),
+        ("ari_clustered_only", "REAL"),
+        ("transitions_json", "TEXT"),
+        ("topic_events_json", "TEXT"),
+    ):
+        if column not in run_cols:
+            conn.execute(f"ALTER TABLE cluster_runs ADD COLUMN {column} {kind}")
+
+    topic_cols = _columns(conn, "topics")
+    for column, kind in (
+        ("keywords_json", "TEXT"),
+        ("representative_ids_json", "TEXT"),
+        ("labeled_at", "TEXT"),
+        ("label_model", "TEXT"),
+        ("label_prompt_version", "INTEGER"),
+        ("label_anchor_json", "TEXT"),
+    ):
+        if column not in topic_cols:
+            conn.execute(f"ALTER TABLE topics ADD COLUMN {column} {kind}")
+
+    # ADR-0018: id theo vị trí HDBSCAN (`cluster_N`) → id bền (`topic_N`, giữ số N lần đầu).
+    # Topic được ghép lại ở lần gom cụm sau; `labeled_at` rỗng → được đặt tên lại 1 lần.
+    if conn.execute("SELECT 1 FROM topics WHERE id LIKE 'cluster\\_%' ESCAPE '\\'").fetchone():
+        _in_one_transaction(
+            conn,
+            [
+                "UPDATE post_topic_labels SET topic_id = 'topic_' || substr(topic_id, 9) "
+                "WHERE topic_id LIKE 'cluster\\_%' ESCAPE '\\'",
+                "UPDATE topics SET id = 'topic_' || substr(id, 9) "
+                "WHERE id LIKE 'cluster\\_%' ESCAPE '\\'",
+            ],
+        )
 
 
 # --- posts -------------------------------------------------------------------
@@ -298,16 +527,32 @@ def upsert_topic(
     description_en: str | None,
     method: str,
     centroid_embedding: list[float] | None = None,
+    keywords: list[str] | None = None,
+    representative_ids: list[str] | None = None,
+    labeled_at: str | None = None,
+    label_model: str | None = None,
+    label_prompt_version: int | None = None,
+    label_anchor: list[str] | None = None,
 ) -> None:
     conn.execute(
         """
-        INSERT INTO topics (id, label_en, description_en, method, centroid_embedding_json)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO topics (
+            id, label_en, description_en, method, centroid_embedding_json,
+            keywords_json, representative_ids_json, labeled_at, label_model,
+            label_prompt_version, label_anchor_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             label_en = excluded.label_en,
             description_en = excluded.description_en,
             method = excluded.method,
-            centroid_embedding_json = excluded.centroid_embedding_json
+            centroid_embedding_json = excluded.centroid_embedding_json,
+            keywords_json = excluded.keywords_json,
+            representative_ids_json = excluded.representative_ids_json,
+            labeled_at = excluded.labeled_at,
+            label_model = excluded.label_model,
+            label_prompt_version = excluded.label_prompt_version,
+            label_anchor_json = excluded.label_anchor_json
         """,
         (
             topic_id,
@@ -315,6 +560,76 @@ def upsert_topic(
             description_en,
             method,
             json.dumps(centroid_embedding) if centroid_embedding is not None else None,
+            json.dumps(keywords, ensure_ascii=False) if keywords is not None else None,
+            json.dumps(representative_ids) if representative_ids is not None else None,
+            labeled_at,
+            label_model,
+            label_prompt_version,
+            json.dumps(sorted(label_anchor)) if label_anchor is not None else None,
+        ),
+    )
+
+
+def topic_assignments(conn: sqlite3.Connection) -> dict[str, str]:
+    """`{content_unit_id: topic_id}` của các topic `cluster` đang lưu (ADR-0018: đầu vào ghép)."""
+    rows = conn.execute(
+        "SELECT post_id, topic_id FROM post_topic_labels WHERE method = 'cluster'"
+    ).fetchall()
+    return {row["post_id"]: row["topic_id"] for row in rows}
+
+
+def topic_label_states(conn: sqlite3.Connection) -> dict[str, sqlite3.Row]:
+    """Trạng thái tên của từng topic đang lưu: nhãn, mô tả, labeled_at, model, phiên bản prompt,
+    bản neo (`label_anchor_json`)."""
+    rows = conn.execute(
+        "SELECT id, label_en, description_en, labeled_at, label_model, label_prompt_version, "
+        "label_anchor_json "
+        "FROM topics WHERE method = 'cluster'"
+    ).fetchall()
+    return {row["id"]: row for row in rows}
+
+
+def next_topic_number(conn: sqlite3.Connection) -> int:
+    """Số cho `topic_N` kế tiếp — lớn hơn mọi N từng dùng (cả topic đã biến mất, theo lịch
+    sử tên) để 1 id không bao giờ chỉ 2 chủ đề khác nhau."""
+    highest = -1
+    for (topic_id,) in conn.execute(
+        "SELECT id FROM topics UNION SELECT topic_id FROM topic_label_history"
+    ):
+        prefix, _, number = str(topic_id).partition("_")
+        if prefix == "topic" and number.isdigit():
+            highest = max(highest, int(number))
+    return highest + 1
+
+
+def insert_topic_label_history(
+    conn: sqlite3.Connection,
+    *,
+    topic_id: str,
+    label_en: str,
+    description_en: str | None,
+    labeled_at: str,
+    label_model: str,
+    label_prompt_version: int,
+    reason: str,
+    sources: list[str],
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO topic_label_history (
+            topic_id, label_en, description_en, labeled_at, label_model,
+            label_prompt_version, reason, sources_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            topic_id,
+            label_en,
+            description_en,
+            labeled_at,
+            label_model,
+            label_prompt_version,
+            reason,
+            json.dumps(sources),
         ),
     )
 
@@ -349,26 +664,17 @@ def get_post_topic_label(
     return row  # type: ignore[no-any-return]
 
 
-def delete_cluster_topics(conn: sqlite3.Connection) -> None:
-    """Xoá sạch mọi `topics`/`post_topic_labels` có `method='cluster'` — dùng
-    TRƯỚC khi `src/pipeline/clustering_import.py` ghi lại kết quả cluster mới.
-
-    Lý do (Layer 10, xem docs/claude/data-model.md): `topic_id = f"cluster_{n}"`
-    lấy theo VỊ TRÍ nhãn HDBSCAN trả về, thứ tự này không ổn định giữa các lần
-    chạy — cùng 1 `topic_id` số có thể đại diện 2 chủ đề khác nhau ở 2 lần chạy.
-    Vì `clustering_import.py` vốn đã là full-recompute mỗi lần (không có logic
-    incremental), xoá-rồi-ghi-lại là đúng và an toàn hơn hẳn upsert-theo-vị-trí:
-    tránh (a) cluster cũ không còn ở lần chạy mới vẫn tồn tại vĩnh viễn (rác),
-    (b) `post_topic_labels` của bài chuyển sang noise không được dọn (trỏ topic
-    cũ sai). Chỉ xoá `method='cluster'` — giữ nguyên `method='fixed'` (hiện chưa
-    có code nào ghi 'fixed', nhưng tách theo method để không đụng nhầm nếu sau
-    này có fixed-category classifier ghi vào cùng 2 bảng này).
-    """
+def replace_cluster_topics(conn: sqlite3.Connection, keep_topic_ids: set[str]) -> None:
+    """Dọn trước khi ghi kết quả gom cụm mới (ADR-0018): xoá MỌI `post_topic_labels`
+    `cluster` (gán lại toàn bộ ngay sau đó) và xoá topic KHÔNG còn ở lần chạy này. Topic
+    được mang tiếp (`keep_topic_ids`) giữ nguyên dòng — id + tên — rồi được cập nhật hồ sơ
+    (từ khoá, bài đại diện, tâm cụm). Lịch sử tên (`topic_label_history`) không bị xoá."""
     conn.execute("DELETE FROM post_topic_labels WHERE method = 'cluster'")
-    conn.execute("DELETE FROM topics WHERE method = 'cluster'")
-
-
-# --- account_daily_views ---------------------------------------------------------
+    placeholders = ",".join("?" * len(keep_topic_ids))
+    conn.execute(
+        f"DELETE FROM topics WHERE method = 'cluster' AND id NOT IN ({placeholders})",
+        sorted(keep_topic_ids),
+    )
 
 
 def upsert_daily_views(conn: sqlite3.Connection, *, date: str, views: int, fetched_at: str) -> None:
@@ -398,3 +704,131 @@ def list_daily_views(
             (start, end),
         ).fetchall()
     return conn.execute("SELECT * FROM account_daily_views ORDER BY date").fetchall()
+
+
+# --- reply_role (ADR-0004) -------------------------------------------------------
+
+
+def update_reply_roles(conn: sqlite3.Connection, roles: Mapping[str, str]) -> None:
+    """Ghi vai của từng reply (`assign_reply_roles`). Root post giữ `reply_role` NULL."""
+    conn.executemany(
+        "UPDATE posts SET reply_role = ? WHERE id = ?",
+        [(role, post_id) for post_id, role in roles.items()],
+    )
+
+
+def count_reply_roles(conn: sqlite3.Connection) -> dict[str, int]:
+    rows = conn.execute(
+        "SELECT reply_role, COUNT(*) AS n FROM posts WHERE is_reply = 1 GROUP BY reply_role"
+    ).fetchall()
+    return {row["reply_role"] or "unassigned": row["n"] for row in rows}
+
+
+# --- embeddings (ADR-0004) -------------------------------------------------------
+
+
+def content_hash(text: str) -> str:
+    """Hash của đúng chuỗi được embed — đổi text thì đổi hash → embed lại."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def upsert_embedding(
+    conn: sqlite3.Connection,
+    *,
+    object_type: str,
+    object_id: str,
+    model_id: str,
+    text_hash: str,
+    vector: list[float],
+    created_at: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO embeddings (
+            object_type, object_id, model_id, content_hash, dim, vector, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(object_type, object_id, model_id) DO UPDATE SET
+            content_hash = excluded.content_hash,
+            dim = excluded.dim,
+            vector = excluded.vector,
+            created_at = excluded.created_at
+        """,
+        (
+            object_type,
+            object_id,
+            model_id,
+            text_hash,
+            len(vector),
+            struct.pack(f"<{len(vector)}f", *vector),
+            created_at,
+        ),
+    )
+
+
+def load_embeddings(
+    conn: sqlite3.Connection, *, object_type: str, model_id: str
+) -> dict[str, tuple[str, list[float]]]:
+    """`{object_id: (content_hash, vector)}` cho 1 loại đối tượng + 1 model."""
+    rows = conn.execute(
+        "SELECT object_id, content_hash, dim, vector FROM embeddings "
+        "WHERE object_type = ? AND model_id = ?",
+        (object_type, model_id),
+    ).fetchall()
+    return {
+        row["object_id"]: (
+            row["content_hash"],
+            list(struct.unpack(f"<{row['dim']}f", row["vector"])),
+        )
+        for row in rows
+    }
+
+
+# --- cluster_runs ------------------------------------------------------------------
+
+
+def insert_cluster_run(
+    conn: sqlite3.Connection,
+    *,
+    run_at: str,
+    model_id: str,
+    params: dict[str, object],
+    n_units: int,
+    n_clusters: int,
+    noise_ratio: float,
+    dbcv: float | None,
+    ari_vs_previous: float | None,
+    labels: dict[str, int],
+    dbcv_relative: float | None = None,
+    ari_clustered_only: float | None = None,
+    transitions: dict[str, int] | None = None,
+    topic_events: dict[str, str] | None = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO cluster_runs (
+            run_at, model_id, params_json, n_units, n_clusters, noise_ratio, dbcv,
+            dbcv_relative, ari_vs_previous, ari_clustered_only, transitions_json,
+            labels_json, topic_events_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            run_at,
+            model_id,
+            json.dumps(params, sort_keys=True),
+            n_units,
+            n_clusters,
+            noise_ratio,
+            dbcv,
+            dbcv_relative,
+            ari_vs_previous,
+            ari_clustered_only,
+            json.dumps(transitions, sort_keys=True) if transitions is not None else None,
+            json.dumps(labels, sort_keys=True),
+            json.dumps(topic_events, sort_keys=True) if topic_events is not None else None,
+        ),
+    )
+
+
+def latest_cluster_run(conn: sqlite3.Connection) -> sqlite3.Row | None:
+    row = conn.execute("SELECT * FROM cluster_runs ORDER BY id DESC LIMIT 1").fetchone()
+    return row  # type: ignore[no-any-return]

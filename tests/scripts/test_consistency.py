@@ -177,6 +177,23 @@ def test_readme_must_change_together_when_staged(tmp_path: Path) -> None:
     assert check.check_readme_sync(root, staged=staged_all) == []
 
 
+def test_commit_mode_scans_whole_repo_but_keeps_readme_together(tmp_path: Path) -> None:
+    # Lỗ hổng 2026-10-01: pre-commit chỉ quét file stage → vi phạm ở file KHÁC lọt qua.
+    same = "# T\n"
+    files = {"README.md": same, "README.vi.md": same, "README.fr.md": same}
+    root = make_repo(tmp_path, {**files, "docs/old.md": "ok\n"}, PHASE_RULE)
+    (root / "docs/old.md").write_text("Phase 1 plan\n", encoding="utf-8")  # sửa, không stage
+    (root / "README.md").write_text("# T\n\nx\n", encoding="utf-8")
+    _git(root, "add", "README.md")
+
+    def rules(mode: str) -> list[str]:
+        return sorted(v.rule for v in check.run(root, mode, with_pytest=False))
+
+    assert rules("staged") == ["readme-together"]  # bỏ lọt docs/old.md
+    assert rules("commit") == ["R-phase", "readme-together"]
+    assert rules("all") == ["R-phase"]  # --all không biết file nào đang stage
+
+
 # --- stale_asset ----------------------------------------------------------------------
 
 ASSET_RULE = """
@@ -202,6 +219,52 @@ def test_asset_older_than_adr_is_stale_until_regenerated(tmp_path: Path) -> None
     _git(root, "add", "-A")
     _git(root, "commit", "-q", "-m", "regen", date="2026-03-01T00:00:00")
     assert check.check_stale_assets(root, cfg) == []
+
+
+def test_asset_regenerated_with_same_timestamp_or_same_commit_is_fresh(tmp_path: Path) -> None:
+    # Squash/rebase merge trên GitHub: cùng committer date, hoặc ADR + ảnh trong 1 commit.
+    # So theo timestamp (`<=`) từng báo sai vĩnh viễn; so theo tổ tiên commit thì đúng.
+    root = make_repo(tmp_path, {"docs/shot.png": "old"}, ASSET_RULE)
+    cfg = check.load_config(root)
+    adr = root / "docs/decisions/0001-x.md"
+    adr.parent.mkdir(parents=True, exist_ok=True)
+    adr.write_text("# ADR\n", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "adr", date="2026-02-01T00:00:00")
+    (root / "docs/shot.png").write_text("new", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "regen", date="2026-02-01T00:00:00")  # cùng giây
+    assert check.check_stale_assets(root, cfg) == []
+
+    (tmp_path / "sq").mkdir()
+    squashed = make_repo(tmp_path / "sq", {"docs/shot.png": "x"}, ASSET_RULE)
+    sq_adr = squashed / "docs/decisions/0001-x.md"
+    sq_adr.parent.mkdir(parents=True, exist_ok=True)
+    sq_adr.write_text("# ADR\n", encoding="utf-8")
+    (squashed / "docs/shot.png").write_text("new", encoding="utf-8")
+    _git(squashed, "add", "-A")
+    _git(squashed, "commit", "-q", "-m", "adr + regen", date="2026-02-01T00:00:00")
+    assert check.check_stale_assets(squashed, check.load_config(squashed)) == []
+
+
+def test_commit_mode_accepts_tracked_dirs_and_module_refs(tmp_path: Path) -> None:
+    files = {
+        "docs/a.md": "See `src/pkg/mod.func` and `src/pkg` and `src/pkg/`\n",
+        "src/pkg/mod.py": "def func() -> None: ...\n",
+    }
+    root = make_repo(tmp_path, files)
+    assert check.run(root, "commit", with_pytest=False) == []
+
+
+def test_commit_mode_dead_path_requires_tracked_file(tmp_path: Path) -> None:
+    # Doc đã track nhắc file chưa `git add`: trên đĩa có, ở clone sạch / CI thì không
+    root = make_repo(tmp_path, {"docs/a.md": "See `src/new_mod.py`\n"})
+    (root / "src").mkdir()
+    (root / "src/new_mod.py").write_text("x = 1\n", encoding="utf-8")  # chưa track
+    assert [v.rule for v in check.run(root, "all", with_pytest=False)] == []
+    assert [v.rule for v in check.run(root, "commit", with_pytest=False)] == ["dead-path"]
+    _git(root, "add", "src/new_mod.py")
+    assert check.run(root, "commit", with_pytest=False) == []
 
 
 # --- doc_limits + chỉ mục ADR ---------------------------------------------------------
@@ -245,6 +308,22 @@ paths = ["README*.md"]
     assert [v.line for v in got] == [3]
 
 
+def test_commit_mode_does_not_count_untracked_test_files(tmp_path: Path) -> None:
+    # File test dở dang chưa `git add` không thuộc commit → không được làm sai số đếm
+    rules = """
+[[count_fact]]
+id = "R-count"
+pattern = '(?P<n>\\d+) tests?'
+paths = ["README*.md"]
+"""
+    test_src = "def test_x() -> None:\n    assert True\n"
+    root = make_repo(tmp_path, {"README.md": "1 test\n", "tests/test_a.py": test_src}, rules)
+    (root / "tests/test_wip.py").write_text(test_src, encoding="utf-8")  # chưa track
+    assert check.collected_test_count(root) == 2
+    assert [v.rule for v in check.run(root, "all")] == ["R-count"]  # --all: báo để cập nhật
+    assert check.run(root, "commit") == []
+
+
 # --- sổ luật thật ---------------------------------------------------------------------
 
 
@@ -283,6 +362,52 @@ def test_real_invariants_do_not_flag_threads_api_enum(tmp_path: Path) -> None:
     (root / check.INVARIANTS_PATH).write_text(real_toml, encoding="utf-8")
     (root / "m.py").write_text('CAROUSEL_ALBUM = "CAROUSEL_ALBUM"\n', encoding="utf-8")
     assert check.check_forbid(root, ["m.py"], check.load_config(root)) == []
+
+
+@pytest.mark.parametrize(
+    ("rule", "text", "flagged"),
+    [
+        # ADR-0016: model cũ, kể cả cuối câu; không bắt đời mới hơn
+        ("ADR0016-opus-labeling", "Clusters are labeled by claude-opus-5.", True),
+        ("ADR0016-opus-labeling", "`claude-opus-5`", True),
+        ("ADR0016-opus-labeling", "fallback: claude-opus-5-5", False),
+        ("ADR0016-opus-labeling", "claude-opus-5.5 or claude-opus-50", False),
+        ("ADR0016-prompt-caching", "Claude API (cluster labeling + prompt caching)", True),
+        ("ADR0016-prompt-caching", "uses Prompt-Caching", True),
+        ("ADR0016-prompt-caching", "mise en cache du prompt", True),
+        ("ADR0016-prompt-caching", "Threads API client with response caching", False),
+        # ADR-0017: job NLP không còn chạy đêm
+        ("ADR0017-nlp-3am", "`ThreadsAI_NLPClusterJob_Daily` (3h sáng)", True),
+        ("ADR0017-nlp-3am", "(hằng ngày 3h: src/pipeline/nlp_cluster_job)", True),
+        ("ADR0017-nlp-3am", "the NLP job runs at 3:00 AM", True),
+        ("ADR0017-nlp-3am", "recluster lúc 03h00", True),
+        ("ADR0017-nlp-3am", "nightly cluster refresh", True),
+        ("ADR0017-nlp-3am", "chi phí gom cụm hằng đêm", True),
+        ("ADR0017-nlp-3am", "chi phí đặt tên hằng đêm thấp hơn", True),
+        ("ADR0017-nlp-3am", "NLP job at 3h30", True),
+        ("ADR0017-nlp-3am", "NLP job daily at 12:30", False),
+        ("ADR0017-nlp-3am", "3 amplification metrics per cluster", False),
+        ("ADR0017-nlp-3am", "cluster 3 among 9", False),
+        ("ADR0017-nlp-3am", "delta amplification over 3h -> 2.0/h", False),
+        ("ADR0017-nlp-3am", "snapshot every 4h", False),
+        ("ADR0017-old-script", "run scripts/set_job_actions.ps1", True),
+        ("ADR0017-old-script", "run scripts/configure_jobs.ps1", False),
+    ],
+)
+def test_real_rules_for_model_and_schedule_decisions(
+    tmp_path: Path, rule: str, text: str, flagged: bool
+) -> None:
+    root = tmp_path / "repo"
+    (root / "docs/decisions").mkdir(parents=True)
+    real_toml = (REPO_ROOT / check.INVARIANTS_PATH).read_text(encoding="utf-8")
+    (root / check.INVARIANTS_PATH).write_text(real_toml, encoding="utf-8")
+    notes = root / "docs/claude/notes.md"  # nằm trong `paths` của luật prompt-caching
+    notes.parent.mkdir(parents=True)
+    notes.write_text(text + "\n", encoding="utf-8")
+    found = {
+        v.rule for v in check.check_forbid(root, ["docs/claude/notes.md"], check.load_config(root))
+    }
+    assert (rule in found) is flagged
 
 
 def test_real_sprint_step_rule_ignores_procedure_numbering_in_skills(tmp_path: Path) -> None:
@@ -426,6 +551,102 @@ LEARNED_RULES = [
         "README.md",
         "The Threads AI dashboard, see Threads-AI-content.",
         "Task Scheduler `ThreadsAI_SnapshotJob_4h` in threads-ai-content/",
+    ),
+    (
+        "ADR0010-postgres",
+        "README.md",
+        "| Database | SQLite (dev) → PostgreSQL (planned before any multi-user use) | Live (dev) |",
+        "| Database | SQLite — one file, one writer, knowledge base included | Live |",
+    ),
+    (
+        "ADR0004-inflated-continuations",
+        "docs/status.md",
+        "trung bình 6.84 continuation mỗi bài",
+        "trung bình 1.91 continuation mỗi bài (đo 2026-10-01)",
+    ),
+    (
+        "ADR0004-loose-role-counts",
+        "docs/claude/x.md",
+        "1.368 reply (362 self-continuation, 664 trả lời follower)",
+        "353 self_continuation / 674 author_answer / 342 outbound",
+    ),
+    (
+        "ADR0004-comment-replies",
+        "src/x.py",
+        "# Posts and comment replies recommending groceries",
+        "# Posts recommending groceries",
+    ),
+    (
+        "ADR0004-fixed-method",
+        ".claude/rules/x.md",
+        "không đụng `method='fixed'`",
+        "chỉ còn method cluster",
+    ),
+    (
+        "ADR0004-fixed-schema-option",
+        "docs/claude/x.md",
+        '`topics` (id, method: "fixed"|"cluster")',
+        "## 6 fixed category (câu hỏi nghiên cứu RQ-08)",
+    ),
+    (
+        "ADR0004-conversation-unverified",
+        ".claude/rules/x.md",
+        "bình luận follower chưa ingest (Phase D0 sẽ verify `/{id}/conversation`)",
+        "`/{id}/conversation` đã verify live 2026-10-01; chưa lưu — cần ADR-0007",
+    ),
+    (
+        "ADR0004-ari-not-measurable",
+        ".claude/skills/x/SKILL.md",
+        "- ARI giữa lần trước và lần này: **chưa có** cho tới khi embeddings được persist",
+        "- ARI so với lần trước: cột `ari_vs_previous` của `cluster_runs`",
+    ),
+    (
+        "ADR0004-role-count-english",
+        "src/x.py",
+        "# 286 self_continuation / 741 author_answer / 342 outbound",
+        "# 353 self_continuation / 674 author_answer / 342 outbound",
+    ),
+    (
+        "ADR0004-dbcv-unnamed",
+        "docs/status.md",
+        "- 9 cluster (DBCV 0,317, nhiễu 36%)",
+        "- 9 cluster (`validity_index` 0,317, nhiễu 36%)",
+    ),
+    (
+        "ADR0004-dbcv-unnamed",
+        "docs/claude/x.md",
+        "validity_index 0,317 và DBCV 0,205",
+        "| B | DBCV (`relative_validity_`) | 0.205 |",
+    ),
+    (
+        "ADR0004-dbcv-unnamed",
+        "src/x.py",
+        "# | B | DBCV | 0.205 |",
+        "    dbcv=0.3,  # validity_index",
+    ),
+    (
+        "ADR0004-nn10-current",
+        "docs/claude/architecture.md",
+        "| Topic discovery | HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=10`) | Live |",
+        "| Topic discovery | HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8`) | Live |",
+    ),
+    (
+        "ADR0013-bat-launcher",
+        ".claude/skills/recluster/SKILL.md",
+        "- Chạy: `cmd //c run_nlp_cluster_job.bat` — export → cluster → import",
+        "- Chạy: `uv run python -m src.pipeline.nlp_cluster_job`",
+    ),
+    (
+        "ADR0013-lastline-health",
+        ".claude/skills/recluster/SKILL.md",
+        "2. Xem dòng cuối `data/logs/scheduled_job.log`; nếu job vừa bắt đầu thì chờ.",
+        '2. `uv run python -m scripts.job_health` — ghi "task running now" thì chờ.',
+    ),
+    (
+        "ADR0015-optional-review",
+        ".claude/skills/checkpoint/SKILL.md",
+        "Thay đổi có logic → đề xuất gọi `@agent-code-reviewer` trước.",
+        "Diff có file logic → `@agent-code-reviewer` bắt buộc (ADR-0015).",
     ),
 ]
 
