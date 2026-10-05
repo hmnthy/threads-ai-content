@@ -10,7 +10,8 @@ Không generation giọng văn, không carousel, không KOL engine. Portfolio NL
 - Không đăng gì lên Threads. Không commit `.env`, token, data cá nhân (`content/`, `data/`, `docs/research/`).
 - Commit message **tiếng Anh**, **không** trailer `Co-Authored-By` (hook + `attribution` đã cưỡng chế — đừng tìm cách vượt).
 - Product copy (dashboard, README, label do LLM sinh) **tiếng Anh**; docs + code comment **tiếng Việt**.
-- Khi trao đổi với Thy: **chú thích thuật ngữ chuyên môn bằng tiếng Việt** ở lần đầu xuất hiện.
+- Khi trao đổi với Thy: **mọi thuật ngữ kỹ thuật phải có ngoặc giải thích** ở lần đầu xuất hiện **trong mỗi câu trả lời**
+  (cả câu hỏi lựa chọn, plan, báo cáo) — VD `PR (Pull Request — "đề nghị gộp nhánh")`; không được bỏ qua.
 - Không hằng số heuristic chưa gắn nhãn; mọi kết luận thống kê kèm n, effect size, CI (`docs/claude/data-model.md` — Narrative Layering).
 - Đề xuất trong `docs/research/` (private) chỉ được triển khai sau khi Thy duyệt → ghi ADR.
 - Bằng chứng từ data thật > giả định; "verify live" trước khi tin shape của Threads API.
@@ -50,13 +51,14 @@ Quy tắc theo mảng code nằm ở `.claude/rules/` và **tự nạp** khi đ�
 - **Checkpoint**: sau mỗi bước có test/build xanh → đề xuất `/checkpoint` (chạy kiểm tra, soạn commit, **chờ Thy đồng ý**, cập nhật `docs/status.md`).
 - **Quyết định mới** (kiến trúc, methodology, metric) → `/record-decision` (kèm luật trong `docs/decisions/invariants.toml`)
   → `/decision-sweep` lan ra toàn repo. Pre-commit **chặn** commit vi phạm sổ luật; ngoại lệ có chủ đích ghi `consistency: allow <id>`.
-- **Git**: không làm trực tiếp trên `main` cho việc nhiều bước — branch hoặc worktree (`/wt`). Mọi worktree dùng chung DB
-  của checkout chính (sau Phase C); trước đó `data/` của worktree là bản riêng, có thể cũ.
+- **Git** (ADR-0019, `docs/claude/git-workflow.md`, `/git-flow`): thư mục chính **luôn ở `main`** (cron chạy code ở đó, kể cả
+  file chưa commit) — mọi thay đổi làm trên nhánh mới trong worktree → PR → CI xanh → merge commit. Trước Phase C,
+  `data/` của worktree là bản riêng, có thể cũ. Hook đầu phiên in `Git:` khi lệch quy ước.
 - **Subagents**: `@agent-code-reviewer` **bắt buộc** trước commit chạm logic (git hook pre-commit chặn nếu thiếu, ADR-0015) · `@agent-qa-tester` viết/chạy test (chỉ sửa `tests/`) ·
   `@agent-researcher` tìm paper/model/docs có trích nguồn (web + MCP `huggingface`, `context7`) ·
   `@agent-consistency-auditor` kiểm toán độc lập 1 ADR (dùng trong `/decision-sweep`; **bắt buộc** trước commit ADR — git hook pre-commit chặn, ADR-0015).
 - **Cổng pre-commit** (chặn commit): ruff, mypy, sổ luật nhất quán (quét TOÀN repo, ~6s), pytest nhanh, eslint + tsc khi chạm dashboard, cổng review tầng 2 (chỉ commit của Claude), commit-msg.
-  CI (`.github/workflows/ci.yml`) chạy lại các cổng trên máy sạch khi push.
+  CI (`.github/workflows/ci.yml`) chạy lại các cổng trên máy sạch khi mở PR hoặc push vào `main`.
   Hook đầu phiên báo số vi phạm ≠ 0 → chạy `/decision-sweep` trước việc mới.
 - **Phiên mới**: đọc status do hook in ra; cần thêm context cho 1 task → `/prime <task>`.
 - Thy dùng song song Claude Design/Cowork trên cùng repo → `git status` trước khi sửa; thấy thay đổi lạ thì hỏi, không ghi đè.

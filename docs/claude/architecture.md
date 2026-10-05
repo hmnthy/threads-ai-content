@@ -13,7 +13,7 @@ threads-ai-content/
 │   ├── hooks/                 # session_status / guard_commit / ruff_on_edit / adr_written / tests_only / notify+toast; SubagentStart/Stop (settings.json) → scripts/review_gate.py ghi dấu review vào `<git-common-dir>/claude-review/` (chung mọi worktree)
 │   ├── rules/                 # quy tắc theo đường dẫn (paths:) — chỉ nạp khi chạm đúng mảng code
 │   ├── agents/                # code-reviewer, qa-tester, researcher, consistency-auditor
-│   └── skills/                # /prime /checkpoint /record-decision /decision-sweep /new-rq /recluster /wt ui-lookup
+│   └── skills/                # /prime /checkpoint /record-decision /decision-sweep /new-rq /recluster /wt /git-flow ui-lookup
 ├── .mcp.json                  # context7 + huggingface
 ├── docs/
 │   ├── status.md              # trạng thái hiện tại (≤60 dòng)
@@ -36,7 +36,7 @@ threads-ai-content/
 │   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
 │                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)
 ├── tools/ui-ux-pro-max/       # CLI tra cứu UI (vendored) — gọi qua skill ui-lookup
-├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard), job_health.py (sức khoẻ cron), configure_jobs.ps1 (cấu hình Task Scheduler: Action, lịch, cờ pin), snapshot_coverage.py (độ phủ chuỗi snapshot — nguồn số liệu giới hạn lấy mẫu, ADR-0017), topic_identity_eval.py (thí nghiệm quy tắc danh tính cụm, ADR-0018), review_gate.py (cổng review tầng 2 ADR-0015: ghi dấu + kiểm ở git hook pre-commit)
+├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard), job_health.py (sức khoẻ cron), configure_jobs.ps1 (cấu hình Task Scheduler: Action, lịch, cờ pin), snapshot_coverage.py (độ phủ chuỗi snapshot — nguồn số liệu giới hạn lấy mẫu, ADR-0017), topic_identity_eval.py (thí nghiệm quy tắc danh tính cụm, ADR-0018), git_hygiene.py (nhắc quy ước git ở hook đầu phiên, ADR-0019), review_gate.py (cổng review tầng 2 ADR-0015: ghi dấu + kiểm ở git hook pre-commit)
 ├── tests/                     # pytest (marker slow/live), respx mock HTTP
 ├── .github/workflows/ci.yml   # CI: chạy lại các cổng trên máy sạch (ADR-0014)
 ├── data/                      # gitignored: threads.db, logs/, cache/, raw/
@@ -61,7 +61,7 @@ threads-ai-content/
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
 | Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán (toàn repo, `--commit`), cổng review tầng 2 (chỉ commit của Claude, ADR-0015), pytest nhanh, eslint+tsc, commit-msg | Live |
-| CI | GitHub Actions (`.github/workflows/ci.yml`: job py + web, ADR-0014) | Có file, chạy lần đầu khi push (Roadmap G) |
+| CI | GitHub Actions (`.github/workflows/ci.yml`: job py + web, ADR-0014) | Live — chạy lần đầu 2026-10-05 (PR #1: `web` đỏ vì `LayoutProps` → `67c3bf8` → xanh); chỉ chạy khi mở/cập nhật PR, push vào `main` hoặc chạy tay (Roadmap G, ADR-0019) |
 
 ## Luồng dữ liệu
 

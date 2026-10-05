@@ -72,7 +72,8 @@ Dự án dùng song song 3 bề mặt Claude khác nhau trên cùng 1 repo: **Cl
 4. Claude Code verify: code đã port có khớp token trong `design-system.md` không → wire data thật → chạy test/build → commit.
 5. Quay lại bước 1 chỉ cho hướng visual MỚI — không sửa tay trong canvas rồi port đè lên code đã được sửa sau đó (tạo lại 2 nguồn sự thật).
 
-**3 nguyên tắc chặn xung đột**:
+**Nguyên tắc chặn xung đột**:
+- Claude Code và Cowork ghi thẳng vào thư mục chúng mở → luôn mở trong **worktree** của nhánh đang làm, không trong thư mục chính (luôn ở `main`, nơi cron chạy — ADR-0019, `docs/claude/git-workflow.md`).
 - Trước khi chạm `src/dashboard/` (hoặc bất kỳ file nào) ở tool nào — `git status` trước. Có uncommitted work từ tool khác → không ghi đè, hỏi lại user.
 - `design-system.md` là trọng tài khi có mâu thuẫn — sửa spec trước, sync/code sau, không làm ngược.
 - Commit nhỏ, thường xuyên, message rõ nghĩa — git log là kênh giao tiếp DUY NHẤT giữa các tool (không chia sẻ bộ nhớ).

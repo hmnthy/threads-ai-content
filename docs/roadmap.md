@@ -27,7 +27,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 
 ## G — CI (GitHub Actions) — ADR-0014
 
-- ✅ (2026-10-01) `.github/workflows/ci.yml` viết xong; mô phỏng job `py` trong WSL2. **Xong khi**: lần chạy đầu trên GitHub (sau push) xanh.
+- ✅ (2026-10-05) Chạy lần đầu trên GitHub qua PR #1 (CI chỉ chạy khi mở/cập nhật PR, push vào `main` hoặc chạy tay, ADR-0019): job `web` đỏ — `LayoutProps` là kiểu Next sinh vào `.next/` (gitignored), máy sạch chưa có → sửa `67c3bf8` (`npm run typecheck` = `next typegen && tsc --noEmit`) → xanh, merge `e8d645e`.
 - Job `py`: `setup-uv` → `uv sync --frozen` (bỏ torch + gói CUDA, danh sách sinh từ `uv.lock`) → ruff + `ruff format --check` → mypy → `python -m scripts.consistency.check --all` (kể cả đếm số test, quét cả file chưa track) → `pytest -m "not live and not slow"`. Job `web`: `npm ci` → lint → `npm run typecheck` (`next typegen` + `tsc --noEmit`) → build. Không data thật, không secrets.
 
 ## D0 — Sửa tính đúng của dữ liệu (chặn D và E) — ADR-0004
