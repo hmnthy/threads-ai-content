@@ -107,10 +107,17 @@ if not hygiene_ok:
 
 # Cảnh sát nhất quán — chỉ đếm (nhanh, không chạy pytest); chi tiết qua /decision-sweep
 checker, _ = run_quiet("-m", "scripts.consistency.check", "--all", "--count", timeout=6)
-count = checker.strip()
+count_lines = checker.strip().splitlines()
+count = count_lines[0].strip() if count_lines else ""
 if count.isdigit():
     note = " → run `/decision-sweep` before new work" if count != "0" else ""
     lines.append(f"- Consistency violations (docs/decisions/invariants.toml): {count}{note}")
+    # Dòng 2 (nếu có): vi phạm trong mockup của Claude Design — chỉ cảnh báo (ADR-0020)
+    warn = count_lines[1].split(":", 1)[-1].strip() if len(count_lines) > 1 else ""
+    if warn.isdigit():
+        lines.append(
+            f"- Mockup warnings: {warn} (not blocking — log in docs/design/ui-contract-audit.md)"
+        )
 else:
     lines.append(
         "- Consistency count unavailable — run `uv run python -m scripts.consistency.check`"

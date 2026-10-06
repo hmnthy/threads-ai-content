@@ -18,7 +18,9 @@ if not m or m.group(1) == "0000":
 adr = m.group(1)
 message = (
     f"ADR-{adr} vừa được ghi. Quyết định chưa hoàn tất cho tới khi được lan ra toàn repo: "
-    f"thêm luật vào docs/decisions/invariants.toml (nếu chưa có), rồi chạy /decision-sweep {adr} "
+    f"thêm luật vào docs/decisions/invariants.toml (nếu chưa có), điền mục '### Hệ quả UI' và sửa "
+    "docs/design/ui-contract.md cùng commit + nâng mốc 'Cập nhật tới' (ADR-0020 — thiếu thì "
+    f"pre-commit chặn), rồi chạy /decision-sweep {adr} "
     "(kiểm kê tầng 1 + consistency-auditor → sửa → kiểm tra cuối)."
 )
 # ensure_ascii (mặc định) → chỉ xuất ASCII: stdout Windows là cp1252, in thẳng tiếng Việt sẽ sập
