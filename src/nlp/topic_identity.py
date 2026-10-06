@@ -21,7 +21,7 @@ Quy tắc (Thy chốt 2026-10-04 sau thí nghiệm 10 seed — `scripts/topic_id
 2. **Ngữ nghĩa** (`kept`, via `semantic`), cho cụm `new`/`split` (KHÔNG cho `merged` — cụm
    nuốt thêm chủ đề khác không được giữ tên cũ): giữ id của topic cũ chưa ai giữ có tâm
    embedding gần nhất, khi cosine > `semantic_reference` = cosine LỚN NHẤT giữa tâm 2 topic
-   khác nhau của lần trước (ngưỡng suy từ data mỗi lần, như sàn views P25 — không hằng số).
+   khác nhau của lần trước (ngưỡng suy từ data mỗi lần, như mốc chín tầng reach — không hằng số).
    Ghép tham lam theo cosine giảm dần, mỗi topic cũ trao id tối đa 1 lần.
 
 Lý do có bước 2: trên 10 seed cùng data, 85–89% cụm bị quy tắc thành viên đổi tên có tâm

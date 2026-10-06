@@ -4,6 +4,8 @@
 # Thêm luật: mỗi ADR mới PHẢI thêm luật ở đây (skill /record-decision + /decision-sweep).
 # Ngoại lệ có chủ đích: ghi `consistency: allow <id>` trên dòng vi phạm hoặc dòng ngay trước.
 # Glob: `*` khớp mọi ký tự kể cả `/` (fnmatch) — `docs/archive/**` = mọi thứ dưới docs/archive.
+# Cấm 1 từ gốc trong định danh: `\b` không tách sau `_` hay giữa camelCase → dùng
+# `(?:\b|_)word|(?-i:[a-z]Word)` và thêm ví dụ snake_case + camelCase vào LEARNED_RULES.
 
 [settings]
 # Không quét: lưu trữ nguyên văn, vendored, file sinh tự động, và chính bộ luật + test của nó
@@ -664,3 +666,54 @@ why = "Id topic là topic_N, bền qua các lần gom cụm; cluster_N là nhãn
 fix = "Dùng topic_N (TopicOut.id / ContentUnitOut.topic.topic_id)"
 paths = ["src/dashboard/src/**", "docs/design/**", "README*.md", "docs/claude/**"]
 allow = ["docs/decisions/**", "tests/**"]
+
+[[forbid]]
+id = "ADR0012-old-share-name"
+adr = "0012"
+mockups = true
+# Tên cũ của share_rate + nhãn cũ (P90 tỉ lệ chia sẻ + sàn views) đã bỏ; lịch sử ở docs/decisions/**
+pattern = '\b(virality_index|is_viral|channel_virality_p90|top_by_virality|compare_virality_with_without_author_reply|test_virality)\b|src/analysis/virality\.py'
+why = "ADR-0012: (reposts + quotes) / views × 100 tên là share_rate; nhãn lan rộng là tầng reach (src/analysis/reach.py)"
+fix = "Dùng share_rate / top_by_share_rate / WindowAnalyticsOut.share_rate; tầng reach: assign_reach_tiers, GET /analytics/reach"
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0012-old-label-wording"
+adr = "0012"
+mockups = true
+# Chữ "viral" (cả virality / viralité / virale) gây lẫn độ phủ với tỉ lệ chia sẻ — Thy chốt không dùng ở đâu cả
+# `\b` không tách `_`/camelCase (`is_viral_post`, `topByVirality`) → thêm `_` và chữ thường + `Viral`
+pattern = '(?i)(?:\b|_)viral|(?-i:[a-z]Viral)'
+why = "ADR-0012: độ phủ = tầng reach (\"Top 20% reach\" / \"Above median reach\"), tỉ lệ đăng lại / trích dẫn = \"Share rate\""
+fix = "Viết \"Share rate\" cho tỉ lệ, \"Top 20% reach\" / \"Above median reach\" cho tầng, \"bài đột biến\" / \"breakout post\" cho nghĩa chung"
+allow = ["docs/decisions/**"]
+
+[[stale_asset]]
+id = "ADR0012-overview-screenshot"
+adr = "0012"
+path = "docs/screenshots/overview.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0012-analytics-screenshot"
+adr = "0012"
+path = "docs/screenshots/analytics.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0012-landing-screenshot"
+adr = "0012"
+path = "docs/screenshots/landing.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[forbid]]
+id = "ADR0012-raw-views-as-reach"
+adr = "0012"
+mockups = true
+# Threads API không có trường reach; từ ADR-0012 chữ "reach" chỉ dành cho tầng reach tương đối
+# Chỉ bắt dạng hiển nhiên; "Reach" gắn vào cột views kiểm tay theo UI-L20260830-insight-fields
+pattern = '(?i)\braw[\s_-]+reach\b|\breach\s*\(raw\)'
+why = "Views thô không phải reach (API không có trường reach); \"reach\" là tầng tương đối của ADR-0012"
+fix = "Viết \"Raw views\"; \"reach\" chỉ trong \"Top 20% reach\" / \"Above median reach\""
+paths = ["src/dashboard/src/**", "README*.md", "docs/claude/**", "docs/design/**"]
+allow = ["docs/decisions/**"]

@@ -29,7 +29,7 @@ threads-ai-content/
 │   ├── models/                # ContentUnit, InsightSnapshot
 │   ├── processing/            # thread_reconstruction (root + continuation), text (NFC, dấu thanh)
 │   ├── nlp/                   # language (CMI + LID cấp từ), embeddings (bge-m3), topics (UMAP+HDBSCAN+Claude label), topic_profile (c-TF-IDF, bài đại diện, ARI), topic_identity (danh tính cụm bền, ADR-0018)
-│   ├── analysis/              # 6 index + stats/significance/reply_thread/topic_affinity
+│   ├── analysis/              # 6 index (share_rate…) + reach (tầng, ADR-0012) + stats/significance/reply_thread/topic_affinity
 │   ├── db/schema.py           # SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs, topic_label_history
 │   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job + nlp_cluster_job (cron, pythonw — ADR-0013), job_log, cầu nối clustering Win↔WSL2 (bỏ ở Phase C)
 │   ├── main.py                # FastAPI — chỉ đọc SQLite, không load model trong request

@@ -1,7 +1,7 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-05
+> Cập nhật: 2026-10-06
 
 ## Now
 
@@ -12,11 +12,12 @@
 - ADR-0018 (Thy chọn phương án B + 4 lựa chọn sau thí nghiệm 10 seed + kiểm tài liệu MONIC/Greene/Palla/BERTopic): danh tính cụm bền `topic_N` — ghép theo thành viên (bỏ nhiễu ở phép thử giữ, lõi giữ tên) rồi ngữ nghĩa (trừ cụm nhập), đặt lại tên khi trôi khỏi bản neo; prompt đặt tên v2. Đổi tên khi data không đổi: 30,6% [21,0; 40,3] → 15,2% [10,7; 19,9] (828 cụm, 90 cặp seed). DB thật đã migrate một phần (id `topic_N`) do job snapshot 21:15 chạy code đang sửa; lần job NLP kế tiếp thêm cột bản neo và đặt lại tên 9 cụm 1 lần.
 - ADR-0019 (Thy chọn): quy trình git — thư mục chính luôn ở `main`, mọi thay đổi trong worktree trên nhánh riêng → PR → CI → merge commit; hook đầu phiên nhắc (`scripts/git_hygiene.py`), skill `/git-flow`, tài liệu `docs/claude/git-workflow.md`. Đã merge (PR #2).
 - PR #3 (2026-10-06): gói Claude Design 2026-10-05 (landing mockup chốt, design-system v3.2, brief Topics v2) + logo Unknot.
+- ADR-0012 (Thy chốt 2026-10-06, nhánh `feat/reach-tiers` chờ PR): chỉ số (reposts + quotes) / views đổi tên thành `share_rate` (UI "Share rate"); "bài lan rộng" = tầng reach tương đối — "Top 20% reach" (P80) / "Above median reach" (P50) của views ÷ median 20 bài trước, chỉ bài đã chín (P90 thời gian đạt 90% views, đo từ snapshot); `GET /analytics/reach`, số liệu sinh lại bằng `scripts/reach_report.py`. Chưa có giao diện tầng (chờ mockup); 3 ảnh chụp cần làm lại sau commit ADR.
 - ADR-0020 (Thy chọn: Claude Code = nguồn sự thật kỹ thuật, Claude Design làm UI/UX trên nền đó; mockup chỉ cảnh báo): hợp đồng UI `docs/design/ui-contract.md` (ADR-0001 → 0020, mỗi ràng buộc kèm `file:line`, máy kiểm đường dẫn/luật/test); ADR mới có mục "Hệ quả UI"; mockup bị sổ luật quét ở mức cảnh báo; audit landing ở `docs/design/ui-contract-audit.md`.
 
 ## Next
 
-0. Việc 1 của brief Topics (Thy chốt 1a–1e: cấu trúc trang tầng A, nhóm so sánh, họ test Holm, mean, lịch sử tên) **gộp** nhãn viral ADR-0012 (P90 toàn lịch sử + sàn views P25; Mann-Whitney trên biến giải thích + Holm) — chung Holm và câu hỏi "so với nhóm nào". Kèm 4 câu hỏi mở của hợp đồng UI.
+0. Việc 1 của brief Topics (Thy chốt 1a–1e: cấu trúc trang tầng A, nhóm so sánh, họ test Holm, mean, lịch sử tên) **gộp** phần còn mở của ADR-0012 (sàn views cho bảng top theo rate; so sánh biến giải thích giữa các tầng reach + Holm) — chung Holm và câu hỏi "so với nhóm nào". Kèm 4 câu hỏi mở của hợp đồng UI (Thy đã chốt 1 = A, 4 = A — ghi vào hợp đồng khi nhập gói Claude Design 2026-10-06).
 1. Brief Việc 2–4: audit dữ liệu Topics, endpoint `/topics` mở rộng + run + stats, xuất `docs/design/data/topics/` cho Claude Design. Logo: `BrandLogo.tsx` + `app/icon.svg` (cần ADR theo brand-assets.md).
 2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
 3. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
@@ -39,7 +40,7 @@
 
 ## Số liệu nhanh
 
-- 152 root post · 1.390 reply của tác giả (367 self_continuation · 680 author_answer · 343 outbound — ADR-0004) · 9 cluster (`validity_index` 0,261, nhiễu 41% — lần gom 2026-10-04) · 485 test pass
+- 152 root post · 1.390 reply của tác giả (367 self_continuation · 680 author_answer · 343 outbound — ADR-0004) · 9 cluster (`validity_index` 0,261, nhiễu 41% — lần gom 2026-10-04) · 508 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint

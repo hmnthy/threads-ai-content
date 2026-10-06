@@ -1,5 +1,27 @@
+import pytest
+
 from src.analysis.engagement import MIN_N_PER_BUCKET
-from src.analysis.significance import compare_groups
+from src.analysis.significance import compare_groups, holm_adjust
+
+
+def test_holm_adjust_matches_hand_computation_and_keeps_input_order() -> None:
+    # p xếp tăng: 0.01×3 = 0.03, 0.03×2 = 0.06, 0.04×1 = 0.04 → giữ đơn điệu = 0.06
+    assert holm_adjust([0.04, 0.01, 0.03]) == pytest.approx([0.06, 0.03, 0.06])
+
+
+def test_holm_adjust_caps_at_one_and_handles_empty() -> None:
+    assert holm_adjust([0.6, 0.7]) == [1.0, 1.0]
+    assert holm_adjust([]) == []
+
+
+def test_holm_adjust_ties_get_the_same_adjusted_value() -> None:
+    # Khớp statsmodels multipletests(method="holm")
+    assert holm_adjust([0.02, 0.01, 0.02, 0.5]) == pytest.approx([0.06, 0.04, 0.06, 0.5])
+
+
+def test_holm_adjust_rejects_nan() -> None:
+    with pytest.raises(ValueError):
+        holm_adjust([0.04, float("nan"), 0.01])
 
 
 def test_compare_groups_clear_difference_reports_significant_result() -> None:

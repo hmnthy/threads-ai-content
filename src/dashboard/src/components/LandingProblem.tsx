@@ -14,7 +14,7 @@ const POINTS = [
   {
     Icon: Warning,
     title: "No statistically honest reporting",
-    body: "A single viral post drags a mean far above what a typical post looks like, and a 2-post \"best hour\" bucket gets reported with the same confidence as a 50-post one.",
+    body: "A single breakout post drags a mean far above what a typical post looks like, and a 2-post \"best hour\" bucket gets reported with the same confidence as a 50-post one.",
   },
 ];
 

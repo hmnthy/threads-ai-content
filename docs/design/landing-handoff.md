@@ -17,7 +17,7 @@ Kiểm toán 2026-10-02 — mỗi trường trên UI thuộc 1 trong 3 loại:
 | engagement % từng bài | `PostInsights.engagement_rate` (`src/api/models.py`) — `(likes+replies+reposts+quotes)/views×100`; trả 0.0 khi views = 0 → **phải lọc trước** (ADR-0011, `src/analysis/stats.py`) |
 | median / IQR kênh, n = 144, 6 bị loại | `window_stats` + `DistributionStatsOut` (`src/main.py`) |
 | 353 / 674 / 342 vai reply | `posts.reply_role` (ADR-0004) |
-| cụm, `centroid_similarity` | `post_topic_labels.confidence`, API đổi tên thành `centroid_similarity` (`src/main.py:258`) |
+| cụm, `centroid_similarity` | `post_topic_labels.confidence`, API đổi tên thành `centroid_similarity` (`src/main.py:270`) |
 | từ khoá c-TF-IDF, 3 bài gần tâm | `topics.keywords_json`, `topics.representative_ids_json` (`src/nlp/topic_profile.py`, `clustering_import.py`) — **chưa có trong `TopicOut`** |
 | toạ độ bản đồ | `content_units.umap_x/y/z` |
 | 9 cụm · nhiễu 36,1% · DBCV (validity_index) 0,317 | `cluster_runs.n_clusters/noise_ratio/dbcv` — DBCV ghi kèm tên hàm `validity_index` |

@@ -5,11 +5,11 @@ import { getAnalyticsOverview, type AnalyticsOverview, type TopPostEntry } from 
 import { PostingTimeHeatmap } from "@/components/PostingTimeHeatmap";
 import { formatPostDateTimeParis } from "@/lib/dates";
 
-type MetricKey = "engagement" | "virality" | "conversation";
+type MetricKey = "engagement" | "share" | "conversation";
 
 const METRIC_TABS: { key: MetricKey; label: string; field: keyof TopPostEntry["metrics"] }[] = [
   { key: "engagement", label: "Top by engagement", field: "engagement_rate" },
-  { key: "virality", label: "Top by virality", field: "virality_index" },
+  { key: "share", label: "Top by share rate", field: "share_rate" },
   { key: "conversation", label: "Top by conversation", field: "conversation_rate" },
 ];
 
@@ -53,8 +53,8 @@ export function AnalyticsBreakdown() {
   const activeList =
     activeMetric === "engagement"
       ? data.top_by_engagement
-      : activeMetric === "virality"
-        ? data.top_by_virality
+      : activeMetric === "share"
+        ? data.top_by_share_rate
         : data.top_by_conversation;
   const activeField = METRIC_TABS.find((tab) => tab.key === activeMetric)!.field;
   const maxValue = Math.max(...activeList.map((entry) => entry.metrics[activeField]), 0.0001);

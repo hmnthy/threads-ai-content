@@ -505,6 +505,17 @@ def latest_insight_snapshot(conn: sqlite3.Connection, post_id: str) -> sqlite3.R
     return row  # type: ignore[no-any-return]
 
 
+def insight_views_series(conn: sqlite3.Connection) -> dict[str, list[tuple[str, int]]]:
+    """Mọi snapshot `(fetched_at, views)` theo post, xếp theo thời gian — đường tăng views
+    dùng để đo độ chín của bài (`src/analysis/reach.py`, ADR-0012). 1 truy vấn cho cả bảng."""
+    series: dict[str, list[tuple[str, int]]] = {}
+    for row in conn.execute(
+        "SELECT post_id, fetched_at, views FROM insights_snapshots ORDER BY post_id, fetched_at"
+    ):
+        series.setdefault(row["post_id"], []).append((row["fetched_at"], row["views"]))
+    return series
+
+
 def snapshot_row_to_post_insights(row: sqlite3.Row) -> PostInsights:
     return PostInsights(
         post_id=row["post_id"],

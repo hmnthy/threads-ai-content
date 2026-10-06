@@ -17,8 +17,10 @@ import os
 import sqlite3
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import date as date_cls
-from typing import Final
+from datetime import datetime
+from typing import Final, get_args
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
@@ -33,14 +35,24 @@ from src.analysis.engagement import (
     top_posts_by_engagement,
 )
 from src.analysis.popularity import popularity_index
+from src.analysis.reach import (
+    BASELINE_MIN_PRIOR,
+    BASELINE_WINDOW,
+    TIERED_STATUSES,
+    ReachStatus,
+    ReachTiers,
+    assign_reach_tiers,
+    estimate_maturity,
+)
+from src.analysis.share_rate import share_rate
 from src.analysis.stats import DistributionStats, split_measurable, window_stats
-from src.analysis.virality import virality_index
 from src.api.models import PostInsights, ThreadsPost
 from src.db.schema import (
     DEFAULT_DB_PATH,
     connect,
     get_post,
     get_post_topic_label,
+    insight_views_series,
     latest_insight_snapshot,
     list_content_units,
     list_daily_views,
@@ -79,12 +91,12 @@ def _db() -> Generator[sqlite3.Connection]:
 
 class ContentUnitMetrics(BaseModel):
     """6-index architecture — 3 base index tính được từ 1 snapshot insights
-    (popularity/virality/conversation) + engagement_rate (có quotes). velocity/longevity
+    (popularity/share/conversation) + engagement_rate (có quotes). velocity/longevity
     cần chuỗi snapshot theo thời gian nên chưa trả qua endpoint này (deferred)."""
 
     popularity_index: int
     engagement_rate: float
-    virality_index: float
+    share_rate: float
     conversation_rate: float
 
 
@@ -139,7 +151,7 @@ class DistributionStatsOut(BaseModel):
     `EngagementBucketStats` cũ) — median/mean cạnh nhau CỐ TÌNH (tầng 3 "Narrative
     Layering Principle", xem docs/claude/data-model.md), kèm n/IQR/insufficient_data
     để dashboard không tuyên bố "tốt nhất" từ 1 tập quá ít bài. Dùng chung cho bucket
-    giờ/thứ (`HourBucket`/`WeekdayBucket`) VÀ cho engagement/virality/conversation
+    giờ/thứ (`HourBucket`/`WeekdayBucket`) VÀ cho engagement/share rate/conversation
     của `WindowAnalyticsOut` (Overview mới) — 1 shape, không lặp lại 2 lần."""
 
     median: float
@@ -168,7 +180,7 @@ class TimezoneEngagement(BaseModel):
 
 class AnalyticsOverviewOut(BaseModel):
     """`engagement` là median+mean+IQR+n của engagement rate TỪNG root post trên toàn
-    kênh — thay `average_engagement_rate` (chỉ mean, bị bài viral kéo lệch) để trang
+    kênh — thay `average_engagement_rate` (chỉ mean, bị 1 bài đột biến kéo lệch) để trang
     Analytics hiện median làm số chính, đúng tầng 3 "Narrative Layering Principle"."""
 
     post_count: int
@@ -177,7 +189,7 @@ class AnalyticsOverviewOut(BaseModel):
     excluded_no_views: int
     engagement: DistributionStatsOut
     top_by_engagement: list[TopPostEntry]
-    top_by_virality: list[TopPostEntry]
+    top_by_share_rate: list[TopPostEntry]
     top_by_conversation: list[TopPostEntry]
     timezones: list[TimezoneEngagement]
 
@@ -202,7 +214,7 @@ class WindowAnalyticsOut(BaseModel):
     """Hero band + KPI strip + top content units — tính lại từ data thật CHỈ trong
     [start, end]. `views` = Σ account_daily_views (account-level, gồm views từ
     replies) — KHÁC `top_content_units[].metrics.popularity_index` (post-level, per
-    ContentUnit). `engagement`/`virality`/`conversation` là median+mean CỦA TỪNG
+    ContentUnit). `engagement`/`share_rate`/`conversation` là median+mean CỦA TỪNG
     POST trong cửa sổ (đúng methodology Layer 2 đã chốt) — KHÔNG phải pooled ratio
     Σinteractions/Σviews như mockup UI tự vẽ cho đẹp (xem `src/analysis/stats.py`
     docstring)."""
@@ -211,12 +223,12 @@ class WindowAnalyticsOut(BaseModel):
     end: str
     views: int
     content_unit_count: int
-    # ADR-0011: số bài trong cửa sổ có views = 0 — bị loại khỏi engagement/virality/
+    # ADR-0011: số bài trong cửa sổ có views = 0 — bị loại khỏi engagement/share_rate/
     # conversation (vẫn tính trong `content_unit_count`)
     excluded_no_views: int
     interactions: int
     engagement: DistributionStatsOut
-    virality: DistributionStatsOut
+    share_rate: DistributionStatsOut
     conversation: DistributionStatsOut
     top_content_units: list[TopPostEntry]
 
@@ -245,7 +257,7 @@ def get_content_units() -> list[ContentUnitOut]:
                 metrics = ContentUnitMetrics(
                     popularity_index=popularity_index(insights),
                     engagement_rate=insights.engagement_rate,
-                    virality_index=virality_index(insights),
+                    share_rate=share_rate(insights),
                     conversation_rate=conversation_rate(insights),
                 )
 
@@ -328,7 +340,7 @@ def _to_top_post_entry(post: ThreadsPost, insights: PostInsights) -> TopPostEntr
         metrics=ContentUnitMetrics(
             popularity_index=popularity_index(insights),
             engagement_rate=insights.engagement_rate,
-            virality_index=virality_index(insights),
+            share_rate=share_rate(insights),
             conversation_rate=conversation_rate(insights),
         ),
     )
@@ -354,7 +366,7 @@ def _top_by(
     metric: Callable[[PostInsights], float],
     limit: int,
 ) -> list[TopPostEntry]:
-    """Generic top-N sort theo 1 metric (virality_index/conversation_rate — không có
+    """Generic top-N sort theo 1 metric (share_rate/conversation_rate — không có
     hàm `top_posts_by_*` sẵn cho chúng trong `src/analysis/`, chỉ `engagement.py`
     có `top_posts_by_engagement`, dùng trực tiếp hàm đó cho nhánh engagement)."""
     by_id = {item.post_id: item for item in insights}
@@ -366,7 +378,7 @@ def _top_by(
 @app.get("/analytics/overview", response_model=AnalyticsOverviewOut)
 def get_analytics_overview() -> AnalyticsOverviewOut:
     """Overview/Analytics tối giản — bảng top post theo 3 base index (engagement/
-    virality/conversation) + engagement theo giờ/thứ, song song Europe/Paris và
+    share rate/conversation) + engagement theo giờ/thứ, song song Europe/Paris và
     Asia/Ho_Chi_Minh (KHÔNG chọn 1 timezone — Threads không expose viewer timezone
     per-post, xem docs/decisions/legacy-log.md dòng "Timeline analysis ... parametrize theo
     timezone"). Thuần đọc + tính arithmetic từ SQLite, KHÔNG gọi
@@ -401,7 +413,7 @@ def get_analytics_overview() -> AnalyticsOverviewOut:
             top_by_engagement=[
                 _to_top_post_entry(post, item) for post, item in top_engagement_pairs
             ],
-            top_by_virality=_top_by(posts, insights, virality_index, ANALYTICS_TOP_N),
+            top_by_share_rate=_top_by(posts, insights, share_rate, ANALYTICS_TOP_N),
             top_by_conversation=_top_by(posts, insights, conversation_rate, ANALYTICS_TOP_N),
             timezones=timezones,
         )
@@ -468,7 +480,125 @@ def get_analytics_window(start: date_cls, end: date_cls) -> WindowAnalyticsOut:
             excluded_no_views=excluded,
             interactions=interactions,
             engagement=_to_stats_out(window_stats(measurable, lambda i: i.engagement_rate)),
-            virality=_to_stats_out(window_stats(measurable, virality_index)),
+            share_rate=_to_stats_out(window_stats(measurable, share_rate)),
             conversation=_to_stats_out(window_stats(measurable, conversation_rate)),
             top_content_units=top_content_units,
         )
+
+
+class ReachPostOut(BaseModel):
+    """1 bài gốc đo được trong bảng tầng reach (ADR-0012). `views` thô luôn trả kèm làm
+    tham chiếu; `baseline_views` = median views của các bài đăng ngay trước; `relative_reach` =
+    views ÷ baseline_views — đại lượng dùng để xếp tầng. Cả hai None với bài chưa xếp tầng (bài
+    chưa chín có reach tương đối bị hạ thấp — không trả để client không tự chia)."""
+
+    id: str
+    timestamp: str
+    views: int
+    baseline_views: float | None
+    relative_reach: float | None
+    status: ReachStatus
+
+
+class ReachMaturityOut(BaseModel):
+    # P90 thời gian đạt 90% views mới nhất; None khi chưa có đường cong nào đủ điều kiện
+    days: float | None
+    n_curves: int
+
+
+class ReachTiersOut(BaseModel):
+    """Tầng reach toàn lịch sử kênh (ADR-0012) — "Top 20% reach" (`top_20`, ≥ P80) và
+    "Above median reach" (`above_median`, ≥ P50) của reach tương đối, chỉ trên bài đã chín
+    và có mốc so sánh (`n_tiered`). `p50_views`/`p80_views` = views thô ở cùng phân vị của
+    cùng nhóm bài — tham chiếu, không dùng để xếp tầng."""
+
+    baseline_window: int
+    baseline_min_prior: int
+    maturity: ReachMaturityOut
+    p50_ratio: float | None
+    p80_ratio: float | None
+    p50_views: float | None
+    p80_views: float | None
+    n_tiered: int
+    insufficient_data: bool
+    # ADR-0011: bài views = 0 không nằm trong `posts`, báo số bị loại riêng
+    excluded_no_views: int
+    counts: dict[str, int]
+    posts: list[ReachPostOut]
+
+
+@dataclass(frozen=True)
+class ReachComputation:
+    """Đầu vào + kết quả tầng reach, cùng thứ tự (thời gian đăng tăng dần)."""
+
+    posts: list[ThreadsPost]
+    insights: list[PostInsights]  # snapshot mới nhất của từng bài
+    curves: list[list[tuple[float, int]]]  # (tuổi bài lúc chụp, views) theo thời gian
+    tiers: ReachTiers
+    excluded_no_views: int
+
+
+def compute_reach(
+    conn: sqlite3.Connection,
+    window: int = BASELINE_WINDOW,
+    min_prior: int = BASELINE_MIN_PRIOR,
+) -> ReachComputation:
+    """Tầng reach trên toàn bộ bài gốc đo được, xếp theo thời gian đăng — dùng chung cho
+    endpoint và `scripts/reach_report.py` (số liệu ADR-0012 sinh lại được từ đây)."""
+    posts, insights, excluded = split_measurable(*_load_root_posts_with_insights(conn))
+    by_id = {item.post_id: item for item in insights}
+    posts = sorted(posts, key=lambda post: post.timestamp)
+    ordered = [by_id[post.id] for post in posts]
+    series = insight_views_series(conn)
+    curves = [
+        [
+            ((datetime.fromisoformat(fetched_at) - post.timestamp).total_seconds() / 86400, views)
+            for fetched_at, views in series.get(post.id, [])
+        ]
+        for post in posts
+    ]
+    # Tuổi tại snapshot mới nhất (nơi lấy `views`), không phải tới `now` — cron ngắt vài ngày
+    # (ADR-0017) thì views vẫn là số đo lúc bài còn non
+    ages = [curve[-1][0] if curve else 0.0 for curve in curves]
+    tiers = assign_reach_tiers(
+        [item.views for item in ordered],
+        ages,
+        estimate_maturity(curves),
+        window=window,
+        min_prior=min_prior,
+    )
+    return ReachComputation(posts, ordered, curves, tiers, excluded)
+
+
+@app.get("/analytics/reach", response_model=ReachTiersOut)
+def get_analytics_reach() -> ReachTiersOut:
+    """Tầng reach (ADR-0012): bài nào chạm tới nhiều người hơn mức bình thường của kênh lúc
+    đăng. Toàn lịch sử, không theo cửa sổ thời gian — ngưỡng là phân vị của chính kênh."""
+    with _db() as conn:
+        result = compute_reach(conn)
+    tiers = result.tiers
+    counts = {status: tiers.statuses.count(status) for status in get_args(ReachStatus)}
+    return ReachTiersOut(
+        baseline_window=BASELINE_WINDOW,
+        baseline_min_prior=BASELINE_MIN_PRIOR,
+        maturity=ReachMaturityOut(days=tiers.maturity.days, n_curves=tiers.maturity.n_curves),
+        p50_ratio=tiers.p50_ratio,
+        p80_ratio=tiers.p80_ratio,
+        p50_views=tiers.p50_views,
+        p80_views=tiers.p80_views,
+        n_tiered=tiers.n_tiered,
+        insufficient_data=tiers.insufficient_data,
+        excluded_no_views=result.excluded_no_views,
+        counts=counts,
+        posts=[
+            ReachPostOut(
+                id=post.id,
+                timestamp=post.timestamp.isoformat(),
+                views=item.views,
+                baseline_views=tiers.baselines[i] if tiers.statuses[i] in TIERED_STATUSES else None,
+                relative_reach=tiers.ratios[i] if tiers.statuses[i] in TIERED_STATUSES else None,
+                status=tiers.statuses[i],
+            )
+            for i, (post, item) in enumerate(zip(result.posts, result.insights, strict=True))
+        ],
+    )
