@@ -5,7 +5,7 @@
 export interface ContentUnitMetrics {
   popularity_index: number;
   engagement_rate: number;
-  virality_index: number;
+  share_rate: number;
   conversation_rate: number;
 }
 
@@ -46,7 +46,7 @@ export interface TopPostEntry {
 // Mirror của DistributionStatsOut (src/main.py) — median/mean cạnh nhau CỐ TÌNH
 // (Narrative Layering Principle, docs/claude/data-model.md), kèm n/IQR/
 // insufficient_data để UI không tuyên bố "tốt nhất" từ 1 tập quá ít bài. Dùng
-// chung cho bucket giờ/thứ VÀ cho engagement/virality/conversation của 1 cửa sổ
+// chung cho bucket giờ/thứ VÀ cho engagement/share_rate/conversation của 1 cửa sổ
 // thời gian (WindowAnalytics bên dưới) — 1 shape, không lặp lại.
 export interface DistributionStats {
   median: number;
@@ -80,7 +80,7 @@ export interface AnalyticsOverview {
   // Engagement rate toàn kênh, tính theo từng root post — median là số chính
   engagement: DistributionStats;
   top_by_engagement: TopPostEntry[];
-  top_by_virality: TopPostEntry[];
+  top_by_share_rate: TopPostEntry[];
   top_by_conversation: TopPostEntry[];
   timezones: TimezoneEngagement[];
 }
@@ -100,18 +100,18 @@ export interface DailyViewsSeries {
 // lại từ data thật CHỈ trong [start, end] mỗi khi cửa sổ đổi. `views` = tổng
 // account-level daily views trong cửa sổ (gồm views từ replies) — KHÁC
 // `top_content_units[].metrics.popularity_index` (post-level, per content unit).
-// `engagement`/`virality`/`conversation` là median+mean CỦA TỪNG POST trong cửa
+// `engagement`/`share_rate`/`conversation` là median+mean CỦA TỪNG POST trong cửa
 // sổ — KHÔNG phải pooled ratio Σinteractions/Σviews (xem src/analysis/stats.py).
 export interface WindowAnalytics {
   start: string;
   end: string;
   views: number;
   content_unit_count: number;
-  // ADR-0011: bài trong cửa sổ có views = 0 — loại khỏi engagement/virality/conversation
+  // ADR-0011: bài trong cửa sổ có views = 0 — loại khỏi engagement/share_rate/conversation
   excluded_no_views: number;
   interactions: number;
   engagement: DistributionStats;
-  virality: DistributionStats;
+  share_rate: DistributionStats;
   conversation: DistributionStats;
   top_content_units: TopPostEntry[];
 }
@@ -119,6 +119,41 @@ export interface WindowAnalytics {
 // FastAPI backend base URL — mặc định trỏ localhost:8000 (uvicorn src.main:app),
 // override qua NEXT_PUBLIC_API_BASE_URL nếu chạy ở port/host khác.
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+// Mirror của ReachTiersOut (src/main.py, ADR-0012) — tầng reach toàn lịch sử kênh.
+// "Top 20% reach" = top_20, "Above median reach" = above_median; xếp theo
+// relative_reach (views ÷ median views các bài đăng ngay trước), views thô chỉ tham chiếu.
+export type ReachStatus =
+  | "top_20"
+  | "above_median"
+  | "below_median"
+  | "still_growing"
+  | "no_baseline"
+  | "maturity_unknown";
+
+export interface ReachPost {
+  id: string;
+  timestamp: string;
+  views: number;
+  baseline_views: number | null;
+  relative_reach: number | null;
+  status: ReachStatus;
+}
+
+export interface ReachTiers {
+  baseline_window: number;
+  baseline_min_prior: number;
+  maturity: { days: number | null; n_curves: number };
+  p50_ratio: number | null;
+  p80_ratio: number | null;
+  p50_views: number | null;
+  p80_views: number | null;
+  n_tiered: number;
+  insufficient_data: boolean;
+  excluded_no_views: number;
+  counts: Record<ReachStatus, number>;
+  posts: ReachPost[];
+}
 
 async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store" });
@@ -138,6 +173,10 @@ export function getTopics(): Promise<Topic[]> {
 
 export function getAnalyticsOverview(): Promise<AnalyticsOverview> {
   return fetchJson<AnalyticsOverview>("/analytics/overview");
+}
+
+export function getReachTiers(): Promise<ReachTiers> {
+  return fetchJson<ReachTiers>("/analytics/reach");
 }
 
 // Toàn bộ lịch sử đã ingest — gọi 1 lần khi trang load để vẽ chart nền + biên rail

@@ -1,6 +1,6 @@
 # Audit mockup theo hợp đồng UI
 
-> Kiểm 2026-10-06 trên gói Claude Design 2026-10-05, theo `docs/design/ui-contract.md` (Cập nhật tới: ADR-0020).
+> Kiểm 2026-10-06 trên gói Claude Design 2026-10-05, theo `docs/design/ui-contract.md` (Cập nhật tới: ADR-0020; mục 1 bổ sung luật ADR-0012).
 > **Người đọc:** Claude Design (sửa mockup ở vòng kế tiếp) và Claude Code (khi port). Claude Code **không sửa mockup**
 > (ADR-0020). Số liệu cũ trong mockup (số bài, %, median…) không nằm trong audit này — xử lý riêng khi có file xuất
 > (brief Việc 4).
@@ -19,6 +19,11 @@ in số cảnh báo; khi về 0, hàng này xoá.
 | `src/dashboard/mockups/design-system.dc.html` | 31, 43 | `ADR0009-old-name` | tên sản phẩm cũ | "Unthreaded" |
 | `src/dashboard/mockups/overview-amber.dc.html` | 32 | `ADR0009-old-name` | tên sản phẩm cũ | "Unthreaded" |
 | `src/dashboard/mockups/overview-cyan.dc.html` | 32 | `ADR0009-old-name` | tên sản phẩm cũ | "Unthreaded" (hoặc bỏ file — hướng không chọn) |
+| `src/dashboard/mockups/overview-amber.dc.html` | 400, 414 | `ADR0012-old-label-wording` | nhãn chỉ số chia sẻ cũ (KPI + thẻ chỉ số) | "Share rate" (công thức giữ nguyên) — `UI-0012-share-rate-name` |
+| `src/dashboard/mockups/overview-cyan.dc.html` | 373, 384 | `ADR0012-old-label-wording` | nhãn chỉ số chia sẻ cũ | "Share rate" (hoặc bỏ file — hướng không chọn) |
+| `src/dashboard/mockups/design-system.dc.html` | 509, 513 | `ADR0012-old-label-wording` | ý nghĩa màu nhắc chỉ số chia sẻ cũ | "share rate" |
+| `docs/design/layout-tiers.dc.html` | 57 | `ADR0012-old-label-wording` | nhãn KPI cũ | "Share rate" |
+| `src/dashboard/mockups/overview-amber.dc.html` | 412 | `ADR0012-raw-views-as-reach` | thẻ Popularity gọi views thô là "reach" | "Raw views." — chữ "reach" chỉ dành cho tầng reach (`UI-L20260830-insight-fields`) |
 
 ## 2. Landing so với hợp đồng (bước 0.5)
 

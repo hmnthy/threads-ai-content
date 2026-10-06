@@ -5,7 +5,7 @@ const LAYERS = [
     Icon: ChartLineUp,
     name: "Statistics layer",
     status: "live" as const,
-    body: "Six intrinsic indices kept separate — popularity, engagement, virality, conversation, velocity, longevity — never blended into one score. Median and mean reported together, IQR and sample-size flags on every bucket, Mann-Whitney U + Cliff's delta for any group comparison, per-channel percentile-relative virality instead of an arbitrary threshold.",
+    body: "Six intrinsic indices kept separate — popularity, engagement, share rate, conversation, velocity, longevity — never blended into one score. Median and mean reported together, IQR and sample-size flags on every bucket, Mann-Whitney U + Cliff's delta for any group comparison, reach tiers (via the API) measured against the channel's own level at posting time instead of an arbitrary threshold.",
   },
   {
     Icon: Graph,

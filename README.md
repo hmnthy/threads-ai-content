@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-485%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-508%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -37,7 +37,7 @@ The product in four steps — from the pitch to the raw discovered topics.
 
 <p align="center">
   <img src="docs/screenshots/analytics.png" alt="Analytics tab: top posts and timezone breakdown" width="820"><br>
-  <sub><b>3. Analytics</b> — top posts by engagement/virality/conversation, and posting-time performance broken down by both Europe/Paris and Asia/Ho_Chi_Minh.</sub>
+  <sub><b>3. Analytics</b> — top posts by engagement/share rate/conversation, and posting-time performance broken down by both Europe/Paris and Asia/Ho_Chi_Minh.</sub>
 </p>
 
 <p align="center">
@@ -70,7 +70,7 @@ Threads gives creators just enough data to make confident-sounding, unfounded de
   estimating.
 - **No topic-level insight.** Every post is judged in isolation. There's no built-in way to see
   which subjects, told which way, actually perform better across a channel's real history.
-- **No statistically honest reporting.** A single viral post drags a mean far above what a typical
+- **No statistically honest reporting.** A single breakout post drags a mean far above what a typical
   post looks like, and a 2-post "best hour" bucket gets reported with the same confidence as a
   50-post one.
 
@@ -80,7 +80,7 @@ Three layers, built in that order — each grounded in cited methodology, not in
 
 | Layer | Status | What it does |
 |---|---|---|
-| **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, virality, conversation, velocity, longevity — never blended into one score. Median and mean reported together (never a lone mean), IQR and sample-size flags on every bucket, Mann-Whitney U + Cliff's delta for any group comparison, per-channel percentile-relative virality instead of an arbitrary fixed threshold. |
+| **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, share rate, conversation, velocity, longevity — never blended into one score. Median and mean reported together (never a lone mean), IQR and sample-size flags on every bucket, Mann-Whitney U + Cliff's delta for any group comparison, reach tiers (via the API) measured against the channel's own level at posting time instead of an arbitrary fixed threshold. |
 | **NLP layer** | Live | Multilingual sentence embeddings (content mixes Vietnamese, French and English naturally, so no per-language tokenizer) feed UMAP + HDBSCAN for unsupervised topic discovery, then Claude labels each discovered cluster in English. A Code-Mixing Index — a continuous score, not a boolean flag — measures how much a post actually switches languages. |
 | **Knowledge base** | Next | The channel's own posts and the author's answers to follower questions, turned into a searchable knowledge base: hybrid keyword (BM25) + semantic retrieval with a reranker, evaluated against real follower questions (recall@k, MRR, nDCG) before anything — such as a Q&A assistant — is built on top of it. |
 
@@ -97,7 +97,7 @@ Shown as it actually stands today — nothing implied that isn't built yet.
 | AI / LLM | Claude API (`claude-sonnet-5-5`, cluster labeling) | Live |
 | Dashboard | Next.js 16 + Tailwind v4, hand-built SVG charts + Plotly (topic map) | Live |
 | Database | SQLite — one file, one writer; the knowledge base will live in it too | Live |
-| Metric scoring | 6-index architecture (popularity/engagement/virality/conversation/velocity/longevity) | Live |
+| Metric scoring | 6-index architecture (popularity/engagement/share rate/conversation/velocity/longevity) | Live |
 | Language ID | lingua-py + Code-Mixing Index | Live |
 | NLP feature extraction | sentence-transformers, multilingual (bge-m3 / multilingual-e5-large) | Live |
 | Topic discovery | UMAP + HDBSCAN (unsupervised clustering) | Live |
@@ -143,7 +143,7 @@ A few decisions this project treats as load-bearing, each recorded in
 - **Median-as-headline, mean-as-secondary — never a pooled ratio.** A single windowed
   Σinteractions/Σviews ratio is dominated by whichever post got the most views; median across posts
   is reported first everywhere, with mean, sample size (`n`) and an IQR shown alongside it.
-- **Six indices, never one blended score.** Popularity, engagement, virality, conversation,
+- **Six indices, never one blended score.** Popularity, engagement, share rate, conversation,
   velocity and longevity answer different questions and are never averaged together into a single
   "score."
 - **Every heuristic constant is either derived from real data or explicitly labeled as an

@@ -1,7 +1,7 @@
 # Dev Rules — Unthreaded
 
 > Đọc khi: setup môi trường, chạy lệnh dev, hoặc phối hợp giữa Claude Code / Claude Design / Claude Cowork.
-> Xem thêm: [`architecture.md`](architecture.md) cho tech stack, [`data-model.md`](data-model.md) cho API/virality, [`CLAUDE.md`](../../CLAUDE.md) cho quy tắc tuyệt đối và mission.
+> Xem thêm: [`architecture.md`](architecture.md) cho tech stack, [`data-model.md`](data-model.md) cho API/chỉ số, [`CLAUDE.md`](../../CLAUDE.md) cho quy tắc tuyệt đối và mission.
 
 ---
 

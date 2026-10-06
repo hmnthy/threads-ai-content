@@ -9,7 +9,7 @@ interface IndexCard {
 // tách riêng, không blend thành 1 điểm số. Nội dung tĩnh, không phụ thuộc cửa sổ
 // thời gian đang chọn.
 const INDICES: IndexCard[] = [
-  { name: "Popularity", formula: "views", status: "live", note: "Raw reach — how many times the post was seen. Every rate below divides by it." },
+  { name: "Popularity", formula: "views", status: "live", note: "Raw views — how many times the post was seen. Every rate below divides by it." },
   {
     name: "Engagement",
     formula: "(likes + replies + reposts + quotes) / views × 100",
@@ -17,10 +17,10 @@ const INDICES: IndexCard[] = [
     note: "Share of views that led to any reaction. The denominator is views, not followers: interactions per view of the post.",
   },
   {
-    name: "Virality",
+    name: "Share rate",
     formula: "(reposts + quotes) / views × 100",
     status: "live",
-    note: "Redistribution only. Threads exposes no shares field, so none is invented.",
+    note: "Reposts and quotes only. Threads exposes no separate shares field, so none is invented.",
   },
   {
     name: "Conversation",

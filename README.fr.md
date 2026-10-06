@@ -3,7 +3,7 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-485%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-508%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -39,7 +39,7 @@ Le produit en quatre étapes — du pitch jusqu'aux sujets bruts découverts par
 
 <p align="center">
   <img src="docs/screenshots/analytics.png" alt="Analytics tab: top posts and timezone breakdown" width="820"><br>
-  <sub><b>3. Analytics</b> — meilleures publications par engagement/viralité/conversation, et performance par créneau horaire, répartie sur les deux fuseaux Europe/Paris et Asia/Ho_Chi_Minh.</sub>
+  <sub><b>3. Analytics</b> — meilleures publications par engagement/taux de partage/conversation, et performance par créneau horaire, répartie sur les deux fuseaux Europe/Paris et Asia/Ho_Chi_Minh.</sub>
 </p>
 
 <p align="center">
@@ -74,7 +74,7 @@ sûres d'elles, sans réelle base.
 - **Aucune analyse au niveau des sujets.** Chaque publication est jugée isolément. Rien ne permet
   nativement de voir quels sujets, racontés de quelle façon, performent réellement mieux sur
   l'historique complet d'un compte.
-- **Des rapports statistiquement malhonnêtes.** Une seule publication virale tire la moyenne loin
+- **Des rapports statistiquement malhonnêtes.** Une seule publication hors norme tire la moyenne loin
   au-dessus de ce à quoi ressemble une publication typique, et un « meilleur créneau horaire »
   basé sur 2 publications est rapporté avec la même confiance qu'un créneau basé sur 50.
 
@@ -85,7 +85,7 @@ citée, jamais dans l'intuition.
 
 | Couche | Statut | Ce qu'elle fait |
 |---|---|---|
-| **Couche statistique** | En ligne | Six indices intrinsèques gardés séparés — popularité, engagement, viralité, conversation, vélocité, longévité — jamais fusionnés en un seul score. Médiane et moyenne toujours rapportées ensemble (jamais une moyenne seule), IQR et alerte de taille d'échantillon sur chaque groupe, test de Mann-Whitney U + delta de Cliff pour toute comparaison de groupes, viralité calculée en percentile propre à chaque compte plutôt qu'avec un seuil fixe arbitraire. |
+| **Couche statistique** | En ligne | Six indices intrinsèques gardés séparés — popularité, engagement, taux de partage, conversation, vélocité, longévité — jamais fusionnés en un seul score. Médiane et moyenne toujours rapportées ensemble (jamais une moyenne seule), IQR et alerte de taille d'échantillon sur chaque groupe, test de Mann-Whitney U + delta de Cliff pour toute comparaison de groupes, paliers de portée (via l'API) mesurés par rapport au niveau habituel du compte au moment de la publication plutôt qu'avec un seuil fixe arbitraire. |
 | **Couche NLP** | En ligne | Des embeddings de phrases multilingues (le contenu mélange naturellement vietnamien, français et anglais, donc aucun tokenizer propre à une langue) alimentent UMAP + HDBSCAN pour une découverte de sujets non supervisée, puis Claude nomme chaque cluster découvert en anglais. Un Code-Mixing Index — un score continu, pas un simple booléen — mesure à quel point une publication mélange réellement les langues. |
 | **Base de connaissances** | Prochaine étape | Les publications du compte et les réponses de l'autrice aux questions des abonnés, transformées en base de connaissances interrogeable : recherche hybride (mots-clés BM25 + sémantique) avec reranker, évaluée sur de vraies questions d'abonnés (recall@k, MRR, nDCG) avant de construire quoi que ce soit — comme un assistant de questions-réponses — par-dessus. |
 
@@ -103,7 +103,7 @@ l'est pas.
 | IA / LLM | Claude API (`claude-sonnet-5-5`, nommage des clusters) | En ligne |
 | Dashboard | Next.js 16 + Tailwind v4, graphiques SVG faits main + Plotly (carte des sujets) | En ligne |
 | Base de données | SQLite — un fichier, un seul processus d'écriture ; la base de connaissances y vivra aussi | En ligne |
-| Scoring des métriques | Architecture à 6 indices (popularité/engagement/viralité/conversation/vélocité/longévité) | En ligne |
+| Scoring des métriques | Architecture à 6 indices (popularité/engagement/taux de partage/conversation/vélocité/longévité) | En ligne |
 | Détection de langue | lingua-py + Code-Mixing Index | En ligne |
 | Extraction de features NLP | sentence-transformers, multilingue (bge-m3 / multilingual-e5-large) | En ligne |
 | Découverte de sujets | UMAP + HDBSCAN (clustering non supervisé) | En ligne |
@@ -151,7 +151,7 @@ Quelques décisions considérées comme structurantes pour ce projet, chacune co
   Σinteractions/Σvues calculé sur toute une fenêtre temporelle est dominé par la publication ayant
   le plus de vues ; la médiane entre publications est toujours rapportée en premier, accompagnée
   de la moyenne, de la taille d'échantillon (`n`) et de l'IQR.
-- **Six indices, jamais un seul score fusionné.** Popularité, engagement, viralité, conversation,
+- **Six indices, jamais un seul score fusionné.** Popularité, engagement, taux de partage, conversation,
   vélocité et longévité répondent à des questions différentes et ne sont jamais moyennés en un
   seul « score ».
 - **Toute constante heuristique est soit dérivée de données réelles, soit explicitement étiquetée

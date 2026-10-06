@@ -86,7 +86,7 @@ def test_content_units_endpoint_returns_metrics_and_topic(client: TestClient) ->
     # (likes + replies + reposts + quotes) / views * 100 = (80+10+5+2)/1000*100
     assert unit["metrics"]["popularity_index"] == 1000
     assert unit["metrics"]["engagement_rate"] == pytest.approx(9.7)
-    assert unit["metrics"]["virality_index"] == pytest.approx((5 + 2) / 1000 * 100)
+    assert unit["metrics"]["share_rate"] == pytest.approx((5 + 2) / 1000 * 100)
     assert unit["metrics"]["conversation_rate"] == pytest.approx(10 / 1000 * 100)
     assert unit["topic"]["topic_id"] == "cluster-0"
     assert unit["topic"]["centroid_similarity"] == pytest.approx(0.9)
@@ -155,7 +155,7 @@ def test_analytics_overview_ranks_top_posts_per_metric_and_breaks_down_by_timezo
     upsert_content_unit(conn, ContentUnit(root=post_a, full_text="post a"))
     upsert_content_unit(conn, ContentUnit(root=post_b, full_text="post b"))
 
-    # post_a: high likes/replies (engagement + conversation), no reposts/quotes (virality=0).
+    # post_a: high likes/replies (engagement + conversation), no reposts/quotes (share_rate=0).
     insert_insight_snapshot(
         conn,
         InsightSnapshot(
@@ -168,7 +168,7 @@ def test_analytics_overview_ranks_top_posts_per_metric_and_breaks_down_by_timezo
             quotes=0,
         ),
     )
-    # post_b: no likes/replies, heavy reposts/quotes -> high virality, low engagement/conversation.
+    # post_b: no likes/replies, heavy reposts/quotes -> high share rate, low engagement/replies.
     insert_insight_snapshot(
         conn,
         InsightSnapshot(
@@ -193,7 +193,7 @@ def test_analytics_overview_ranks_top_posts_per_metric_and_breaks_down_by_timezo
     assert data["post_count"] == 2
     assert data["top_by_engagement"][0]["id"] == "post-a"
     assert data["top_by_conversation"][0]["id"] == "post-a"
-    assert data["top_by_virality"][0]["id"] == "post-b"
+    assert data["top_by_share_rate"][0]["id"] == "post-b"
     # Engagement toàn kênh: median/mean/n từng post (21% và 10%), không chỉ mean
     assert data["engagement"]["median"] == pytest.approx(15.5)
     assert data["engagement"]["mean"] == pytest.approx(15.5)
@@ -277,14 +277,14 @@ def test_analytics_overview_excludes_zero_view_posts_and_reports_them(
     assert overview["excluded_no_views"] == 1
     assert overview["engagement"]["n"] == 1
     assert overview["engagement"]["median"] == pytest.approx(4.0)
-    for ranking in ("top_by_engagement", "top_by_virality", "top_by_conversation"):
+    for ranking in ("top_by_engagement", "top_by_share_rate", "top_by_conversation"):
         assert [entry["id"] for entry in overview[ranking]] == ["p-ok"]
     for tz in overview["timezones"]:
         assert sum(bucket["stats"]["n"] for bucket in tz["by_hour"]) == 1
         assert sum(bucket["stats"]["n"] for bucket in tz["by_weekday"]) == 1
     assert window["content_unit_count"] == 2
     assert window["excluded_no_views"] == 1
-    for metric in ("engagement", "virality", "conversation"):
+    for metric in ("engagement", "share_rate", "conversation"):
         assert window[metric]["n"] == 1
 
 
@@ -458,7 +458,7 @@ def test_analytics_window_computes_median_stats_and_views_from_daily_series(
     assert data["engagement"]["median"] == pytest.approx((100 + 10 + 5 + 2) / 1000 * 100)
     assert data["engagement"]["n"] == 1
     assert data["engagement"]["insufficient_data"] is True  # n=1 < MIN_N_PER_BUCKET
-    assert data["virality"]["median"] == pytest.approx((5 + 2) / 1000 * 100)
+    assert data["share_rate"]["median"] == pytest.approx((5 + 2) / 1000 * 100)
     assert data["conversation"]["median"] == pytest.approx(10 / 1000 * 100)
     assert len(data["top_content_units"]) == 1
     assert data["top_content_units"][0]["id"] == "post-in"
@@ -491,3 +491,114 @@ def test_analytics_window_empty_range_returns_zeroed_stats(
 def test_analytics_window_rejects_malformed_dates(client: TestClient) -> None:
     response = client.get("/analytics/window", params={"start": "not-a-date", "end": "2026-08-20"})
     assert response.status_code == 422
+
+
+def test_analytics_reach_tiers_measurable_posts_by_relative_reach(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-0012: 1 bài views = 0 bị loại và báo riêng; 10 bài đầu không có mốc so sánh;
+    đường cong của bài đầu cho mốc chín; bài vượt hẳn mốc so sánh vào "Top 20% reach"."""
+    db_path = tmp_path / "test.db"
+    monkeypatch.setattr(main_module, "DEFAULT_DB_PATH", db_path)
+    conn = connect(db_path)
+    create_schema(conn)
+    start = datetime(2026, 6, 1, 9, 0, tzinfo=UTC)
+    views = [1000] * 12 + [5000, 0]
+    for i, v in enumerate(views):
+        post = ThreadsPost(
+            id=f"p{i:02d}",
+            text=f"post {i}",
+            timestamp=start.replace(day=1 + i),
+            media_type=MediaType.TEXT_POST,
+        )
+        upsert_post(conn, post)
+        upsert_content_unit(conn, ContentUnit(root=post, full_text=post.text or ""))
+        for fetched, value in (
+            (post.timestamp.replace(hour=12), v // 2),
+            (post.timestamp.replace(hour=20), v),
+            (datetime(2026, 10, 1, tzinfo=UTC), v),
+        ):
+            insert_insight_snapshot(
+                conn,
+                InsightSnapshot(
+                    post_id=post.id,
+                    fetched_at=fetched,
+                    views=value,
+                    likes=0,
+                    replies=0,
+                    reposts=0,
+                    quotes=0,
+                ),
+            )
+    conn.commit()
+    conn.close()
+
+    with TestClient(main_module.app) as test_client:
+        data = test_client.get("/analytics/reach").json()
+
+    assert data["excluded_no_views"] == 1
+    assert len(data["posts"]) == 13
+    assert data["maturity"]["n_curves"] == 13
+    assert data["counts"]["no_baseline"] == 10
+    assert data["n_tiered"] == 3
+    by_id = {post["id"]: post for post in data["posts"]}
+    assert by_id["p12"]["status"] == "top_20"
+    assert by_id["p12"]["relative_reach"] == pytest.approx(5.0)
+    assert by_id["p12"]["views"] == 5000
+    assert by_id["p00"]["baseline_views"] is None
+
+
+def test_analytics_reach_orders_by_time_and_uses_age_at_latest_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bài chèn ngược thời gian vẫn lấy mốc từ các bài ĐĂNG trước; bài có snapshot cuối khi
+    còn non là `still_growing` dù đã đăng từ lâu (cron ngắt, ADR-0017) và không lộ reach
+    tương đối (bị hạ thấp)."""
+    db_path = tmp_path / "test.db"
+    monkeypatch.setattr(main_module, "DEFAULT_DB_PATH", db_path)
+    conn = connect(db_path)
+    create_schema(conn)
+    start = datetime(2026, 6, 1, 9, 0, tzinfo=UTC)
+    views = [1000] * 12 + [5000, 800]
+    for i in reversed(range(len(views))):  # bài mới chèn trước
+        post = ThreadsPost(
+            id=f"p{i:02d}",
+            text=f"post {i}",
+            timestamp=start.replace(day=1 + i),
+            media_type=MediaType.TEXT_POST,
+        )
+        upsert_post(conn, post)
+        upsert_content_unit(conn, ContentUnit(root=post, full_text=post.text or ""))
+        fetches = [(post.timestamp.replace(hour=12), views[i] // 2)]
+        if i == 13:
+            fetches.append((post.timestamp.replace(hour=14), views[i]))  # cron ngắt sau đó
+        else:
+            fetches.append((post.timestamp.replace(hour=20), views[i]))
+            fetches.append((datetime(2026, 10, 1, tzinfo=UTC), views[i]))
+        for fetched, value in fetches:
+            insert_insight_snapshot(
+                conn,
+                InsightSnapshot(
+                    post_id=post.id,
+                    fetched_at=fetched,
+                    views=value,
+                    likes=0,
+                    replies=0,
+                    reposts=0,
+                    quotes=0,
+                ),
+            )
+    conn.commit()
+    conn.close()
+
+    with TestClient(main_module.app) as test_client:
+        data = test_client.get("/analytics/reach").json()
+
+    by_id = {post["id"]: post for post in data["posts"]}
+    assert [post["id"] for post in data["posts"]] == [f"p{i:02d}" for i in range(14)]
+    assert by_id["p12"]["status"] == "top_20"
+    assert by_id["p12"]["relative_reach"] == pytest.approx(5.0)
+    assert by_id["p13"]["status"] == "still_growing"
+    assert by_id["p13"]["relative_reach"] is None
+    assert by_id["p13"]["baseline_views"] is None
+    assert by_id["p13"]["views"] == 800

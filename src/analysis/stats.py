@@ -1,5 +1,5 @@
 """Distribution stats dùng chung — extract từ `engagement.py` (Layer 2 cũ) để tái
-dùng cho Virality/Conversation trong KPI strip cửa sổ thời gian (Overview mới),
+dùng cho Share rate/Conversation trong KPI strip cửa sổ thời gian (Overview mới),
 tránh viết lặp lại median+mean+n+IQR+insufficient_data 3 lần cho 3 index khác nhau.
 Đúng pattern "engine dùng chung" đã áp dụng cho `significance.compare_groups()`.
 
@@ -33,7 +33,7 @@ __all__ = [
 @dataclass(frozen=True)
 class DistributionStats:
     """Median/mean/n/IQR/insufficient_data của 1 tập giá trị liên tục — dùng cho cả
-    bucket giờ/thứ (engagement.py) LẪN aggregate theo cửa sổ thời gian (virality/
+    bucket giờ/thứ (engagement.py) LẪN aggregate theo cửa sổ thời gian (share rate/
     conversation/engagement). Giữ mean+median song song CỐ TÌNH — xem docstring gốc
     `EngagementBucketStats` (engagement.py) cho lý do đầy đủ (case Hwemo-Chung)."""
 
@@ -90,8 +90,8 @@ def window_stats(
     insights: list[PostInsights], metric: Callable[[PostInsights], float]
 ) -> DistributionStats:
     """`distribution_stats()` áp `metric` lên từng `PostInsights` trong 1 cửa sổ —
-    dùng chung cho engagement/virality/conversation của KPI strip cửa sổ thời gian:
+    dùng chung cho engagement/share rate/conversation của KPI strip cửa sổ thời gian:
     `window_stats(insights, lambda i: i.engagement_rate)`,
-    `window_stats(insights, virality_index)`, `window_stats(insights, conversation_rate)`.
+    `window_stats(insights, share_rate)`, `window_stats(insights, conversation_rate)`.
     """
     return distribution_stats([metric(item) for item in insights])
