@@ -66,11 +66,11 @@ Sửa `docs/decisions/0000-template.md`: thêm vào cuối mục `## Hệ quả`
 - Dòng `ui-contract.md` thêm / sửa / bỏ: `UI-NNNN-...` (hoặc "không có hệ quả UI").
 ```
 
-Từ ADR-0019 trở đi, ADR nào thiếu mục này thì không được commit. Nếu `check.py` làm được thì thêm thành luật; không làm được thì ghi vào checklist của `consistency-auditor`.
+Từ ADR-0019 trở đi, ADR nào thiếu mục này thì không được commit. *(Claude Code: đã làm, áp từ ADR-0020 — xem "Chỗ lệch" cuối file.)* Nếu `check.py` làm được thì thêm thành luật; không làm được thì ghi vào checklist của `consistency-auditor`.
 
 ### 0.4 Cho sổ luật quét mockup
 
-- Thêm `src/dashboard/mockups/**` và `docs/design/**/*.dc.html` vào `paths` của mọi luật `[[forbid]]` dạng chữ có áp dụng cho nội dung hiển thị (tối thiểu: `ADR0001-*`, `ADR0004-dbcv-unnamed`, `ADR0009-old-name*`, `ADR0016-opus-labeling`).
+- Thêm `src/dashboard/mockups/**` và `docs/design/**/*.dc.html` vào `paths` của mọi luật `[[forbid]]` dạng chữ có áp dụng cho nội dung hiển thị (tối thiểu: `ADR0001-*`, `ADR0004-dbcv-unnamed`, `ADR0009-old-name*`, `ADR0016-opus-labeling`). *(Claude Code: làm bằng `mockup_paths` + `mockups = true`, mức cảnh báo — `paths` vô tác dụng vì mockup nằm trong `exclude`; xem "Chỗ lệch".)*
 - Bỏ câu "Mockup không bị sổ luật kiểm" trong `CLAUDE.md` của project Claude Design, ghi lại câu đó trong brief trả về để Thy chép.
 - Chạy `check --all`. Mọi vi phạm trong mockup ghi vào `docs/design/ui-contract-audit.md`, **không sửa mockup**.
 
@@ -163,7 +163,22 @@ Số trong các file này chỉ dùng để mockup trông giống thật. Cấu 
 
 | Mục brief | Brief nói | Thực tế | Xử lý |
 |---|---|---|---|
-| | | | |
+| 0.1, 0.3 phạm vi | Hợp đồng ADR-0001 → 0018; luật "Hệ quả UI" từ ADR-0019 | ADR-0019 (quy trình git) đã có trước brief | Hợp đồng tới ADR-0020 (chính quyết định này); luật áp từ ADR-0020 |
+| 0.2 UI-0018-id-not-name | Trường `topics.topic_id` | Cột thật là `topics.id`; `topic_id` nằm ở `post_topic_labels` / `TopicLabel` | Sửa cột A |
+| 0.2 UI-0018-label-provenance | `retired` là một lý do đặt tên | `retired` là dòng đóng, `labeled_at` = lúc xoá, không phải một lần đặt tên | Sửa cột B |
+| 0.2 UI-0018-retired | Có trạng thái trình bày cho topic retired | Topic retired bị xoá khỏi bảng `topics`, `GET /topics` không bao giờ trả nó | Chỉ hiện trong lịch sử |
+| 0.2 UI-0016-label-input | Tối đa N bài gần tâm cùng từ khoá c-TF-IDF | N = 15, xếp theo độ gần tâm; **không** gửi từ khoá; số 3 là bài đại diện hiển thị | Sửa; thêm dòng UI-0004-representatives |
+| 0.2 UI-0017-night-gaps | Bảng `insight_snapshots` | Bảng `insights_snapshots`, trường `fetched_at`; ngưỡng hở 5h ở `snapshot_coverage` | Sửa A, B |
+| 0.2 UI-0017-velocity-deferred | "test: (tên test velocity)" | `test_window_velocity_raises_below_three_snapshots` | Điền tên test |
+| 0.2 UI-0011-excluded | Trang `all`; D là mã luật | ADR-0011 cố ý không có luật regex; chỉ trang có phân phối rate | D = test; C sửa |
+| 0.2 UI-0004-dbcv-named | Cột `cluster_runs.validity_index`; trình bày `validity_index (<tên hàm>)` | Cột là `dbcv` (+ `dbcv_relative`); `validity_index` chính là tên hàm | Sửa A, E |
+| 0.2 UI-0001-status-labels | Chỉ live / next / research, trang `all` | Thẻ chỉ số ở Overview dùng thêm `deferred` | Câu hỏi mở 2 trong hợp đồng |
+| 0.4 cơ chế | Thêm mockup vào `paths` của luật | Mockup nằm trong `exclude` nên `paths` vô tác dụng | `mockup_paths` + `mockups = true`, mức cảnh báo (Thy chọn) |
+| 0.4 luật | `ADR0004-dbcv-unnamed`, `ADR0017-nlp-3am` sẽ bắt lỗi mockup | Luật DBCV báo nhầm `validity_index (DBCV)`; luật 3am không bắt "daily 03:00" đứng một mình | Sửa cả hai luật; thêm `ADR0018-cluster-id-display` <!-- consistency: allow ADR0017-nlp-3am --> |
+| 0.5 "3 posts" | Cần kiểm số bài thật | Đúng ở khối hồ sơ cụm (3 bài đại diện); sai ở mô tả bước đặt tên | Ghi audit |
+| Việc 2.7 | `MIN_N_PER_BUCKET = 5` vs landing mờ n < 10 | `HDBSCAN_MIN_CLUSTER_SIZE = 4` → cụm 4–9 bài có thật, hai ngưỡng cho kết quả khác | Câu hỏi mở 1 |
+| Việc 3 | Trường `n_input`, `n_noise`, `validity_fn` | Cột thật `n_units`; số nhiễu không lưu riêng (suy từ `noise_ratio` / `labels_json`); `validity_index` lấy từ cột `dbcv` | Ghi nhận khi làm Việc 3 |
+| landing-handoff §0 | Gọi Claude 1 lần mỗi cụm | Từ ADR-0018 chỉ gọi cho cụm cần đặt lại tên | Ghi audit |
 
 ## Claude Design làm gì khi nhận đủ
 1. Duyệt cột E của `ui-contract.md`, gửi đề xuất sửa qua brief nếu có.

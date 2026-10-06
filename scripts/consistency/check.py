@@ -10,6 +10,12 @@ Các kiểm tra:
 4. stale_asset  — file nhị phân phải được làm lại trong/sau commit tạo ADR làm nó lỗi thời
 5. doc_limits   — giới hạn số dòng (CLAUDE.md, status.md) + chỉ mục ADR đầy đủ
 6. count_fact   — số test ghi trong docs khớp số test thật (--all/--commit)
+7. ui_contract  — hợp đồng UI (ADR-0020): `ui-contract.md` xét đủ mọi ADR, mốc "Cập nhật tới"
+                  không tụt sau ADR mới nhất, id không trùng, luật/test ở cột "Kiểm bằng" có thật;
+                  ADR từ `ui_impact_from` có mục "### Hệ quả UI"
+
+Mockup (`mockup_paths`, của Claude Design) chỉ bị quét bởi luật forbid có `mockups = true`, và
+vi phạm ở đó là CẢNH BÁO (severity "warn"): in ra, ghi audit, nhưng không chặn commit (ADR-0020).
 
 Ngoại lệ có dấu vết: chú thích `consistency: allow <rule-id>` trên cùng dòng hoặc dòng
 ngay trước. Dùng:  uv run python -m scripts.consistency.check --all [--json]
@@ -30,9 +36,10 @@ import re
 import subprocess
 import sys
 import tomllib
+import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 INVARIANTS_PATH = "docs/decisions/invariants.toml"
 README_FILES = ("README.md", "README.vi.md", "README.fr.md")
@@ -53,6 +60,8 @@ class Violation:
     message: str
     fix: str = ""
     adr: str = ""
+    # "error" chặn commit; "warn" chỉ báo (vi phạm trong mockup của Claude Design, ADR-0020)
+    severity: Literal["error", "warn"] = "error"
 
 
 @dataclass
@@ -61,6 +70,9 @@ class Config:
     dead_path_exclude: list[str] = field(default_factory=list)
     planned_paths: list[str] = field(default_factory=list)
     known_untracked: list[str] = field(default_factory=list)
+    mockup_paths: list[str] = field(default_factory=list)
+    ui_contract: str = ""
+    ui_impact_from: int = 0
     forbid: list[dict[str, Any]] = field(default_factory=list)
     stale_assets: list[dict[str, Any]] = field(default_factory=list)
     max_lines: list[dict[str, Any]] = field(default_factory=list)
@@ -75,11 +87,18 @@ def load_config(root: Path) -> Config:
         dead_path_exclude=settings.get("dead_path_exclude", []),
         planned_paths=settings.get("planned_paths", []),
         known_untracked=settings.get("known_untracked", []),
+        mockup_paths=settings.get("mockup_paths", []),
+        ui_contract=settings.get("ui_contract", ""),
+        ui_impact_from=int(settings.get("ui_impact_from", 0)),
         forbid=data.get("forbid", []),
         stale_assets=data.get("stale_asset", []),
         max_lines=data.get("max_lines", []),
         count_facts=data.get("count_fact", []),
     )
+
+
+def errors_only(violations: list[Violation]) -> list[Violation]:
+    return [v for v in violations if v.severity == "error"]
 
 
 def _matches(path: str, globs: list[str]) -> bool:
@@ -162,7 +181,9 @@ def check_forbid(root: Path, files: list[str], cfg: Config) -> list[Violation]:
     compiled = [(rule, re.compile(rule["pattern"])) for rule in cfg.forbid]
     out: list[Violation] = []
     for rel in files:
-        if _matches(rel, cfg.exclude):
+        # Mockup: được quét dù nằm trong `exclude`, nhưng chỉ bởi luật `mockups = true`
+        mockup = _matches(rel, cfg.mockup_paths)
+        if not mockup and _matches(rel, cfg.exclude):
             continue
         text = read_text(root / rel)
         if text is None:
@@ -171,9 +192,13 @@ def check_forbid(root: Path, files: list[str], cfg: Config) -> list[Violation]:
         for rule, pattern in compiled:
             if _matches(rel, rule.get("allow", [])):
                 continue
-            only = rule.get("paths")
-            if only and not _matches(rel, only):
-                continue
+            if mockup:
+                if not rule.get("mockups"):
+                    continue
+            else:
+                only = rule.get("paths")
+                if only and not _matches(rel, only):
+                    continue
             for i, snippet in _forbid_hits(rule, pattern, text):
                 if _allowed_inline(lines, i, rule["id"]):
                     continue
@@ -186,6 +211,7 @@ def check_forbid(root: Path, files: list[str], cfg: Config) -> list[Violation]:
                         message=f"'{snippet}' — {rule['why']}",
                         fix=rule.get("fix", ""),
                         adr=str(rule.get("adr", "")),
+                        severity="warn" if mockup else "error",
                     )
                 )
     return out
@@ -505,6 +531,164 @@ def check_count_facts(
     return out
 
 
+# --- 7. ui_contract (ADR-0020) --------------------------------------------------------
+
+_CONTRACT_MARK = re.compile(r"Cập nhật tới:\s*ADR-(\d{4})")
+# Dòng bảng: id `UI-<ADR 4 số>-slug` hoặc `UI-L<yyyymmdd>-slug` (quyết định trong legacy-log)
+_CONTRACT_ROW = re.compile(r"^\|\s*(UI-(\d{4}|L\d{8})-[A-Za-z0-9-]+)\s*\|")
+_RULE_REF = re.compile(r"`([A-Z][A-Za-z0-9]*-[\w-]+)`")
+_TEST_REF = re.compile(
+    r"\b(test_\w+)"
+)  # mọi tên test trong cột D (mã luật không bắt đầu bằng test_)
+_TEST_DEF = re.compile(r"^\s*(?:async\s+)?def (test_\w+)\(", re.MULTILINE)
+_UI_IMPACT = re.compile(r"^###\s+Hệ quả UI\b", re.MULTILINE)
+# Tách ô theo `|` chưa escape — `\|` trong ô (VD kiểu TS `"live" \| "next"`) không phải ranh giới
+_CELL_SPLIT = re.compile(r"(?<!\\)\|")
+# "| id | ADR | A | B | C | D | E |" → 9 mảnh (rỗng 2 đầu); mảnh 6 = cột D (Kiểm bằng)
+_CONTRACT_CELLS = 9
+_CHECK_COLUMN = 6
+
+
+def _adr_numbers(tracked: list[str]) -> dict[int, str]:
+    out: dict[int, str] = {}
+    for rel in tracked:
+        head, _, name = rel.rpartition("/")
+        m = _ADR_FILE.match(name)
+        if head == "docs/decisions" and m and m.group(1) != "0000":
+            out[int(m.group(1))] = rel
+    return out
+
+
+def _rule_ids(cfg: Config) -> set[str]:
+    return {str(r["id"]) for r in cfg.forbid + cfg.stale_assets + cfg.count_facts if "id" in r}
+
+
+def _test_names(root: Path, tracked: list[str]) -> set[str]:
+    names: set[str] = set()
+    for rel in tracked:
+        if rel.startswith("tests/") and rel.endswith(".py"):
+            names.update(_TEST_DEF.findall(read_text(root / rel) or ""))
+    return names
+
+
+def check_ui_contract(root: Path, cfg: Config, tracked: list[str]) -> list[Violation]:
+    out: list[Violation] = []
+    if not cfg.ui_contract:
+        return out
+    adrs = _adr_numbers(tracked)
+
+    def v(rule: str, path: str, line: int, message: str, fix: str) -> None:
+        out.append(Violation("ui_contract", rule, path, line, message, fix, "0020"))
+
+    # ADR mới phải tự nói nó buộc UI đổi gì (hoặc "không có hệ quả UI")
+    if cfg.ui_impact_from:
+        for n, rel in sorted(adrs.items()):
+            body = unicodedata.normalize(
+                "NFC", read_text(root / rel) or ""
+            )  # bộ gõ có thể sinh NFD
+            if n >= cfg.ui_impact_from and not _UI_IMPACT.search(body):
+                v(
+                    "adr-ui-impact",
+                    rel,
+                    0,
+                    "thiếu mục '### Hệ quả UI'",
+                    "Thêm mục theo docs/decisions/0000-template.md (kể cả 'không có hệ quả UI')",
+                )
+    raw = read_text(root / cfg.ui_contract)
+    text = unicodedata.normalize("NFC", raw) if raw is not None else None
+    if text is None:
+        if adrs:
+            v("ui-contract-missing", cfg.ui_contract, 0, "chưa có hợp đồng UI", "Tạo file")
+        return out
+    mark = _CONTRACT_MARK.search(text)
+    if mark is None:
+        v(
+            "ui-contract-mark",
+            cfg.ui_contract,
+            0,
+            "thiếu mốc 'Cập nhật tới: ADR-NNNN'",
+            "Ghi mốc ở đầu file",
+        )
+        return out
+    upto = int(mark.group(1))
+    newer = [n for n in adrs if n > upto]
+    if newer:
+        v(
+            "ui-contract-stale",
+            cfg.ui_contract,
+            text.count("\n", 0, mark.start()) + 1,
+            f"ADR-{max(newer):04d} mới hơn mốc 'Cập nhật tới: ADR-{upto:04d}'",
+            "Thêm dòng cho ADR mới (theo mục 'Hệ quả UI' của nó) rồi nâng mốc",
+        )
+    rule_ids = _rule_ids(cfg)
+    tests = _test_names(root, tracked)
+    seen: dict[str, int] = {}
+    covered: set[int] = set()
+    for i, line in enumerate(text.splitlines(), start=1):
+        m = _CONTRACT_ROW.match(line)
+        if not m:
+            continue
+        row_id, ref = m.group(1), m.group(2)
+        if row_id in seen:
+            v(
+                "ui-contract-dup-id",
+                cfg.ui_contract,
+                i,
+                f"id {row_id} trùng dòng {seen[row_id]}",
+                "Mỗi id chỉ dùng 1 lần, không tái dùng",
+            )
+        seen[row_id] = i
+        if ref.isdigit():
+            if int(ref) not in adrs:
+                v(
+                    "ui-contract-unknown-adr",
+                    cfg.ui_contract,
+                    i,
+                    f"ADR-{ref} không tồn tại (hoặc chưa `git add`)",
+                    "Sửa số ADR trong id",
+                )
+            covered.add(int(ref))
+        cells = _CELL_SPLIT.split(line)
+        if len(cells) != _CONTRACT_CELLS:
+            v(
+                "ui-contract-malformed-row",
+                cfg.ui_contract,
+                i,
+                f"{len(cells) - 2} cột thay vì 7 — cột D không kiểm được",
+                "Đủ 7 cột; '|' bên trong ô viết là '\\|'",
+            )
+            continue
+        check_cell = cells[_CHECK_COLUMN]
+        for rid in _RULE_REF.findall(check_cell):
+            if rid not in rule_ids:
+                v(
+                    "ui-contract-unknown-rule",
+                    cfg.ui_contract,
+                    i,
+                    f"luật {rid} không có trong {INVARIANTS_PATH}",
+                    "Sửa mã luật hoặc ghi manual",
+                )
+        for name in _TEST_REF.findall(check_cell):
+            if name not in tests:
+                v(
+                    "ui-contract-unknown-test",
+                    cfg.ui_contract,
+                    i,
+                    f"không có test {name} (hoặc file test chưa `git add`)",
+                    "Sửa tên test hoặc ghi manual",
+                )
+    for n in sorted(adrs):
+        if n <= upto and n not in covered:
+            v(
+                "ui-contract-missing-adr",
+                cfg.ui_contract,
+                0,
+                f"chưa có dòng nào cho ADR-{n:04d}",
+                "Thêm ít nhất 1 dòng (B = 'không có hệ quả UI' nếu không có)",
+            )
+    return out
+
+
 # --- Chạy -----------------------------------------------------------------------------
 
 
@@ -523,6 +707,7 @@ def run(root: Path, mode: str, with_pytest: bool = True) -> list[Violation]:
     violations += check_readme_sync(root, staged)
     violations += check_stale_assets(root, cfg)
     violations += check_doc_limits(root, cfg, tracked)
+    violations += check_ui_contract(root, cfg, tracked)
     if mode in ("all", "commit") and with_pytest:
         ignore = None
         if mode == "commit":  # pre-commit không cất file chưa track → loại khỏi lần đếm
@@ -531,10 +716,8 @@ def run(root: Path, mode: str, with_pytest: bool = True) -> list[Violation]:
     return violations
 
 
-def format_report(violations: list[Violation]) -> str:
-    if not violations:
-        return "consistency: 0 vi phạm ✓"
-    lines = [f"consistency: {len(violations)} vi phạm"]
+def _format_group(violations: list[Violation]) -> list[str]:
+    lines: list[str] = []
     by_path: dict[str, list[Violation]] = {}
     for v in violations:
         by_path.setdefault(v.path, []).append(v)
@@ -546,9 +729,24 @@ def format_report(violations: list[Violation]) -> str:
             lines.append(f"  {where or '-'} {v.rule}{adr} — {v.message}")
             if v.fix:
                 lines.append(f"      → {v.fix}")
-    lines.append(
-        f"\nNgoại lệ có chủ đích: thêm '{ALLOW_MARK} <rule-id>' trên dòng đó hoặc dòng trước."
-    )
+    return lines
+
+
+def format_report(violations: list[Violation]) -> str:
+    errors = errors_only(violations)
+    warnings = [v for v in violations if v.severity != "error"]
+    lines = [f"consistency: {len(errors)} vi phạm" if errors else "consistency: 0 vi phạm ✓"]
+    lines += _format_group(errors)
+    if errors:
+        lines.append(
+            f"\nNgoại lệ có chủ đích: thêm '{ALLOW_MARK} <rule-id>' trên dòng đó hoặc dòng trước."
+        )
+    if warnings:
+        lines.append(
+            f"\nCảnh báo mockup (không chặn commit — Claude Design sửa, ghi audit, ADR-0020): "
+            f"{len(warnings)}"
+        )
+        lines += _format_group(warnings)
     return "\n".join(lines)
 
 
@@ -562,7 +760,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--json", action="store_true", help="xuất JSON")
     parser.add_argument("--no-pytest", action="store_true", help="bỏ kiểm tra số test")
-    parser.add_argument("--count", action="store_true", help="chỉ in số vi phạm")
+    parser.add_argument(
+        "--count",
+        action="store_true",
+        help="chỉ in số vi phạm (dòng 2 'mockup-warnings: N' khi có cảnh báo mockup)",
+    )
     # Trước parse_args: --help in tiếng Việt, cp1252 mặc định của Windows sẽ crash
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     args = parser.parse_args(argv)
@@ -574,13 +776,16 @@ def main(argv: list[str] | None = None) -> int:
         # Sổ luật hỏng phải chặn commit với thông báo rõ ràng, không phải traceback
         print(f"consistency: sổ luật {INVARIANTS_PATH} không hợp lệ — {type(exc).__name__}: {exc}")
         return 2
+    errors = errors_only(violations)
     if args.count:
-        print(len(violations))
+        print(len(errors))
+        if len(violations) > len(errors):
+            print(f"mockup-warnings: {len(violations) - len(errors)}")
     elif args.json:
         print(json.dumps([asdict(v) for v in violations], ensure_ascii=False, indent=2))
     else:
         print(format_report(violations))
-    return 1 if violations else 0
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":

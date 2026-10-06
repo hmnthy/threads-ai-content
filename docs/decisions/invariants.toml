@@ -7,6 +7,7 @@
 
 [settings]
 # Không quét: lưu trữ nguyên văn, vendored, file sinh tự động, và chính bộ luật + test của nó
+# (mockup trong `mockup_paths` vẫn bị luật `mockups = true` quét ở mức cảnh báo — ADR-0020)
 exclude = [
   "docs/archive/**",
   "docs/decisions/legacy-log.md",
@@ -37,8 +38,6 @@ planned_paths = [
   # Gói Claude Design 2026-10-05: file các việc kế tiếp sẽ tạo (brand-assets.md; brief Topics Việc 0–4)
   "src/dashboard/src/components/BrandLogo.tsx",
   "src/dashboard/src/app/icon.svg",
-  "docs/design/ui-contract.md",
-  "docs/design/ui-contract-audit.md",
   "docs/design/topics-data-audit.md",
   "src/dashboard/mockups/topics.dc.html",
   # landing-handoff.md §1: component mới khi port landing
@@ -63,9 +62,17 @@ known_untracked = [
 # ADR-0001 — scope "less is more": bỏ generation giọng văn, carousel, KOL engine, Phase 1/2
 # ---------------------------------------------------------------------------------------
 
+# Mockup của Claude Design (ADR-0020): chỉ luật có `mockups = true` quét các file này, và
+# vi phạm ở đây là CẢNH BÁO (không chặn commit) — ghi vào docs/design/ui-contract-audit.md
+mockup_paths = ["src/dashboard/mockups/*.dc.html", "docs/design/*.dc.html"]
+# Hợp đồng UI (ADR-0020): xét đủ mọi ADR; ADR từ số này phải có mục "### Hệ quả UI"
+ui_contract = "docs/design/ui-contract.md"
+ui_impact_from = 20
+
 [[forbid]]
 id = "ADR0001-generation"
 adr = "0001"
+mockups = true
 pattern = '(?i)(content[ -]generation|generat(e|ing) (new )?(post|content|text)|text generation|génération de (contenu|publications)|src/generation|giọng văn|author.?s (real |own |documented )*(voice|tone)|few-shot|draft(s|ing)? (new )?post)'
 why = "Generation bài/giọng văn đã bỏ vĩnh viễn (ADR-0001)"
 fix = "Xoá, hoặc diễn đạt lại theo hướng NLP → knowledge base"
@@ -74,6 +81,7 @@ allow = ["docs/decisions/**", "docs/roadmap.md"]
 [[forbid]]
 id = "ADR0001-carousel"
 adr = "0001"
+mockups = true
 pattern = '(?i)carousel(?![ _]album)'
 why = "Carousel đã bỏ vĩnh viễn (ADR-0001) — chỉ giữ enum CAROUSEL_ALBUM của Threads API"
 fix = "Xoá tham chiếu tới carousel"
@@ -82,6 +90,7 @@ allow = ["docs/decisions/**", "docs/roadmap.md"]
 [[forbid]]
 id = "ADR0001-image-gen"
 adr = "0001"
+mockups = true
 pattern = '(?i)\bpillow\b|google[ _]sans|image generation'
 why = "Pillow/font Google Sans chỉ phục vụ carousel — đã gỡ (ADR-0001)"
 fix = "Xoá tham chiếu"
@@ -90,6 +99,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0001-kol"
 adr = "0001"
+mockups = true
 pattern = '(?i)\bKOL\b|strategy engine'
 why = "KOL Strategy Engine đã bỏ (ADR-0001)"
 fix = "Xoá tham chiếu"
@@ -106,6 +116,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0001-coming-soon"
 adr = "0001"
+mockups = true
 pattern = '(?i)coming soon|sắp có|bientôt disponible'
 why = "Nhãn trạng thái chuẩn là live / next / research — 'coming soon' gắn với khối generation đã gỡ"
 fix = "Dùng live / next / research"
@@ -165,6 +176,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "KB-no-separate-vectorstore"
 adr = "roadmap-E"
+mockups = true
 pattern = '(?i)\b(chroma|faiss)\b'
 why = "Knowledge base dùng SQLite (FTS5 + bảng embeddings), không dùng Chroma/FAISS"
 fix = "Mô tả theo docs/roadmap.md Phase E"
@@ -177,6 +189,7 @@ allow = ["docs/decisions/**", "docs/roadmap.md"]
 [[forbid]]
 id = "DATA-replies-are-author"
 adr = "finding-2026-09-30"
+mockups = true
 pattern = '(?i)audience/self-repl|\d[.,]\d{3} audience'
 why = "Toàn bộ reply trong `posts` là của tác giả (endpoint /replies chỉ trả reply của chủ tài khoản) — không có reply của follower"
 fix = "Ghi 'reply của tác giả' (1.368 tại 2026-09-30)"
@@ -267,6 +280,7 @@ paths = ["README*.md"]
 [[forbid]]
 id = "ADR0001-autopost"
 adr = "0001"
+mockups = true
 pattern = '(?i)auto-?post|auto-?publish|tự động đăng'
 why = "Dự án không đăng bài (ADR-0001 + quy tắc tuyệt đối) — không mô tả luồng đăng bài như tính năng"
 fix = "Xoá, hoặc ghi rõ 'không dùng — dự án không đăng bài'"
@@ -283,6 +297,7 @@ fix = "Chuyển sang nhóm 'đã cấp nhưng không dùng'"
 [[forbid]]
 id = "ADR0001-rag-gen-scope"
 adr = "0001"
+mockups = true
 pattern = '(?i)retrieval \+ generation'
 why = "Generation (chatbot) chỉ làm sau cổng Phase F — phạm vi hiện tại là retrieval + eval"
 fix = "Ghi 'retrieval + eval; generation chỉ sau cổng F'"
@@ -291,6 +306,7 @@ allow = ["docs/decisions/**", "docs/roadmap.md"]
 [[forbid]]
 id = "ADR0001-svm-in-pipeline"
 adr = "0001"
+mockups = true
 pattern = 'HDBSCAN ?[+/] ?SVM'
 why = "Bộ phân loại có giám sát chỉ là câu hỏi nghiên cứu RQ-08, không phải thành phần pipeline đang chạy"
 fix = "Chỉ nêu HDBSCAN; bộ phân loại → RQ-08"
@@ -298,6 +314,7 @@ fix = "Chỉ nêu HDBSCAN; bộ phân loại → RQ-08"
 [[forbid]]
 id = "ADR0001-content-idea"
 adr = "0001"
+mockups = true
 pattern = '(?i)content idea'
 why = "Content Idea Card thuộc tính năng gợi ý/generation đã bỏ"
 fix = "Xoá, hoặc chú thích 'đã bỏ theo ADR-0001'"
@@ -306,6 +323,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "DATA-stale-reply-count"
 adr = "finding-2026-09-30"
+mockups = true
 pattern = '^(?!.*2026-08-(29|30|31)).*\b1[.,]285\b'
 why = "1.285 là số reply cũ (tới 2026-08-31); trình bày như hiện trạng là sai — hiện 1.368 và còn tăng"
 fix = "Bỏ số, hoặc ghi kèm ngày đo"
@@ -313,6 +331,7 @@ fix = "Bỏ số, hoặc ghi kèm ngày đo"
 [[forbid]]
 id = "DATA-audience-reply-field"
 adr = "finding-2026-09-30"
+mockups = true
 pattern = '(?i)vs audience repl'
 why = "Data từ /replies chỉ gồm reply của tác giả — is_reply_owned_by_me không phân biệt được reply của follower"
 fix = "Ghi rõ: luôn True với data /replies; vai của reply ở posts.reply_role (ADR-0004)"
@@ -404,6 +423,7 @@ fix = "Liệt kê đủ các cổng"
 [[forbid]]
 id = "ADR0009-old-name"
 adr = "0009"
+mockups = true
 # Chỉ tên có dấu cách — slug `threads-ai-content` (đường dẫn, repo, pyproject) vẫn hợp lệ
 pattern = '(?i)threads ai content'
 why = "Tên hiển thị đã đổi thành Unthreaded (ADR-0009) — 'AI Content' gợi ý generation đã bỏ"
@@ -422,6 +442,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0009-old-name-variants"
 adr = "0009"
+mockups = true
 # Phân biệt hoa/thường: không bắt slug `threads-ai-content` hay tên job `ThreadsAI_*`
 pattern = '\bThreads[ -]AI\b(?![ -]?[Cc]ontent)|\bThreads-AI-[Cc]ontent\b'
 why = "Biến thể của tên cũ — tên hiển thị là Unthreaded (ADR-0009)"
@@ -433,6 +454,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0010-postgres"
 adr = "0010"
+mockups = true
 pattern = '(?i)postgres'
 why = "SQLite là CSDL duy nhất (ADR-0010) — PostgreSQL không có trong roadmap"
 fix = "Xoá; mô tả SQLite là lựa chọn có chủ đích (1 file, 1 tiến trình ghi, gồm cả knowledge base)"
@@ -447,6 +469,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0004-inflated-continuations"
 adr = "0004"
+mockups = true
 pattern = '(?i)\b6[.,]84\b[^\n]{0,25}(continuation|đoạn|/bài|mỗi bài)'
 why = "6,84 continuation/bài là số bị thổi phồng do gộp câu trả lời follower (ADR-0004) — thật 2,35 (2026-10-01)"
 fix = "Bỏ số, hoặc dùng số đo sau ADR-0004 kèm ngày"
@@ -455,6 +478,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0004-loose-role-counts"
 adr = "0004"
+mockups = true
 pattern = '(?i)\b362\b[^\n]{0,30}(self|continuation|nối chuỗi)|\b664\b[^\n]{0,30}(trả lời|answer|follower)'
 why = "362/664 dùng quy tắc phân vai lỏng — số chính thức ADR-0004: 353 self_continuation / 674 author_answer / 342 outbound (2026-10-01)"
 fix = "Dùng 353/674/342 kèm ngày đo"
@@ -463,6 +487,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0004-comment-replies"
 adr = "0004"
+mockups = true
 pattern = '(?i)posts and comment replies'
 why = "Mô tả cụm từng lẫn câu trả lời follower — đã sửa ở ADR-0004"
 fix = "Gom cụm lại; mô tả cụm chỉ dựa trên nội dung bài"
@@ -499,6 +524,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0004-ari-not-measurable"
 adr = "0004"
+mockups = true
 pattern = '(?i)\bARI\b[^\n]{0,120}chưa (có|đo được)'
 why = "ARI giữa 2 lần gom cụm đã được ghi ở cluster_runs.ari_vs_previous (ADR-0004)"
 fix = "Đọc cluster_runs"
@@ -507,6 +533,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0004-role-count-english"
 adr = "0004"
+mockups = true
 pattern = '\b(286|740|741|664|362)\s*(author_answer|self_continuation)\b|\b(author_answer|self_continuation)\s*[:=]?\s*(286|740|741|664|362)\b'
 why = "Số vai reply chính thức 2026-10-01: 353 self_continuation / 674 author_answer / 342 outbound (286/741 là của bản cài đặt duyệt theo timestamp — sai)"
 fix = "Dùng 353/674/342 kèm ngày đo"
@@ -515,17 +542,19 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0004-dbcv-unnamed"
 adr = "0004"
+mockups = true
 # Chữ "DBCV" (viết hoa — không bắt tên biến `dbcv` trong code) đi với 1 số trong 25 ký tự
 # trước/sau, mà trong 60 ký tự ngay sau "DBCV" không có tên hàm đo
-pattern = '\bDBCV\b(?![^\n]{0,60}(validity_index|relative_validity))[^\n]{0,25}?\b0[.,]\d|\b0[.,]\d+\s*DBCV\b(?![^\n]{0,60}(validity_index|relative_validity))'
+pattern = '(?<!validity_index \()(?<!relative_validity_ \()\bDBCV\b(?![^\n]{0,60}(validity_index|relative_validity))[^\n]{0,25}?\b0[.,]\d|\b0[.,]\d+\s*DBCV\b(?![^\n]{0,60}(validity_index|relative_validity))'
 why = "DBCV có 2 thước đo khác thang (validity_index vs relative_validity_) — số trần không so được (ADR-0004)"
 fix = "Ghi tên hàm cạnh con số, VD 'validity_index 0,317'"
-paths = ["docs/claude/**", "docs/status.md", "docs/roadmap.md", "src/**", "README*.md", ".claude/**"]
+paths = ["docs/claude/**", "docs/status.md", "docs/roadmap.md", "src/**", "README*.md", ".claude/**", "docs/design/**"]
 allow = ["docs/decisions/**"]
 
 [[forbid]]
 id = "ADR0004-nn10-current"
 adr = "0004"
+mockups = true
 pattern = 'n_neighbors\s*=\s*10\b'
 why = "UMAP n_neighbors calibrate lại 10 → 8 ngày 2026-10-01 (ADR-0004)"
 fix = "Ghi n_neighbors=8"
@@ -572,6 +601,7 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0016-opus-labeling"
 adr = "0016"
+mockups = true
 # `.` cuối câu vẫn bắt; chỉ loại đuôi phiên bản -5 / .5 / 0
 pattern = 'claude-opus-5(?![-\d]|\.\d)'
 why = "Model đặt tên cụm là claude-sonnet-5-5 từ 2026-10-04 (ADR-0016)"
@@ -581,10 +611,11 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0016-prompt-caching"
 adr = "0016"
+mockups = true
 pattern = '(?i)prompt[- ]caching|caching des prompts|mise en cache (des|du) prompts?'
 why = "Code không dùng cache_control — prompt mỗi cụm khác nhau nên cache không giúp (ADR-0016)"
 fix = "Bỏ cụm 'prompt caching' khỏi mô tả"
-paths = ["README*.md", "docs/claude/**"]
+paths = ["README*.md", "docs/claude/**", "src/dashboard/src/**", "docs/design/**"]
 
 # ---------------------------------------------------------------------------------------
 # ADR-0017 — job NLP chạy 12:30 (không còn 3h sáng); script cấu hình task là configure_jobs.ps1
@@ -593,9 +624,10 @@ paths = ["README*.md", "docs/claude/**"]
 [[forbid]]
 id = "ADR0017-nlp-3am"
 adr = "0017"
+mockups = true
 # Mốc giờ đêm: 3h / 3h30 / 03h00 / 03:00 / 3 AM / 3:00 a.m. / 3 giờ sáng; hoặc lối nói "chạy hằng đêm"
 # — trong cùng dòng với job NLP / gom cụm / đặt tên cụm. `am\b`: không bắt "3 amplification". Test hit/miss: tests/scripts/test_consistency.py
-pattern = '(?i)(nlp|recluster|cụm|cluster(ing)?|đặt tên|label(ing)?)[^\n]{0,60}(\b0?3(h|h\d\d|:\d\d)?\s?(am\b|a\.m\.)|\b0?3h(\d\d)?\b|\b03:00\b|3 giờ sáng|nightly|overnight|hằng đêm|mỗi đêm|chaque nuit)|(\b0?3(h|h\d\d|:\d\d)?\s?(am\b|a\.m\.)|\b0?3h(\d\d)?\b|\b03:00\b|3 giờ sáng|nightly|overnight|hằng đêm|mỗi đêm|chaque nuit)[^\n]{0,40}(nlp|recluster|cụm|cluster(ing)?|đặt tên|label(ing)?)'
+pattern = '(?i)(nlp|recluster|cụm|cluster(ing)?|đặt tên|label(ing)?)[^\n]{0,60}(\b0?3(h|h\d\d|:\d\d)?\s?(am\b|a\.m\.)|\b0?3h(\d\d)?\b|\b03:00\b|3 giờ sáng|nightly|overnight|hằng đêm|mỗi đêm|chaque nuit)|(\b0?3(h|h\d\d|:\d\d)?\s?(am\b|a\.m\.)|\b0?3h(\d\d)?\b|\b03:00\b|3 giờ sáng|nightly|overnight|hằng đêm|mỗi đêm|chaque nuit)[^\n]{0,40}(nlp|recluster|cụm|cluster(ing)?|đặt tên|label(ing)?)|\bdaily\s+0?3[:h]00\b'
 why = "Job NLP chạy 12:30 từ 2026-10-04 — chạy đêm bị Modern Standby đóng băng (ADR-0017)"
 fix = "Ghi 12:30 (lịch trong scripts/configure_jobs.ps1); câu lịch sử có chủ đích → 'consistency: allow ADR0017-nlp-3am'"
 allow = ["docs/decisions/**", "tests/**"]
@@ -619,4 +651,16 @@ adr = "0018"
 pattern = '(?i)(xoá|xóa)( \+| toàn bộ| sạch|[^\n]{0,15}rồi) ghi lại[^\n]{0,40}topic|full-recompute|f"cluster_\{|delete_cluster_topics|RELABEL_AFTER|đặt (lại )?tên[^\n]{0,40}(mỗi|hằng) tháng'
 why = "Từ ADR-0018 id + tên topic bền (topic_N); chỉ gán bài → topic được tính lại"
 fix = "Mô tả theo ADR-0018: ghép cụm theo thành viên, giữ id + tên khi cụm không đổi"
+allow = ["docs/decisions/**", "tests/**"]
+
+[[forbid]]
+id = "ADR0018-cluster-id-display"
+adr = "0018"
+mockups = true
+# `cluster_N` = số thứ tự HDBSCAN của 1 lần chạy (đổi mỗi lần); id hiển thị/khoá là `topic_N` bền.
+# Chỉ mặt hiển thị + tài liệu — code/test migration nhắc cluster_N có chủ đích nằm ngoài `paths`.
+pattern = '\bcluster_\d+\b'
+why = "Id topic là topic_N, bền qua các lần gom cụm; cluster_N là nhãn vị trí HDBSCAN, đổi mỗi lần chạy (ADR-0018)"
+fix = "Dùng topic_N (TopicOut.id / ContentUnitOut.topic.topic_id)"
+paths = ["src/dashboard/src/**", "docs/design/**", "README*.md", "docs/claude/**"]
 allow = ["docs/decisions/**", "tests/**"]
