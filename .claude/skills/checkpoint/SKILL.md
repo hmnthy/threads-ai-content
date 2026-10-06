@@ -17,7 +17,7 @@ allowed-tools: Bash(git status *) Bash(git diff *) Bash(git log *) Bash(git bran
 
 | Thay đổi | Chạy |
 |---|---|
-| Mọi thay đổi | `uv run --no-sync python -m scripts.consistency.check --all` phải = 0 (pre-commit sẽ chặn nếu không) |
+| Mọi thay đổi | `uv run --no-sync python -m scripts.consistency.check --all` phải = 0 (pre-commit sẽ chặn nếu không; "Cảnh báo mockup" in kèm không tính — ADR-0020) |
 | `src/**/*.py`, `tests/**`, `scripts/**` | `uv run ruff check .` · `uv run mypy` · `uv run pytest -q` (**cả suite**, ~1 phút) |
 | `src/dashboard/**` | `npm run lint` + `npm run typecheck` + `npm run build` trong `src/dashboard` |
 | `pyproject.toml`, `docs/decisions/invariants.toml` | `uv run pytest -q` (sổ luật có test riêng; pre-commit cũng chạy test nhanh) |

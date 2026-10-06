@@ -22,3 +22,8 @@ Vấn đề gì, bằng chứng gì (số liệu thật, file:line, link nguồn
 - Việc phải làm theo (file nào đổi, docs nào cập nhật).
 - Rủi ro / nợ kỹ thuật chấp nhận.
 - Khi nào nên xem lại quyết định này (điều kiện cụ thể, không phải "sau này").
+
+### Hệ quả UI
+
+- Dòng `docs/design/ui-contract.md` thêm / sửa / bỏ: `UI-NNNN-...` (hoặc "không có hệ quả UI"). Bắt buộc từ ADR-0020 —
+  sửa hợp đồng trong cùng commit và nâng mốc "Cập nhật tới" (ADR-0020).

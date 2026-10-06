@@ -65,6 +65,13 @@ Dự án dùng song song 3 bề mặt Claude khác nhau trên cùng 1 repo: **Cl
 
 **Sự thật kỹ thuật cần nhớ** (verify 2026-09-30 qua schema tool `DesignSync`): skill `/design-sync` **đẩy** component library từ máy lên 1 project design-system trên claude.ai/design — incremental, từng component, không bao giờ thay toàn bộ. Chiều ngược lại chỉ **đọc từng file** (`get_file`); không có thao tác kéo cả trang về repo. Vì vậy mọi thứ chỉnh trong canvas **chưa tồn tại trong `src/dashboard/`** cho tới khi Claude Code port lại thành code (từ file đọc qua `get_file` hoặc mockup `.dc.html` Thy xuất ra). Claude Design không đọc GitHub — không cần push để dùng nó.
 
+**Phân vai (ADR-0020)**: Claude Code là nguồn sự thật **kỹ thuật** — ADR, schema, endpoint, trường data, sổ luật, và
+cột A–D của `docs/design/ui-contract.md`; Claude Design làm **UI/UX** trên nền đó — mockup, handoff, duyệt cột E (cách
+trình bày) — và không được quyết điều gì về kỹ thuật. Chiều thay đổi: **ADR → `ui-contract.md` → mockup → code**. Mockup
+cần thứ ADR chưa cho phép → Claude Design viết brief, Claude Code trả lời bằng ADR/hợp đồng. Mockup bị sổ luật quét ở mức
+cảnh báo (không chặn commit) → cảnh báo ghi vào `docs/design/ui-contract-audit.md`; Claude Code không sửa nội dung
+mockup, chỉ sửa sự thật kỹ thuật trong handoff/brief và ghi lại.
+
 **Pipeline chuẩn (tuyến tính, không chạy song song trên cùng file)**:
 1. Thăm dò ý tưởng visual trong canvas Claude Design (sandbox riêng, không rủi ro cho repo).
 2. Khi 1 hướng đã **chốt** → văn bản hoá thành token cụ thể (hex, type scale, spacing) vào `docs/claude/design-system.md` — nguồn sự thật duy nhất về design (routing bắt buộc: `.claude/rules/dashboard.md`).
@@ -75,7 +82,9 @@ Dự án dùng song song 3 bề mặt Claude khác nhau trên cùng 1 repo: **Cl
 **Nguyên tắc chặn xung đột**:
 - Claude Code và Cowork ghi thẳng vào thư mục chúng mở → luôn mở trong **worktree** của nhánh đang làm, không trong thư mục chính (luôn ở `main`, nơi cron chạy — ADR-0019, `docs/claude/git-workflow.md`).
 - Trước khi chạm `src/dashboard/` (hoặc bất kỳ file nào) ở tool nào — `git status` trước. Có uncommitted work từ tool khác → không ghi đè, hỏi lại user.
-- `design-system.md` là trọng tài khi có mâu thuẫn — sửa spec trước, sync/code sau, không làm ngược.
-- Commit nhỏ, thường xuyên, message rõ nghĩa — git log là kênh giao tiếp DUY NHẤT giữa các tool (không chia sẻ bộ nhớ).
+- `design-system.md` là trọng tài khi mâu thuẫn về **design**; `ui-contract.md` (và code) là trọng tài khi mâu thuẫn về
+  **kỹ thuật** — sửa spec/hợp đồng trước, sync/code sau, không làm ngược.
+- Commit nhỏ, thường xuyên, message rõ nghĩa — các tool không chia sẻ bộ nhớ; kênh giao tiếp là git log, brief
+  (`docs/design/*-brief-*.md`) và `ui-contract.md`.
 - Cổng review tầng 2 (ADR-0015) chặn commit do Claude chạy (kể cả lệnh `!` trong Claude Code) mà chạm file logic/ADR chưa có dấu review khớp nội dung; merge không xung đột không chạy hook. Lối thoát khi cổng hỏng: commit tay từ terminal ngoài Claude Code.
 

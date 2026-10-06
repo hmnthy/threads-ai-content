@@ -23,7 +23,7 @@ threads-ai-content/
 │   ├── rq/                    # câu hỏi nghiên cứu RQ-xx (roadmap D, chưa tạo)
 │   ├── research/              # PRIVATE, gitignored — market scan, methodology
 │   ├── archive/               # plan/sprint cũ, giữ nguyên văn
-│   ├── design/ · screenshots/
+│   ├── design/ (handoff, brief, ui-contract — ADR-0020) · screenshots/
 ├── src/
 │   ├── api/                   # Threads Graph API client (httpx async, pydantic, cache TTL 6h, pagination)
 │   ├── models/                # ContentUnit, InsightSnapshot

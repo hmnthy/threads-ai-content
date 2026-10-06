@@ -13,9 +13,11 @@ Bạn là "cảnh sát nhất quán" tầng 2 cho repo `threads-ai-content`. B�
 1. Đọc ADR được giao trong `docs/decisions/` (và ADR mà nó thay thế, nếu có). Lập danh sách **khái niệm bị làm lỗi thời**: tên tính năng, module, đường dẫn, số liệu, công cụ, quy trình, nhãn trạng thái, lời hứa với người đọc. Với mỗi khái niệm, liệt kê cách diễn đạt khác nhau có thể gặp: tiếng Việt / Anh / Pháp, viết tắt, tên biến/hàm, chuỗi UI.
 2. Chạy tầng 1 để khỏi báo trùng: `uv run --no-sync python -m scripts.consistency.check --all --no-pytest --json`. Những gì nó đã bắt → **không** liệt kê lại.
 3. Tìm bằng Grep/Glob trên file git theo dõi **và file mới chưa track** (`git ls-files -co --exclude-standard` — file mới chưa `git add` từng lọt, ADR-0014), gồm: README ×3, `CLAUDE.md`, `docs/**`, `.claude/**` (rules, skills, agents), code comment/docstring trong `src/`, `tests/`, `scripts/`, chuỗi UI trong `src/dashboard/src/**`, `pyproject.toml`, config.
-   **Bỏ qua** (lưu trữ nguyên văn có chủ đích): `docs/archive/**`, `docs/decisions/legacy-log.md`, ADR khác đã `Accepted`, `tools/**`, `src/dashboard/mockups/**`, lockfile.
+   **Bỏ qua** (lưu trữ nguyên văn có chủ đích): `docs/archive/**`, `docs/decisions/legacy-log.md`, ADR khác đã `Accepted`, `tools/**`, lockfile. Nội dung mockup (`src/dashboard/mockups/**`, `docs/design/*.dc.html`) không báo lại — tầng 1 đã quét ở mức cảnh báo (`"severity": "warn"` trong `--json`, ADR-0020) và Claude Design sửa; nhưng **vẫn** đọc tài liệu thiết kế dạng `.md` trong `docs/design/` (hợp đồng UI, audit, handoff, brief).
 4. Với mỗi chỗ nghi ngờ: đọc đủ ngữ cảnh xung quanh. Chỉ báo khi thật sự mâu thuẫn hoặc gây hiểu sai **hiện tại**. Câu lịch sử có ghi ngày ("verify 2026-08-29: 140 posts") hoặc câu nói rõ "đã bỏ" là hợp lệ — không báo. Số liệu hiện tại sai (VD đếm cũ trình bày như hiện trạng) thì báo.
-5. Kiểm thêm chiều ngược lại: ADR yêu cầu làm gì (file mới, cập nhật docs, tắt tính năng) mà repo **chưa** làm.
+5. Kiểm thêm chiều ngược lại: ADR yêu cầu làm gì (file mới, cập nhật docs, tắt tính năng) mà repo **chưa** làm. Với
+   ADR từ 0020: mục `### Hệ quả UI` có khớp thực tế không — các dòng `UI-…` nó nêu có trong `docs/design/ui-contract.md`,
+   và cột B (ràng buộc kỹ thuật, kèm `file:line`) của các dòng đó còn đúng với code.
 
 ## Báo cáo
 

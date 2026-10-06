@@ -431,6 +431,25 @@ def test_real_sprint_step_rule_ignores_procedure_numbering_in_skills(tmp_path: P
 # Luật học được từ lượt /decision-sweep đầu tiên (consistency-auditor): mỗi luật 1 ví dụ
 # PHẢI khớp và 1 ví dụ KHÔNG được khớp, lấy từ chính phát hiện thật trong repo.
 LEARNED_RULES = [
+    # ADR-0020: phát hiện thật trong landing mockup / handoff 2026-10-05
+    (
+        "ADR0018-cluster-id-display",
+        "docs/design/landing-handoff.md",
+        "Search = `document · full_text · cluster_7`",
+        "Search = `document · full_text · topic_7` (mockup còn ghi `cluster_N`)",
+    ),
+    (
+        "ADR0017-nlp-3am",
+        "docs/design/x.md",
+        '<span class="edge">daily 03:00 · WSL2</span>',
+        '<span class="edge">daily 12:30 · WSL2</span>',
+    ),
+    (
+        "ADR0004-dbcv-unnamed",
+        "docs/claude/x.md",
+        "| 9 cụm · nhiễu 36,1% · DBCV 0,317 |",
+        "validity_index (DBCV) 0.317 · noise 36.1%",
+    ),
     (
         "ADR0003-arch-md-see",
         "tests/x.py",
@@ -668,3 +687,169 @@ def test_learned_rules_hit_and_miss(
 
     target.write_text(miss + "\n", encoding="utf-8")
     assert rule_id not in {v.rule for v in check.check_forbid(root, [path], cfg)}
+
+
+# --- hợp đồng UI + mockup chỉ cảnh báo (ADR-0020) -------------------------------------
+
+UI_TOML = """
+[settings]
+exclude = ["mockups/**", "docs/decisions/invariants.toml"]
+mockup_paths = ["mockups/**", "docs/design/*.dc.html"]
+ui_contract = "docs/design/ui-contract.md"
+ui_impact_from = 2
+
+[[forbid]]
+id = "R-shown"
+adr = "0001"
+pattern = 'coming soon'
+why = "nhãn trạng thái đã bỏ"
+mockups = true
+
+[[forbid]]
+id = "R-code-only"
+adr = "0001"
+pattern = 'old_helper'
+why = "chỉ áp cho code"
+"""
+
+ADR_OK = "- **Trạng thái**: Accepted\n- **Ngày**: 2026-10-06\n"
+ADR_UI = ADR_OK + "\n## Hệ quả\n\n### Hệ quả UI\n- không có hệ quả UI\n"
+INDEX = "| [0001](0001-a.md) | [0002](0002-b.md) |\n"
+
+
+def make_ui_repo(tmp_path: Path, files: dict[str, str]) -> Path:
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q")
+    for rel, content in {**files, check.INVARIANTS_PATH: UI_TOML}.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "init")
+    return root
+
+
+def contract(upto: str, *rows: str) -> str:
+    head = "| id | ADR | A | B | C | D | E |\n|---|---|---|---|---|---|---|\n"
+    return f"Cập nhật tới: ADR-{upto} · 2026-10-06\n\n" + head + "\n".join(rows) + "\n"
+
+
+ROW1 = "| UI-0001-status | 0001 | — | Chỉ live/next/research | all | `R-shown` | Pill 3 nhãn |"
+ROW2 = "| UI-0002-none | 0002 | — | không có hệ quả UI | — | — | — |"
+
+
+def test_mockup_hits_are_warnings_from_opted_in_rules_only(tmp_path: Path) -> None:
+    files = {
+        "mockups/landing.dc.html": "<p>coming soon</p>\n<script>old_helper()</script>\n",
+        "docs/design/tiers.dc.html": "coming soon\n",
+        "README.md": "coming soon\n",
+    }
+    root = make_ui_repo(tmp_path, files)
+    cfg = check.load_config(root)
+    got = sorted(
+        (v.path, v.rule, v.severity)
+        for v in check.check_forbid(root, check.tracked_files(root), cfg)
+    )
+    # Mockup: chỉ luật `mockups = true`, mức warn — dù mockups/** nằm trong exclude;
+    # file thường vẫn là lỗi chặn commit
+    assert got == [
+        ("README.md", "R-shown", "error"),
+        ("docs/design/tiers.dc.html", "R-shown", "warn"),
+        ("mockups/landing.dc.html", "R-shown", "warn"),
+    ]
+
+
+def test_warnings_do_not_fail_the_run_but_are_counted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = {
+        "mockups/landing.dc.html": "coming soon\n",
+        "docs/decisions/README.md": INDEX,
+        "docs/decisions/0001-a.md": ADR_OK,
+        "docs/decisions/0002-b.md": ADR_UI,
+        "docs/design/ui-contract.md": contract("0002", ROW1, ROW2),
+    }
+    root = make_ui_repo(tmp_path, files)
+    monkeypatch.chdir(root)
+    assert check.main(["--all", "--count"]) == 0
+    assert capsys.readouterr().out.split("\n")[:2] == ["0", "mockup-warnings: 1"]
+    assert check.main(["--all", "--no-pytest"]) == 0
+    assert "Cảnh báo mockup" in capsys.readouterr().out
+
+
+def run_contract(root: Path) -> list[tuple[str, int]]:
+    cfg = check.load_config(root)
+    found = check.check_ui_contract(root, cfg, check.tracked_files(root))
+    return sorted((v.rule, v.line) for v in found)
+
+
+def test_ui_contract_clean_when_every_adr_is_covered(tmp_path: Path) -> None:
+    files = {
+        "docs/decisions/0001-a.md": ADR_OK,
+        "docs/decisions/0002-b.md": ADR_UI,
+        "docs/design/ui-contract.md": contract("0002", ROW1, ROW2),
+    }
+    assert run_contract(make_ui_repo(tmp_path, files)) == []
+
+
+def test_ui_contract_flags_stale_mark_missing_adr_and_ui_impact(tmp_path: Path) -> None:
+    files = {
+        "docs/decisions/0001-a.md": ADR_OK,
+        "docs/decisions/0002-b.md": ADR_OK,  # thiếu "### Hệ quả UI" (≥ ui_impact_from)
+        "docs/design/ui-contract.md": contract("0001"),  # mốc cũ + không dòng nào
+    }
+    rules = {r for r, _ in run_contract(make_ui_repo(tmp_path, files))}
+    assert rules == {"adr-ui-impact", "ui-contract-stale", "ui-contract-missing-adr"}
+
+
+def test_ui_contract_flags_dup_id_unknown_adr_rule_and_test(tmp_path: Path) -> None:
+    rows = (
+        ROW1,
+        ROW1,  # trùng id
+        "| UI-0009-ghost | 0009 | — | x | all | manual | x |",  # ADR không tồn tại
+        "| UI-0002-a | 0002 | — | x | all | `R-missing` | x |",  # luật không có
+        "| UI-0002-b | 0002 | — | x | all | test: test_does_not_exist | x |",
+        "| UI-L20260903-legacy | 0002 | — | x | all | manual | x |",  # id legacy hợp lệ
+    )
+    files = {
+        "docs/decisions/0001-a.md": ADR_OK,
+        "docs/decisions/0002-b.md": ADR_UI,
+        "docs/design/ui-contract.md": contract("0002", *rows),
+        "tests/test_x.py": "def test_real() -> None:\n    pass\n",
+    }
+    assert run_contract(make_ui_repo(tmp_path, files)) == [
+        ("ui-contract-dup-id", 6),  # dòng 1 mốc, 3–4 tiêu đề bảng, 5 ROW1 → bản trùng ở 6
+        ("ui-contract-unknown-adr", 7),
+        ("ui-contract-unknown-rule", 8),
+        ("ui-contract-unknown-test", 9),
+    ]
+
+
+def test_ui_contract_escaped_pipe_keeps_column_d_checked(tmp_path: Path) -> None:
+    rows = (
+        ROW2,
+        # `\|` trong cột B không phải ranh giới cột → cột D vẫn được kiểm (mã luật sai bị bắt)
+        '| UI-0001-pipe | 0001 | — | Kiểu `"live" \\| "next"` | all | `R-typo` | x |',
+        "| UI-0001-short | 0001 | — | thiếu cột | all |",  # thiếu cột → báo, không bỏ qua im lặng
+        "| UI-0001-two | 0001 | — | x | all | test: `test_real`, `test_gone` | x |",
+    )
+    files = {
+        "docs/decisions/0001-a.md": ADR_OK,
+        "docs/decisions/0002-b.md": ADR_UI,
+        "docs/design/ui-contract.md": contract("0002", *rows),
+        "tests/test_x.py": "def test_real() -> None:\n    pass\n",
+    }
+    assert run_contract(make_ui_repo(tmp_path, files)) == [
+        ("ui-contract-malformed-row", 7),
+        ("ui-contract-unknown-rule", 6),
+        ("ui-contract-unknown-test", 8),  # mọi tên test trong cột D, không chỉ tên đầu
+    ]
+
+
+def test_ui_contract_missing_file_or_mark(tmp_path: Path) -> None:
+    root = make_ui_repo(tmp_path, {"docs/decisions/0001-a.md": ADR_OK})
+    assert run_contract(root) == [("ui-contract-missing", 0)]
+    (root / "docs/design").mkdir(parents=True)
+    (root / "docs/design/ui-contract.md").write_text("no mark\n", encoding="utf-8")
+    assert run_contract(root) == [("ui-contract-mark", 0)]

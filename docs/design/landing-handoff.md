@@ -20,7 +20,7 @@ Kiểm toán 2026-10-02 — mỗi trường trên UI thuộc 1 trong 3 loại:
 | cụm, `centroid_similarity` | `post_topic_labels.confidence`, API đổi tên thành `centroid_similarity` (`src/main.py:258`) |
 | từ khoá c-TF-IDF, 3 bài gần tâm | `topics.keywords_json`, `topics.representative_ids_json` (`src/nlp/topic_profile.py`, `clustering_import.py`) — **chưa có trong `TopicOut`** |
 | toạ độ bản đồ | `content_units.umap_x/y/z` |
-| 9 cụm · nhiễu 36,1% · DBCV 0,317 | `cluster_runs.n_clusters/noise_ratio/dbcv` — DBCV ghi kèm tên hàm `validity_index` |
+| 9 cụm · nhiễu 36,1% · DBCV (validity_index) 0,317 | `cluster_runs.n_clusters/noise_ratio/dbcv` — DBCV ghi kèm tên hàm `validity_index` |
 | ARI 0,22 / 0,78 / 1,00 | `cluster_runs.ari_vs_previous/ari_clustered_only`: run 2 so run trước = 0,22 (cả nhiễu) / 0,78 (chỉ bài có cụm); run 3 (chạy lại cùng tham số) = 1,00 |
 | CMI | `content_units.language_mix_score` (Code-Mixing Index, `src/nlp/language.py`) |
 | stack, lịch job, model | `docs/claude/architecture.md`, ADR-0013, `topics.py:CLUSTER_LABELING_MODEL` |
@@ -37,7 +37,7 @@ Kiểm toán 2026-10-02 — mỗi trường trên UI thuộc 1 trong 3 loại:
 
 **C. Câu chữ diễn giải** (không phải số): Q1–Q3 ở Problem, mô tả node trong sơ đồ, câu trả lời 1 dòng. Câu trả lời 1 dòng phải **sinh từ kết quả tính** (VD "None clearly" chỉ đúng khi mọi p Holm ≥ 0,05) — không hardcode câu kết luận.
 
-Đã sửa trong mockup 2026-10-02: số test 321 (sai — status.md ghi 397; giờ bỏ số), "API computes group comparisons" (sai — chưa có endpoint), mô tả gọi Claude API (đúng là 1 lần mỗi cụm, `label_cluster_with_claude`).
+Đã sửa trong mockup 2026-10-02: số test 321 (sai — status.md ghi 397; giờ bỏ số), "API computes group comparisons" (sai — chưa có endpoint), mô tả gọi Claude API (`label_cluster_with_claude` — từ ADR-0018 chỉ gọi cho cụm cần đặt lại tên, không phải mọi cụm mỗi lần chạy; xem `docs/design/ui-contract-audit.md`).
 
 ## 1. Thay đổi so với landing hiện tại (`src/dashboard/src/app/page.tsx`)
 
@@ -80,7 +80,7 @@ Lưới 2 cột (`minmax(min(100%,420px),1fr)`, gap 56). Trái: eyebrow, H2, đo
 - Thanh input nền `--dark-bg`, radius 16: trích dòng đầu bài hero + `root + its continuations, rebuilt from the reply graph`.
 - Ba đường dọc 2px `--amber-on-dark` nối xuống tầng 01, 02; tầng 03 nối bằng `--rule` (chưa chạy).
 - Lưới `1fr 64px 1fr 64px 1fr` (cuộn ngang trong container khi < 980px). Thẻ 01 Measure, 02 Group: `border-top 3px #F59E0B`, chip `live`. Thẻ 03 Search: nền `--bg-sunken`, viền dashed, chip `next`.
-- Mỗi thẻ có ô "This post": Measure = strip mini 144 chấm + 3.22% · above 128 of 144 · median 1.99%; Group = mini map, cụm 7 amber + `Studying and Living in France · nearest post to the centre (0.888)`; Search = `document · full_text · cluster_7 / indexed with 674 author answers`.
+- Mỗi thẻ có ô "This post": Measure = strip mini 144 chấm + 3.22% · above 128 of 144 · median 1.99%; Group = mini map, cụm 7 amber + `Studying and Living in France · nearest post to the centre (0.888)`; Search = `document · full_text · topic_7 / indexed with 674 author answers` (id bền `topic_N`, ADR-0018 — mockup còn ghi `cluster_N`, xem audit).
 - Cột nối: `←` amber "topic becomes the comparison group"; `→` muted "text and topic become documents".
 
 ### 3.4 Product proof

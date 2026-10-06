@@ -10,7 +10,7 @@ ADR: **$ARGUMENTS**
 
 !`uv run --no-sync python -m scripts.consistency.check --all --no-pytest --count`
 
-(số trên = vi phạm hiện có theo sổ luật, trước khi bắt đầu)
+(dòng 1 = vi phạm chặn commit hiện có, trước khi bắt đầu; dòng 2 nếu có = cảnh báo mockup — không chặn, ADR-0020)
 
 ## Bước 1 — Quyết định thành luật
 
@@ -19,7 +19,10 @@ ADR: **$ARGUMENTS**
    - `[[forbid]]` cho mỗi khái niệm/tên/đường dẫn/số liệu bị làm lỗi thời (mẫu hẹp; `allow` cho `docs/decisions/**` và nơi được phép nhắc lịch sử; `multiline = true` nếu câu hay vắt dòng).
    - `[[stale_asset]]` cho ảnh/file nhị phân mà quyết định làm sai (VD screenshot).
    - `planned_paths` cho file ADR yêu cầu tạo nhưng chưa tồn tại.
-3. Mỗi luật mới → thêm 1 ví dụ vào test `tests/scripts/test_consistency.py` (khớp + không khớp).
+3. Mỗi luật mới → thêm 1 ví dụ vào test `tests/scripts/test_consistency.py` (khớp + không khớp). Luật về chữ hiển thị
+   (copy sản phẩm, nhãn, id trên UI) → `mockups = true` để quét cả mockup của Claude Design (ADR-0020).
+4. Hợp đồng UI (ADR-0020): ADR có mục `### Hệ quả UI` và `docs/design/ui-contract.md` đã thêm/sửa/bỏ đúng các dòng đó,
+   mốc "Cập nhật tới" đã nâng — cột B mỗi dòng còn đúng với code.
 
 ## Bước 2 — Kiểm kê (2 tầng song song, độc lập)
 
@@ -37,6 +40,8 @@ ADR: **$ARGUMENTS**
 - README: sửa cả 3 bản (EN/VI/FR) cùng lúc, giữ cùng cấu trúc.
 - Ảnh cũ (`stale_asset`): cần backend + `npm run dev` đang chạy → `npm run screenshots` trong `src/dashboard`.
 - Code: chỉ sửa comment/docstring/copy trừ khi ADR yêu cầu đổi hành vi — khi đó kèm test.
+- Mockup (`src/dashboard/mockups/*.dc.html`, `docs/design/*.dc.html`): **không sửa nội dung** — cảnh báo ghi vào
+  `docs/design/ui-contract-audit.md` để Claude Design sửa (ADR-0020).
 
 ## Bước 4 — Kiểm tra cuối (tất cả phải xanh mới được báo xong)
 
@@ -44,6 +49,7 @@ ADR: **$ARGUMENTS**
 2. `uv run ruff check .` · `uv run mypy` · `uv run pytest -q` (**bộ đầy đủ**, không chỉ test nhanh).
 3. Có chạm `src/dashboard/**` → trong `src/dashboard`: `npm run lint` · `npm run typecheck` · `npm run build`.
 4. Gọi lại `@agent-consistency-auditor` lần 2 → phải là "0 phát hiện ngoài tầng 1". Còn phát hiện → quay lại Bước 2. Lượt này là **lượt ghi dấu** cho git hook pre-commit chặn commit (ADR-0015): chạy SAU lần sửa cuối của ADR, không sửa ADR trong lúc nó chạy; sửa ADR sau đó → chạy lại.
-5. Báo cáo ngắn: số vi phạm trước → sau, luật mới đã thêm, ngoại lệ đã gắn (và vì sao), kết quả từng lệnh kiểm tra.
+5. Báo cáo ngắn: số vi phạm trước → sau, số cảnh báo mockup trước → sau (đã ghi audit chưa), luật mới đã thêm, ngoại
+   lệ đã gắn (và vì sao), kết quả từng lệnh kiểm tra.
 6. Diff có `invariants.toml` hoặc file logic → cần `@agent-code-reviewer` (ADR-0015) — `/checkpoint` bước 2b làm.
 7. → `/checkpoint` (chờ Thy đồng ý commit).
