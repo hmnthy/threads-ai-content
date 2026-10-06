@@ -45,8 +45,8 @@ def test_median_engagement_rate_empty_list_returns_zero() -> None:
     assert median_engagement_rate([]) == 0.0
 
 
-def test_median_engagement_rate_resists_a_single_viral_outlier_unlike_mean() -> None:
-    # 4 posts hovering around 2%, 1 wildly viral outlier at 500% — mean gets dragged
+def test_median_engagement_rate_resists_a_single_outlier_post_unlike_mean() -> None:
+    # 4 posts hovering around 2%, 1 wild outlier post at 500% — mean gets dragged
     # far above what any "typical" post in the set looks like, median doesn't.
     insights = [
         _insights("1", views=1000, likes=20),  # 2%

@@ -38,7 +38,7 @@ def median_engagement_rate(insights: list[PostInsights]) -> float:
     """Median of PostInsights.engagement_rate — dùng song song `average_engagement_rate()`
     (mean) khi cần central tendency bền với outlier (tầng 3 "Narrative Layering
     Principle", xem docs/claude/data-model.md). Mean bị kéo lệch mạnh bởi 1 bài
-    viral duy nhất trong tập; median phản ánh "trải nghiệm điển hình" tốt hơn — case
+    đột biến duy nhất trong tập; median phản ánh "trải nghiệm điển hình" tốt hơn — case
     thực nghiệm median 412 vs mean 2.254 (gấp 5.5 lần, nguồn `Hwemo-Chung/threads-
     analytics`) là lý do kỹ thuật cho hàm này. Không thay thế `average_engagement_rate`
     — 2 con số nên đi cùng nhau, chênh lệch lớn giữa chúng TỰ NÓ là 1 câu chuyện
@@ -68,7 +68,7 @@ class EngagementBucketStats:
     Giữ song song `mean` và `median` CỐ TÌNH — chênh lệch giữa 2 giá trị tự nó là
     1 câu chuyện thống kê thật, không phải nhiễu (case thực nghiệm median 412 vs
     mean 2.254, gấp 5.5 lần, nguồn `Hwemo-Chung/threads-analytics`: "giờ tốt nhất
-    theo mean lại là giờ tệ nhất theo median" — do 1 bài viral kéo lệch mean của
+    theo mean lại là giờ tệ nhất theo median" — do 1 bài đột biến kéo lệch mean của
     đúng bucket đó). Tầng trình bày (dashboard/report) nên hiện cả 2 cạnh nhau,
     không chỉ chọn 1.
 

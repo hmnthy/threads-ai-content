@@ -3,7 +3,7 @@
 Theo nguyên tắc 2 tại docs/claude/data-model.md ("Giữ nguyên ngữ liệu, không clean
 quá tay") — normalize CHỈ whitespace + URL + chuẩn hoá Unicode/chính tả (không đổi
 nghĩa), KHÔNG strip emoji/hashtag/"từ nước ngoài". Social media text: emoji/hashtag
-mang tín hiệu sentiment/virality thật.
+mang tín hiệu sentiment/lan truyền thật.
 
 `raw_text` không có hàm riêng — nó chính là `ContentUnit.full_text` chưa qua biến
 đổi gì (xem `src/db/schema.py` `update_content_unit_text`, gọi hàm này để tạo

@@ -17,7 +17,7 @@ const STACK: StackItem[] = [
   { layer: "AI / LLM", tech: "Claude API", status: "live", note: "Labels discovered topic clusters in English." },
   { layer: "Dashboard", tech: "Next.js + SVG + Plotly", status: "live", note: "This site, deployed on Vercel." },
   { layer: "Database", tech: "SQLite", status: "live", note: "One file for posts, snapshots and topics. The knowledge base will live in it too." },
-  { layer: "Metric scoring", tech: "6-index architecture", status: "live", note: "Popularity / engagement / virality / conversation / velocity / longevity, kept separate." },
+  { layer: "Metric scoring", tech: "6-index architecture", status: "live", note: "Popularity / engagement / share rate / conversation / velocity / longevity, kept separate." },
   { layer: "Language ID", tech: "lingua-py + Code-Mixing Index", status: "live", note: "Confidence-aware, built for short mixed-language text." },
   { layer: "NLP feature extraction", tech: "sentence-transformers (multilingual)", status: "live", note: "bge-m3 / multilingual-e5-large embeddings, no per-language tokenizer." },
   { layer: "Topic discovery", tech: "UMAP + HDBSCAN", status: "live", note: "Unsupervised clustering — see the Topic Explorer." },

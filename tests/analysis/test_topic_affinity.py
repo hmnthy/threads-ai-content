@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from src.analysis.topic_affinity import (
-    compare_virality_with_without_author_reply,
+    compare_with_without_author_reply,
     is_author_reply_event,
 )
 from src.api.models import MediaType, ThreadsPost
@@ -49,11 +49,11 @@ def test_is_author_reply_event_true_when_author_replies_into_audience_conversati
     assert is_author_reply_event(reply_into_audience_thread, unit) is True
 
 
-def test_compare_virality_with_without_author_reply_delegates_to_compare_groups() -> None:
+def test_compare_with_without_author_reply_delegates_to_compare_groups() -> None:
     posts_with_reply = [5.0, 6.0, 7.0, 8.0, 9.0]
     posts_without_reply = [1.0, 1.5, 2.0, 2.5, 3.0]
 
-    result = compare_virality_with_without_author_reply(posts_with_reply, posts_without_reply)
+    result = compare_with_without_author_reply(posts_with_reply, posts_without_reply)
 
     assert result.n_a == 5
     assert result.n_b == 5

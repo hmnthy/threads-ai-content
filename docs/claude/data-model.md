@@ -1,6 +1,6 @@
 # Data Model — Unthreaded
 
-> Đọc khi: làm việc trong `src/api/`, `src/analysis/`, hoặc cần biết field/metrics/response shape thật của Threads API, công thức Virality Index, NLP pipeline, hay thiết kế knowledge base.
+> Đọc khi: làm việc trong `src/api/`, `src/analysis/`, hoặc cần biết field/metrics/response shape thật của Threads API, công thức chỉ số (share rate, tầng reach), NLP pipeline, hay thiết kế knowledge base.
 > Xem thêm: [`architecture.md`](architecture.md) cho tech stack/cấu trúc thư mục, [`CLAUDE.md`](../../CLAUDE.md) cho mission, [`docs/status.md`](../status.md) cho trạng thái.
 
 ---
@@ -47,7 +47,7 @@ POST /me/threads                         # Đăng bài — KHÔNG dùng: dự á
 | `text_attachment` | ✅ Thật, CÓ dùng — verify lại 2026-08-31 khi chạy pipeline ingest trên toàn bộ 140 posts + 1,285 replies (mẫu nhỏ 50+50 ngày 2026-08-30 không bắt được case này). Shape thật là **edge `{"plaintext": "..."}`**, không phải string phẳng như giả định ban đầu — `ThreadsPost` đã thêm `field_validator` tự flatten (giống `children`) | Dùng cho `ContentUnit.text_attachment` |
 | `is_ghost_post`, `poll_attachment`, `gif_attachment`, `location_id` | ⚠️ Không lỗi nhưng **0/100 item có data** (test 50 post + 50 reply, 2026-08-30) | Nhiều khả năng tác giả chưa từng dùng các tính năng này — KHÔNG kết luận field sai, nhưng cũng chưa có bằng chứng field đúng. Lưu schema nullable, không dùng trong scoring tới khi có post thật dùng chúng |
 | `enable_reply_approvals` | ⚠️ Tương tự — có thể chỉ là param lúc publish, không đọc lại được | Không dùng trong V1 |
-| Metric **"shares"** | ❌ Không tồn tại — post-level insights chỉ có `views, likes, replies, reposts, quotes` (verify 2026-08-28) | Loại khỏi mọi công thức Engagement/Virality tới khi tìm được field thật (nếu có) |
+| Metric **"shares"** | ❌ Không tồn tại — post-level insights chỉ có `views, likes, replies, reposts, quotes` (verify 2026-08-28) | Loại khỏi mọi công thức Engagement/Share rate tới khi tìm được field thật (nếu có) |
 
 ### Metrics lấy từ API
 
@@ -90,7 +90,7 @@ Setup Meta Developer đã **hoàn tất**.
 
 ---
 
-## Metric Architecture (redesign 2026-08-30, thay hẳn `virality_index` gộp cũ)
+## Metric Architecture (redesign 2026-08-30, thay hẳn chỉ số gộp cũ)
 
 > **Nguyên tắc bao trùm**: tách bạch **intrinsic performance** (đo cái gì đã xảy ra) khỏi **explanatory variables** (giải thích tại sao) — không trộn chung 1 công thức kiểu `score = likes + replies + recency + length + topic...`. Mọi hằng số heuristic (grace period, half-life...) là **initial hypothesis cần calibrate lại bằng data thật**, không phải "chân lý" — ghi rõ trong docstring.
 
@@ -104,8 +104,8 @@ def engagement_rate(insights: PostInsights) -> float:
     """(likes + replies + reposts + quotes) / views * 100.
     SỬA lỗi: PostInsights.engagement_rate hiện tại (src/api/models.py) THIẾU quotes."""
 
-def virality_index(insights: PostInsights) -> float:
-    """(reposts + quotes) / views * 100 — 'bao nhiêu người xem redistribute tiếp'.
+def share_rate(insights: PostInsights) -> float:
+    """(reposts + quotes) / views * 100 — 'bao nhiêu người xem đăng lại / trích dẫn' (tên từ ADR-0012).
     CHỈ nhận insights — không nhận post/age/topic (đó là explanatory variables riêng)."""
 
 def conversation_rate(insights: PostInsights) -> float:
@@ -117,7 +117,7 @@ def conversation_rate(insights: PostInsights) -> float:
 ```python
 def median_engagement_rate(insights: list[PostInsights]) -> float:
     """Median of engagement_rate — dùng song song average_engagement_rate() (mean).
-    Mean bị 1 bài viral kéo lệch; median phản ánh 'trải nghiệm điển hình' bền hơn."""
+    Mean bị 1 bài đột biến kéo lệch; median phản ánh 'trải nghiệm điển hình' bền hơn."""
 
 @dataclass(frozen=True)
 class EngagementBucketStats:
@@ -152,21 +152,24 @@ class ComparisonResult:
 def compare_groups(group_a: list[float], group_b: list[float], *, n_resamples: int = 1000, random_seed: int | None = None) -> ComparisonResult: ...
 ```
 
-**Engine dùng chung** cho mọi so sánh 2 nhóm: viral vs non-viral (`is_viral`, Layer 3), có/không author reply event (`topic_affinity.py`, Layer 7), topic vs topic. Mann-Whitney U (không giả định phân phối chuẩn — đúng lý do median thắng mean ở Layer 2, engagement rate lệch phải mạnh) + Cliff's delta (effect size non-parametric tương ứng, dương = `group_a` xu hướng lớn hơn `group_b`) + bootstrap CI 95% (1000 resample, percentile method) trên `median(group_b) - median(group_a)`. Bộ 3 kiểm định port từ `vunderkind/threads-analytics`. `insufficient_data` dùng LẠI `MIN_N_PER_BUCKET` của `engagement.py` (1 nguồn sự thật "mẫu quá nhỏ để diễn giải" xuyên suốt dự án) — khác với 2 nhóm rỗng (không thể tính Mann-Whitney, trả `None` thay vì chỉ đánh cờ). Đây là tầng 5 "Narrative Layering Principle".
+**Engine dùng chung** cho mọi so sánh 2 nhóm: tầng reach vs phần còn lại (dự kiến — Việc 1, ADR-0012), có/không author reply event (`topic_affinity.py`, Layer 7), topic vs topic. Mann-Whitney U (không giả định phân phối chuẩn — đúng lý do median thắng mean ở Layer 2, engagement rate lệch phải mạnh) + Cliff's delta (effect size non-parametric tương ứng, dương = `group_a` xu hướng lớn hơn `group_b`) + bootstrap CI 95% (1000 resample, percentile method) trên `median(group_b) - median(group_a)`. Bộ 3 kiểm định port từ `vunderkind/threads-analytics`. `insufficient_data` dùng LẠI `MIN_N_PER_BUCKET` của `engagement.py` (1 nguồn sự thật "mẫu quá nhỏ để diễn giải" xuyên suốt dự án) — khác với 2 nhóm rỗng (không thể tính Mann-Whitney, trả `None` thay vì chỉ đánh cờ). Đây là tầng 5 "Narrative Layering Principle".
 
-### Định nghĩa viral: `is_viral()` (`src/analysis/virality.py`, Layer 3, 2026-09-03)
+### Tầng reach: `assign_reach_tiers()` (`src/analysis/reach.py`, Layer 3, ADR-0012, 2026-10-06)
 
 ```python
-def channel_virality_p90(insights: list[PostInsights]) -> float:
-    """P90 của virality_index trên toàn kênh (hoặc 1 cửa sổ do người gọi tự lọc
-    trước — hàm không tự áp cửa sổ thời gian)."""
+def estimate_maturity(curves) -> MaturityEstimate:
+    """P90 thời gian đạt 90% views mới nhất, trên các bài có snapshot đầu < 1 ngày sau khi
+    đăng và snapshot cuối >= 14 ngày — tính lại mỗi lần."""
 
-def is_viral(virality_index_value: float, channel_p90: float, views: int, floor: int) -> bool:
-    """virality_index_value > channel_p90 AND views >= floor.
-    `floor` KHÔNG hardcode — người gọi tự tính từ phân phối views thật (VD P25/median)."""
+def relative_reach(views_in_post_order, window=20, min_prior=10):
+    """views ÷ median views của tối đa 20 bài gốc đo được đăng ngay trước; None khi < 10 bài trước."""
+
+def assign_reach_tiers(views_in_post_order, ages_days, maturity) -> ReachTiers:
+    """P50 / P80 của reach tương đối trên bài đã chín + có mốc so sánh →
+    "Above median reach" (above_median) / "Top 20% reach" (top_20)."""
 ```
 
-Nhãn phái sinh THÊM, không thay `virality_index` (công thức intrinsic không đổi). Tiền lệ học thuật: Elmas 2023 (arXiv 2303.06120) + VIRALITYNET (arXiv 2605.02358) — kết hợp percentile-trong-kênh (tầng 4 "Narrative Layering Principle") VÀ floor tuyệt đối trên views (loại post "ăn may" vì mẫu bé — 1 view + 1 repost cũng đạt percentile cao nhưng vô nghĩa). `channel_p90` phải tính trên CÙNG cửa sổ thời gian với `views` đang xét — hàm không tự kiểm tra tính nhất quán này.
+"Bài nào lan rộng" đo bằng **độ phủ (views)**, không bằng tỉ lệ chia sẻ — `share_rate` là một chiều khác (engagement rate median "Top 20% reach" 1.61%, n = 27, vs dưới median 2.13%, n = 67: Cliff's δ = −0.32, CI 95% hiệu median [0.06; 0.94] điểm %; tầng giữa chưa phân biệt được). Views thô tương quan âm với tuổi bài (Spearman ρ = −0.39, p ≈ 8e−7, n = 146: kênh lớn dần), nên tầng xếp theo **reach tương đối** = views ÷ mức bình thường của kênh lúc đăng (ρ với tuổi bài còn 0.04, p = 0.62, n = 135). Views thô ở cùng phân vị trả kèm làm tham chiếu (`p50_views`, `p80_views`). Tuổi để xét độ chín là tuổi tại snapshot mới nhất (cron có thể ngắt vài ngày). Bài chưa chín → `still_growing`, chưa xếp tầng, API trả `relative_reach = null`. Tên tầng tự giải thích, không dùng nhãn cũ (Thy chốt 2026-10-06). Số liệu sinh lại bằng `uv run python -m scripts.reach_report`. API: `GET /analytics/reach`. Chi tiết, phương án đã loại (P90 tỉ lệ chia sẻ + sàn views P25 cũ) và độ nhạy cửa sổ 10/20/30: ADR-0012.
 
 ### Velocity & Momentum (cần `insights_snapshots`, KHÔNG dùng lifetime metric đơn lẻ)
 
@@ -197,13 +200,13 @@ def window_velocity(snapshots: list[InsightSnapshot]) -> float:
 def late_engagement_share(snap_24h: InsightSnapshot, snap_72h: InsightSnapshot) -> float:
     """(Interactions_72h - Interactions_24h) / Interactions_72h,
     Interactions = likes+replies+reposts+quotes. Phân biệt burst-and-die (~95% ở 24h)
-    vs long-tail (tăng dần tới 72h) — khớp quan sát thật: post viral trên Threads
+    vs long-tail (tăng dần tới 72h) — khớp quan sát thật: bài lan rộng trên Threads
     có thể sống tới 3 ngày."""
 ```
 
 Chỉ tính được cho post **có snapshot ở mốc 24h và 72h sau khi đăng** — post đăng trước khi job snapshot 4h chạy (2026-08-31) có snapshot nhưng không có 2 mốc này, nên không tính được; chỉ áp dụng post đăng từ ngày đó.
 
-### Freshness (tách hẳn khỏi virality)
+### Freshness (tách hẳn khỏi share rate)
 
 ```python
 def freshness_weight(
@@ -218,7 +221,7 @@ def freshness_weight(
     return 0.5 ** ((age_hours - grace_hours) / half_life_hours)
 ```
 
-**Chỉ dùng khi hỏi "bài nào đang hot NGAY BÂY GIỜ"** — KHÔNG nhân vào `virality_index`/báo cáo trend theo tuần/tháng (post 20 ngày trước vẫn có thể là bài viral nhất quý — nhân recency vào sẽ xoá sổ sai semantic). `grace_hours=12`/`half_life_hours=48` là hypothesis dựa trên quan sát cá nhân tác giả (audience VN thức dậy trễ hơn giờ đăng ở Pháp), **cần calibrate lại bằng dữ liệu khi đủ snapshot** — đúng tinh thần "initial heuristic later calibrated using observed engagement distributions" cho portfolio.
+**Chỉ dùng khi hỏi "bài nào đang hot NGAY BÂY GIỜ"** — KHÔNG nhân vào `share_rate`/báo cáo trend theo tuần/tháng (post 20 ngày trước vẫn có thể là bài lan rộng nhất quý — nhân recency vào sẽ xoá sổ sai semantic). `grace_hours=12`/`half_life_hours=48` là hypothesis dựa trên quan sát cá nhân tác giả (audience VN thức dậy trễ hơn giờ đăng ở Pháp), **cần calibrate lại bằng dữ liệu khi đủ snapshot** — đúng tinh thần "initial heuristic later calibrated using observed engagement distributions" cho portfolio.
 
 **Confounding factor cần nhớ**: low engagement 6h đầu có thể do audience VN đang ngủ (giờ Pháp buổi tối), KHÔNG đồng nghĩa content dở — đây là lý do velocity/momentum quan trọng hơn recency đơn thuần (2 post cùng age=12h có thể 1 bài đang tăng tốc, 1 bài đang giảm tốc — recency không phân biệt được, velocity thì có).
 
@@ -242,11 +245,11 @@ Tính trực tiếp trên graph đã có sẵn trong `posts` (`is_reply`/`replie
 
 ```python
 def topic_affinity_score(topic_id: str, window_days: int) -> float:
-    """Median virality/engagement CỦA CHÍNH KÊNH cho topic này trong window_days,
+    """Median share rate/engagement CỦA CHÍNH KÊNH cho topic này trong window_days,
     so với baseline toàn kênh cùng window."""
 ```
 
-**2 khái niệm thời gian tách biệt, không trộn**: `post_maturity_window` = 0-72h (lifecycle 1 post) vs `report_window` = 7d/14d/30d/90d (khung phân tích kênh — ưu tiên 30d/90d vì ~2 post/ngày, 7d chỉ ~14 post quá thưa để có ý nghĩa thống kê, giữ lại cho operational monitoring).
+**2 khái niệm thời gian tách biệt, không trộn**: `post_maturity_window` = 0-72h (lifecycle 1 post — giả định, dùng cho reply/velocity; KHÁC mốc chín đo được của tầng reach, ADR-0012: P90 thời gian đạt 90% views, 4.0 ngày tại 2026-10-06 — nên xem lại 72h khi đủ đường cong) vs `report_window` = 7d/14d/30d/90d (khung phân tích kênh — ưu tiên 30d/90d vì ~2 post/ngày, 7d chỉ ~14 post quá thưa để có ý nghĩa thống kê, giữ lại cho operational monitoring).
 
 ### Reply-strategy evidence (`src/analysis/topic_affinity.py`, Layer 7, 2026-09-03)
 
@@ -256,13 +259,13 @@ def is_author_reply_event(post: ThreadsPost, root_content_unit: ContentUnit) -> 
     root_content_unit.continuations — tác giả trả lời vào cuộc trò chuyện
     audience, không phải tự nối tiếp nội dung mình."""
 
-def compare_virality_with_without_author_reply(
+def compare_with_without_author_reply(
     posts_with_reply: list[float], posts_without_reply: list[float]
 ) -> ComparisonResult:
     """Tái sử dụng compare_groups() (Layer 4) — KHÔNG viết lại logic thống kê."""
 ```
 
-**Correlation, not causation — PHẢI đọc trước khi diễn giải**: dù kết quả có ý nghĩa thống kê, KHÔNG kết luận "tác giả reply nhiều hơn LÀM cho post viral hơn". Confound đã biết: chiều nhân quả nhiều khả năng ngược lại — bài đang lên top khiến tác giả chủ động reply nhiều hơn để tận dụng đà, không phải reply là nguyên nhân. Kết quả chỉ có giá trị mô tả tương quan quan sát được, dùng để hình thành giả thuyết, không dùng để khẳng định 1 chiến lược content.
+**Correlation, not causation — PHẢI đọc trước khi diễn giải**: dù kết quả có ý nghĩa thống kê, KHÔNG kết luận "tác giả reply nhiều hơn LÀM cho bài lan rộng hơn". Confound đã biết: chiều nhân quả nhiều khả năng ngược lại — bài đang lên top khiến tác giả chủ động reply nhiều hơn để tận dụng đà, không phải reply là nguyên nhân. Kết quả chỉ có giá trị mô tả tương quan quan sát được, dùng để hình thành giả thuyết, không dùng để khẳng định 1 chiến lược content.
 
 ### Timing Fit
 
@@ -349,7 +352,7 @@ Raw post (root + continuations, giữ NGUYÊN — không strip emoji/hashtag)
 ### 3 nguyên tắc từ paper "Challenges of Computational Processing of Code-Switching" (áp dụng 2026-08-30)
 
 1. **Code-switching là metadata, không phải routing constraint** — không có bước "language detection → chọn model xử lý riêng cho ngôn ngữ đó" (error propagation: nếu LID sai, mọi bước sau sai theo). 2 nhánh `language.py`/`embed()` chạy song song, độc lập.
-2. **Giữ nguyên ngữ liệu, không "clean" quá tay** — bỏ hẳn kế hoạch strip emoji/hashtag/"từ nước ngoài" trước embedding. Social media text: 1 token có thể emoji mang tín hiệu sentiment/virality thật (`"OpenAI cooked 😭🔥 #GPT6"` → xoá emoji/hashtag là mất signal). Giữ song song `raw_text` (bất biến, để rerun pipeline khi model tốt hơn — lưu tại `data/raw/`, KHÁC `data/cache/` hiện có vì cache TTL 6h còn raw archive không hết hạn) + `normalized_text` (nhẹ — chỉ whitespace/URL + Unicode NFC + gộp dấu thanh cũ/mới "oa"/"uy", thêm Layer 9 2026-09-03, xem `src/processing/text.py`; KHÔNG động vào emoji/hashtag/từ mượn — vẫn đúng tinh thần "không clean quá tay", chỉ chuẩn hoá CHÍNH TẢ tương đương, không đổi nghĩa/xoá tín hiệu).
+2. **Giữ nguyên ngữ liệu, không "clean" quá tay** — bỏ hẳn kế hoạch strip emoji/hashtag/"từ nước ngoài" trước embedding. Social media text: 1 token có thể emoji mang tín hiệu sentiment/lan truyền thật (`"OpenAI cooked 😭🔥 #GPT6"` → xoá emoji/hashtag là mất signal). Giữ song song `raw_text` (bất biến, để rerun pipeline khi model tốt hơn — lưu tại `data/raw/`, KHÁC `data/cache/` hiện có vì cache TTL 6h còn raw archive không hết hạn) + `normalized_text` (nhẹ — chỉ whitespace/URL + Unicode NFC + gộp dấu thanh cũ/mới "oa"/"uy", thêm Layer 9 2026-09-03, xem `src/processing/text.py`; KHÔNG động vào emoji/hashtag/từ mượn — vẫn đúng tinh thần "không clean quá tay", chỉ chuẩn hoá CHÍNH TẢ tương đương, không đổi nghĩa/xoá tín hiệu).
 3. **Ưu tiên "không chắc" hơn "chắc sai"** — `primary_language` cho phép `None`/unknown khi confidence thấp, không ép argmax. Ranh giới code-switching vs borrowing (từ mượn đã thành vocabulary, VD "deploy"/"model"/"production" trong cộng đồng tech Việt) không rõ ràng — kể cả human annotator cũng không thống nhất — nên dùng **continuous score**, không dùng boolean.
 
 ```python
@@ -425,15 +428,15 @@ Raw-embedding-space **kém ổn định hẳn** khi bỏ 6 điểm neo (noise t�
 Một câu chuyện thống kê tử tế không nhảy thẳng từ số thô sang kết luận — nó đi qua từng tầng, mỗi tầng trả lời 1 câu hỏi cụ thể hơn tầng trước:
 
 1. **Số thô** (`views`/`likes`/`replies`/`reposts`/`quotes`) — "chuyện gì đã xảy ra".
-2. **Rate đơn giản** (`engagement_rate`/`virality_index`/`conversation_rate`) — chuẩn hoá số thô theo `views` để so sánh được giữa các post khác quy mô.
-3. **Central tendency + spread** (median, IQR — xem `engagement_by_hour`/`engagement_by_weekday` Layer 2) — 1 con số đại diện cho CẢ NHÓM, kèm độ phân tán, không phải 1 con số đơn lẻ đánh lừa (VD mean bị kéo lệch bởi 1 outlier viral).
-4. **Vị trí trong phân phối kênh** (percentile — VD `channel_virality_p90` Layer 3) — post/giờ/nhóm này đứng đâu so với lịch sử CHÍNH kênh đó, không so với benchmark ngoài không liên quan.
+2. **Rate đơn giản** (`engagement_rate`/`share_rate`/`conversation_rate`) — chuẩn hoá số thô theo `views` để so sánh được giữa các post khác quy mô.
+3. **Central tendency + spread** (median, IQR — xem `engagement_by_hour`/`engagement_by_weekday` Layer 2) — 1 con số đại diện cho CẢ NHÓM, kèm độ phân tán, không phải 1 con số đơn lẻ đánh lừa (VD mean bị kéo lệch bởi 1 bài đột biến).
+4. **Vị trí trong phân phối kênh** (percentile — VD P50/P80 reach tương đối của tầng reach, Layer 3) — post/giờ/nhóm này đứng đâu so với lịch sử CHÍNH kênh đó, không so với benchmark ngoài không liên quan.
 5. **Suy diễn thống kê** (kiểm định + effect size + CI — `compare_groups()` Layer 4) — khác biệt quan sát được có đáng tin không, hay chỉ là nhiễu do mẫu nhỏ; effect size trả lời "khác biệt lớn tới đâu", CI trả lời "khoảng tin cậy tới đâu".
 6. **Diễn giải bằng lời** — câu kết luận cuối cùng, PHẢI trích dẫn ngược lại số liệu ở tầng 1-5 (không được nói suông "giờ này tốt hơn" mà không kèm median/n/p-value đứng sau nó).
 
 **Vì sao thứ tự này bắt buộc, không được đảo**: nhảy thẳng từ tầng 1/2 lên tầng 6 (VD "8h tối là giờ đăng tốt nhất" chỉ dựa trên mean của 2 bài) là đúng lỗi phương pháp luận đã sửa ở Layer 2 — case thực nghiệm median 412 vs mean 2.254 (gấp 5.5 lần, "best hour theo mean lại là worst theo median", nguồn `Hwemo-Chung/threads-analytics`, trích trong `docs/research/`) chứng minh tầng 3 (central tendency đúng loại) có thể đảo ngược hoàn toàn kết luận nếu bỏ qua. Tương tự, tầng 5 (suy diễn thống kê) là điều kiện để tầng 6 được phép dùng ngôn ngữ khẳng định ("A cao hơn B có ý nghĩa thống kê") thay vì chỉ mô tả ("A quan sát được cao hơn B") — thiếu tầng 5, tầng 6 chỉ được phép mô tả, không được phép khẳng định nhân quả/ý nghĩa thống kê.
 
-**Áp dụng cụ thể cho từng layer bên dưới**: Layer 2 (median/IQR = tầng 3), Layer 3 `is_viral`/`channel_virality_p90` (tầng 4), Layer 4 `compare_groups()` (tầng 5, engine dùng chung cho mọi so sánh nhóm ở Layer 3/6/7), Layer 5 velocity (luôn hiện chuỗi snapshot thô — tầng 1 — trước khi hiện slope tính ra — tầng 2/3), Layer 6/7 reply analysis (tầng 1-2 thô, dùng `compare_groups()` khi cần tầng 5).
+**Áp dụng cụ thể cho từng layer bên dưới**: Layer 2 (median/IQR = tầng 3), Layer 3 tầng reach `assign_reach_tiers` (tầng 4), Layer 4 `compare_groups()` (tầng 5, engine dùng chung cho mọi so sánh nhóm ở Layer 3/6/7), Layer 5 velocity (luôn hiện chuỗi snapshot thô — tầng 1 — trước khi hiện slope tính ra — tầng 2/3), Layer 6/7 reply analysis (tầng 1-2 thô, dùng `compare_groups()` khi cần tầng 5).
 
 ### Methodology log: hiệu chỉnh tham số HDBSCAN cho số lượng topic (thực nghiệm 2026-09-03)
 
