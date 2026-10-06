@@ -10,7 +10,7 @@
 
 ## 0. Thứ tự ưu tiên khi có mâu thuẫn
 
-1. File này (v3.1).
+1. File này (v3.2).
 2. [`../design/dashboard-reference.png`](../design/dashboard-reference.png) — **chỉ còn dùng cho cấu trúc/hình khối** (tầng A app shell vs tầng B landing, §7), KHÔNG còn dùng cho màu — xem §13 vì sao rời khỏi violet mà PNG gợi ý.
 3. Bất kỳ nguồn nào khác, kể cả default palette của model.
 

@@ -2,6 +2,8 @@
 
 Design system hiện hành: **v3.2 Amber** — nguồn sự thật duy nhất là [`docs/claude/design-system.md`](../../../docs/claude/design-system.md). Mockup chỉ quyết định design, không quyết định methodology.
 
+Ràng buộc kỹ thuật cho UI (trường, trạng thái, điều code làm): [`docs/design/ui-contract.md`](../../../docs/design/ui-contract.md) (ADR-0020). Mockup bị sổ luật quét ở mức cảnh báo — chỗ lệch hiện có ở [`docs/design/ui-contract-audit.md`](../../../docs/design/ui-contract-audit.md).
+
 | File | Nội dung |
 |---|---|
 | `landing.dc.html` | **Landing tầng B đã chốt (2026-10-01).** Spec port: [`docs/design/landing-handoff.md`](../../../docs/design/landing-handoff.md) |
