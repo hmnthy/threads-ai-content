@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E9ECF0;font-family:Inter,system-ui,sans-serif;color:#111827;-webkit-font-smoothing:antialiased}
+a{color:#B45309;text-decoration:none}
+a:hover{color:#92400E}
+</style>
+</helmet>
+
+<section data-screen-label="01 Hai tầng" style="padding:48px;display:flex;flex-direction:column;gap:32px;width:1520px;box-sizing:border-box">
+  <div style="display:flex;flex-direction:column;gap:8px;max-width:900px">
+    <span style="font:500 12px 'IBM Plex Mono',monospace;color:#4B5563">design-system.md §7 · minh hoạ</span>
+    <h1 style="margin:0;font-size:36px;font-weight:800;letter-spacing:-0.03em">Hai tầng, không trộn</h1>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#4B5563;text-wrap:pretty">Dự án có hai loại trang với hai mục đích khác nhau. Tầng A là công cụ người dùng thao tác hằng ngày, số liệu đổi theo cửa sổ thời gian. Tầng B là trang giới thiệu đọc một lần từ trên xuống, số liệu là ảnh chụp cố định. §7 quy định mỗi tầng có bộ hình khối riêng và không mượn của nhau. Số 1, 2, 3… trên mỗi khung khớp với chú thích bên dưới khung đó.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start">
+
+    <div id="A" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:baseline;gap:12px">
+        <span style="background:#111827;color:#FFFFFF;font:700 13px Inter;border-radius:999px;padding:4px 12px">Tầng A</span>
+        <span style="font-size:20px;font-weight:700;letter-spacing:-0.02em">App shell</span>
+        <span style="font:500 12px 'IBM Plex Mono',monospace;color:#4B5563">/overview · /analytics · /topics</span>
+      </div>
+      <div style="background:#FBFBFC;border-radius:12px;border:1px solid rgba(17,24,39,0.10);padding:20px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font:700 11px Inter;background:#B45309;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">1</span><span style="font-weight:700;font-size:14px">Unthreaded</span><span style="font-size:12px;color:#6B7280">The algorithm, read back to you.</span></div>
+          <div style="display:flex;gap:6px;align-items:center"><span style="font-size:11px;background:#F1F3F6;border-radius:999px;padding:4px 10px;color:#4B5563">@thydilammuon</span><span style="width:24px;height:24px;border-radius:999px;background:#E4E8ED"></span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="font:700 11px Inter;background:#B45309;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">2</span>
+          <div style="display:flex;background:#F1F3F6;border-radius:999px;padding:3px;gap:2px;font-size:12px"><span style="background:#FFF;border-radius:999px;padding:4px 12px;font-weight:600">Overview</span><span style="padding:4px 12px;color:#4B5563">Analytics</span><span style="padding:4px 12px;color:#4B5563">Topic Explorer</span></div>
+        </div>
+        <div style="position:relative;border-radius:20px;background:linear-gradient(135deg,#7C2D12 0%,#B45309 52%,#9A3412 100%);padding:18px 20px;color:#FFFFFF;display:flex;flex-direction:column;gap:4px">
+          <span style="position:absolute;top:-8px;left:-8px;font:700 11px Inter;background:#111827;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">3</span>
+          <span style="font-size:12px;color:#FFF6EC">Median engagement · 27 Aug → 26 Sep · n = 8</span>
+          <span style="font-size:40px;font-weight:700;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">2.27%</span>
+        </div>
+        <div style="position:relative;background:#FFFFFF;border:1px solid rgba(17,24,39,0.10);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px">
+          <span style="position:absolute;top:-8px;left:-8px;font:700 11px Inter;background:#B45309;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">4</span>
+          <div style="height:64px;display:flex;align-items:flex-end;gap:3px"><span style="flex:1;height:30%;background:#E4E8ED"></span><span style="flex:1;height:45%;background:#E4E8ED"></span><span style="flex:1;height:38%;background:#E4E8ED"></span><span style="flex:1;height:60%;background:rgba(245,158,11,0.42)"></span><span style="flex:1;height:80%;background:rgba(245,158,11,0.42)"></span><span style="flex:1;height:55%;background:rgba(245,158,11,0.42)"></span><span style="flex:1;height:40%;background:#E4E8ED"></span><span style="flex:1;height:35%;background:#E4E8ED"></span></div>
+          <div style="position:relative;height:14px"><span style="position:absolute;left:0;right:0;top:6px;height:2px;background:#E4E8ED"></span><span style="position:absolute;left:37%;width:26%;top:6px;height:2px;background:#B45309"></span><span style="position:absolute;left:calc(37% - 6px);top:0;width:11px;height:11px;border-radius:999px;background:#FFF;border:2px solid #B45309"></span><span style="position:absolute;left:calc(63% - 6px);top:0;width:11px;height:11px;border-radius:999px;background:#FFF;border:2px solid #B45309"></span></div>
+        </div>
+        <div style="position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:4px 0">
+          <span style="position:absolute;top:-8px;left:-8px;font:700 11px Inter;background:#B45309;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">5</span>
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:#4B5563">Views</span><span style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums">394,694</span></div>
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:#4B5563">Interactions</span><span style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums">3,309</span></div>
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:#4B5563">Virality</span><span style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums">0.07%</span></div>
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:#4B5563">Conversation</span><span style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums">0.22%</span></div>
+        </div>
+        <div style="position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <span style="position:absolute;top:-8px;left:-8px;font:700 11px Inter;background:#B45309;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">6</span>
+          <div style="background:#FFF;border:1px solid rgba(17,24,39,0.10);border-radius:12px;height:44px"></div><div style="background:#FFF;border:1px solid rgba(17,24,39,0.10);border-radius:12px;height:44px"></div><div style="background:#FAFAFB;border:1px solid rgba(17,24,39,0.10);border-radius:12px;height:44px"></div>
+        </div>
+        <div style="position:relative;background:#FFF;border:1px solid rgba(17,24,39,0.10);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+          <span style="position:absolute;top:-8px;left:-8px;font:700 11px Inter;background:#B45309;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">7</span>
+          <div style="display:flex;gap:10px;align-items:center;font-size:12px"><span style="font-family:'IBM Plex Mono',monospace;color:#6B7280">01</span><span style="flex:1;height:6px;background:#F1F3F6;border-radius:999px"><span style="display:block;width:80%;height:6px;background:rgba(245,158,11,0.42);border-radius:999px"></span></span></div>
+          <div style="display:flex;gap:10px;align-items:center;font-size:12px"><span style="font-family:'IBM Plex Mono',monospace;color:#6B7280">02</span><span style="flex:1;height:6px;background:#F1F3F6;border-radius:999px"><span style="display:block;width:55%;height:6px;background:rgba(245,158,11,0.42);border-radius:999px"></span></span></div>
+        </div>
+      </div>
+      <ol style="margin:0;padding-left:20px;font-size:14px;line-height:1.7;color:#111827">
+        <li>Topbar: logo, tagline, account pill, avatar</li>
+        <li>Tab pill để chuyển trang (không có sidebar)</li>
+        <li>Dải hero gradient, nơi duy nhất trong toàn hệ thống được dùng gradient</li>
+        <li>Chart và timeline brush: kéo cửa sổ thì mọi số bên dưới tính lại</li>
+        <li>KPI strip: hàng phẳng, không bọc card</li>
+        <li>Metric architecture: 6 card 12px viền hairline; card deferred nền sunken</li>
+        <li>Top content units</li>
+      </ol>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#4B5563;line-height:1.6">
+        <span><b style="color:#111827">Đọc như:</b> bảng điều khiển; người dùng hỏi, lọc, kéo.</span>
+        <span><b style="color:#111827">Số liệu:</b> sống, đổi theo cửa sổ thời gian và theo API.</span>
+        <span><b style="color:#111827">Khung:</b> max-width 1280, padding 24, card 12px có viền.</span>
+      </div>
+    </div>
+
+    <div id="B" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:baseline;gap:12px">
+        <span style="background:#B45309;color:#FFFFFF;font:700 13px Inter;border-radius:999px;padding:4px 12px">Tầng B</span>
+        <span style="font-size:20px;font-weight:700;letter-spacing:-0.02em">Landing</span>
+        <span style="font:500 12px 'IBM Plex Mono',monospace;color:#4B5563">/ · mockups/landing.dc.html</span>
+      </div>
+      <div style="background:#FBFBFC;border-radius:12px;border:1px solid rgba(17,24,39,0.10);padding:20px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:center;position:relative">
+          <span style="position:absolute;top:-6px;left:0;font:700 11px Inter;background:#111827;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">1</span>
+          <div style="display:flex;align-items:center;gap:14px;background:#FFF;border:1px solid rgba(17,24,39,0.10);border-radius:999px;padding:4px 4px 4px 12px;font-size:11px;color:#4B5563"><b style="color:#111827">Unthreaded</b><span>Problem</span><span>Approach</span><span>Proof</span><span>About</span><span style="background:#B45309;color:#FFF;border-radius:999px;padding:4px 10px;font-weight:600">View live dashboard</span></div>
+        </div>
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0">
+          <span style="position:absolute;top:0;left:0;font:700 11px Inter;background:#111827;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">2</span>
+          <span style="font-size:26px;font-weight:800;letter-spacing:-0.04em">The algorithm, read back to you.</span>
+          <span style="font-size:12px;color:#4B5563">Một đoạn giới thiệu, hai nút pill</span>
+        </div>
+        <div style="position:relative;background:#FFF;border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+          <span style="position:absolute;top:-8px;left:-8px;font:700 11px Inter;background:#111827;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">3</span>
+          <span style="font-size:11px;font-weight:600;color:#B45309">Câu hỏi</span>
+          <span style="font-size:14px;font-weight:700">Câu trả lời 1 dòng</span>
+          <div style="height:28px;border-radius:6px;background:#F1F3F6;position:relative"><span style="position:absolute;left:48%;top:4px;bottom:4px;border-left:1.5px dashed #6B7280"></span></div>
+          <span style="font:500 10px 'IBM Plex Mono',monospace;color:#6B7280">Method and limits ▸</span>
+        </div>
+        <div style="position:relative;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <span style="position:absolute;top:-8px;left:-8px;font:700 11px Inter;background:#111827;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;z-index:1">4</span>
+          <div style="background:#FFF;border-radius:20px;height:70px"></div><div style="background:#FFF;border-radius:20px;height:70px"></div>
+        </div>
+        <div style="position:relative;background:#111827;border-radius:20px;padding:16px;display:flex;gap:8px;align-items:center;justify-content:center">
+          <span style="position:absolute;top:-8px;left:-8px;font:700 11px Inter;background:#F59E0B;color:#111827;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">5</span>
+          <span style="border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:6px 10px;font-size:11px;color:#FFF">Threads API</span><span style="color:rgba(255,255,255,0.32)">→</span><span style="border:1px solid #F59E0B;background:rgba(245,158,11,0.14);border-radius:8px;padding:6px 10px;font-size:11px;color:#FFF">Cluster</span><span style="color:rgba(255,255,255,0.32)">→</span><span style="border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:6px 10px;font-size:11px;color:#FFF">Dashboard</span>
+        </div>
+        <div style="position:relative;background:#FFF;border-radius:20px;height:56px;display:flex;align-items:center;gap:10px;padding:0 16px">
+          <span style="position:absolute;top:-8px;left:-8px;font:700 11px Inter;background:#111827;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">6</span>
+          <span style="width:32px;height:32px;border-radius:999px;background:#E4E8ED"></span><span style="font-size:12px;color:#4B5563">Author</span>
+        </div>
+        <div style="position:relative;border-top:1px solid #E4E8ED;padding-top:10px;font-size:10px;color:#6B7280">
+          <span style="position:absolute;top:-8px;left:-8px;font:700 11px Inter;background:#111827;color:#FFF;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center">7</span>
+          <span style="padding-left:18px">Footer · miễn trừ Meta (ADR-0009)</span>
+        </div>
+      </div>
+      <ol style="margin:0;padding-left:20px;font-size:14px;line-height:1.7;color:#111827">
+        <li>Navbar pill nổi, căn giữa</li>
+        <li>Hero chữ lớn, không gradient (§2.5)</li>
+        <li>Panel bằng chứng: câu hỏi → câu trả lời 1 dòng → biểu đồ → phương pháp</li>
+        <li>Bento radius 20, không viền</li>
+        <li>Dải tối §2.6, chỉ dùng cho "How it works" và CTA cuối</li>
+        <li>Khối Author</li>
+        <li>Footer</li>
+      </ol>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#4B5563;line-height:1.6">
+        <span><b style="color:#111827">Đọc như:</b> bài trình bày đọc một lần, từ trên xuống.</span>
+        <span><b style="color:#111827">Số liệu:</b> ảnh chụp cố định (2026-10-01).</span>
+        <span><b style="color:#111827">Khung:</b> max-width 1200, card 20px không viền, có dải tối.</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#FFFFFF;border-radius:12px;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+    <span style="font-size:20px;font-weight:700;letter-spacing:-0.02em">"Không trộn" nghĩa là gì</span>
+    <div style="display:grid;grid-template-columns:200px 1fr 1fr;font-size:14px;line-height:1.5">
+      <span style="padding:8px 0;font-size:12px;font-weight:600;color:#4B5563;border-bottom:1px solid #E4E8ED"></span><span style="padding:8px 12px;font-size:12px;font-weight:600;color:#4B5563;border-bottom:1px solid #E4E8ED">Tầng A</span><span style="padding:8px 12px;font-size:12px;font-weight:600;color:#4B5563;border-bottom:1px solid #E4E8ED">Tầng B</span>
+      <span style="padding:8px 0;border-bottom:1px solid #E4E8ED;color:#4B5563">Card</span><span style="padding:8px 12px;border-bottom:1px solid #E4E8ED">12px, viền hairline</span><span style="padding:8px 12px;border-bottom:1px solid #E4E8ED">20px, không viền</span>
+      <span style="padding:8px 0;border-bottom:1px solid #E4E8ED;color:#4B5563">Gradient</span><span style="padding:8px 12px;border-bottom:1px solid #E4E8ED">Đúng 1 lần, ở dải hero Overview</span><span style="padding:8px 12px;border-bottom:1px solid #E4E8ED">Không có</span>
+      <span style="padding:8px 0;border-bottom:1px solid #E4E8ED;color:#4B5563">Nền tối</span><span style="padding:8px 12px;border-bottom:1px solid #E4E8ED">Không có</span><span style="padding:8px 12px;border-bottom:1px solid #E4E8ED">2 dải (How it works, CTA)</span>
+      <span style="padding:8px 0;border-bottom:1px solid #E4E8ED;color:#4B5563">Điều hướng</span><span style="padding:8px 12px;border-bottom:1px solid #E4E8ED">Tab pill giữa các trang</span><span style="padding:8px 12px;border-bottom:1px solid #E4E8ED">Navbar pill, cuộn tới section</span>
+      <span style="padding:8px 0;border-bottom:1px solid #E4E8ED;color:#4B5563">Số liệu</span><span style="padding:8px 12px;border-bottom:1px solid #E4E8ED">Sống (API, cửa sổ thời gian)</span><span style="padding:8px 12px;border-bottom:1px solid #E4E8ED">Ảnh chụp cố định</span>
+      <span style="padding:8px 0;color:#4B5563">Panel câu hỏi</span><span style="padding:8px 12px;background:#FEF3C7;border-radius:6px">§7 chưa nhắc tới. Đây là điểm cần quyết định.</span><span style="padding:8px 12px">Có (Proof panel 1–3)</span>
+    </div>
+    <p style="margin:0;font-size:14px;line-height:1.6;color:#4B5563;max-width:1100px;text-wrap:pretty">Danh sách 13 mục trong ảnh bạn gửi (logo strip, pricing, FAQ…) là cấu trúc của PNG tham khảo, một landing SaaS chung chung. §7 tự ghi nhiều mục trong đó là ngoài scope; landing đã chốt chỉ giữ 7 phần ở khung B phía trên.</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <span style="font-size:20px;font-weight:700;letter-spacing:-0.02em">Câu hỏi: trang Topics (tầng A) có dùng panel câu hỏi của landing không?</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px">
+      <div id="1a" style="background:#FFFFFF;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:10px;align-items:center"><span style="font:600 12px 'IBM Plex Mono',monospace;background:#111827;color:#FFF;border-radius:999px;padding:3px 10px">1a</span><span style="font-weight:700">Giữ §7 nguyên văn</span></div>
+        <div style="background:#FBFBFC;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:8px"><div style="flex:1;background:#FFF;border:1px solid rgba(17,24,39,0.10);border-radius:12px;height:40px"></div><div style="flex:1;background:#FFF;border:1px solid rgba(17,24,39,0.10);border-radius:12px;height:40px"></div><div style="flex:1;background:#FFF;border:1px solid rgba(17,24,39,0.10);border-radius:12px;height:40px"></div></div>
+          <div style="background:#FFF;border:1px solid rgba(17,24,39,0.10);border-radius:12px;height:110px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#6B7280">Bản đồ cụm + danh sách</div>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#4B5563">Card 12px, KPI strip, chart. Đúng luật nhưng đây cũng là hình thức hiện tại: trang có số mà không trả lời câu hỏi nào.</p>
+      </div>
+      <div id="1b" style="background:#FFFFFF;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:10px;align-items:center"><span style="font:600 12px 'IBM Plex Mono',monospace;background:#B45309;color:#FFF;border-radius:999px;padding:3px 10px">1b</span><span style="font-weight:700">Sửa §7: tầng A nhận cấu trúc câu hỏi, giữ hình khối A</span></div>
+        <div style="background:#FBFBFC;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px">
+          <div style="background:#FFF;border:1px solid rgba(17,24,39,0.10);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:11px;font-weight:600;color:#B45309">Which topics get more engagement than the channel?</span>
+            <span style="font-size:13px;font-weight:700">Câu trả lời 1 dòng, sinh từ kết quả</span>
+            <div style="height:44px;border-radius:6px;background:#F1F3F6;position:relative"><span style="position:absolute;left:48%;top:4px;bottom:4px;border-left:1.5px dashed #6B7280"></span></div>
+            <span style="font:500 10px 'IBM Plex Mono',monospace;color:#6B7280">Method and limits ▸</span>
+          </div>
+          <div style="background:#FFF;border:1px solid rgba(17,24,39,0.10);border-radius:12px;height:44px"></div>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#4B5563">Mượn trình tự đọc của landing (câu hỏi → trả lời → bằng chứng → phương pháp), nhưng vẫn dùng card 12px có viền, không dải tối, không radius 20. Cần thêm 1 dòng vào §7 và ghi vào decision log §13.</p>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+</body>
+</html>

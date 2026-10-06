@@ -34,6 +34,16 @@ planned_paths = [
   "experiments", "experiments/**",
   "docs/rq", "docs/rq/**",
   ".claude/agent-memory", ".claude/agent-memory/**",
+  # Gói Claude Design 2026-10-05: file các việc kế tiếp sẽ tạo (brand-assets.md; brief Topics Việc 0–4)
+  "src/dashboard/src/components/BrandLogo.tsx",
+  "src/dashboard/src/app/icon.svg",
+  "docs/design/ui-contract.md",
+  "docs/design/ui-contract-audit.md",
+  "docs/design/topics-data-audit.md",
+  "src/dashboard/mockups/topics.dc.html",
+  # landing-handoff.md §1: component mới khi port landing
+  "src/dashboard/src/components/LandingProof.tsx",
+  "src/dashboard/src/components/LandingCta.tsx",
 ]
 # Có thật trên máy nhưng gitignored → không tồn tại ở clone mới/CI; chấp nhận khi được nhắc tới
 known_untracked = [
@@ -41,6 +51,7 @@ known_untracked = [
   "data", "data/**",
   "content", "content/**", "Content", "Content/**",
   "docs/research", "docs/research/**",
+  "docs/design/data", "docs/design/data/**",
   "output", "output/**",
   "src/dashboard/.env.local",
   "src/dashboard/node_modules", "src/dashboard/node_modules/**",
