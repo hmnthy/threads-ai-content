@@ -172,11 +172,11 @@ Số trong các file này chỉ dùng để mockup trông giống thật. Cấu 
 | 0.2 UI-0017-velocity-deferred | "test: (tên test velocity)" | `test_window_velocity_raises_below_three_snapshots` | Điền tên test |
 | 0.2 UI-0011-excluded | Trang `all`; D là mã luật | ADR-0011 cố ý không có luật regex; chỉ trang có phân phối rate | D = test; C sửa |
 | 0.2 UI-0004-dbcv-named | Cột `cluster_runs.validity_index`; trình bày `validity_index (<tên hàm>)` | Cột là `dbcv` (+ `dbcv_relative`); `validity_index` chính là tên hàm | Sửa A, E |
-| 0.2 UI-0001-status-labels | Chỉ live / next / research, trang `all` | Thẻ chỉ số ở Overview dùng thêm `deferred` | Câu hỏi mở 2 trong hợp đồng |
+| 0.2 UI-0001-status-labels | Chỉ live / next / research, trang `all` | Thẻ chỉ số ở Overview dùng thêm `deferred` | Đã chốt 2026-10-06: giữ hai tập riêng (cột E của UI-0001-status-labels) |
 | 0.4 cơ chế | Thêm mockup vào `paths` của luật | Mockup nằm trong `exclude` nên `paths` vô tác dụng | `mockup_paths` + `mockups = true`, mức cảnh báo (Thy chọn) |
 | 0.4 luật | `ADR0004-dbcv-unnamed`, `ADR0017-nlp-3am` sẽ bắt lỗi mockup | Luật DBCV báo nhầm `validity_index (DBCV)`; luật 3am không bắt "daily 03:00" đứng một mình | Sửa cả hai luật; thêm `ADR0018-cluster-id-display` <!-- consistency: allow ADR0017-nlp-3am --> |
 | 0.5 "3 posts" | Cần kiểm số bài thật | Đúng ở khối hồ sơ cụm (3 bài đại diện); sai ở mô tả bước đặt tên | Ghi audit |
-| Việc 2.7 | `MIN_N_PER_BUCKET = 5` vs landing mờ n < 10 | `HDBSCAN_MIN_CLUSTER_SIZE = 4` → cụm 4–9 bài có thật, hai ngưỡng cho kết quả khác | Câu hỏi mở 1 |
+| Việc 2.7 | `MIN_N_PER_BUCKET = 5` vs landing mờ n < 10 | `HDBSCAN_MIN_CLUSTER_SIZE = 4` → cụm 4–9 bài có thật, hai ngưỡng cho kết quả khác | Đã chốt 2026-10-06: một ngưỡng = 5, UI đọc cờ backend (UI-L20260903-small-n-flag) |
 | Việc 3 | Trường `n_input`, `n_noise`, `validity_fn` | Cột thật `n_units`; số nhiễu không lưu riêng (suy từ `noise_ratio` / `labels_json`); `validity_index` lấy từ cột `dbcv` | Ghi nhận khi làm Việc 3 |
 | landing-handoff §0 | Gọi Claude 1 lần mỗi cụm | Từ ADR-0018 chỉ gọi cho cụm cần đặt lại tên | Ghi audit |
 
