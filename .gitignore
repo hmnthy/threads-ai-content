@@ -43,3 +43,6 @@ docs/take note.docx
 
 # Nghiên cứu thị trường & methodology — nội bộ, không commit (quyết định 2026-09-03)
 docs/research/
+
+# Data xuất cho Claude Design (brief Topics Việc 4) — chứa full_text bài thật, repo sẽ curate sang public
+docs/design/data/
