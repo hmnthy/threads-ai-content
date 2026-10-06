@@ -242,7 +242,7 @@ Khi yêu cầu chỉ nói "làm UI" → mặc định tầng A.
 | Giờ/thứ đăng hiệu quả | Heatmap | Thang tuần tự 1 hue (amber), không dùng thang cầu vồng. Mỗi ô ghi n; ô `insufficient_data` gạch chéo, không tô theo giá trị |
 | Phân bổ topic | Horizontal bar | **Không dùng pie khi > 5 nhóm** |
 | Bản đồ topic (scatter UMAP) | Scatter xám + 1 topic tô `--amber-600` | Không tô mỗi cluster 1 màu: trên scatter không bảng màu nào giữ > 3 màu phân biệt được với người mù màu. Chọn topic từ danh sách horizontal bar để làm nổi |
-| Virality distribution | Histogram | |
+| Share rate distribution | Histogram | |
 
 Bắt buộc mọi chart:
 - Legend luôn hiện, đặt sát chart

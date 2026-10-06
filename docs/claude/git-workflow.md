@@ -28,7 +28,7 @@ Có sửa file nào trong repo không?
 ├─ Không (chỉ đọc, chạy thử, xem dashboard) → làm ở thư mục chính, không cần nhánh
 └─ Có → tạo NHÁNH MỚI từ origin/main  +  WORKTREE riêng cho nhánh đó   (/git-flow start <việc>)
         Đặt tên nhánh theo loại việc:
-        feat/…   tính năng, bước của plan (feat/viral-label)
+        feat/…   tính năng, bước của plan (feat/reach-tiers)
         fix/…    sửa lỗi (fix/job-health-morning-warn)
         chore/…  hạ tầng, hook, quy trình (chore/git-workflow)
         docs/…   chỉ tài liệu (docs/rq-01)

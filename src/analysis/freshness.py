@@ -7,14 +7,14 @@ def freshness_weight(
     grace_hours: float = 12.0,  # hypothesis ban đầu — CHƯA calibrate
     half_life_hours: float = 48.0,  # hypothesis ban đầu — CHƯA calibrate
 ) -> float:
-    """Trọng số "đang hot NGAY BÂY GIỜ" — tách hẳn khỏi `virality_index` (xem
+    """Trọng số "đang hot NGAY BÂY GIỜ" — tách hẳn khỏi `share_rate` (xem
     docs/claude/data-model.md "Metric Architecture" mục "Freshness").
 
     CHỈ dùng khi hỏi "bài nào đang hot ngay bây giờ" — KHÔNG nhân vào
-    `virality_index`/báo cáo trend theo tuần/tháng: 1 post đăng 20 ngày trước vẫn
-    có thể là bài viral nhất quý, nhân recency vào sẽ xoá sổ sai semantic (trộn
+    `share_rate`/báo cáo trend theo tuần/tháng: 1 post đăng 20 ngày trước vẫn
+    có thể là bài lan rộng nhất quý, nhân recency vào sẽ xoá sổ sai semantic (trộn
     intrinsic performance với 1 explanatory variable, đúng lỗi phương pháp luận
-    đã sửa ở `virality_index` v1 — xem docs/decisions/legacy-log.md).
+    đã sửa ở công thức gộp v1 ngày 2026-08-30 — xem docs/decisions/legacy-log.md).
 
     `grace_hours=12`/`half_life_hours=48` là hypothesis dựa trên quan sát cá nhân
     tác giả (audience VN thức dậy trễ hơn giờ đăng ở Pháp) — CHƯA calibrate bằng

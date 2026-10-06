@@ -431,6 +431,57 @@ def test_real_sprint_step_rule_ignores_procedure_numbering_in_skills(tmp_path: P
 # Luật học được từ lượt /decision-sweep đầu tiên (consistency-auditor): mỗi luật 1 ví dụ
 # PHẢI khớp và 1 ví dụ KHÔNG được khớp, lấy từ chính phát hiện thật trong repo.
 LEARNED_RULES = [
+    # ADR-0012: tên cũ của share_rate / nhãn cũ — chỉ tên định danh, không bắt `share_rate`
+    (
+        "ADR0012-old-share-name",
+        "src/main.py",
+        "    top_by_virality: list[TopPostEntry]",
+        "    top_by_share_rate: list[TopPostEntry]",
+    ),
+    (
+        "ADR0012-old-share-name",
+        "docs/claude/data-model.md",
+        "Nhãn phái sinh `is_viral()` trong `src/analysis/virality.py`",
+        "Tầng reach `assign_reach_tiers()` trong `src/analysis/reach.py`",
+    ),
+    # ADR-0012: chữ cũ ở mọi dạng (EN/FR, hoa/thường), không bắt từ chứa "viral" ở giữa
+    (
+        "ADR0012-old-label-wording",
+        "README.fr.md",
+        "Une seule publication virale tire la moyenne",
+        "Une seule publication hors norme tire la moyenne",
+    ),
+    (
+        "ADR0012-old-label-wording",
+        "src/dashboard/src/components/KpiStrip.tsx",
+        '      label: "Virality",',
+        '      label: "Share rate",',
+    ),
+    (
+        "ADR0012-old-label-wording",
+        "src/dashboard/src/lib/api.ts",
+        "  topByVirality: TopPostEntry[];",
+        "  antiviralNote: string;",
+    ),
+    (
+        "ADR0012-old-label-wording",
+        "src/analysis/reach.py",
+        "def is_viral_post(views: int) -> bool:",
+        "def share_rate(insights: PostInsights) -> float:",
+    ),
+    # ADR-0012 (auditor): views thô gọi là "reach" trong thẻ Popularity
+    (
+        "ADR0012-raw-views-as-reach",
+        "src/dashboard/src/components/MetricArchitectureGrid.tsx",
+        'note: "Raw reach — how many times the post was seen."',
+        'note: "Raw views — how many times the post was seen." · "Top 20% reach"',
+    ),
+    (
+        "ADR0012-raw-views-as-reach",
+        "README.md",
+        "| Popularity | views (reach (raw)) |",
+        "| Popularity | views — raw count, not reach |",
+    ),
     # ADR-0020: phát hiện thật trong landing mockup / handoff 2026-10-05
     (
         "ADR0018-cluster-id-display",

@@ -1,5 +1,5 @@
 """Layer 4 — engine thống kê suy diễn DÙNG CHUNG cho mọi so sánh 2 nhóm trong dự
-án: viral vs non-viral (`virality.py`), có/không author reply event
+án: tầng reach vs phần còn lại (dự kiến, ADR-0012), có/không author reply event
 (`topic_affinity.py`), topic vs topic, theo giờ/thứ (`engagement.py`) — tránh
 viết lặp lại Mann-Whitney U + effect size + bootstrap CI ở từng chỗ. Đây là tầng
 5 "Narrative Layering Principle" (suy diễn thống kê), xem docs/claude/data-model.md
@@ -8,12 +8,13 @@ viết lặp lại Mann-Whitney U + effect size + bootstrap CI ở từng chỗ.
 Bộ 3 kiểm định (Mann-Whitney U + Cliff's delta + bootstrap CI 95%) port từ
 `vunderkind/threads-analytics` (xem docs/research/market-scan-2026-09.html) —
 Mann-Whitney U được chọn thay t-test vì KHÔNG giả định phân phối chuẩn (engagement
-rate trên Threads lệch phải mạnh, có outlier viral — đúng lý do median thắng mean
+rate trên Threads lệch phải mạnh, có bài đột biến — đúng lý do median thắng mean
 ở Layer 2), Cliff's delta là effect size non-parametric tương ứng.
 """
 
 from __future__ import annotations
 
+import math
 import random
 import statistics
 from dataclasses import dataclass
@@ -29,8 +30,8 @@ _BOOTSTRAP_ALPHA = 0.05  # 95% CI
 
 @dataclass(frozen=True)
 class ComparisonResult:
-    """Kết quả so sánh 2 nhóm số liệu độc lập (VD virality_index của post viral
-    vs non-viral, engagement_rate của giờ A vs giờ B).
+    """Kết quả so sánh 2 nhóm số liệu độc lập (VD minh hoạ: share_rate của bài
+    "Top 20% reach" vs phần còn lại, engagement_rate của giờ A vs giờ B).
 
     `p_value`/`effect_size`/`median_diff_ci_*` là `None` CHỈ khi 1 trong 2 nhóm
     rỗng (Mann-Whitney U không định nghĩa được trên tập rỗng — khác hẳn trường hợp
@@ -115,6 +116,25 @@ def compare_groups(
         median_diff_ci_high=ci_high,
         insufficient_data=insufficient_data,
     )
+
+
+def holm_adjust(p_values: list[float]) -> list[float]:
+    """Hiệu chỉnh Holm (step-down) cho 1 họ phép so — trả p đã hiệu chỉnh, CÙNG thứ tự đầu vào.
+
+    p thứ k (xếp tăng dần, k từ 0) nhân (m − k), giữ đơn điệu không giảm, chặn ở 1.0. Kiểm soát
+    FWER (xác suất có ≥ 1 kết luận sai trong cả họ) mà không giả định các phép so độc lập.
+    p = NaN (Mann-Whitney khi mọi giá trị bằng nhau) làm thứ tự sắp không xác định → người gọi
+    loại khỏi họ trước; hàm báo lỗi thay vì trả số sai.
+    """
+    if any(math.isnan(p) for p in p_values):
+        raise ValueError("holm_adjust không nhận p = NaN — loại phép so đó khỏi họ trước")
+    m = len(p_values)
+    adjusted = [0.0] * m
+    running = 0.0
+    for rank, index in enumerate(sorted(range(m), key=lambda i: p_values[i])):
+        running = max(running, min(1.0, p_values[index] * (m - rank)))
+        adjusted[index] = running
+    return adjusted
 
 
 def _cliffs_delta(group_a: list[float], group_b: list[float]) -> float:

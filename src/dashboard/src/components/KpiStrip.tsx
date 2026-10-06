@@ -43,9 +43,9 @@ export function KpiStrip({ data }: { data: WindowAnalytics | null }) {
       dot: true,
     },
     {
-      label: "Virality",
-      value: data ? `${data.virality.median.toFixed(2)}%` : "—",
-      caption: data ? statCaption(data.virality) : "median per-post rate",
+      label: "Share rate",
+      value: data ? `${data.share_rate.median.toFixed(2)}%` : "—",
+      caption: data ? statCaption(data.share_rate) : "median per-post rate",
       dot: false,
     },
     {

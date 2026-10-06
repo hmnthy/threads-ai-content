@@ -3,7 +3,7 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-485%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-508%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -37,7 +37,7 @@ Sản phẩm qua 4 bước — từ tuyên ngôn tới tận cluster chủ đề
 
 <p align="center">
   <img src="docs/screenshots/analytics.png" alt="Analytics tab: top posts and timezone breakdown" width="820"><br>
-  <sub><b>3. Analytics</b> — top bài theo engagement/virality/conversation, và hiệu suất theo giờ đăng tách riêng 2 múi giờ Europe/Paris và Asia/Ho_Chi_Minh.</sub>
+  <sub><b>3. Analytics</b> — top bài theo engagement/share rate/conversation, và hiệu suất theo giờ đăng tách riêng 2 múi giờ Europe/Paris và Asia/Ho_Chi_Minh.</sub>
 </p>
 
 <p align="center">
@@ -71,7 +71,7 @@ căn cứ.
   Creator chỉ còn cách đoán.
 - **Không có insight ở cấp độ chủ đề.** Mỗi bài đăng được đánh giá độc lập. Không có cách nào sẵn
   có để thấy chủ đề nào, kể theo cách nào, thực sự hiệu quả hơn xuyên suốt lịch sử thật của kênh.
-- **Báo cáo số liệu không trung thực về mặt thống kê.** 1 bài viral kéo mean lệch hẳn khỏi mức 1
+- **Báo cáo số liệu không trung thực về mặt thống kê.** 1 bài đột biến kéo mean lệch hẳn khỏi mức 1
   bài "bình thường" trông như thế nào, và 1 bucket "giờ đăng tốt nhất" chỉ có 2 bài lại được báo
   cáo với độ tự tin y hệt 1 bucket có 50 bài.
 
@@ -82,7 +82,7 @@ phải cảm tính.
 
 | Tầng | Trạng thái | Làm gì |
 |---|---|---|
-| **Statistics layer** | Đã có | 6 index tách biệt — popularity, engagement, virality, conversation, velocity, longevity — không bao giờ gộp lại thành 1 điểm số duy nhất. Median luôn đi kèm mean (không bao giờ chỉ báo mean 1 mình), mọi bucket đều có IQR + cờ cảnh báo cỡ mẫu nhỏ, dùng Mann-Whitney U + Cliff's delta cho mọi so sánh nhóm, virality tính theo percentile riêng của từng kênh thay vì 1 ngưỡng cố định tùy tiện. |
+| **Statistics layer** | Đã có | 6 index tách biệt — popularity, engagement, share rate, conversation, velocity, longevity — không bao giờ gộp lại thành 1 điểm số duy nhất. Median luôn đi kèm mean (không bao giờ chỉ báo mean 1 mình), mọi bucket đều có IQR + cờ cảnh báo cỡ mẫu nhỏ, dùng Mann-Whitney U + Cliff's delta cho mọi so sánh nhóm, tầng reach (qua API) đo so với mức bình thường của chính kênh lúc đăng thay vì 1 ngưỡng cố định tùy tiện. |
 | **NLP layer** | Đã có | Embedding đa ngôn ngữ (content trộn tự nhiên VI/FR/EN nên không dùng tokenizer riêng cho 1 ngôn ngữ) đưa vào UMAP + HDBSCAN để tự động khám phá chủ đề (unsupervised), sau đó Claude gán tên tiếng Anh cho từng cluster tìm được. Code-Mixing Index — một điểm số liên tục, không phải cờ boolean — đo mức độ 1 bài thực sự chuyển đổi ngôn ngữ. |
 | **Knowledge base** | Tiếp theo | Bài đăng của kênh và câu trả lời của tác giả cho câu hỏi của follower, biến thành cơ sở tri thức tra cứu được: tìm kiếm hybrid (từ khoá BM25 + ngữ nghĩa) kèm reranker, được đo trên câu hỏi thật của follower (recall@k, MRR, nDCG) trước khi xây bất cứ thứ gì — như trợ lý hỏi đáp — lên trên. |
 
@@ -99,7 +99,7 @@ Liệt kê đúng trạng thái thật của code hiện tại — không hứa 
 | AI / LLM | Claude API (`claude-sonnet-5-5`, gán tên cluster) | Đã có |
 | Dashboard | Next.js 16 + Tailwind v4, chart SVG tự dựng + Plotly (bản đồ topic) | Đã có |
 | Database | SQLite — 1 file, 1 tiến trình ghi; knowledge base cũng sẽ nằm trong đó | Đã có |
-| Metric scoring | Kiến trúc 6 index (popularity/engagement/virality/conversation/velocity/longevity) | Đã có |
+| Metric scoring | Kiến trúc 6 index (popularity/engagement/share rate/conversation/velocity/longevity) | Đã có |
 | Language ID | lingua-py + Code-Mixing Index | Đã có |
 | NLP feature extraction | sentence-transformers, đa ngôn ngữ (bge-m3 / multilingual-e5-large) | Đã có |
 | Topic discovery | UMAP + HDBSCAN (clustering không giám sát) | Đã có |
@@ -145,7 +145,7 @@ Một vài quyết định dự án coi là nền tảng, mỗi quyết định 
 - **Median làm số liệu chính, mean là số phụ — không bao giờ dùng tỉ lệ pooled.** Một tỉ lệ
   Σinteractions/Σviews gộp cho cả cửa sổ thời gian sẽ bị chi phối bởi bài có views cao nhất; median
   giữa các bài luôn được báo cáo trước, kèm mean, cỡ mẫu (`n`), và IQR đi cùng.
-- **6 index riêng biệt, không bao giờ gộp thành 1 điểm.** Popularity, engagement, virality,
+- **6 index riêng biệt, không bao giờ gộp thành 1 điểm.** Popularity, engagement, share rate,
   conversation, velocity, longevity trả lời những câu hỏi khác nhau và không bao giờ bị trung bình
   hoá lại thành 1 "điểm số" duy nhất.
 - **Mọi hằng số heuristic đều được suy ra từ data thật, hoặc ghi rõ là giả thuyết chưa calibrate**
