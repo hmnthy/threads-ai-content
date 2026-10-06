@@ -2,9 +2,9 @@
 
 > **Đọc khi**: làm việc trong `src/dashboard/`, hoặc bất kỳ UI/frontend/mockup/artifact nào của dự án.
 > **Đây là nguồn sự thật DUY NHẤT về design.**
-> **Phiên bản**: v3.1 — 2026-09-03 (Amber). Thay bảng màu violet của v3 (2026-09-02). Lý do đầy đủ ở [§13 Decision log](#13-decision-log).
+> **Phiên bản**: v3.2 — 2026-10-01 (Amber, giữ nguyên sau khi so 4 palette; thêm token dải tối + cấu trúc landing tầng B). v3.1 — 2026-09-03 thay violet của v3. Lý do đầy đủ ở [§13 Decision log](#13-decision-log).
 > Tagline chính thức: **"The algorithm, read back to you."**
-> Trang xem được: `src/dashboard/mockups/design-system.dc.html` (style guide), `src/dashboard/mockups/overview-amber.dc.html` (hướng chốt, timeline kéo được).
+> Trang xem được: `src/dashboard/mockups/design-system.dc.html` (style guide), `src/dashboard/mockups/overview-amber.dc.html` (hướng chốt app, timeline kéo được), `src/dashboard/mockups/landing.dc.html` (landing tầng B đã chốt, 2026-10-01).
 
 ---
 
@@ -62,7 +62,7 @@ Ràng buộc phát hiện khi dựng: cam rực `#F59E0B` **không dùng đượ
 |---|---|---|---|
 | `--amber-soft` | `#FEF3C7` | — | Nền badge active |
 | `--amber-fill` | `rgba(245,158,11,0.42)` | — | Bar, fill chart |
-| `--amber-600` | `#B45309` | 5.9:1 | **Tương tác** — nút chính, link, focus ring, tay cầm timeline |
+| `--amber-600` | `#B45309` | 4.9:1 | **Tương tác** — nút chính, link, focus ring, tay cầm timeline. Đo lại 2026-10-01 trên `#FBFBFC` (bản cũ ghi 5.9:1 là sai) — vẫn đạt AA, không dùng dưới 12px |
 | `--amber-700` | `#92400E` | 8.2:1 | Link hover |
 
 Trên nền gradient tối, nhãn dùng `#FFF6EC` (~4.7:1). `#FDE7C7` từng dùng chỉ đạt 4.17:1 → đã bỏ.
@@ -83,6 +83,22 @@ linear-gradient(135deg, #7C2D12 0%, #B45309 52%, #9A3412 100%)
 ```
 
 Dùng ở **dải hero đầu trang Overview**, chứa chỉ số engagement rate của cửa sổ đang chọn. Cả ba stop đủ tối để chữ trắng đạt AA. Không dùng gradient ở bất kỳ chỗ nào khác (kể cả tầng B landing) — sang trọng đến từ sự hiếm; trải khắp card là mất ngay.
+
+### 2.6 Dải tối (chỉ tầng B landing)
+
+Dùng cho đúng 2 dải trên landing: sơ đồ "How it works" và khối CTA cuối. Đây là đổi nền để phân tầng, không phải dark mode.
+
+| Token | Giá trị | Tỉ lệ trên `#111827` | Dùng |
+|---|---|---|---|
+| `--dark-bg` | `#111827` | — | Nền dải (= `--text-primary`) |
+| `--dark-text` | `#FFFFFF` | 17.7:1 | Tiêu đề, tên node |
+| `--dark-text-secondary` | `rgba(255,255,255,0.78)` | ~11:1 | Đoạn mô tả |
+| `--dark-text-muted` | `rgba(255,255,255,0.72)` | ~9.6:1 | Nhãn mono, nhãn cạnh |
+| `--dark-node` | `rgba(255,255,255,0.06)` | — | Nền node |
+| `--dark-line` | `rgba(255,255,255,0.14)` / `0.32` | — | Viền node / cạnh chưa chọn |
+| `--amber-on-dark` | `#F59E0B` | 8.3:1 | Eyebrow, cạnh + node đang chọn, nút chính CTA (chữ `#111827`) |
+| `--amber-on-dark-fill` | `rgba(245,158,11,0.14)` | — | Nền node đang chọn |
+| `--amber-on-dark-text` | `#FFF6EC` | — | Giá trị mono trong bảng stack |
 
 ---
 
@@ -156,7 +172,14 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 
 **Tầng A · App shell** (ưu tiên — `src/dashboard/`, sản phẩm thật): `max-width 1280`, padding 24. Thứ tự dọc: topbar (logo + tagline + account pill + avatar) → tab pill → **dải hero gradient** → chart + timeline brush → KPI strip → metric architecture → top content units. Top nav tab pill, không sidebar.
 
-**Tầng B · Landing** (đã dựng bản scoped 2026-09-03 tại `/`: Hero · Problem · Solution · Tech stack · Author — trang giới thiệu tool cho portfolio; pricing, FAQ, Login/Register **ngoài scope** vì đây không phải SaaS; landing thương hiệu thydilammuon là việc của roadmap Phase F, cần ADR riêng): navbar pill, hero, bento radius 20 không viền, **khối Author**, footer. Thứ tự section tham khảo (đo từ reference PNG, màu cần map sang token amber ở §2 khi dựng thật, KHÔNG dùng lại violet dưới đây):
+**Tầng B · Landing** — chốt 2026-10-01, mockup `src/dashboard/mockups/landing.dc.html`, spec port ở `docs/design/landing-handoff.md`. Trang giới thiệu tool cho portfolio; pricing, FAQ, Login/Register **ngoài scope** (không phải SaaS); landing thương hiệu thydilammuon là việc của roadmap Phase F, cần ADR riêng.
+
+Thứ tự: navbar pill sticky → **Hero** (H1 tagline + panel bằng chứng: beeswarm 144 bài, bài hero amber, toggle Channel/Topic) → **Problem** (3 câu hỏi của người làm kênh, mỗi câu "Threads shows / Missing") → **How it solves** (3 tầng Measure · Group · Search nối bằng mũi tên, theo 1 bài thật) → **Product proof** (2 panel dashboard: chủ đề so với kênh; kết quả NLP) → **How it works** (sơ đồ trên dải tối §2.6, bấm node xem stack) → **About the channel** → **CTA** (dải tối) → footer có câu miễn trừ Meta.
+
+Mỗi panel bằng chứng theo thứ tự: câu hỏi (13px w600 amber) → câu trả lời 1 dòng (24px w700) → biểu đồ → nút "Method and limits" mở công thức + giới hạn. Tiêu đề section landing: 46px w800 −0.035em; eyebrow mono 13px amber dạng `01 · Problem`.
+
+<details><summary>Thứ tự section đo từ reference PNG (lịch sử, không còn dùng)</summary>
+
 
 1. Floating navbar — pill căn giữa, cách mép trên 16px: logo tròn · menu · Login · nút Register
 2. Hero — badge pill nhỏ ("NEW · …") → H1 2 dòng → sub 2 dòng → 2 nút pill (primary + secondary)
@@ -171,6 +194,8 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 11. FAQ accordion
 12. CTA cuối (lặp lại hero)
 13. Footer 4 cột + hình tròn gradient trang trí
+
+</details>
 
 **Bento card** — pattern quan trọng nhất của tầng B:
 ```
@@ -314,6 +339,14 @@ Kết quả trả về là **khuyến nghị**, không phải lệnh. Nếu mâu
 ---
 
 ## 13. Decision log
+
+### 2026-10-01 — Giữ amber; landing tầng B chốt; thêm dải tối
+
+- So 4 palette dựng thật trên cùng mảnh landing (Claude Design): **Amber · instrument** (giữ), Highlighter chartreuse + mực, Oxblood trên giấy kem, Petrol trên đá. Thy chốt amber. Lý do giữ: khớp sợi amber đã có trong logo Unknot (đổi palette = xuất lại logo + animation); Oxblood đụng màu âm `#C42A2F`; Petrol gần hướng cyan đã loại; Highlighter làm yếu nút tương tác (nút thành đen). File so sánh đã xoá sau khi chốt.
+- Thêm §2.6 dải tối cho landing (sơ đồ + CTA) — trả lời phản hồi "trung tính nhạt nhoà" mà không thêm màu nhấn thứ hai.
+- Sửa số tương phản `--amber-600`: 4.9:1 (không phải 5.9:1).
+- §7 tầng B thay danh sách section đo từ PNG bằng cấu trúc landing đã chốt.
+- Xoá mockup lỗi thời: `threads-dashboard.dc.html` + `.html` (violet, tab Generate Content trái ADR-0001, số cũ 135 unit), `landing-hero-concepts.dc.html` (đã chọn 1c), `design-system-v3.1-amber.md` (đã merge từ 09-03). <!-- consistency: allow ADR0001-generation -->
 
 ### 2026-09-30 — Bản đồ topic 1 màu nhấn; heatmap giờ đăng có n
 

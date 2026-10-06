@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FBFBFC;font-family:Inter,system-ui,sans-serif;color:#111827;-webkit-font-smoothing:antialiased}
+a{color:#B45309;text-decoration:none}
+a:hover{color:#92400E}
+button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid #B45309;outline-offset:2px}
+html{scroll-behavior:smooth}
+</style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;align-items:center;padding:16px 24px 0;position:sticky;top:0;z-index:5">
+  <nav style="display:flex;align-items:center;gap:28px;background:#FFFFFF;border:1px solid rgba(17,24,39,0.10);border-radius:999px;padding:6px 6px 6px 18px;max-width:100%;flex-wrap:wrap">
+    <a href="#top" style="display:flex"><img src="../public/brand/unthreaded-lockup.svg" alt="Unthreaded" style="height:28px;width:auto;display:block"></a>
+    <div style="display:flex;gap:22px;font-size:14px;flex-wrap:wrap">
+      <a href="#problem" style="color:#4B5563">Problem</a>
+      <a href="#approach" style="color:#4B5563">Approach</a>
+      <a href="#proof" style="color:#4B5563">Proof</a>
+      <a href="#method" style="color:#4B5563">How it works</a>
+      <a href="#about" style="color:#4B5563">About</a>
+    </div>
+    <a href="#" style="background:#B45309;color:#FFFFFF;font-size:14px;font-weight:600;border-radius:999px;padding:0 18px;height:40px;display:flex;align-items:center">View live dashboard</a>
+  </nav>
+</div>
+
+<main id="top" style="display:flex;flex-direction:column">
+
+  <section data-screen-label="01 Hero" style="max-width:1200px;width:100%;box-sizing:border-box;margin:0 auto;padding:56px 32px 96px;display:flex;flex-direction:column">
+    <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:24px">
+      <sc-if value="{{ animatedLogo }}" hint-placeholder-val="{{ true }}"><picture><source media="(prefers-reduced-motion: reduce)" srcset="../public/brand/unthreaded-lockup.svg"><img src="../public/brand/unthreaded-lockup-animated.svg" alt="Unthreaded" style="height:64px;width:auto;display:block"></picture></sc-if>
+      <sc-if value="{{ staticLogo }}" hint-placeholder-val="{{ false }}"><img src="../public/brand/unthreaded-lockup.svg" alt="Unthreaded" style="height:64px;width:auto;display:block"></sc-if>
+      <h1 style="margin:0;font-size:clamp(44px,6.4vw,76px);line-height:1;font-weight:800;letter-spacing:-0.04em;text-wrap:balance">The algorithm, read back to you.</h1>
+      <p style="margin:0;max-width:640px;font-size:18px;line-height:1.6;color:#4B5563;text-wrap:pretty">Unthreaded reads a Threads channel from its own posts and places every post against the channel it came from: median, spread and n, with nothing averaged away.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+        <a href="#" style="background:#B45309;color:#FFFFFF;font-size:15px;font-weight:600;border-radius:999px;padding:0 22px;height:48px;display:flex;align-items:center">View live dashboard</a>
+        <a href="#" style="background:#FFFFFF;color:#111827;border:1px solid rgba(17,24,39,0.10);font-size:15px;font-weight:500;border-radius:999px;padding:0 22px;height:48px;display:flex;align-items:center">Read the methodology</a>
+      </div>
+    </div>
+
+    <div style="margin-top:56px;background:#FFFFFF;border:1px solid rgba(17,24,39,0.10);border-radius:20px;padding:28px 32px 20px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:6px;max-width:680px">
+          <span style="font-size:13px;font-weight:600;color:#B45309">Is "8 kinh nghiệm sau 8 năm ở Pháp" a strong post?</span>
+          <span style="font-size:24px;font-weight:700;letter-spacing:-0.02em;line-height:1.3">{{ answer }}</span>
+        </div>
+        <div role="group" aria-label="Comparison set" style="display:flex;background:#F1F3F6;border-radius:999px;padding:3px">
+          <button onClick="{{ setChannel }}" aria-pressed="{{ isChannel }}" style="border:0;cursor:pointer;font:500 13px Inter,sans-serif;border-radius:999px;padding:0 14px;height:38px;white-space:nowrap;background:{{ chBg }};color:{{ chFg }}">Channel · n = 144</button>
+          <button onClick="{{ setTopic }}" aria-pressed="{{ isTopic }}" style="border:0;cursor:pointer;font:500 13px Inter,sans-serif;border-radius:999px;padding:0 14px;height:38px;white-space:nowrap;background:{{ tpBg }};color:{{ tpFg }}">Topic · n = 13</button>
+        </div>
+      </div>
+      <div style="position:relative;height:250px;margin:0 8px">
+        <div style="position:absolute;top:24px;bottom:34px;left:{{ iqrLeft }};width:{{ iqrWidth }};background:#F1F3F6;border-radius:6px"></div>
+        <div style="position:absolute;top:14px;bottom:34px;left:{{ medLeft }};width:2px;background:#111827"></div>
+        <span style="position:absolute;top:-6px;left:{{ medLeft }};transform:translateX(-50%);font:500 12px 'IBM Plex Mono',monospace;color:#111827;white-space:nowrap">median {{ medLabel }}</span>
+        <span style="position:absolute;bottom:40px;left:{{ medLeft }};font:400 11.5px 'IBM Plex Mono',monospace;color:#4B5563;padding-left:8px;white-space:nowrap">IQR {{ iqrLabel }}</span>
+        <sc-for list="{{ dots }}" as="d" hint-placeholder-count="0">
+          <div style="position:absolute;width:8px;height:8px;border-radius:50%;background:#6B7280;left:{{ d.x }};top:{{ d.y }};opacity:{{ dotOpacity }};transform:translate(-50%,-50%)"></div>
+        </sc-for>
+        <div style="position:absolute;width:16px;height:16px;border-radius:50%;background:#B45309;border:3px solid #FFFFFF;box-shadow:0 0 0 1px #B45309;left:{{ hx }};top:{{ hy }};transform:translate(-50%,-50%)"></div>
+        <div style="position:absolute;left:{{ hx }};top:{{ calloutTop }};transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap">
+          <span style="font-size:13px;font-weight:700;color:#B45309">This post · 3.22%</span>
+          <span style="font-size:12px;color:#4B5563">{{ rankLabel }}</span>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:22px;height:1px;background:#E4E8ED"></div>
+        <sc-for list="{{ ticks }}" as="t" hint-placeholder-count="6">
+          <span style="position:absolute;bottom:0;left:{{ t.x }};transform:translateX(-50%);font:400 11.5px 'IBM Plex Mono',monospace;color:#6B7280">{{ t.label }}</span>
+        </sc-for>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;border-top:1px solid #F1F3F6;padding-top:12px">
+        <span style="font-size:12.5px;color:#4B5563">{{ footNote }}</span>
+        <button onClick="{{ toggleHeroM }}" aria-expanded="{{ heroM }}" style="border:0;background:transparent;cursor:pointer;font:500 13px Inter,sans-serif;color:#B45309;height:44px;padding:0 4px">{{ heroMLabel }}</button>
+      </div>
+      <sc-if value="{{ heroM }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;background:#FAFAFB;border-radius:12px;padding:16px 20px;margin-top:-8px">
+          <span style="font:400 12.5px/1.7 'IBM Plex Mono',monospace;color:#4B5563">engagement = (likes + replies + reposts + quotes) / views × 100 · one dot per root post · snapshot 2026-10-01</span>
+          <span style="font-size:13px;line-height:1.6;color:#4B5563">Limits: rate uses the latest snapshot, so newer posts have had less time to collect views. A single post is described, not tested.</span>
+        </div>
+      </sc-if>
+    </div>
+  </section>
+
+  <section id="problem" data-screen-label="02 Problem" style="max-width:1200px;width:100%;box-sizing:border-box;margin:0 auto;padding:104px 32px;border-top:1px solid #E4E8ED;scroll-margin-top:72px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:56px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:20px;align-self:start">
+      <span style="font:500 13px 'IBM Plex Mono',monospace;color:#B45309">01 · Problem</span>
+      <h2 style="margin:0;font-size:clamp(32px,3.6vw,46px);line-height:1.08;font-weight:800;letter-spacing:-0.035em;text-wrap:balance">150 posts and 674 answers to followers. Threads can't say what they add up to.</h2>
+      <p style="margin:0;font-size:16px;line-height:1.65;color:#4B5563;text-wrap:pretty">@thydilammuon writes for Vietnamese students and workers in France: alternance, job hunting, everyday life. Running the channel raises three questions the Threads app has no screen for.</p>
+    </div>
+    <div style="display:flex;flex-direction:column">
+      <div style="display:flex;flex-direction:column;gap:14px;padding:0 0 32px">
+        <span style="font:600 13px 'IBM Plex Mono',monospace;color:#6B7280">Q1</span>
+        <span style="font-size:26px;font-weight:700;letter-spacing:-0.02em;line-height:1.25">Which posts did well for this channel, not in general?</span>
+        <div style="display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px 16px;font-size:14.5px;line-height:1.55">
+          <span style="color:#6B7280">Threads shows</span><span style="color:#4B5563">Views, likes, replies, reposts and quotes, one post at a time.</span>
+          <span style="color:#6B7280">Missing</span><span style="color:#111827">A reference point. 3,000 views is a strong day for one channel and a weak one for another.</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;padding:32px 0;border-top:1px solid #E4E8ED">
+        <span style="font:600 13px 'IBM Plex Mono',monospace;color:#6B7280">Q2</span>
+        <span style="font-size:26px;font-weight:700;letter-spacing:-0.02em;line-height:1.25">What does the channel write about, and which of it lands?</span>
+        <div style="display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px 16px;font-size:14.5px;line-height:1.55">
+          <span style="color:#6B7280">Threads shows</span><span style="color:#4B5563">Posts in time order.</span>
+          <span style="color:#6B7280">Missing</span><span style="color:#111827">Topics read from the text itself, written in Vietnamese mixed with French and English.</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;padding:32px 0 0;border-top:1px solid #E4E8ED">
+        <span style="font:600 13px 'IBM Plex Mono',monospace;color:#6B7280">Q3</span>
+        <span style="font-size:26px;font-weight:700;letter-spacing:-0.02em;line-height:1.25">What has the author already answered?</span>
+        <div style="display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px 16px;font-size:14.5px;line-height:1.55">
+          <span style="color:#6B7280">Threads shows</span><span style="color:#4B5563">Replies inside each post's own thread.</span>
+          <span style="color:#6B7280">Missing</span><span style="color:#111827">A way to search 674 answers across every post.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="approach" data-screen-label="03 How it solves" style="max-width:1200px;width:100%;box-sizing:border-box;margin:0 auto;padding:104px 32px;border-top:1px solid #E4E8ED;scroll-margin-top:72px;display:flex;flex-direction:column;gap:40px">
+    <div style="display:flex;flex-direction:column;gap:16px;max-width:780px">
+      <span style="font:500 13px 'IBM Plex Mono',monospace;color:#B45309">02 · How it solves</span>
+      <h2 style="margin:0;font-size:clamp(32px,3.6vw,46px);line-height:1.08;font-weight:800;letter-spacing:-0.035em;text-wrap:balance">One layer per question. Each one feeds the next.</h2>
+      <p style="margin:0;font-size:16px;line-height:1.65;color:#4B5563;text-wrap:pretty">Follow the hero post through all three. Topics from layer 2 become the comparison groups in layer 1. Clean text and topic from layer 2 become the documents of layer 3.</p>
+    </div>
+
+    <div style="overflow-x:auto;margin:0 -8px;padding:0 8px">
+    <div style="min-width:980px;display:flex;flex-direction:column;gap:0">
+      <div style="display:flex;align-items:center;gap:16px;background:#111827;color:#FFFFFF;border-radius:16px;padding:16px 22px">
+        <span style="font:500 12px 'IBM Plex Mono',monospace;color:#F59E0B;white-space:nowrap">input</span>
+        <span style="font-size:15px;line-height:1.5;flex:1;min-width:0">"Nhân dịp vừa tròn 30 tuổi, mình viết một bài vui vui về 8 kinh nghiệm cá nhân tích lũy được sau 8 năm sống và…"</span>
+        <span style="font:400 12px 'IBM Plex Mono',monospace;color:rgba(255,255,255,0.72);white-space:nowrap">root + its continuations, rebuilt from the reply graph</span>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr) 64px minmax(0,1fr);height:36px">
+        <div style="display:flex;justify-content:center"><div style="width:2px;background:#F59E0B"></div></div><span></span>
+        <div style="display:flex;justify-content:center"><div style="width:2px;background:#F59E0B"></div></div><span></span>
+        <div style="display:flex;justify-content:center"><div style="width:2px;background:#E4E8ED"></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr) 64px minmax(0,1fr);align-items:stretch">
+
+        <div style="background:#FFFFFF;border:1px solid rgba(17,24,39,0.10);border-top:3px solid #F59E0B;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:600 28px 'IBM Plex Mono',monospace;color:#111827;letter-spacing:-0.02em">01</span><span style="font-size:11px;font-weight:500;border-radius:999px;padding:3px 10px;background:#FEF3C7;color:#92400E">live</span></div>
+          <span style="font-size:20px;font-weight:700;letter-spacing:-0.02em">Measure</span>
+          <span style="font-size:14px;line-height:1.55;color:#4B5563">Answers Q1. Every rate is read as a distribution against the channel median, with n and spread. Groups are compared with an effect size.</span>
+          <div style="margin-top:auto;background:#FAFAFB;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+            <span style="font-size:11px;font-weight:600;color:#6B7280">This post</span>
+            <div style="position:relative;height:30px">
+              <div style="position:absolute;left:0;right:0;top:15px;height:1px;background:#E4E8ED"></div>
+              <sc-for list="{{ miniStrip }}" as="d" hint-placeholder-count="0"><div style="position:absolute;width:4px;height:4px;border-radius:50%;background:#9AA3AE;left:{{ d.x }};top:{{ d.y }};transform:translate(-50%,-50%)"></div></sc-for>
+              <div style="position:absolute;left:35.5%;top:2px;bottom:2px;width:2px;background:#111827"></div>
+              <div style="position:absolute;width:10px;height:10px;border-radius:50%;background:#B45309;border:2px solid #FFFFFF;left:57.5%;top:15px;transform:translate(-50%,-50%)"></div>
+            </div>
+            <span style="font-size:15px;font-weight:600;line-height:1.4"><span style="color:#B45309">3.22%</span> · above 128 of 144 · channel median 1.99%</span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 4px">
+          <span style="font-size:20px;color:#B45309;line-height:1">←</span>
+          <span style="font-size:11px;line-height:1.35;color:#4B5563;text-align:center">topic becomes the comparison group</span>
+        </div>
+
+        <div style="background:#FFFFFF;border:1px solid rgba(17,24,39,0.10);border-top:3px solid #F59E0B;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:600 28px 'IBM Plex Mono',monospace;color:#111827;letter-spacing:-0.02em">02</span><span style="font-size:11px;font-weight:500;border-radius:999px;padding:3px 10px;background:#FEF3C7;color:#92400E">live</span></div>
+          <span style="font-size:20px;font-weight:700;letter-spacing:-0.02em">Group</span>
+          <span style="font-size:14px;line-height:1.55;color:#4B5563">Answers Q2. Posts are embedded and clustered by meaning, across Vietnamese, French and English. A language model only names the clusters.</span>
+          <div style="margin-top:auto;background:#FAFAFB;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+            <span style="font-size:11px;font-weight:600;color:#6B7280">This post</span>
+            <div style="position:relative;height:30px">
+              <sc-for list="{{ miniMap }}" as="p" hint-placeholder-count="0"><div style="position:absolute;width:{{ p.s }};height:{{ p.s }};border-radius:50%;background:{{ p.c }};left:{{ p.x }};top:{{ p.y }};transform:translate(-50%,-50%)"></div></sc-for>
+            </div>
+            <span style="font-size:15px;font-weight:600;line-height:1.4"><span style="color:#B45309">Studying and Living in France</span> · nearest post to the centre (0.888)</span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 4px">
+          <span style="font-size:20px;color:#6B7280;line-height:1">→</span>
+          <span style="font-size:11px;line-height:1.35;color:#4B5563;text-align:center">text and topic become documents</span>
+        </div>
+
+        <div style="background:#FAFAFB;border:1px dashed #CBD2DA;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:600 28px 'IBM Plex Mono',monospace;color:#6B7280;letter-spacing:-0.02em">03</span><span style="font-size:11px;font-weight:500;border-radius:999px;padding:3px 10px;background:#FFFFFF;border:1px solid rgba(17,24,39,0.10);color:#4B5563">next</span></div>
+          <span style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:#4B5563">Search</span>
+          <span style="font-size:14px;line-height:1.55;color:#4B5563">Answers Q3. Posts and the author's answers become one knowledge base, searched by keyword and meaning, scored on real follower questions.</span>
+          <div style="margin-top:auto;background:#FFFFFF;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+            <span style="font-size:11px;font-weight:600;color:#6B7280">This post, once built</span>
+            <span style="font:400 12.5px/1.6 'IBM Plex Mono',monospace;color:#4B5563">document · full_text · cluster_7<br>indexed with 674 author answers</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+    <span style="font-size:13.5px;line-height:1.6;color:#4B5563;max-width:780px">A chatbot and a brand site for the channel come after the knowledge base passes its retrieval benchmark, not before.</span>
+  </section>
+
+  <section id="proof" data-screen-label="04 Product proof" style="max-width:1200px;width:100%;box-sizing:border-box;margin:0 auto;padding:104px 32px;border-top:1px solid #E4E8ED;scroll-margin-top:72px;display:flex;flex-direction:column;gap:32px">
+    <div style="display:flex;flex-direction:column;gap:16px;max-width:780px">
+      <span style="font:500 13px 'IBM Plex Mono',monospace;color:#B45309">03 · Product proof</span>
+      <h2 style="margin:0;font-size:clamp(32px,3.6vw,46px);line-height:1.08;font-weight:800;letter-spacing:-0.035em;text-wrap:balance">Two panels from the dashboard, on this channel's data.</h2>
+      <p style="margin:0;font-size:16px;line-height:1.65;color:#4B5563;text-wrap:pretty">Each panel reads in the same order: question, one-line answer, the evidence, then the method on request.</p>
+    </div>
+
+    <div style="background:#FFFFFF;border:1px solid rgba(17,24,39,0.10);border-radius:20px;padding:28px 32px 20px;display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:840px">
+        <span style="font-size:13px;font-weight:600;color:#B45309">Which topics get more engagement than the channel?</span>
+        <span style="font-size:24px;font-weight:700;letter-spacing:-0.02em;line-height:1.3">None clearly. The top topic leads the channel median by 0.46 points, but on 13 posts that does not hold after correction.</span>
+      </div>
+      <div style="overflow-x:auto"><div style="min-width:760px;display:flex;flex-direction:column">
+        <div style="display:grid;grid-template-columns:minmax(150px,240px) 44px minmax(0,1fr) 64px 52px 60px;gap:16px;align-items:end;padding:0 0 8px;border-bottom:1px solid #E4E8ED;font-size:11px;font-weight:600;color:#6B7280">
+          <span>Topic (cluster)</span><span style="text-align:right">n</span>
+          <div style="position:relative;height:16px"><sc-for list="{{ pTicks }}" as="t" hint-placeholder-count="6"><span style="position:absolute;left:{{ t.x }};transform:translateX(-50%);font:400 11px 'IBM Plex Mono',monospace">{{ t.label }}</span></sc-for></div>
+          <span style="text-align:right">median</span><span style="text-align:right">δ</span><span style="text-align:right">p, Holm</span>
+        </div>
+        <div style="position:relative">
+          <div style="position:absolute;inset:0;display:grid;grid-template-columns:minmax(150px,240px) 44px minmax(0,1fr) 64px 52px 60px;gap:16px;pointer-events:none">
+            <span></span><span></span>
+            <div style="position:relative"><div style="position:absolute;top:0;bottom:0;left:{{ chMedX }};width:0;border-left:1.5px dashed #111827"></div></div>
+          </div>
+          <sc-for list="{{ topics }}" as="r" hint-placeholder-count="9">
+            <div onMouseEnter="{{ r.enter }}" onMouseLeave="{{ r.leave }}" onFocus="{{ r.enter }}" onBlur="{{ r.leave }}" tabindex="0" style="position:relative;display:grid;grid-template-columns:minmax(150px,240px) 44px minmax(0,1fr) 64px 52px 60px;gap:16px;align-items:center;height:40px;border-bottom:1px solid #F1F3F6;background:{{ r.bg }};opacity:{{ r.op }}">
+              <span style="font-size:13.5px;font-weight:{{ r.fw }};color:{{ r.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ r.name }}">{{ r.name }}</span>
+              <span style="font:400 12.5px 'IBM Plex Mono',monospace;color:#4B5563;text-align:right">{{ r.n }}</span>
+              <div style="position:relative;height:40px">
+                <div style="position:absolute;top:13px;height:14px;left:{{ r.q1 }};width:{{ r.iqrW }};background:{{ r.iqrBg }};border-radius:4px"></div>
+                <sc-for list="{{ r.dots }}" as="d" hint-placeholder-count="0"><div style="position:absolute;width:6px;height:6px;border-radius:50%;background:{{ r.dot }};left:{{ d.x }};top:{{ d.y }};transform:translate(-50%,-50%)"></div></sc-for>
+                <div style="position:absolute;top:9px;height:22px;width:3px;border-radius:2px;left:{{ r.medX }};transform:translateX(-50%);background:{{ r.medC }}"></div>
+              </div>
+              <span style="font:500 12.5px 'IBM Plex Mono',monospace;color:{{ r.fg }};text-align:right">{{ r.med }}</span>
+              <span style="font:400 12.5px 'IBM Plex Mono',monospace;color:#4B5563;text-align:right">{{ r.d }}</span>
+              <span style="font:400 12.5px 'IBM Plex Mono',monospace;color:#4B5563;text-align:right">{{ r.p }}</span>
+            </div>
+          </sc-for>
+          <div style="display:grid;grid-template-columns:minmax(150px,240px) 44px minmax(0,1fr) 64px 52px 60px;gap:16px;align-items:center;height:44px;background:#FAFAFB;border-bottom:1px dashed #E4E8ED">
+            <span style="font-size:13.5px;color:#6B7280">Unclustered (HDBSCAN noise)</span>
+            <span style="font:400 12.5px 'IBM Plex Mono',monospace;color:#6B7280;text-align:right">52</span>
+            <div style="position:relative;height:44px">
+              <div style="position:absolute;top:15px;height:14px;left:{{ noise.q1 }};width:{{ noise.iqrW }};background:#F1F3F6;border-radius:4px"></div>
+              <sc-for list="{{ noise.dots }}" as="d" hint-placeholder-count="0"><div style="position:absolute;width:6px;height:6px;border-radius:50%;box-sizing:border-box;border:1.5px solid #9AA3AE;left:{{ d.x }};top:{{ d.y }};transform:translate(-50%,-50%)"></div></sc-for>
+              <div style="position:absolute;top:11px;height:22px;width:3px;border-radius:2px;left:{{ noise.medX }};transform:translateX(-50%);background:#6B7280"></div>
+            </div>
+            <span style="font:500 12.5px 'IBM Plex Mono',monospace;color:#6B7280;text-align:right">2.05%</span>
+            <span style="font-size:11.5px;color:#6B7280;text-align:right;grid-column:span 2">not tested</span>
+          </div>
+        </div>
+      </div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;border-top:1px solid #F1F3F6;padding-top:12px">
+        <span style="font-size:13px;line-height:1.55;color:#4B5563;max-width:820px">{{ readNote }}</span>
+        <button onClick="{{ toggleProofM }}" aria-expanded="{{ proofM }}" style="border:0;background:transparent;cursor:pointer;font:500 13px Inter,sans-serif;color:#B45309;height:44px;padding:0 4px">{{ proofMLabel }}</button>
+      </div>
+      <sc-if value="{{ proofM }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;background:#FAFAFB;border-radius:12px;padding:16px 20px;margin-top:-8px">
+          <span style="font:400 12.5px/1.7 'IBM Plex Mono',monospace;color:#4B5563">Mann-Whitney U, each topic vs rest of channel · Holm across 9 tests · Cliff's δ · dashed line = channel median 1.99%</span>
+          <span style="font-size:13px;line-height:1.6;color:#4B5563">6 excluded: no views recorded. Topics under 10 posts are faded and read as indicative. With n ≈ 150, only large effects can reach significance.</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="background:#FFFFFF;border:1px solid rgba(17,24,39,0.10);border-radius:20px;padding:28px 32px 20px;display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:6px;max-width:840px">
+          <span style="font-size:13px;font-weight:600;color:#B45309">Do the topics describe real structure in the text?</span>
+          <span style="font-size:24px;font-weight:700;letter-spacing:-0.02em;line-height:1.3">For 92 of 144 posts. The other 52 fit no cluster, and the map shows them.</span>
+        </div>
+        <span style="font:400 12.5px 'IBM Plex Mono',monospace;color:#4B5563;white-space:nowrap">validity_index (DBCV) 0.317 · noise 36.1%</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:28px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="position:relative;aspect-ratio:4/3;background:#FAFAFB;border-radius:12px">
+            <sc-for list="{{ mapPts }}" as="p" hint-placeholder-count="0">
+              <div style="position:absolute;width:{{ p.s }};height:{{ p.s }};box-sizing:border-box;border-radius:50%;background:{{ p.bg }};border:{{ p.bd }};left:{{ p.x }};top:{{ p.y }};transform:translate(-50%,-50%);z-index:{{ p.z }}"></div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:#4B5563">
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#B45309"></span>selected topic</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#9AA3AE"></span>other topics</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;box-sizing:border-box;border:1.5px solid #9AA3AE"></span>noise · 52</span>
+            <span style="font-family:'IBM Plex Mono',monospace;color:#6B7280">UMAP dims 1–2 of 3</span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{ clusterList }}" as="c" hint-placeholder-count="9">
+              <button onClick="{{ c.pick }}" aria-pressed="{{ c.on }}" style="display:grid;grid-template-columns:minmax(0,1fr) 120px 28px;gap:12px;align-items:center;border:0;border-bottom:1px solid #F1F3F6;background:{{ c.bg }};cursor:pointer;height:34px;padding:0 8px;text-align:left;font-family:Inter,sans-serif">
+                <span style="font-size:13px;font-weight:{{ c.fw }};color:{{ c.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+                <span style="height:8px;background:#F1F3F6;border-radius:999px;position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ c.w }};background:{{ c.bar }};border-radius:999px"></span></span>
+                <span style="font:400 12px 'IBM Plex Mono',monospace;color:#4B5563;text-align:right">{{ c.n }}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;border-top:2px solid #111827;padding-top:14px">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap">
+              <span style="font-size:16px;font-weight:700">{{ sel.name }}</span>
+              <span style="font:400 12px 'IBM Plex Mono',monospace;color:#4B5563">{{ sel.id }} · n {{ sel.n }} · median {{ sel.med }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:11px;font-weight:600;color:#6B7280">Keywords (c-TF-IDF)</span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ sel.kw }}" as="k" hint-placeholder-count="8"><span style="font:400 12px 'IBM Plex Mono',monospace;background:#FEF3C7;color:#92400E;border-radius:999px;padding:3px 10px">{{ k }}</span></sc-for>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:11px;font-weight:600;color:#6B7280">3 posts nearest the centre · centroid_similarity</span>
+              <sc-for list="{{ sel.reps }}" as="r" hint-placeholder-count="3">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid #F1F3F6">
+                  <span style="font-size:13px;line-height:1.5;color:#111827">{{ r.t }}</span>
+                  <span style="font:500 12px 'IBM Plex Mono',monospace;color:#111827;text-align:right">{{ r.s }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:28px;border-top:1px solid #E4E8ED;padding-top:24px">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span style="font-size:13px;font-weight:600;color:#4B5563">Are the clusters stable?</span>
+            <span style="font-size:17px;font-weight:700;line-height:1.35">Mostly, on posts that cluster at all. Agreement drops when noise is counted.</span>
+          </div>
+          <sc-for list="{{ ari }}" as="a" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 140px 44px;gap:12px;align-items:center;min-height:34px;border-bottom:1px solid #F1F3F6">
+              <span style="font-size:13px;line-height:1.4;color:{{ a.fg }}">{{ a.label }}</span>
+              <span style="height:8px;border-radius:999px;background:{{ a.track }};position:relative;overflow:hidden;border:{{ a.bd }}"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ a.w }};background:#6B7280;border-radius:999px"></span></span>
+              <span style="font:500 12.5px 'IBM Plex Mono',monospace;color:{{ a.fg }};text-align:right">{{ a.v }}</span>
+            </div>
+          </sc-for>
+          <span style="font:400 12px/1.6 'IBM Plex Mono',monospace;color:#6B7280">Adjusted Rand Index · 1.00 = identical partition · seed variance across 10 seeds: research, RQ-01</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <span style="font-size:13px;font-weight:600;color:#4B5563">Does mixing languages change engagement?</span>
+              <span style="font-size:17px;font-weight:700;line-height:1.35">No visible link. Spearman ρ 0.02 across 144 posts.</span>
+            </div>
+            <span style="font-size:11px;font-weight:500;border-radius:999px;padding:3px 10px;background:#F1F3F6;color:#4B5563;white-space:nowrap">research · RQ-04</span>
+          </div>
+          <sc-for list="{{ cmi }}" as="g" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 52px 76px;gap:12px;align-items:center;height:38px;border-bottom:1px solid #F1F3F6">
+              <span style="display:flex;flex-direction:column"><span style="font-size:12.5px;color:#111827">{{ g.name }}</span><span style="font:400 11px 'IBM Plex Mono',monospace;color:#6B7280">CMI {{ g.range }}</span></span>
+              <div style="position:relative;height:38px">
+                <div style="position:absolute;top:0;bottom:0;left:35.5%;border-left:1.5px dashed #111827"></div>
+                <div style="position:absolute;top:13px;height:12px;left:{{ g.q1 }};width:{{ g.iqrW }};background:#F1F3F6;border-radius:4px"></div>
+                <sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="0"><div style="position:absolute;width:5px;height:5px;border-radius:50%;background:#9AA3AE;left:{{ d.x }};top:{{ d.y }};transform:translate(-50%,-50%)"></div></sc-for>
+                <div style="position:absolute;top:9px;height:20px;width:3px;border-radius:2px;left:{{ g.medX }};transform:translateX(-50%);background:#111827"></div>
+              </div>
+              <span style="font:500 12px 'IBM Plex Mono',monospace;color:#111827;text-align:right">{{ g.med }}</span>
+              <span style="font:400 11.5px 'IBM Plex Mono',monospace;color:#4B5563;text-align:right">{{ g.test }}</span>
+            </div>
+          </sc-for>
+          <span style="font:400 12px/1.6 'IBM Plex Mono',monospace;color:#6B7280">tertiles of Code-Mixing Index, n = 48 each · δ and Holm p vs low tertile · dashed = channel median · preliminary, before RQ-04 is written</span>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;border-top:1px solid #F1F3F6;padding-top:4px">
+        <button onClick="{{ toggleNlpM }}" aria-expanded="{{ nlpM }}" style="border:0;background:transparent;cursor:pointer;font:500 13px Inter,sans-serif;color:#B45309;height:44px;padding:0 4px">{{ nlpMLabel }}</button>
+      </div>
+      <sc-if value="{{ nlpM }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;background:#FAFAFB;border-radius:12px;padding:16px 20px;margin-top:-16px">
+          <span style="font:400 12.5px/1.7 'IBM Plex Mono',monospace;color:#4B5563">BAAI/bge-m3 1024D on full_text → UMAP 3D (n_neighbors 8, seed 42) → HDBSCAN leaf, min_cluster_size 4 · validity_index (DBCV) 0.317 · centroid_similarity = cosine to cluster centre</span>
+          <span style="font-size:13px;line-height:1.6;color:#4B5563">Limits: the map is 2 of 3 UMAP dimensions, so distance on screen is approximate. Names are written by Claude from the 3 nearest posts and can be wrong at the edges of a cluster.</span>
+        </div>
+      </sc-if>
+    </div>
+  </section>
+
+  <section id="method" data-screen-label="05 How it works" style="background:#111827;color:#FFFFFF;scroll-margin-top:72px">
+    <div style="max-width:1200px;box-sizing:border-box;margin:0 auto;padding:104px 32px;display:flex;flex-direction:column;gap:36px">
+      <div style="display:flex;flex-direction:column;gap:16px;max-width:780px">
+        <span style="font:500 13px 'IBM Plex Mono',monospace;color:#F59E0B">04 · How it works</span>
+        <h2 style="margin:0;font-size:clamp(32px,3.6vw,46px);line-height:1.08;font-weight:800;letter-spacing:-0.035em;text-wrap:balance">From the Threads API to this page.</h2>
+        <p style="margin:0;font-size:16px;line-height:1.65;color:rgba(255,255,255,0.78);text-wrap:pretty">Two scheduled jobs write to one SQLite file. A read-only API serves it. Select a step to see what runs there.</p>
+      </div>
+
+      <div style="overflow-x:auto;margin:0 -8px;padding:0 8px">
+        <div style="position:relative;width:1136px;height:500px">
+          <div style="position:absolute;left:210px;top:262px;width:500px;height:200px;border:1px dashed rgba(255,255,255,0.22);border-radius:16px"></div>
+          <span style="position:absolute;left:226px;top:272px;font:500 11.5px 'IBM Plex Mono',monospace;color:rgba(255,255,255,0.72)">daily 03:00 · WSL2</span>
+          <span style="position:absolute;left:230px;top:10px;font:500 11.5px 'IBM Plex Mono',monospace;color:rgba(255,255,255,0.72)">every 4h · Task Scheduler</span>
+          <svg width="1136" height="500" viewBox="0 0 1136 500" style="position:absolute;inset:0;overflow:visible" aria-hidden="true">
+            <defs>
+              <marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="rgba(255,255,255,0.5)"></path></marker>
+              <marker id="aa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#F59E0B"></path></marker>
+            </defs>
+            <path d="M170,82 H226" fill="none" stroke="{{ ec.e1 }}" stroke-width="1.5" marker-end="{{ em.e1 }}"></path>
+            <path d="M430,82 H486" fill="none" stroke="{{ ec.e2 }}" stroke-width="1.5" marker-end="{{ em.e2 }}"></path>
+            <path d="M680,82 H736" fill="none" stroke="{{ ec.e3 }}" stroke-width="1.5" marker-end="{{ em.e3 }}"></path>
+            <path d="M910,82 H962" fill="none" stroke="{{ ec.e4 }}" stroke-width="1.5" marker-end="{{ em.e4 }}"></path>
+            <path d="M520,132 V200 H300 V316" fill="none" stroke="{{ ec.e5 }}" stroke-width="1.5" marker-end="{{ em.e5 }}"></path>
+            <path d="M370,362 H386" fill="none" stroke="{{ ec.e6 }}" stroke-width="1.5" marker-end="{{ em.e6 }}"></path>
+            <path d="M530,362 H546" fill="none" stroke="{{ ec.e7 }}" stroke-width="1.5" marker-end="{{ em.e7 }}"></path>
+            <path d="M620,316 V136" fill="none" stroke="{{ ec.e8 }}" stroke-width="1.5" marker-end="{{ em.e8 }}"></path>
+            <path d="M690,350 H736" fill="none" stroke="{{ ec.e9 }}" stroke-width="1.5" marker-end="{{ em.e9 }}"></path>
+            <path d="M736,374 H694" fill="none" stroke="{{ ec.e9 }}" stroke-width="1.5" marker-end="{{ em.e9 }}"></path>
+            <path d="M665,132 V230 H1020 V312" fill="none" stroke="{{ ec.e10 }}" stroke-width="1.5" stroke-dasharray="5 5" marker-end="{{ em.e10 }}"></path>
+            <path d="M1090,312 V136" fill="none" stroke="{{ ec.e11 }}" stroke-width="1.5" stroke-dasharray="5 5" marker-end="{{ em.e11 }}"></path>
+            <path d="M300,410 V474 H736" fill="none" stroke="{{ ec.e12 }}" stroke-width="1.5" stroke-dasharray="2 4" marker-end="{{ em.e12 }}"></path>
+          </svg>
+          <span style="position:absolute;left:356px;top:186px;font:400 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,0.72)">full_text</span>
+          <span style="position:absolute;left:628px;top:220px;font:400 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,0.72);white-space:nowrap">topics, labels</span>
+          <span style="position:absolute;left:820px;top:212px;font:400 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,0.72)">posts + answers</span>
+          <span style="position:absolute;left:330px;top:478px;font:400 11px 'IBM Plex Mono',monospace;color:rgba(255,255,255,0.72)">embeddings</span>
+          <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="11">
+            <button onClick="{{ n.pick }}" aria-pressed="{{ n.on }}" style="position:absolute;left:{{ n.x }};top:{{ n.y }};width:{{ n.w }};height:{{ n.h }};box-sizing:border-box;border-radius:12px;background:{{ n.bg }};border:{{ n.bd }};color:#FFFFFF;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;padding:0 14px;text-align:left;font-family:Inter,sans-serif">
+              <span style="font-size:14px;font-weight:600;color:{{ n.fg }}">{{ n.name }}</span>
+              <span style="font:400 11px 'IBM Plex Mono',monospace;color:{{ n.sub }}">{{ n.tag }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:28px;border-top:1px solid rgba(255,255,255,0.14);padding-top:28px">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:22px;font-weight:700;letter-spacing:-0.02em">{{ node.name }}</span>
+            <span style="font-size:11px;font-weight:500;border-radius:999px;padding:3px 10px;background:{{ node.chipBg }};color:{{ node.chipFg }}">{{ node.status }}</span>
+          </div>
+          <p style="margin:0;font-size:15px;line-height:1.65;color:rgba(255,255,255,0.78);text-wrap:pretty">{{ node.body }}</p>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <sc-for list="{{ node.stack }}" as="t" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.10);align-items:baseline">
+              <span style="font-size:12px;color:rgba(255,255,255,0.72)">{{ t.k }}</span>
+              <span style="font:400 13px/1.5 'IBM Plex Mono',monospace;color:#FFF6EC">{{ t.v }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:rgba(255,255,255,0.78);border-top:1px solid rgba(255,255,255,0.14);padding-top:20px">
+        <span style="display:flex;align-items:center;gap:8px"><span style="width:24px;border-top:1.5px solid rgba(255,255,255,0.5)"></span>live</span>
+        <span style="display:flex;align-items:center;gap:8px"><span style="width:24px;border-top:1.5px dashed rgba(255,255,255,0.5)"></span>next</span>
+        <span style="display:flex;align-items:center;gap:8px"><span style="width:24px;border-top:1.5px dotted rgba(255,255,255,0.5)"></span>research</span>
+        <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;color:rgba(255,255,255,0.72)">ruff · mypy strict · pytest · 7 pre-commit gates</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="about" data-screen-label="06 About the channel" style="max-width:1200px;width:100%;box-sizing:border-box;margin:0 auto;padding:104px 32px;scroll-margin-top:72px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:48px;align-items:start">
+    <div style="width:200px;height:240px;border-radius:16px;overflow:hidden;background:#F1F3F6">
+      <img src="photo-author.jpg" alt="Thy, author of the @thydilammuon Threads channel" style="width:100%;height:100%;object-fit:cover;object-position:50% 30%;display:block">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px;max-width:760px">
+      <span style="font:500 13px 'IBM Plex Mono',monospace;color:#B45309">05 · About the channel</span>
+      <h2 style="margin:0;font-size:clamp(28px,3vw,38px);line-height:1.1;font-weight:800;letter-spacing:-0.03em">Thy · @thydilammuon</h2>
+      <p style="margin:0;font-size:16px;line-height:1.7;color:#4B5563;text-wrap:pretty">Thy is a Vietnamese creator living and working in France. She writes on Threads about alternance, job hunting and everyday life as an expat. Unthreaded started as a way to understand her own channel from its real posts, and grew into the statistics and NLP case study on this site.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <sc-for list="{{ clusterChips }}" as="c" hint-placeholder-count="9">
+          <span style="display:flex;gap:8px;align-items:baseline;background:#FFFFFF;border:1px solid rgba(17,24,39,0.10);border-radius:999px;padding:6px 12px;font-size:13px;color:#111827">{{ c.name }}<span style="font:400 12px 'IBM Plex Mono',monospace;color:#6B7280">{{ c.n }}</span></span>
+        </sc-for>
+      </div>
+      <span style="font:400 12.5px/1.7 'IBM Plex Mono',monospace;color:#6B7280">150 root posts · 1,369 author replies · snapshots every 4h · topics as clustered, 52 posts unclustered</span>
+    </div>
+  </section>
+
+  <section data-screen-label="07 Final CTA" style="padding:0 32px 32px">
+    <div style="max-width:1136px;margin:0 auto;background:#111827;color:#FFFFFF;border-radius:20px;padding:80px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:24px">
+      <img src="../public/brand/unthreaded-mark.svg" alt="" style="height:52px;width:auto;display:block">
+      <h2 style="margin:0;font-size:clamp(32px,4vw,52px);line-height:1.05;font-weight:800;letter-spacing:-0.035em;max-width:760px;text-wrap:balance">See every post against its own channel.</h2>
+      <p style="margin:0;max-width:600px;font-size:16px;line-height:1.6;color:rgba(255,255,255,0.78);text-wrap:pretty">The dashboard runs on the same snapshot as this page. The methodology lists every formula and decision. The repo has the code.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+        <a href="#" style="background:#F59E0B;color:#111827;font-size:15px;font-weight:700;border-radius:999px;padding:0 22px;height:48px;display:flex;align-items:center">View live dashboard</a>
+        <a href="#" style="background:transparent;color:#FFFFFF;border:1px solid rgba(255,255,255,0.28);font-size:15px;font-weight:500;border-radius:999px;padding:0 22px;height:48px;display:flex;align-items:center">Read the methodology</a>
+        <a href="#" style="background:transparent;color:#FFFFFF;border:1px solid rgba(255,255,255,0.28);font-size:15px;font-weight:500;border-radius:999px;padding:0 22px;height:48px;display:flex;align-items:center">View the repo</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer style="border-top:1px solid #E4E8ED;background:#FFFFFF">
+  <div style="max-width:1200px;margin:0 auto;padding:28px 32px;display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <img src="../public/brand/unthreaded-lockup.svg" alt="Unthreaded" style="height:24px;width:auto;display:block">
+      <span style="font-size:13px;color:#4B5563">The algorithm, read back to you.</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;text-align:right">
+      <span style="font-size:12.5px;color:#4B5563">Not affiliated with Meta. Threads is a trademark of Meta Platforms, Inc.</span>
+      <span style="font:400 12px 'IBM Plex Mono',monospace;color:#6B7280">snapshot 2026-10-01</span>
+    </div>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;fadeSmallN&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Product proof&quot;},&quot;animatedLogo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Hero&quot;}}">
+class Component extends DCLogic {
+  state = { set: 'channel', hover: null, sel: 'cluster_7', node: 'cluster', heroM: false, proofM: false, nlpM: false };
+
+  static CH = [0.41,0.48,0.69,0.73,0.77,0.78,0.79,0.82,0.83,0.87,0.88,0.92,0.99,1.03,1.07,1.1,1.14,1.15,1.15,1.17,1.19,1.2,1.21,1.23,1.25,1.27,1.27,1.29,1.29,1.29,1.29,1.38,1.39,1.4,1.41,1.41,1.42,1.44,1.46,1.47,1.48,1.49,1.53,1.54,1.55,1.55,1.56,1.59,1.61,1.62,1.64,1.64,1.68,1.68,1.69,1.71,1.72,1.73,1.74,1.74,1.77,1.78,1.79,1.81,1.82,1.86,1.87,1.89,1.92,1.93,1.94,1.98,2,2,2.01,2.03,2.04,2.06,2.07,2.08,2.08,2.09,2.1,2.11,2.12,2.12,2.14,2.14,2.15,2.16,2.17,2.19,2.21,2.23,2.25,2.29,2.3,2.35,2.37,2.39,2.4,2.42,2.45,2.45,2.45,2.46,2.5,2.54,2.54,2.55,2.59,2.61,2.65,2.66,2.69,2.7,2.71,2.73,2.75,2.78,2.85,2.88,2.89,2.89,2.91,2.97,3.03,3.05,3.22,3.24,3.24,3.53,3.57,3.65,3.77,3.8,3.93,3.93,4.13,4.38,4.41,4.65,4.95,5.38];
+  static TP = [1.15,1.29,1.72,2.1,2.39,2.42,2.45,2.54,2.78,2.88,3.22,3.57,3.93];
+
+  static TOPICS = [
+    { id: 'cluster_7', k: 7, name: 'Studying and Living in France', med: 2.45, q1: 2.10, q3: 2.88, d: 0.36, p: 0.32, v: [1.15,1.29,1.72,2.1,2.39,2.42,2.45,2.54,2.78,2.88,3.22,3.57,3.93],
+      kw: ['học','việc','anh','thời','tiếng pháp','thuê','bài','điều'],
+      reps: [['Nhân dịp vừa tròn 30 tuổi, mình viết một bài vui vui về 8 kinh nghiệm cá nhân tích lũy được sau 8 năm sống và…', 0.888], ['Có 1 điều mình khá thích ở thời đại này, đó là gap infos được thu ngắn lại rất nhiều.', 0.857], ['Mình viết bài này có thể sẽ phật ý, mất lòng một số trung tâm, mentor hay content creator đang đẩy mạnh du học…', 0.847]] },
+    { id: 'cluster_6', k: 6, name: 'Master Admissions & Data Careers in France', med: 2.21, q1: 1.75, q3: 2.45, d: 0.15, p: 1, v: [0.88,1.64,1.68,1.77,2.03,2.17,2.25,2.29,2.45,2.45,2.66,3.24],
+      kw: ['master','ngành','quan','licence','học','tại pháp','infos','data'],
+      reps: [['Hôm qua, mình có đọc và trả lời cho 1 bạn trên UEVF về apply Mon Master - Data science, Actuariat tại Pháp.', 0.880], ['APPLY MASTER TẠI PHÁP NHẤT ĐỊNH PHẢI CÓ KỸ NĂNG ĐỌC ADMISSION', 0.872], ['1 trong những câu mình thường xuyên nhận được là: Muốn học Finance, muốn làm banking, etc. ở Pháp, nhưng…', 0.863]] },
+    { id: 'cluster_0', k: 0, name: 'Flea Markets & Thrifting in France', med: 2.14, q1: 1.53, q3: 2.75, d: 0.14, p: 1, v: [0.78,1.38,1.47,1.53,1.69,2.06,2.14,2.16,2.55,2.75,3.24,3.53,3.8],
+      kw: ['chợ','brocante','khu','mai','đồ cũ','bán','chơi','tui'],
+      reps: [['CẤP BÁO: 01/05 bạn chưa biết đi đâu chơi gì trong Île-de-France, thì mai là ngày đồng loạt xuất hiện rất nhiều…', 0.872], ['Hiuhiu đang đi brocante (chợ đồ cũ) nhưng tôi phải móc đt ra chụp ngay.', 0.870], ['Ui đang đi mua trà sữa ở Versailles, con mắt tui đã lướt qua chỗ bán đồ cổ (antiquités) siêu xinh này.', 0.836]] },
+    { id: 'cluster_8', k: 8, name: 'Life as a Vietnamese in France', med: 1.90, q1: 1.27, q3: 2.25, d: -0.08, p: 1, v: [1.2,1.21,1.29,1.79,2,2.11,2.69,3.03],
+      kw: ['tui','ko','học','mặt','việc','đi làm','chuyện','người pháp'],
+      reps: [['Trong suốt 5 năm đầu ở Pháp, mình chẳng có bạn kiểu rất thân thiết, trò chuyện, chia sẻ được nhiều.', 0.855], ['Hôm nay ở vườn Luxembourg, tui bị một thanh niên lại kiếm chuyện vì cái chỗ ngồi và gương mặt châu Á.', 0.852], ['Mới xem được video của bạn Ly Biết Tuốt, bị bắt nạt với lí do chụp ảnh nơi công cộng…', 0.831]] },
+    { id: 'cluster_1', k: 1, name: 'Shopping Deals in France', med: 1.85, q1: 1.39, q3: 2.30, d: -0.13, p: 1, v: [0.48,0.79,1.27,1.39,1.41,1.54,1.73,1.98,2.01,2.08,2.37,2.46,2.97,3.65],
+      kw: ['tớ','mua','bánh','chợ','giá','hổng','thị','rẻ'],
+      reps: [['Tại sao dâu Tây Ban Nha bán ở Pháp lại rẻ dữ vậy luôn á?! Đợt này đang tới mùa chỉ có 3.99€/kg.', 0.846], ['Có ai hay mua đồ của hiệu Yves Rocher ở Pháp hãy khai sáng giúp toi hộ là họ làm ăn, có lợi nhuận kiểu gì nhỉ?', 0.823], ['Mấy siêu thị - chợ ở Pháp dạo này làm tôi phải há hốc mồm "ồ quao".', 0.809]] },
+    { id: 'cluster_5', k: 5, name: 'Data Science Alternance in France', med: 1.81, q1: 1.43, q3: 2.11, d: -0.17, p: 1, v: [0.73,1.41,1.42,1.48,1.68,1.94,2.09,2.12,2.19,2.59],
+      kw: ['alternance','học','chia sẻ','các em','data','phỏng vấn','việc','infos'],
+      reps: [['POV: Một ngày làm Data Scientist alternance tại tập đoàn ngân hàng lớn thứ hai tại Pháp - Groupe BPCE', 0.889], ['Trước đến giờ, mình viết rất nhiều bài chia sẻ hành trình học tập của mình ở Pháp, nhưng chưa có bài nào…', 0.867], ['Đang mùa apply Alternance cao điểm ở Pháp, mình sẽ cố gắng có thêm nhiều content / kiến thức để các em du học…', 0.865]] },
+    { id: 'cluster_3', k: 3, name: 'Vietnamese Food Culture in France', med: 1.74, q1: 1.56, q3: 2.08, d: -0.17, p: 1, v: [1.19,1.49,1.56,1.62,1.74,1.82,2.08,2.12,2.4],
+      kw: ['ăn','sữa','croissant','món','bánh','dừa','hỏi','toi'],
+      reps: [['Có lần, đồng nghiệp hỏi: Nếu 1 ngày mày rời khỏi Pháp, món ăn nào ở đây mày sẽ nhớ nhất?', 0.858], ['Dành cho mấy ní ở Pháp mà bí ý tưởng chiêu đãi đồ ăn với đồng nghiệp, bạn bè, thầy cô người Pháp, pot de départ…', 0.839], ['Là một người đã đem bánh bò cho đồng nghiệp Pháp ăn, mình xác nhận mọi người ai cũng nhận xét sao texture…', 0.821]] },
+    { id: 'cluster_2', k: 2, name: 'Paris Food & Drink Recommendations', med: 1.66, q1: 1.39, q3: 1.79, d: -0.38, p: 1, v: [0.92,1.55,1.78,1.81],
+      kw: ['matcha','mùi','béo','thơm','siêu thị','nguyên','sữa','uber eats'],
+      reps: [['Các bạn iu ở Pháp, tớ đã fomo hộ các bạn 2 món rần rần này đây.', 0.888], ['Các fans matcha ở Paris xin hãy rất lưu ý combo này giùm mình:', 0.834], ['Mấy con trà sữa chiến khác, người ta lên bài hết rồi. Nên tui lên cho anh em đồng môn gu trà sữa THƠM NỨC ở PA…', 0.829]] },
+    { id: 'cluster_4', k: 4, name: 'France Study Abroad Policy Updates', med: 1.44, q1: 1.27, q3: 1.89, d: -0.36, p: 0.58, v: [1.03,1.25,1.27,1.29,1.44,1.64,1.89,1.93,2.65],
+      kw: ['học phí','eu','trường','miễn','giảm','thay','nóng','sinh viên'],
+      reps: [['Université Paris 1 - Panthéon Sorbonne vừa quyết định áp dụng mức học phí mới cho một phần sinh viên ngoài EU:', 0.886], ['Tin rất không vui - Nổi tiếng với chi phí rẻ, nhưng du học Pháp sắp không còn câu chuyện "được trường miễn giảm"…', 0.869], ['Như các bạn đã biết về thông tin du học sinh ngoài EU tại Pháp sắp có thay đổi lớn về học phí từ năm 2026…', 0.863]] },
+  ];
+  static NOISE = { q1: 1.28, q3: 2.76, med: 2.05, v: [0.41,0.69,0.77,0.82,0.83,0.87,0.99,1.07,1.1,1.14,1.15,1.17,1.23,1.29,1.4,1.46,1.55,1.59,1.61,1.71,1.74,1.86,1.87,1.92,2,2.04,2.07,2.14,2.15,2.21,2.23,2.3,2.35,2.5,2.54,2.61,2.7,2.71,2.73,2.85,2.89,2.89,2.91,3.05,3.77,3.93,4.13,4.38,4.41,4.65,4.95,5.38] };
+  // UMAP dims 1–2 normalised 0–100, cluster int (-1 = noise); run 2026-10-01 seed 42
+  static PTS = [[2,54.6,6],[69.4,9.5,2],[32.2,60.9,7],[62.8,20.8,3],[25.7,54.6,7],[89.3,45.2,1],[13.7,62.2,-1],[72.3,20.6,2],[28.7,52.9,7],[99.3,86.2,0],[41.7,23,-1],[33.3,61.1,-1],[37.3,46.3,8],[42.5,60.8,-1],[30.1,53.7,7],[68.9,5.8,3],[4.4,52,6],[70.2,19.9,-1],[67,24.1,-1],[15,31.1,4],[5,37.2,6],[47,32.3,-1],[64.5,0,-1],[81.1,40.1,-1],[14,31.6,4],[15.5,25.1,4],[65.4,7.8,3],[35.4,33.2,8],[88.1,63.1,1],[71.3,22.7,2],[41,32.7,-1],[40.1,38.2,8],[93.6,73.8,0],[14.8,33.9,4],[61.4,9.5,3],[19.8,62,-1],[87.4,42.2,1],[100,87.1,0],[2.7,46,6],[89.2,46,1],[38.3,30.2,-1],[96.7,82.3,0],[6.2,31.8,6],[88.8,57.8,1],[63.4,15.9,3],[85.7,66,1],[43.8,47.9,-1],[36,35.1,7],[97.1,83.7,0],[80,34.9,-1],[92,65.9,1],[88.3,46.7,1],[99.2,89.7,0],[3.1,28.8,-1],[0,39.5,5],[94.7,77.3,0],[68.5,2.8,3],[15.3,35.9,4],[27.9,46.5,7],[98.9,87.6,0],[19.5,61,-1],[2,60,6],[34.2,42.5,8],[98.5,90.4,0],[3.2,30.3,5],[81.7,55.4,-1],[1.1,43.3,5],[85.8,80.3,1],[19.1,53,-1],[19.7,65.3,-1],[84.7,74.9,1],[83.7,58.5,1],[0.2,51.5,-1],[70.1,24.2,-1],[41.1,22.6,-1],[1.7,45.7,5],[24.4,36.4,-1],[21,40.8,-1],[1.2,45.1,6],[4.4,45.9,6],[83.5,76.1,1],[3.9,38.1,-1],[3.4,64.7,-1],[89.7,70.7,1],[8.1,44.1,-1],[7.4,39.7,6],[74.4,31.4,-1],[3.2,30.8,5],[30.1,35,-1],[9.3,64.3,-1],[5.2,32.3,6],[60.9,22.9,-1],[41.6,31.4,-1],[72.3,20.5,2],[6.9,27.9,-1],[11.8,29.4,4],[7.4,29.3,5],[34.1,42.1,8],[7.8,34.9,-1],[53.4,34.5,-1],[58.8,26,-1],[18.5,54.9,-1],[32.1,57.8,-1],[45.8,60.6,-1],[45.2,62.3,-1],[39.9,44.9,8],[20.9,70.6,-1],[2.9,45.3,5],[31.2,42.5,7],[97.9,95.7,0],[65.4,4.5,3],[98.9,100,0],[28.3,66.2,7],[64.7,23.9,-1],[51.4,30.8,-1],[14,42.1,4],[83.9,40.1,1],[93.8,86.9,0],[2.2,60.7,6],[94.4,78.5,-1],[7.5,61.9,-1],[95.1,80.2,0],[2.1,38.8,5],[32,69.3,-1],[37.7,57.3,-1],[26.4,75.1,-1],[14.6,49.9,4],[4.5,35.3,5],[64.5,7.4,3],[36.8,38.1,8],[35.4,37.6,7],[41.2,52.9,8],[16.3,57.9,4],[5.1,38.2,6],[25.5,63.3,7],[23.6,72.3,-1],[23,74.1,-1],[33.4,46.7,7],[31.3,44.1,7],[61.5,14.6,3],[47.5,63.7,-1],[66.7,18.9,-1],[28.3,65.3,7],[1.5,42.4,5]];
+  // CMI tertiles (n = 48 each), engagement %
+  static CMI = [
+    { name: 'Low mixing', range: '2.9–11.2', med: 1.97, q1: 1.22, q3: 2.70, test: 'ref' },
+    { name: 'Mid mixing', range: '11.3–16.6', med: 2.17, q1: 1.53, q3: 2.67, test: 'δ +0.13 · 0.52' },
+    { name: 'High mixing', range: '16.7–51.0', med: 1.77, q1: 1.46, q3: 2.15, test: 'δ −0.07 · 0.53' },
+  ];
+  static CMIV = [[0.87,2.4,1.41,1.1,1.61,2.89,0.82,1.03,1.23,1.15,2.71,0.92,0.83,1.49,0.73,1.44,2.42,2,5.38,1.19,1.74,0.41,1.4,2.12,3.93,3.22,1.93,3.57,2.45,2.15,2.69,1.82,0.79,2.11,0.99,4.38,2.88,2.14,1.86,2.7,2.3,2.91,1.79,2.04,2.75,1.64,2.97,3.65],[2.46,1.2,1.25,2.45,1.15,3.24,2.01,3.77,2,1.42,1.56,2.59,1.29,1.29,3.05,1.73,1.68,2.37,3.24,2.29,2.89,1.14,3.53,1.72,2.19,2.35,2.54,3.03,1.55,1.87,2.21,0.88,1.46,4.95,2.85,4.13,2.08,2.12,2.1,2.73,2.45,0.77,1.07,2.16,1.48,2.39,2.65,3.93],[1.29,1.78,2.5,2.25,1.89,1.62,1.77,1.39,1.54,1.41,2.54,2.23,4.41,2.55,2.14,0.48,0.78,1.98,1.74,1.38,2.61,1.69,1.64,1.21,2.08,2.06,2.03,1.29,1.53,1.55,0.69,3.8,1.47,2.66,1.27,4.65,1.94,2.17,2.78,2.09,1.59,1.68,1.17,2.07,1.81,1.92,1.71,1.27]];
+
+  static NODES = [
+    { id: 'threads', name: 'Threads Graph API', tag: 'external', x: 0, y: 32, w: 170, h: 100, status: 'live', ext: true,
+      body: 'The only data source. Posts, replies, per-post insights and daily account views are read through the official API with a long-lived token.',
+      stack: [['endpoints', 'threads · replies · conversation · insights'], ['metrics', 'views · likes · replies · reposts · quotes']], edges: ['e1'] },
+    { id: 'collect', name: 'Collect', tag: 'ingest.py', x: 230, y: 32, w: 200, h: 100, status: 'live',
+      body: 'Every 4 hours a headless job pulls new posts and fresh insight snapshots. Reply roles are rebuilt from the replied_to graph, never from timestamps, and each post gets a clean full_text.',
+      stack: [['client', 'httpx (async) · pydantic v2'], ['schedule', 'Task Scheduler + pythonw'], ['roles', '353 self_continuation · 674 author_answer · 342 outbound']], edges: ['e1', 'e2'] },
+    { id: 'store', name: 'SQLite', tag: 'data/threads.db', x: 490, y: 32, w: 190, h: 100, status: 'live',
+      body: 'One file holds posts, content units, insight snapshots over time, embeddings and every clustering run with its parameters and scores. It is the only database.',
+      stack: [['tables', 'posts · content_units · insights_snapshots'], ['', 'embeddings · topics · cluster_runs']], edges: ['e2', 'e3', 'e5', 'e8', 'e10'] },
+    { id: 'api', name: 'API', tag: 'FastAPI', x: 740, y: 32, w: 170, h: 100, status: 'live',
+      body: 'Read-only. Serves posts, insights, topics and channel statistics from what the jobs stored. Posts with no recorded views are excluded and counted. Per-topic comparisons are next.',
+      stack: [['server', 'FastAPI + uvicorn'], ['statistics', 'median/IQR live · Mann-Whitney U + Cliff\'s δ + bootstrap CI in src/analysis · Holm next']], edges: ['e3', 'e4'] },
+    { id: 'web', name: 'Dashboard · Landing', tag: 'Next.js 16', x: 966, y: 32, w: 170, h: 100, status: 'live',
+      body: 'The dashboard and this page. Charts are hand-built SVG; the topic map uses Plotly.',
+      stack: [['framework', 'Next.js 16 · Tailwind v4'], ['charts', 'SVG · Plotly'], ['icons', 'Phosphor']], edges: ['e4', 'e11'] },
+    { id: 'embed', name: 'Embed', tag: 'bge-m3', x: 230, y: 316, w: 140, h: 94, status: 'live',
+      body: 'Each full_text is embedded once and re-embedded only when its content hash changes. Language detection and the Code-Mixing Index run in the same step.',
+      stack: [['model', 'BAAI/bge-m3 · 1024D'], ['language', 'lingua-py + Code-Mixing Index']], edges: ['e5', 'e6', 'e12'] },
+    { id: 'cluster', name: 'Cluster', tag: 'UMAP + HDBSCAN', x: 390, y: 316, w: 140, h: 94, status: 'live',
+      body: 'Embeddings are reduced to 3 dimensions and clustered by density. Posts that fit no cluster stay labelled as noise instead of being forced into one.',
+      stack: [['reduce', 'UMAP 3D · n_neighbors 8 · seed 42'], ['cluster', 'HDBSCAN leaf · min_cluster_size 4'], ['result', '9 clusters · noise 36.1% · validity_index 0.317']], edges: ['e6', 'e7'] },
+    { id: 'name', name: 'Name', tag: 'topic_profile.py · topics.py', x: 550, y: 316, w: 140, h: 94, status: 'live',
+      body: 'For each cluster, the 3 posts nearest the centre and the c-TF-IDF keywords are sent to Claude, which returns a short English name and description. It does not classify or embed.',
+      stack: [['keywords', 'c-TF-IDF'], ['naming', 'Claude API'], ['output', 'topics · post_topic_labels.centroid_similarity']], edges: ['e7', 'e8', 'e9'] },
+    { id: 'claude', name: 'Claude API', tag: 'external', x: 740, y: 316, w: 170, h: 94, status: 'live', ext: true,
+      body: 'Called once per cluster, with that cluster\'s representative posts and keywords.',
+      stack: [['used for', 'cluster names and descriptions only']], edges: ['e9'] },
+    { id: 'kb', name: 'Knowledge base', tag: 'src/kb/', x: 966, y: 312, w: 170, h: 98, status: 'next', dashed: true,
+      body: 'Posts and author answers as one searchable index: keyword and dense retrieval fused, then reranked. Scored on real follower questions before a chatbot is allowed on top.',
+      stack: [['retrieval', 'SQLite FTS5 (BM25) + dense numpy + RRF'], ['rerank', 'bge-reranker-v2-m3'], ['gate', 'recall@10 ≥ 0.80 · nDCG@10 ≥ 0.60']], edges: ['e10', 'e11'] },
+    { id: 'clf', name: 'Classifier', tag: 'RQ-08', x: 740, y: 444, w: 170, h: 56, status: 'research', dotted: true,
+      body: 'Whether 6 fixed labels can be learned from the embeddings. A research question with its own hand-labelled set, not a product component.',
+      stack: [['plan', 'baseline ladder → SVM-RBF · nested CV · Cohen\'s κ']], edges: ['e12'] },
+  ];
+
+  constructor(p) {
+    super(p);
+    this.XMAX = 5.6;
+    this.swarms = { channel: this.swarm(Component.CH), topic: this.swarm(Component.TP) };
+    this.rowDots = {};
+    for (const t of Component.TOPICS) this.rowDots[t.id] = this.rowSwarm(t.v, 20, 5);
+    this.rowDots.noise = this.rowSwarm(Component.NOISE.v, 22, 5);
+    this.cmiDots = Component.CMIV.map(v => this.rowSwarm(v, 19, 4.5));
+    this.mini = this.rowSwarm(Component.CH, 15, 3.4, 300, 4.2);
+  }
+
+  swarm(vals) {
+    const W = 1136, d = 9, cy = 112, placed = [];
+    for (const v of vals) {
+      const x = v / this.XMAX * W;
+      for (let k = 0; k < 40; k++) {
+        const y = cy + (k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * d);
+        if (placed.every(p => (p.x - x) ** 2 + (p.y - y) ** 2 >= d * d)) { placed.push({ x, y, v }); break; }
+      }
+    }
+    const i = placed.findIndex(p => p.v === 3.22);
+    return { dots: placed.filter((_, j) => j !== i).map(p => ({ x: (p.x / W * 100) + '%', y: p.y + 'px' })), hero: placed[i], W };
+  }
+
+  rowSwarm(vals, cy, step, W = 700, d = 6.5) {
+    const placed = [];
+    for (const v of vals) {
+      const x = v / this.XMAX * W; let y = cy;
+      for (let k = 0; k < 9; k++) {
+        const yy = cy + (k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * step);
+        if (placed.every(p => (p.x - x) ** 2 + (p.y - yy) ** 2 >= d * d)) { y = yy; break; }
+      }
+      placed.push({ x, y });
+    }
+    return placed.map(p => ({ x: (p.x / W * 100) + '%', y: p.y + 'px' }));
+  }
+
+  renderVals() {
+    const st = this.state, px = v => (v / this.XMAX * 100) + '%';
+    const on = a => ({ bg: a ? '#111827' : 'transparent', fg: a ? '#FFFFFF' : '#4B5563' });
+    const isCh = st.set === 'channel', S = this.swarms[st.set];
+    const med = isCh ? 1.99 : 2.45, q1 = isCh ? 1.42 : 2.10, q3 = isCh ? 2.54 : 2.88;
+    const ch = on(isCh), tp = on(!isCh);
+    const tog = k => () => this.setState(s => ({ [k]: !s[k] }));
+    const mLabel = k => st[k] ? 'Hide method and limits' : 'Method and limits';
+    const fade = this.props.fadeSmallN ?? true;
+    const T = Component.TOPICS;
+
+    const topics = T.map(t => {
+      const lead = t.id === 'cluster_7', h = st.hover === t.id, small = t.v.length < 10;
+      return {
+        name: t.name, n: t.v.length, dots: this.rowDots[t.id], q1: px(t.q1), iqrW: px(t.q3 - t.q1), medX: px(t.med),
+        med: t.med.toFixed(2) + '%', d: (t.d > 0 ? '+' : '') + t.d.toFixed(2), p: t.p >= 1 ? '1.00' : t.p.toFixed(2),
+        bg: h ? '#FAFAFB' : 'transparent', op: fade && small && !h ? 0.5 : 1,
+        fw: lead ? 600 : 400, fg: lead ? '#B45309' : '#111827',
+        dot: lead ? '#B45309' : h ? '#111827' : '#9AA3AE', medC: lead ? '#B45309' : '#111827', iqrBg: lead ? '#FEF3C7' : '#F1F3F6',
+        enter: () => this.setState({ hover: t.id }), leave: () => this.setState({ hover: null }),
+      };
+    });
+    const hv = T.find(t => t.id === st.hover);
+    const N = Component.NOISE;
+
+    const sel = T.find(t => t.id === st.sel);
+    const mapPts = Component.PTS.map(([x, y, c]) => {
+      const isSel = c === sel.k, noise = c < 0;
+      return { x: (3 + x * 0.94) + '%', y: (3 + (100 - y) * 0.94) + '%', s: isSel ? '10px' : '7px', z: isSel ? 2 : 1,
+        bg: isSel ? '#B45309' : noise ? 'transparent' : '#9AA3AE', bd: noise && !isSel ? '1.5px solid #9AA3AE' : '0' };
+    });
+    const maxN = 14;
+    const clusterList = [...T].sort((a, b) => b.v.length - a.v.length).map(t => {
+      const a = t.id === st.sel;
+      return { name: t.name, n: t.v.length, w: (t.v.length / maxN * 100) + '%', on: a, bg: a ? '#FEF3C7' : 'transparent',
+        fg: a ? '#92400E' : '#111827', fw: a ? 600 : 400, bar: a ? '#B45309' : '#9AA3AE', pick: () => this.setState({ sel: t.id }) };
+    });
+    const miniMap = Component.PTS.map(([x, y, c]) => ({ x: (2 + x * 0.96) + '%', y: (2 + (100 - y) * 0.26) + 'px', s: c === 7 ? '5px' : '3px', c: c === 7 ? '#B45309' : c < 0 ? '#E4E8ED' : '#CBD2DA' }));
+
+    const ari = [
+      { label: 'Rerun, same data and seed', v: '1.00', w: '100%' },
+      { label: 'vs previous run, posts clustered in both', v: '0.78', w: '78%' },
+      { label: 'vs previous run, noise included', v: '0.22', w: '22%' },
+      { label: 'Across 10 seeds · RQ-01', v: '—', w: '0%', research: true },
+    ].map(a => ({ ...a, fg: a.research ? '#6B7280' : '#111827', track: a.research ? 'transparent' : '#F1F3F6', bd: a.research ? '1px dashed #CBD2DA' : '0' }));
+    const cmi = Component.CMI.map((g, i) => ({ ...g, med: g.med.toFixed(2) + '%', q1: px(g.q1), iqrW: px(g.q3 - g.q1), medX: px(g.med), dots: this.cmiDots[i] }));
+
+    const ecol = {}, emk = {};
+    const nd = Component.NODES.find(n => n.id === st.node);
+    for (let i = 1; i <= 12; i++) { const e = 'e' + i, a = nd.edges.includes(e); ecol[e] = a ? '#F59E0B' : 'rgba(255,255,255,0.32)'; emk[e] = a ? 'url(#aa)' : 'url(#ah)'; }
+    const nodes = Component.NODES.map(n => {
+      const a = n.id === st.node;
+      const bd = a ? '1.5px solid #F59E0B' : n.dashed ? '1.5px dashed rgba(255,255,255,0.38)' : n.dotted ? '1.5px dotted rgba(255,255,255,0.38)' : n.ext ? '1px solid rgba(255,255,255,0.22)' : '1px solid rgba(255,255,255,0.14)';
+      return { ...n, x: n.x + 'px', y: n.y + 'px', w: n.w + 'px', h: n.h + 'px', on: a, bd,
+        bg: a ? 'rgba(245,158,11,0.14)' : n.ext ? 'transparent' : 'rgba(255,255,255,0.06)',
+        fg: n.dashed || n.dotted ? 'rgba(255,255,255,0.78)' : '#FFFFFF', sub: a ? '#F59E0B' : 'rgba(255,255,255,0.72)',
+        pick: () => this.setState({ node: n.id }) };
+    });
+    const chip = { live: ['rgba(245,158,11,0.18)', '#FDE68A'], next: ['rgba(255,255,255,0.10)', '#FFFFFF'], research: ['rgba(255,255,255,0.10)', '#FFFFFF'] }[nd.status];
+
+    return {
+      animatedLogo: this.props.animatedLogo ?? true, staticLogo: !(this.props.animatedLogo ?? true),
+      isChannel: isCh, isTopic: !isCh, chBg: ch.bg, chFg: ch.fg, tpBg: tp.bg, tpFg: tp.fg,
+      setChannel: () => this.setState({ set: 'channel' }), setTopic: () => this.setState({ set: 'topic' }),
+      answer: isCh ? 'Yes. At 3.22% it is above 128 of the channel\'s 144 measurable posts.' : 'Above its topic\'s median too, but 13 posts is a small sample.',
+      dots: S.dots, dotOpacity: isCh ? 1 : 0.5,
+      hx: (S.hero.x / S.W * 100) + '%', hy: S.hero.y + 'px', calloutTop: (S.hero.y - 52) + 'px',
+      rankLabel: isCh ? 'higher than 128 of 144' : 'higher than 10 of 13',
+      medLeft: px(med), medLabel: med.toFixed(2) + '%', iqrLeft: px(q1), iqrWidth: px(q3 - q1), iqrLabel: q1.toFixed(2) + '–' + q3.toFixed(2) + '%',
+      ticks: [0, 1, 2, 3, 4, 5].map(t => ({ x: px(t), label: t + '%' })),
+      footNote: isCh ? '6 excluded: no views recorded' : 'Studying and Living in France · cluster_7 · n = 13, read as indicative',
+      heroM: st.heroM, proofM: st.proofM, nlpM: st.nlpM,
+      toggleHeroM: tog('heroM'), toggleProofM: tog('proofM'), toggleNlpM: tog('nlpM'),
+      heroMLabel: mLabel('heroM'), proofMLabel: mLabel('proofM'), nlpMLabel: mLabel('nlpM'),
+
+      miniStrip: this.mini, miniMap,
+
+      topics, pTicks: [0, 1, 2, 3, 4, 5].map(t => ({ x: px(t), label: t + '%' })), chMedX: px(1.99),
+      noise: { dots: this.rowDots.noise, q1: px(N.q1), iqrW: px(N.q3 - N.q1), medX: px(N.med) },
+      readNote: hv
+        ? `${hv.name}: median ${hv.med.toFixed(2)}%, IQR ${hv.q1.toFixed(2)}–${hv.q3.toFixed(2)}%, n = ${hv.v.length}. Cliff's δ ${hv.d.toFixed(2)} against the rest of the channel.`
+        : 'Studying and Living in France has the highest median, 2.45% (δ 0.36). Its raw p of 0.035 becomes 0.32 after Holm correction across the 9 topics.',
+
+      mapPts, clusterList,
+      sel: { name: sel.name, id: sel.id, n: sel.v.length, med: sel.med.toFixed(2) + '%', kw: sel.kw, reps: sel.reps.map(([t, s]) => ({ t, s: s.toFixed(3) })) },
+      ari, cmi,
+
+      nodes, ec: ecol, em: emk,
+      node: { name: nd.name, status: nd.status, body: nd.body, chipBg: chip[0], chipFg: chip[1], stack: nd.stack.map(([k, v]) => ({ k, v })) },
+      clusterChips: [...T].sort((a, b) => b.v.length - a.v.length).map(t => ({ name: t.name, n: t.v.length })),
+    };
+  }
+}
+</script>
+</body>
+</html>
