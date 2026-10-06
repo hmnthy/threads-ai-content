@@ -39,6 +39,36 @@ Kiểm toán 2026-10-02 — mỗi trường trên UI thuộc 1 trong 3 loại:
 
 Đã sửa trong mockup 2026-10-02: số test 321 (sai — status.md ghi 397; giờ bỏ số), "API computes group comparisons" (sai — chưa có endpoint), mô tả gọi Claude API (`label_cluster_with_claude` — từ ADR-0018 chỉ gọi cho cụm cần đặt lại tên, không phải mọi cụm mỗi lần chạy; xem `docs/design/ui-contract-audit.md`).
 
+## 0.5 Hợp đồng UI — quyết định cấu trúc và id tuân theo (cập nhật 2026-10-06)
+
+Nguồn: `docs/design/ui-contract.md` (ADR-0020). Mỗi quyết định cấu trúc của landing ghi id hợp đồng mà nó tuân theo. Khi port, mọi chỗ dưới đây là ràng buộc, không phải gợi ý.
+
+| Quyết định trong mockup | Vị trí | id |
+|---|---|---|
+| Mọi CTA "View live dashboard" trỏ `/overview`; navbar riêng của landing, không tab | nav, hero, CTA | UI-L20260903-landing-vs-app-routes |
+| Khoá state, dữ liệu topic và điểm bản đồ đều theo `topic_N` (điểm bản đồ: `ContentUnitOut.topic.topic_id`, null = nhiễu); không còn số HDBSCAN `k` | logic `TOPICS`, `PTS`, `sel` | UI-0018-id-not-name |
+| Id chỉ hiện dạng mono ở dòng metadata (hồ sơ topic, chú thích hero, `document · full_text · topic_N`) | 3.3, 3.4, hero | UI-0018-id-not-name |
+| "named by Claude" một lần mỗi khối: tiêu đề cột bảng, nhãn danh sách, dưới tên hồ sơ, cạnh tên đứng một mình | 3.3, 3.4, 3.6 | UI-0018-label-provenance |
+| Tên topic, câu trả lời 1 dòng và câu đọc mặc định của panel 1 sinh từ dữ liệu (topic có median cao nhất, `p_holm`), không viết cứng | logic `proofAnswer`, `leadNote` | UI-0018-names-change |
+| Tên dài: danh sách cắt + `title` đủ tên; hồ sơ topic xuống dòng | 3.4 | UI-0018-label-length |
+| Panel 1 gắn pill `next` + câu "Preview…"; không trình bày như số live | 3.4 panel 1 | UI-L20260903-stack-real-status, UI-0001-status-labels |
+| Tầng 01 Measure (live) không nhận việc so sánh nhóm: "Comparing groups with an effect size is next." | 3.3 | UI-L20260903-stack-real-status |
+| "N excluded: no views recorded" hiện ngay ở chân mọi khối phân phối (hero, panel 1, CMI), không giấu trong panel gập | 3.1, 3.4 | UI-0011-excluded |
+| Panel 2 có hai dòng loại riêng, mỗi dòng một mẫu số: "6 of 150 posts have no text to embed" / "6 of 150 excluded: no views recorded" | 3.4 panel 2 | UI-0011-two-exclusions |
+| Câu trả lời panel 2 và tỉ lệ nhiễu ghi mẫu số "of N embedded posts"; nhiễu là hàng/vòng rỗng riêng | 3.4 | UI-0004-noise-basis |
+| Mốc "clustered <run_at>" ở panel 2 và About | 3.4, 3.6 | UI-0017-run-time (giờ Paris kèm nhãn "Paris time" — chốt 2026-10-06) |
+| ARI: chỉ 2 số mà code tạo ra, mỗi nhãn ghi rõ cách tính; bỏ "rerun same seed" và hàng 10 seed (chỉ còn trong chú thích research) | 3.4 | UI-0004-ari-two-ways |
+| Khối "3 posts nearest the centre, for reading" tách khỏi đầu vào Claude ("up to 15 posts nearest the centre, text only") | 3.4, 3.5 node Name/Claude | UI-0004-representatives, UI-0016-label-input |
+| Claude chỉ được gọi cho topic cần đặt (lại) tên; không gửi keywords | 3.5 node Name, Claude | UI-0016-label-input, UI-0018-names-change |
+| Lịch: "daily 12:30 (machine time) · WSL2"; "every 4h while the machine is awake" | 3.5, 3.6 | UI-0017-nlp-schedule, UI-0017-night-gaps |
+| DBCV luôn ghi `validity_index (DBCV)` | 3.4, 3.5 | UI-0004-dbcv-named |
+| Topic n nhỏ: mờ theo cờ `low_n` mỗi topic (mockup giả lập `lowN`), không so `n < 10` ở client | 3.4 panel 1 | UI-L20260903-small-n-flag (cờ backend `insufficient_data`, n < `MIN_N_PER_BUCKET` = 5) |
+| Beeswarm hero xếp lại chấm theo bề rộng thật (≥ 720px), hẹp hơn thì cuộn ngang trong container; About chuyển 1 cột trên màn hẹp | 3.1, 3.6 | UI-L20260829-mobile |
+| Màu: một amber cho topic chọn, xám cho topic khác, vòng rỗng cho nhiễu | 3.3, 3.4 | UI-L20260930-topic-single-accent |
+| Câu miễn trừ Meta nguyên văn ở footer | 3.7 | UI-0009-meta-disclaimer |
+
+Ảnh README cần chụp lại sau khi port: landing (UI-0009-screenshots).
+
 ## 1. Thay đổi so với landing hiện tại (`src/dashboard/src/app/page.tsx`)
 
 | Component hiện có | Việc |
@@ -80,26 +110,26 @@ Lưới 2 cột (`minmax(min(100%,420px),1fr)`, gap 56). Trái: eyebrow, H2, đo
 - Thanh input nền `--dark-bg`, radius 16: trích dòng đầu bài hero + `root + its continuations, rebuilt from the reply graph`.
 - Ba đường dọc 2px `--amber-on-dark` nối xuống tầng 01, 02; tầng 03 nối bằng `--rule` (chưa chạy).
 - Lưới `1fr 64px 1fr 64px 1fr` (cuộn ngang trong container khi < 980px). Thẻ 01 Measure, 02 Group: `border-top 3px #F59E0B`, chip `live`. Thẻ 03 Search: nền `--bg-sunken`, viền dashed, chip `next`.
-- Mỗi thẻ có ô "This post": Measure = strip mini 144 chấm + 3.22% · above 128 of 144 · median 1.99%; Group = mini map, cụm 7 amber + `Studying and Living in France · nearest post to the centre (0.888)`; Search = `document · full_text · topic_7 / indexed with 674 author answers` (id bền `topic_N`, ADR-0018 — mockup còn ghi `cluster_N`, xem audit).
+- Mỗi thẻ có ô "This post": Measure = strip mini 144 chấm + 3.22% · above 128 of 144 · median 1.99%; Group = mini map, topic của bài hero amber + `<tên topic> · named by Claude · nearest post to the centre, similarity 0.888` (tên lấy theo `topic_id` của bài hero); Search = `document · full_text · <topic_id> / indexed with 674 author answers`.
 - Cột nối: `←` amber "topic becomes the comparison group"; `→` muted "text and topic become documents".
 
 ### 3.4 Product proof
-**Panel 1 — Which topics get more engagement than the channel?** Bảng `minmax(150px,240px) 44px 1fr 64px 52px 60px`: tên cụm, n, strip (chấm 6px, IQR band, vạch median 3px), median, Cliff's δ, p Holm. Đường dashed `--text-primary` = median kênh 1.99%. Cụm dẫn đầu chữ amber w600, IQR `--amber-soft`. Cụm n < 10 mờ 50% (hover/focus bỏ mờ). Hàng cuối "Unclustered (HDBSCAN noise)" n 52, chấm rỗng, `not tested`. Hover/focus hàng → ghi chú đổi thành mô tả hàng đó.
+**Panel 1 — Which topics get more engagement than the channel?** Pill `next` cạnh câu hỏi + câu "Preview. Per-topic tests are not in the dashboard yet…" dưới câu trả lời, cho tới khi có endpoint topic stats. Bảng `minmax(150px,240px) 44px 1fr 64px 52px 60px`: tên cụm, n, strip (chấm 6px, IQR band, vạch median 3px), median, Cliff's δ, p Holm. Đường dashed `--text-primary` = median kênh 1.99%. Cụm dẫn đầu chữ amber w600, IQR `--amber-soft`. Cụm có cờ low n mờ 50% (hover/focus bỏ mờ; cờ backend `insufficient_data`, n < 5 — UI-L20260903-small-n-flag). Chân bảng: `6 excluded: no views recorded` luôn hiện. Hàng cuối "Unclustered (HDBSCAN noise)" n 52, chấm rỗng, `not tested`. Hover/focus hàng → ghi chú đổi thành mô tả hàng đó.
 
 **Panel 2 — Do the topics describe real structure in the text?**
 - Bản đồ UMAP (dim 1–2 của 3), tỉ lệ 4:3, nền `--bg-sunken`: chấm xám 7px, nhiễu = vòng rỗng, cụm đang chọn amber 10px. Legend luôn hiện.
 - Danh sách 9 cụm (bar ngang theo n) là bộ chọn chính (design-system §9). Hồ sơ cụm: tên, id · n · median; từ khoá c-TF-IDF (chip `--amber-soft`); 3 bài gần tâm + `centroid_similarity` 3 chữ số.
-- Ổn định (ARI): rerun cùng seed 1.00 · so lần trước, chỉ bài có cụm 0.78 · tính cả nhiễu 0.22 · 10 seed = ô dashed `—` (research, RQ-01).
+- Ổn định (ARI): chỉ 2 hàng — `vs previous run, posts clustered in both runs` (`ari_clustered_only`) và `vs previous run, noise counted as one group` (`ari_vs_previous`). Null → "not computed (fewer than 2 posts to compare)". 10 seed chỉ nằm trong chú thích research RQ-01.
 - CMI vs engagement: chip `research · RQ-04`. **Không port số trong mockup** — hiển thị trạng thái research cho tới khi RQ-04 chạy `compare_groups()` + Holm.
 
 ### 3.5 How it works (dải tối, design-system §2.6)
 - Canvas sơ đồ 1136×500 (cuộn ngang trong container). Node radius 12; tọa độ, nhãn, stack từng node lấy từ `NODES` trong mockup.
-- Hàng trên: Threads Graph API → Collect (`every 4h · Task Scheduler`) → SQLite → API → Dashboard · Landing. Khung dashed `daily 12:30 · WSL2` (ADR-0017; mockup còn ghi giờ cũ — xem audit): Embed → Cluster → Name ↔ Claude API; Name → SQLite (`topics, labels`). Knowledge base (dashed, next), Classifier RQ-08 (dotted, research).
+- Hàng trên: Threads Graph API → Collect (`every 4h · Task Scheduler`) → SQLite → API → Dashboard · Landing. Collect ghi `every 4h while the machine is awake · Task Scheduler`. Khung dashed `daily 12:30 (machine time) · WSL2` (ADR-0017): Embed → Cluster → Name ↔ Claude API; Name → SQLite (`topics, labels`). Knowledge base (dashed, next), Classifier RQ-08 (dotted, research).
 - Bấm node: viền + cạnh liên quan đổi `--amber-on-dark`, panel dưới hiện tên, chip trạng thái, mô tả, bảng stack mono. Mặc định chọn Cluster. Legend live/next/research bằng nét liền/đứt/chấm.
 - Dòng chất lượng: `ruff · mypy strict · pytest 321 tests · 7 pre-commit gates` — lấy số test từ lần chạy thật, đừng hardcode.
 
 ### 3.6 About the channel
-Lưới `200px | 1fr`, gap 48. Ảnh `photo_author` 200×240 radius 16 `object-position 50% 30%`. Bio **vẫn là nháp chờ Thy duyệt** (status.md). Chip 9 cụm kèm n.
+Flex wrap, gap 48: ảnh 200px cố định, chữ `flex 1 1 320px` (màn hẹp xuống 1 cột). Ảnh `photo_author` 200×240 radius 16 `object-position 50% 30%`. Bio **vẫn là nháp chờ Thy duyệt** (status.md). Chip 9 cụm kèm n.
 
 ### 3.7 CTA + footer
 Khối `--dark-bg` radius 20, padding 80/32, mark 52px, H2 52px. Nút chính `--amber-on-dark` chữ `#111827`; 2 nút viền trắng 28%. Link dashboard/methodology/repo **chưa có URL thật** — giữ `#` tới khi deploy. Footer: lockup + tagline; câu miễn trừ Meta (ADR-0009) + `snapshot YYYY-MM-DD`.
