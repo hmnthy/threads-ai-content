@@ -14,6 +14,7 @@ import argparse
 import math
 import sqlite3
 import statistics
+import sys
 from pathlib import Path
 
 from scipy.stats import spearmanr
@@ -24,6 +25,8 @@ from src.analysis.reach import (
     CURVE_FIRST_SNAPSHOT_MAX_DAYS,
     CURVE_SETTLED_MIN_DAYS,
     TIERED_STATUSES,
+    baseline_spans,
+    baseline_start_index,
     time_to_share,
 )
 from src.analysis.significance import ComparisonResult, compare_groups, holm_adjust
@@ -34,6 +37,9 @@ SENSITIVITY_WINDOWS = (10, 20, 30)
 CURVE_CHECK_DAYS = (1, 2, 7, 14)
 SEED = 0  # bootstrap CI của compare_groups — cố định để số in ra lặp lại được
 MIN_POSTS = 3  # dưới mức này không có phân vị / tương quan nào để in
+# Mục "Xem lại khi" của ADR-0012: mốc 20 bài trải dài hơn ~3 tháng thì hiệu chỉnh tăng trưởng yếu
+# đi. Thy chốt giữ 20 bài (2026-10-07) và ghi hạn chế — script đếm số bài bị ảnh hưởng.
+BASELINE_SPAN_REVIEW_DAYS = 90
 
 
 def _num(value: float | None, spec: str) -> str:
@@ -51,6 +57,10 @@ def _fmt_compare(name: str, r: ComparisonResult) -> str:
 
 
 def main() -> None:
+    # Console Windows mặc định cp1252 — in UTF-8 để chữ Việt / ký tự đặc biệt không làm script lỗi;
+    # đặt trước argparse vì `--help` in `__doc__` tiếng Việt
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=DEFAULT_DB_PATH)
     args = parser.parse_args()
@@ -149,6 +159,31 @@ def main() -> None:
         print(
             f"window={window} (min_prior={BASELINE_MIN_PRIOR}): top_20 n={len(alt_top)}, "
             f"overlap with window={BASELINE_WINDOW}: {len(alt_top & top)}/{len(top)}"
+        )
+
+    # Hạn chế đã biết (Thy giữ 20 bài, 2026-10-07): mốc trải nhiều tháng khi kênh đăng thưa,
+    # và các bài đầu kênh chỉ có 10–19 bài trước (mốc neo vào bài đầu tiên)
+    spans = baseline_spans([post.timestamp for post in posts])
+    tiered_spans = [span for i in tiered if (span := spans[i]) is not None]
+    long_span = [
+        i for i in tiered if (span := spans[i]) is not None and span > BASELINE_SPAN_REVIEW_DAYS
+    ]
+    if tiered_spans:
+        print(
+            f"baseline span (up to {BASELINE_WINDOW} prior posts): "
+            f"median {statistics.median(tiered_spans):.0f}d, max {max(tiered_spans):.0f}d; "
+            f"tiered posts with span > {BASELINE_SPAN_REVIEW_DAYS}d: "
+            f"{len(long_span)}/{len(tiered)} "
+            f"(top_20 among them: {sum(1 for i in long_span if tiers.statuses[i] == 'top_20')}, "
+            f"with fewer than {BASELINE_WINDOW} prior posts: "
+            f"{sum(1 for i in long_span if i < BASELINE_WINDOW)})"
+        )
+    if long_span:
+        starts = [posts[baseline_start_index(i)].timestamp.date() for i in long_span]
+        print(
+            f"  those posts were published {posts[long_span[0]].timestamp.date()} to "
+            f"{posts[long_span[-1]].timestamp.date()}; their baselines start "
+            f"{min(starts)} to {max(starts)}"
         )
 
 

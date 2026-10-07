@@ -1,8 +1,11 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from src.analysis.reach import (
     MaturityEstimate,
     assign_reach_tiers,
+    baseline_spans,
     estimate_maturity,
     relative_reach,
     time_to_share,
@@ -101,3 +104,16 @@ def test_estimate_maturity_is_interpolated_p90_over_eligible_curves() -> None:
     estimate = estimate_maturity(curves)
     assert estimate.days == pytest.approx(4.6)
     assert estimate.n_curves == 5
+
+
+def test_baseline_spans_match_the_relative_reach_window() -> None:
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    # 4 bài cách nhau 10 ngày, rồi 2 bài cách 1 ngày; cửa sổ 3 bài, cần ≥ 2 bài trước
+    days = [0, 10, 20, 30, 31, 32]
+    spans = baseline_spans([start + timedelta(days=d) for d in days], window=3, min_prior=2)
+    assert spans[:2] == [None, None]  # chưa có mốc, như relative_reach
+    assert spans[2] == 20.0  # mốc = bài 0..1 → tính từ bài 0
+    assert spans[3] == 30.0  # mốc = bài 0..2
+    assert spans[5] == 12.0  # mốc = bài 2..4 → tính từ bài 2 (ngày 20 → 32)
+    baselines, _ = relative_reach([1, 1, 1, 1, 1, 1], window=3, min_prior=2)
+    assert [b is None for b in baselines] == [s is None for s in spans]

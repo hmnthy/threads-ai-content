@@ -71,6 +71,8 @@ theo reach tương đối trùng 20/27 bài với top 20% theo views thô.
   tầng + hiệu chỉnh Holm, nhóm so sánh.
 - **Xem lại khi**: `n_curves` ≥ 30 (mốc chín ổn định hơn — xem lại 2 mốc đủ điều kiện); hoặc kênh đổi nhịp đăng khiến
   20 bài trải dài hơn ~3 tháng; hoặc độ nhạy 10/30 bài trùng dưới 2/3 top 20%.
+  - 2026-10-07: điều kiện "20 bài trải dài hơn ~3 tháng" đã chạm với 21/135 bài xếp tầng (đăng 9/2025 – 1/2026, mốc
+    kéo về thời kênh đăng thưa). Thy chốt giữ 20 bài; hạn chế ghi ở `docs/claude/data-model.md` (mục "Tầng reach").
 
 ### Hệ quả UI
 

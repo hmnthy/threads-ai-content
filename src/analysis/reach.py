@@ -19,6 +19,7 @@ from __future__ import annotations
 import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Final, Literal
 
 import numpy as np
@@ -114,7 +115,7 @@ def relative_reach(
     baselines: list[float | None] = []
     ratios: list[float | None] = []
     for i, views in enumerate(views_in_post_order):
-        prior = views_in_post_order[max(0, i - window) : i]
+        prior = views_in_post_order[baseline_start_index(i, window) : i]
         if len(prior) < min_prior:
             baselines.append(None)
             ratios.append(None)
@@ -123,6 +124,31 @@ def relative_reach(
         baselines.append(base)
         ratios.append(views / base)
     return baselines, ratios
+
+
+def baseline_start_index(i: int, window: int = BASELINE_WINDOW) -> int:
+    """Chỉ số bài sớm nhất trong mốc của bài thứ `i` — cùng cách cắt cửa sổ với `relative_reach`."""
+    return max(0, i - window)
+
+
+def baseline_spans(
+    timestamps_in_post_order: Sequence[datetime],
+    window: int = BASELINE_WINDOW,
+    min_prior: int = BASELINE_MIN_PRIOR,
+) -> list[float | None]:
+    """Mốc của mỗi bài trải dài bao nhiêu ngày (từ bài sớm nhất trong mốc tới chính bài đó).
+    None khi bài chưa có mốc (ít hơn `min_prior` bài trước) — khớp `relative_reach`.
+
+    Hạn chế đã biết của cửa sổ theo số bài (ADR-0012, Thy giữ 20 bài 2026-10-07): khi kênh đăng
+    thưa, mốc trải nhiều tháng và hiệu chỉnh tăng trưởng yếu đi."""
+    spans: list[float | None] = []
+    for i, ts in enumerate(timestamps_in_post_order):
+        if i < min_prior:
+            spans.append(None)
+            continue
+        start = timestamps_in_post_order[baseline_start_index(i, window)]
+        spans.append((ts - start).total_seconds() / 86400)
+    return spans
 
 
 def _tier_cutoffs(values: Sequence[float]) -> tuple[float | None, float | None]:
