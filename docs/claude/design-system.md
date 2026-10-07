@@ -265,6 +265,14 @@ File: `docs/design/photo_author.JPG` (4000×4000).
 
 Đây là chỗ duy nhất ảnh cá nhân xuất hiện ở cỡ lớn.
 
+### 10b. Logo (ADR-0021)
+
+File gốc và quy tắc: `docs/design/brand-assets.md` (file trong `src/dashboard/public/brand/`, không sửa tay). Luôn dùng component `BrandLogo` (`src/dashboard/src/components/BrandLogo.tsx`):
+
+- Navbar landing, topbar dashboard: `lockup` tĩnh 28px (topbar kèm tagline chữ HTML).
+- Hero landing: `lockup-animated` (lặp) 64px — chỗ duy nhất logo chuyển động; `prefers-reduced-motion` → bản tĩnh (§8).
+- Khối CTA landing: `mark` 52px. Footer landing: `lockup` 24px. Favicon: `app/icon.svg` (bản sao của mark).
+
 ---
 
 ## 11. UI/UX Pro Max — phạm vi sử dụng

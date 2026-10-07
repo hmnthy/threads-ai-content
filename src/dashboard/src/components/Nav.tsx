@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChartLineUp, ChartPieSlice, CaretDown, Compass } from "@phosphor-icons/react/dist/ssr";
+import { BrandLogo } from "@/components/BrandLogo";
 
 // Topbar + tab pill — docs/claude/design-system.md §7 Tầng A: topbar (logo +
 // tagline + account pill + avatar) rồi tab pill ngay dưới, không sidebar.
@@ -19,18 +20,12 @@ export function Nav() {
   return (
     <div className="border-b border-border-hairline">
       <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center justify-between gap-4 px-6 py-3">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-600 text-white">
-            <span className="text-sm font-semibold leading-none">@</span>
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold tracking-tight text-text-primary">
-              Unthreaded
-            </span>
-            <span className="text-xs font-medium text-text-muted">
-              The algorithm, read back to you.
-            </span>
-          </div>
+        <Link href="/" className="flex flex-col items-start gap-1 leading-tight">
+          {/* Lockup tĩnh đã chứa chữ "Unthreaded"; tagline giữ dạng chữ HTML (ADR-0021) */}
+          <BrandLogo variant="lockup" height={28} />
+          <span className="text-xs font-medium text-text-muted">
+            The algorithm, read back to you.
+          </span>
         </Link>
 
         <div className="flex items-center gap-2.5">
