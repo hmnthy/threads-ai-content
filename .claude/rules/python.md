@@ -12,6 +12,7 @@ paths:
 - Model dữ liệu: pydantic v2 cho payload API/response; `@dataclass(frozen=True)` cho domain model (`src/models/`).
 - Mọi rate phải guard `views == 0`. Bài `views == 0` là insight thiếu, không phải 0%: mọi phân phối rate (median/IQR/bucket/xếp hạng) đi qua `split_measurable()` (`src/analysis/stats.py`) và trả số bị loại ra ngoài (ADR-0011). Mọi hằng số heuristic: đặt tên HOA + docstring ghi "hypothesis, chưa calibrate" hoặc nguồn bằng chứng.
 - Tuổi bài đi kèm 1 số đo từ snapshot → tính tại thời điểm **snapshot đó** (`fetched_at`), không tới `now`: cron có thể ngắt nhiều ngày (ADR-0017).
+- Script CLI in chữ Việt / ký tự ngoài ASCII → `sys.stdout.reconfigure(encoding="utf-8")` đầu `main()`, trước argparse (`--help` in `__doc__`) (console Windows cp1252 làm lỗi; `capsys` trong test là UTF-8 nên test không bắt được).
 - Comment/docstring tiếng Việt; tên biến/hàm tiếng Anh.
 
 ## Test
