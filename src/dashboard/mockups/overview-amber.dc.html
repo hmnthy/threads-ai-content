@@ -397,7 +397,7 @@ class Component extends DCLogic {
         { label: "Content units", value: String(winPosts.length), formula: "root posts in window", dotc: null },
         { label: "Interactions", value: this.fmt(inter), formula: "likes + replies + reposts + quotes", dotc: null },
         { label: "Engagement", value: er.toFixed(2) + "%", formula: "interactions / views × 100", dotc: "#B45309" },
-        { label: "Virality", value: vi.toFixed(2) + "%", formula: "(reposts + quotes) / views × 100", dotc: null },
+        { label: "Share rate", value: vi.toFixed(2) + "%", formula: "(reposts + quotes) / views × 100", dotc: null },
         { label: "Conversation", value: cr.toFixed(2) + "%", formula: "replies / views × 100", dotc: null }
       ].map(k => ({ ...k, dot: k.dotc ? `width:6px;height:6px;border-radius:999px;background:${k.dotc}` : "display:none" })),
       topPosts: [...winPosts].sort((a, b) => b.v - a.v).slice(0, 5).map((p, i, arr) => ({
@@ -409,9 +409,9 @@ class Component extends DCLogic {
         bar: `display:block;height:8px;width:${((p.v / 184210) * 100).toFixed(1)}%;border-radius:999px;background:rgba(245,158,11,0.42)`
       })),
       indices: [
-        { name: "Popularity", formula: "views", status: "live", note: "Raw reach. Kept unnormalised so it can anchor the other five." },
+        { name: "Popularity", formula: "views", status: "live", note: "Raw views. Kept unnormalised so it can anchor the other five." },
         { name: "Engagement", formula: "(likes + replies + reposts + quotes) / views × 100", status: "live", note: "Quotes were missing from the original formula until the 2026-08-30 fix." },
-        { name: "Virality", formula: "(reposts + quotes) / views × 100", status: "live", note: "Redistribution only. Threads exposes no shares field, so none is invented." },
+        { name: "Share rate", formula: "(reposts + quotes) / views × 100", status: "live", note: "Redistribution only. Threads exposes no shares field, so none is invented." },
         { name: "Conversation", formula: "replies / views × 100", status: "live", note: "Total replies — the only reply count post-level insights return." },
         { name: "View velocity", formula: "Δviews / Δt", status: "deferred", note: "Needs two snapshots per post. The 4-hour job has not run long enough yet." },
         { name: "Longevity", formula: "not implemented", status: "deferred", note: "Waiting on a longer snapshot history before a formula is committed." }

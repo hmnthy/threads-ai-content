@@ -25,7 +25,7 @@
 
 ## Blocked / cần Thy
 
-- Gửi Claude Design `docs/design/ui-contract.md` + `docs/design/ui-contract-audit.md` mới (vòng 2): 9 cảnh báo mockup (8 theo ADR-0012) + 3 điểm landing (giờ Paris cho mốc clustered, tên cờ `insufficient_data`, trạng thái null ARI/DBCV).
+- Vòng 3 Claude Design (gói 2026-10-07) xong: cảnh báo mockup còn 1 (báo nhầm trong nội dung bài mẫu). Lần gửi tới kèm `ui-contract-audit.md` mới: đổi `RUN_AT_UTC` của landing thành giờ thật `2026-10-01T11:35:06Z`.
 - Landing ghi "This site, deployed on Vercel" — giữ tới khi deploy thật (Thy: chỉnh nội dung thêm 1 vòng rồi mới deploy).
 - Lần mở phiên tới: duyệt 2 MCP server trong `/mcp` (`context7`, `huggingface` — HF đăng nhập OAuth) và thử pop-up khi Claude xong việc.
 - Duyệt bio `LandingAuthor.tsx` + sub-headline tagline `LandingHero.tsx` (còn treo từ 2026-09-03).
@@ -46,4 +46,4 @@
 
 ## Last checkpoint
 
-- Document the 20-post baseline limitation of the reach tiers (ADR-0012)
+- Import the Claude Design handoff of 2026-10-07 (third audit round)
