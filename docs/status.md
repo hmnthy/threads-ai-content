@@ -14,12 +14,13 @@
 - PR #3 (2026-10-06): gói Claude Design 2026-10-05 (landing mockup chốt, design-system v3.2, brief Topics v2) + logo Unknot.
 - ADR-0012 (Thy chốt 2026-10-06, PR #5 đã merge): chỉ số (reposts + quotes) / views đổi tên thành `share_rate` (UI "Share rate"); "bài lan rộng" = tầng reach tương đối — "Top 20% reach" (P80) / "Above median reach" (P50) của views ÷ median 20 bài trước, chỉ bài đã chín (P90 thời gian đạt 90% views, đo từ snapshot); `GET /analytics/reach`, số liệu sinh lại bằng `scripts/reach_report.py`. Chưa có giao diện tầng (chờ mockup); ảnh chụp đã làm lại. Hạn chế cửa sổ 20 bài (Thy giữ, 2026-10-07): ghi ở `data-model.md`.
 - Gói Claude Design 2026-10-06 (nhánh `design/2026-10-06`): landing mockup sửa theo audit, `landing-handoff.md` §0.5 (quyết định → id `UI-…`); hợp đồng UI chốt 4 câu hỏi mở (1: một ngưỡng mẫu nhỏ = 5, UI đọc cờ backend; 2: giữ hai bộ nhãn trạng thái; 3: id `topic_N` chỉ ở metadata; 4: mốc clustered theo giờ Paris) + 7 đề xuất cột E.
+- ADR-0021 (Thy duyệt logo 2026-10-01, chốt vị trí 2026-10-07): logo Unknot qua `BrandLogo.tsx`, hai navbar dùng lockup tĩnh thay chữ "@" giữ chỗ, favicon `app/icon.svg`; chuyển động chỉ ở hero landing (áp khi port landing).
 - ADR-0020 (Thy chọn: Claude Code = nguồn sự thật kỹ thuật, Claude Design làm UI/UX trên nền đó; mockup chỉ cảnh báo): hợp đồng UI `docs/design/ui-contract.md` (ADR-0001 → 0020, mỗi ràng buộc kèm `file:line`, máy kiểm đường dẫn/luật/test); ADR mới có mục "Hệ quả UI"; mockup bị sổ luật quét ở mức cảnh báo; audit landing ở `docs/design/ui-contract-audit.md`.
 
 ## Next
 
 0. Việc 1 của brief Topics (Thy chốt 1a–1e: cấu trúc trang tầng A, nhóm so sánh, họ test Holm, mean, lịch sử tên) **gộp** phần còn mở của ADR-0012 (sàn views cho bảng top theo rate; so sánh biến giải thích giữa các tầng reach + Holm) — chung Holm và câu hỏi "so với nhóm nào".
-1. Brief Việc 2–4: audit dữ liệu Topics, endpoint `/topics` mở rộng + run + stats, xuất `docs/design/data/topics/` cho Claude Design. Logo: `BrandLogo.tsx` + `app/icon.svg` (cần ADR theo brand-assets.md), rồi port landing mockup đã chốt.
+1. Brief Việc 2–4: audit dữ liệu Topics, endpoint `/topics` mở rộng + run + stats, xuất `docs/design/data/topics/` cho Claude Design. Port landing mockup đã chốt (Thy chọn hướng A 2026-10-07: 2 panel topic tạm "Preview"; hero logo động, CTA mark, footer lockup theo ADR-0021).
 2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
 3. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
 
@@ -41,9 +42,9 @@
 
 ## Số liệu nhanh
 
-- 152 root post · 1.390 reply của tác giả (367 self_continuation · 680 author_answer · 343 outbound — ADR-0004) · 9 cluster (`validity_index` 0,261, nhiễu 41% — lần gom 2026-10-04) · 510 test pass
+- 152 root post · 1.390 reply của tác giả (367 self_continuation · 680 author_answer · 343 outbound — ADR-0004) · 9 cluster (`validity_index` 0,261, nhiễu 41% — lần gom 2026-10-04) · 516 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Import the Claude Design handoff of 2026-10-07 (third audit round)
+- Use the Unknot logo from a single asset source with fixed placements (ADR-0021)
