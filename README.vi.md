@@ -3,7 +3,7 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-508%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-510%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -82,7 +82,7 @@ phải cảm tính.
 
 | Tầng | Trạng thái | Làm gì |
 |---|---|---|
-| **Statistics layer** | Đã có | 6 index tách biệt — popularity, engagement, share rate, conversation, velocity, longevity — không bao giờ gộp lại thành 1 điểm số duy nhất. Median luôn đi kèm mean (không bao giờ chỉ báo mean 1 mình), mọi bucket đều có IQR + cờ cảnh báo cỡ mẫu nhỏ, dùng Mann-Whitney U + Cliff's delta cho mọi so sánh nhóm, tầng reach (qua API) đo so với mức bình thường của chính kênh lúc đăng thay vì 1 ngưỡng cố định tùy tiện. |
+| **Statistics layer** | Đã có | 6 index tách biệt — popularity, engagement, share rate, conversation, velocity, longevity — không bao giờ gộp lại thành 1 điểm số duy nhất. Median luôn đi kèm mean (không bao giờ chỉ báo mean 1 mình), mọi bucket đều có IQR + cờ cảnh báo cỡ mẫu nhỏ, dùng Mann-Whitney U + Cliff's delta cho mọi so sánh nhóm, tầng reach (qua API) đo so với mức gần đây của kênh (median của tối đa 20 bài trước) thay vì 1 ngưỡng cố định tùy tiện. |
 | **NLP layer** | Đã có | Embedding đa ngôn ngữ (content trộn tự nhiên VI/FR/EN nên không dùng tokenizer riêng cho 1 ngôn ngữ) đưa vào UMAP + HDBSCAN để tự động khám phá chủ đề (unsupervised), sau đó Claude gán tên tiếng Anh cho từng cluster tìm được. Code-Mixing Index — một điểm số liên tục, không phải cờ boolean — đo mức độ 1 bài thực sự chuyển đổi ngôn ngữ. |
 | **Knowledge base** | Tiếp theo | Bài đăng của kênh và câu trả lời của tác giả cho câu hỏi của follower, biến thành cơ sở tri thức tra cứu được: tìm kiếm hybrid (từ khoá BM25 + ngữ nghĩa) kèm reranker, được đo trên câu hỏi thật của follower (recall@k, MRR, nDCG) trước khi xây bất cứ thứ gì — như trợ lý hỏi đáp — lên trên. |
 
