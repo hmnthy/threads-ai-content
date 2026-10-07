@@ -10,11 +10,14 @@
 ## 1. Cảnh báo tự động của sổ luật
 
 Nguồn: `uv run python -m scripts.consistency.check --all` — mục "Cảnh báo mockup" (không chặn commit). Hook đầu phiên
-in số cảnh báo; khi về 0, hàng này xoá. Hiện: **1** (báo nhầm). 8 cảnh báo ADR-0012 của vòng 2 đã hết.
+in số cảnh báo; khi về 0, hàng này xoá. Hiện: **3** (1 báo nhầm + 2 theo ADR-0021). 8 cảnh báo ADR-0012 của vòng 2
+đã hết.
 
 | File mockup | Dòng | Luật | Khớp | Xử lý |
 |---|---|---|---|---|
 | `src/dashboard/mockups/landing.dc.html` | 533 | `ADR0001-coming-soon` | "sắp có" | **Báo nhầm**: nội dung bài gốc tiếng Việt dùng làm dữ liệu mẫu, không phải nhãn trạng thái. Hết khi mockup lấy dữ liệu từ file xuất <!-- consistency: allow ADR0001-coming-soon --> |
+| `src/dashboard/mockups/overview-amber.dc.html` | 30 | `ADR0021-placeholder-logo` | logo giữ chỗ bằng icon "at" trong vòng tròn amber | `../public/brand/unthreaded-lockup.svg` cao 28px, tagline chữ HTML bên dưới (`UI-0021-logo-placement`) |
+| `src/dashboard/mockups/overview-cyan.dc.html` | 30 | `ADR0021-placeholder-logo` | như trên | như trên (hoặc bỏ file — hướng không chọn) |
 
 ## 2. Landing so với hợp đồng
 

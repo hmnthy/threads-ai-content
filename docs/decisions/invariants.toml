@@ -37,9 +37,7 @@ planned_paths = [
   "experiments", "experiments/**",
   "docs/rq", "docs/rq/**",
   ".claude/agent-memory", ".claude/agent-memory/**",
-  # Gói Claude Design 2026-10-05: file các việc kế tiếp sẽ tạo (brand-assets.md; brief Topics Việc 0–4)
-  "src/dashboard/src/components/BrandLogo.tsx",
-  "src/dashboard/src/app/icon.svg",
+  # Gói Claude Design 2026-10-05: file các việc kế tiếp sẽ tạo (brief Topics Việc 0–4)
   "docs/design/topics-data-audit.md",
   "src/dashboard/mockups/topics.dc.html",
   # landing-handoff.md §1: component mới khi port landing
@@ -717,3 +715,38 @@ why = "Views thô không phải reach (API không có trường reach); \"reach\
 fix = "Viết \"Raw views\"; \"reach\" chỉ trong \"Top 20% reach\" / \"Above median reach\""
 paths = ["src/dashboard/src/**", "README*.md", "docs/claude/**", "docs/design/**"]
 allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0021-placeholder-logo"
+adr = "0021"
+mockups = true
+# Logo giữ chỗ trước Unknot: chữ "@" trong vòng tròn amber (code cũ) hoặc icon "at" của Phosphor
+# (`ph-at` trong mockup, `<At />` trong React) — logo thật qua BrandLogo (ADR-0021)
+pattern = '>\s*@\s*</(span|div|i|p)>|\bph-at\b|<At\b'
+why = "Logo là Unknot từ src/dashboard/public/brand/ qua BrandLogo.tsx; chữ \"@\" chỉ là giữ chỗ (ADR-0021)"
+fix = "Dùng <BrandLogo variant=\"lockup\" height={28} /> (navbar) hoặc biến thể theo vị trí trong ADR-0021"
+paths = ["src/dashboard/src/**", "src/dashboard/mockups/*.dc.html", "docs/design/*.dc.html"]
+
+[[stale_asset]]
+id = "ADR0021-landing-screenshot"
+adr = "0021"
+path = "docs/screenshots/landing.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0021-overview-screenshot"
+adr = "0021"
+path = "docs/screenshots/overview.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0021-analytics-screenshot"
+adr = "0021"
+path = "docs/screenshots/analytics.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0021-topics-screenshot"
+adr = "0021"
+path = "docs/screenshots/topics.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"

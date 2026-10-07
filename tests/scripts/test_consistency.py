@@ -431,6 +431,19 @@ def test_real_sprint_step_rule_ignores_procedure_numbering_in_skills(tmp_path: P
 # Luật học được từ lượt /decision-sweep đầu tiên (consistency-auditor): mỗi luật 1 ví dụ
 # PHẢI khớp và 1 ví dụ KHÔNG được khớp, lấy từ chính phát hiện thật trong repo.
 LEARNED_RULES = [
+    # ADR-0021: chữ "@" giữ chỗ trước logo Unknot (không bắt import alias "@/components")
+    (
+        "ADR0021-placeholder-logo",
+        "src/dashboard/src/components/Nav.tsx",
+        '            <span className="text-sm font-semibold leading-none">@</span>',
+        'import { BrandLogo } from "@/components/BrandLogo";',
+    ),
+    (
+        "ADR0021-placeholder-logo",
+        "src/dashboard/mockups/overview-amber.dc.html",
+        '<i class="ph ph-at" style="font-size:15px"></i>',
+        "<span>thydilammuon</span>",
+    ),
     # ADR-0012: tên cũ của share_rate / nhãn cũ — chỉ tên định danh, không bắt `share_rate`
     (
         "ADR0012-old-share-name",
