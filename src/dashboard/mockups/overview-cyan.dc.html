@@ -370,7 +370,7 @@ class Component extends DCLogic {
         { label: "Content units", value: String(winPosts.length), formula: "root posts in window", dotc: null },
         { label: "Interactions", value: this.fmt(inter), formula: "likes + replies + reposts + quotes", dotc: null },
         { label: "Engagement", value: er.toFixed(2) + "%", formula: "interactions / views × 100", dotc: "#22D3C5" },
-        { label: "Virality", value: vi.toFixed(2) + "%", formula: "(reposts + quotes) / views × 100", dotc: null },
+        { label: "Share rate", value: vi.toFixed(2) + "%", formula: "(reposts + quotes) / views × 100", dotc: null },
         { label: "Conversation", value: cr.toFixed(2) + "%", formula: "replies / views × 100", dotc: null }
       ].map(k => ({ ...k, dot: k.dotc ? `width:6px;height:6px;border-radius:999px;background:${k.dotc}` : "display:none" })),
       topPosts: [...winPosts].sort((a, b) => b.v - a.v).slice(0, 5).map(p => ({
@@ -381,7 +381,7 @@ class Component extends DCLogic {
       indices: [
         { name: "Popularity", formula: "views", status: "live" },
         { name: "Engagement", formula: "(likes + replies + reposts + quotes) / views × 100", status: "live" },
-        { name: "Virality", formula: "(reposts + quotes) / views × 100", status: "live" },
+        { name: "Share rate", formula: "(reposts + quotes) / views × 100", status: "live" },
         { name: "Conversation", formula: "replies / views × 100", status: "live" },
         { name: "View velocity", formula: "Δviews / Δt — needs 2 snapshots", status: "deferred" },
         { name: "Longevity", formula: "not implemented", status: "deferred" }

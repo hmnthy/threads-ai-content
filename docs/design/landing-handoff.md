@@ -39,7 +39,7 @@ Kiểm toán 2026-10-02 — mỗi trường trên UI thuộc 1 trong 3 loại:
 
 Đã sửa trong mockup 2026-10-02: số test 321 (sai — status.md ghi 397; giờ bỏ số), "API computes group comparisons" (sai — chưa có endpoint), mô tả gọi Claude API (`label_cluster_with_claude` — từ ADR-0018 chỉ gọi cho cụm cần đặt lại tên, không phải mọi cụm mỗi lần chạy; xem `docs/design/ui-contract-audit.md`).
 
-## 0.5 Hợp đồng UI — quyết định cấu trúc và id tuân theo (cập nhật 2026-10-06)
+## 0.5 Hợp đồng UI — quyết định cấu trúc và id tuân theo (cập nhật 2026-10-07)
 
 Nguồn: `docs/design/ui-contract.md` (ADR-0020). Mỗi quyết định cấu trúc của landing ghi id hợp đồng mà nó tuân theo. Khi port, mọi chỗ dưới đây là ràng buộc, không phải gợi ý.
 
@@ -56,13 +56,13 @@ Nguồn: `docs/design/ui-contract.md` (ADR-0020). Mỗi quyết định cấu tr
 | "N excluded: no views recorded" hiện ngay ở chân mọi khối phân phối (hero, panel 1, CMI), không giấu trong panel gập | 3.1, 3.4 | UI-0011-excluded |
 | Panel 2 có hai dòng loại riêng, mỗi dòng một mẫu số: "6 of 150 posts have no text to embed" / "6 of 150 excluded: no views recorded" | 3.4 panel 2 | UI-0011-two-exclusions |
 | Câu trả lời panel 2 và tỉ lệ nhiễu ghi mẫu số "of N embedded posts"; nhiễu là hàng/vòng rỗng riêng | 3.4 | UI-0004-noise-basis |
-| Mốc "clustered <run_at>" ở panel 2 và About | 3.4, 3.6 | UI-0017-run-time (giờ Paris kèm nhãn "Paris time" — chốt 2026-10-06) |
-| ARI: chỉ 2 số mà code tạo ra, mỗi nhãn ghi rõ cách tính; bỏ "rerun same seed" và hàng 10 seed (chỉ còn trong chú thích research) | 3.4 | UI-0004-ari-two-ways |
+| Mốc "clustered YYYY-MM-DD HH:MM Paris time" ở panel 2 và About: đọc `run_at` (UTC), đổi sang `Europe/Paris` (có giờ mùa hè) khi hiển thị. Mockup giả lập `RUN_AT_UTC`, **giờ trong mockup là giữ chỗ** — lấy `run_at` thật từ `cluster_runs`. Lần gom cụm cho số liệu của mockup (9 cụm, nhiễu 36,1%, validity_index (DBCV) 0,317) là `cluster_runs.id = 3`, `run_at` = `2026-10-01T11:35:06Z` → "2026-10-01 13:35 Paris time" (Claude Code tra DB 2026-10-07; khi port, mốc đọc từ `run_at` mới nhất, không cứng) | 3.4, 3.6 | UI-0017-run-time |
+| ARI: chỉ 2 số mà code tạo ra, mỗi nhãn ghi rõ cách tính; bỏ "rerun same seed" và hàng 10 seed (chỉ còn trong chú thích research). Null → giữ nhãn, thanh viền dashed rỗng, số "—", dòng phụ "not computed (fewer than 2 posts to compare)"; cả 2 null → câu trả lời "Not computed for this run." (xem bằng tweak `ariNull`) | 3.4 | UI-0004-ari-two-ways |
 | Khối "3 posts nearest the centre, for reading" tách khỏi đầu vào Claude ("up to 15 posts nearest the centre, text only") | 3.4, 3.5 node Name/Claude | UI-0004-representatives, UI-0016-label-input |
 | Claude chỉ được gọi cho topic cần đặt (lại) tên; không gửi keywords | 3.5 node Name, Claude | UI-0016-label-input, UI-0018-names-change |
 | Lịch: "daily 12:30 (machine time) · WSL2"; "every 4h while the machine is awake" | 3.5, 3.6 | UI-0017-nlp-schedule, UI-0017-night-gaps |
-| DBCV luôn ghi `validity_index (DBCV)` | 3.4, 3.5 | UI-0004-dbcv-named |
-| Topic n nhỏ: mờ theo cờ `low_n` mỗi topic (mockup giả lập `lowN`), không so `n < 10` ở client | 3.4 panel 1 | UI-L20260903-small-n-flag (cờ backend `insufficient_data`, n < `MIN_N_PER_BUCKET` = 5) |
+| DBCV luôn ghi `validity_index (DBCV)`; null → "validity_index (DBCV) not computed (fewer than 2 clusters)" ở cả 3 chỗ: đầu panel 2, khối phương pháp, node Cluster (xem bằng tweak `dbcvNull`) | 3.4, 3.5 | UI-0004-dbcv-named |
+| Topic n nhỏ: mờ theo cờ backend `insufficient_data` mỗi topic (mockup giả lập cùng tên; n < `MIN_N_PER_BUCKET` = 5, hiện chỉ `topic_2`, n = 4). Không so n ở client, không có ngưỡng thứ hai. Mục mang cờ vẫn hiện n, δ, p (compare_groups vẫn tính, chỉ gắn cờ), không kèm câu kết luận. Hero (toggle Topic) cũng đọc cờ: không cờ → không có câu "small sample" | 3.1, 3.4 panel 1 | UI-L20260903-small-n-flag |
 | Beeswarm hero xếp lại chấm theo bề rộng thật (≥ 720px), hẹp hơn thì cuộn ngang trong container; About chuyển 1 cột trên màn hẹp | 3.1, 3.6 | UI-L20260829-mobile |
 | Màu: một amber cho topic chọn, xám cho topic khác, vòng rỗng cho nhiễu | 3.3, 3.4 | UI-L20260930-topic-single-accent |
 | Câu miễn trừ Meta nguyên văn ở footer | 3.7 | UI-0009-meta-disclaimer |
@@ -100,7 +100,7 @@ Tên file mới phải thêm vào `planned_paths` trong `docs/decisions/invarian
 - Panel: câu hỏi `Is "8 kinh nghiệm sau 8 năm ở Pháp" a strong post?` (post `17939285085325700`).
 - Beeswarm cao 250: trục x 0–5.6%, vạch 0…5%. Mỗi chấm 8px `--text-muted` = 1 root post đo được. Xếp chấm: lần lượt theo giá trị tăng dần, thử y = tâm, tâm±9, tâm±18… lấy vị trí đầu tiên không chạm chấm đã đặt (khoảng cách ≥ 9px). Band IQR nền `--bg-surface` radius 6; vạch median 2px `--text-primary` + nhãn mono `median 1.99%`; nhãn `IQR 1.42–2.54%` đặt **bên phải** vạch median.
 - Bài hero: chấm 16px `--amber-600`, viền trắng 3px + vòng amber 1px; callout `This post · 3.22%` + `higher than 128 of 144`.
-- Toggle (pill trong `--bg-surface`): **Channel · n = 144** / **Topic · n = 13**. Topic: chấm khác mờ 50%, median 2.45%, IQR 2.10–2.88%, câu trả lời đổi sang "Above its topic's median too, but 13 posts is a small sample."
+- Toggle (pill trong `--bg-surface`): **Channel · n = 144** / **Topic · n = 13**. Topic: chấm khác mờ 50%, median 2.45%, IQR 2.10–2.88%, câu trả lời đổi sang "Above its topic's median too." (topic có cờ `insufficient_data` → "Above its topic's median too, but the topic has too few posts to compare." và chân thêm "· insufficient data, read as indicative").
 - Chân: `6 excluded: no views recorded` (ADR-0011).
 
 ### 3.2 Problem
@@ -120,6 +120,7 @@ Lưới 2 cột (`minmax(min(100%,420px),1fr)`, gap 56). Trái: eyebrow, H2, đo
 - Bản đồ UMAP (dim 1–2 của 3), tỉ lệ 4:3, nền `--bg-sunken`: chấm xám 7px, nhiễu = vòng rỗng, cụm đang chọn amber 10px. Legend luôn hiện.
 - Danh sách 9 cụm (bar ngang theo n) là bộ chọn chính (design-system §9). Hồ sơ cụm: tên, id · n · median; từ khoá c-TF-IDF (chip `--amber-soft`); 3 bài gần tâm + `centroid_similarity` 3 chữ số.
 - Ổn định (ARI): chỉ 2 hàng — `vs previous run, posts clustered in both runs` (`ari_clustered_only`) và `vs previous run, noise counted as one group` (`ari_vs_previous`). Null → "not computed (fewer than 2 posts to compare)". 10 seed chỉ nằm trong chú thích research RQ-01.
+- DBCV ở đầu panel: `validity_index (DBCV) 0.317`; null → `validity_index (DBCV) not computed (fewer than 2 clusters)`.
 - CMI vs engagement: chip `research · RQ-04`. **Không port số trong mockup** — hiển thị trạng thái research cho tới khi RQ-04 chạy `compare_groups()` + Holm.
 
 ### 3.5 How it works (dải tối, design-system §2.6)
