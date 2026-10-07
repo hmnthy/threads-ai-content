@@ -256,7 +256,7 @@ html{scroll-behavior:smooth}
       <sc-if value="{{ proofM }}" hint-placeholder-val="{{ false }}">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;background:#FAFAFB;border-radius:12px;padding:16px 20px;margin-top:-8px">
           <span style="font:400 12.5px/1.7 'IBM Plex Mono',monospace;color:#4B5563">Mann-Whitney U, each topic vs rest of channel · Holm across 9 tests · Cliff's δ · dashed line = channel median 1.99%</span>
-          <span style="font-size:13px;line-height:1.6;color:#4B5563">Topics under 10 posts are faded and read as indicative. With n ≈ 150, only large effects can reach significance.</span>
+          <span style="font-size:13px;line-height:1.6;color:#4B5563">Topics flagged insufficient_data (fewer than 5 posts) are faded and read as indicative. With n ≈ 150, only large effects can reach significance.</span>
         </div>
       </sc-if>
     </div>
@@ -268,7 +268,7 @@ html{scroll-behavior:smooth}
           <span style="font-size:24px;font-weight:700;letter-spacing:-0.02em;line-height:1.3">For 92 of 144 embedded posts. The other 52 fit no cluster, and the map shows them.</span>
           <div style="display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:1.55;color:#4B5563"><span>6 of 150 posts have no text to embed</span><span>6 of 150 excluded: no views recorded</span></div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px;font:400 12.5px 'IBM Plex Mono',monospace;color:#4B5563"><span>validity_index (DBCV) 0.317</span><span>noise 36.1% of 144 embedded</span><span style="color:#6B7280">clustered {{ runAt }}</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px;font:400 12.5px 'IBM Plex Mono',monospace;color:#4B5563"><span>validity_index (DBCV) {{ dbcvText }}</span><span>noise 36.1% of 144 embedded</span><span style="color:#6B7280">clustered {{ runAt }}</span></div>
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:28px;align-items:start">
@@ -325,11 +325,11 @@ html{scroll-behavior:smooth}
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="display:flex;flex-direction:column;gap:4px">
             <span style="font-size:13px;font-weight:600;color:#4B5563">Are the clusters stable?</span>
-            <span style="font-size:17px;font-weight:700;line-height:1.35">Mostly, on posts that cluster at all. Agreement drops when noise is counted.</span>
+            <span style="font-size:17px;font-weight:700;line-height:1.35">{{ ariHead }}</span>
           </div>
           <sc-for list="{{ ari }}" as="a" hint-placeholder-count="4">
             <div style="display:grid;grid-template-columns:minmax(0,1fr) 140px 44px;gap:12px;align-items:center;min-height:34px;border-bottom:1px solid #F1F3F6">
-              <span style="font-size:13px;line-height:1.4;color:{{ a.fg }}">{{ a.label }}</span>
+              <span style="display:flex;flex-direction:column;gap:2px;padding:6px 0"><span style="font-size:13px;line-height:1.4;color:{{ a.fg }}">{{ a.label }}</span><sc-if value="{{ a.nul }}" hint-placeholder-val="{{ false }}"><span style="font:400 12px 'IBM Plex Mono',monospace;color:#6B7280">not computed (fewer than 2 posts to compare)</span></sc-if></span>
               <span style="height:8px;border-radius:999px;background:{{ a.track }};position:relative;overflow:hidden;border:{{ a.bd }}"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ a.w }};background:#6B7280;border-radius:999px"></span></span>
               <span style="font:500 12.5px 'IBM Plex Mono',monospace;color:{{ a.fg }};text-align:right">{{ a.v }}</span>
             </div>
@@ -367,7 +367,7 @@ html{scroll-behavior:smooth}
       </div>
       <sc-if value="{{ nlpM }}" hint-placeholder-val="{{ false }}">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;background:#FAFAFB;border-radius:12px;padding:16px 20px;margin-top:-16px">
-          <span style="font:400 12.5px/1.7 'IBM Plex Mono',monospace;color:#4B5563">BAAI/bge-m3 1024D on full_text → UMAP 3D (n_neighbors 8, seed 42) → HDBSCAN leaf, min_cluster_size 4 · validity_index (DBCV) 0.317 · centroid_similarity = cosine to cluster centre</span>
+          <span style="font:400 12.5px/1.7 'IBM Plex Mono',monospace;color:#4B5563">BAAI/bge-m3 1024D on full_text → UMAP 3D (n_neighbors 8, seed 42) → HDBSCAN leaf, min_cluster_size 4 · validity_index (DBCV) {{ dbcvText }} · centroid_similarity = cosine to cluster centre</span>
           <span style="font-size:13px;line-height:1.6;color:#4B5563">Limits: the map is 2 of 3 UMAP dimensions, so distance on screen is approximate. Names are written by Claude from up to 15 posts nearest the centre, text only, and can be wrong at the edges of a cluster. A topic is renamed only when it is new, split, merged, drifts, or was named under an older setup.</span>
         </div>
       </sc-if>
@@ -490,44 +490,45 @@ html{scroll-behavior:smooth}
   </div>
 </footer>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;fadeSmallN&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Product proof&quot;},&quot;animatedLogo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Hero&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;fadeSmallN&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Product proof&quot;},&quot;ariNull&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Null states (preview)&quot;},&quot;dbcvNull&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Null states (preview)&quot;},&quot;animatedLogo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Hero&quot;}}">
 class Component extends DCLogic {
   state = { set: 'channel', hover: null, sel: 'topic_7', node: 'cluster', heroM: false, proofM: false, nlpM: false, heroW: 1136 };
   // Illustrative values from the 2026-10-01 snapshot (type B). Replaced by the data export (brief Việc 4).
-  // topic ids: topic_N (ADR-0018, UI-0018-id-not-name); lowN mocks the backend low-n flag (contract open question 1).
+  // topic ids: topic_N (ADR-0018, UI-0018-id-not-name); insufficient_data mocks the backend flag, n < MIN_N_PER_BUCKET = 5 (UI-L20260903-small-n-flag).
+  // RUN_AT_UTC mocks cluster_runs.run_at (stored UTC, shown in Europe/Paris, UI-0017-run-time); the time of day is a placeholder.
   static HERO_TOPIC = 'topic_7';
-  static RUN_AT = '2026-10-01 UTC';
+  static RUN_AT_UTC = '2026-10-01T12:30:00Z';
   static CH_MED = 1.99;
 
   static CH = [0.41,0.48,0.69,0.73,0.77,0.78,0.79,0.82,0.83,0.87,0.88,0.92,0.99,1.03,1.07,1.1,1.14,1.15,1.15,1.17,1.19,1.2,1.21,1.23,1.25,1.27,1.27,1.29,1.29,1.29,1.29,1.38,1.39,1.4,1.41,1.41,1.42,1.44,1.46,1.47,1.48,1.49,1.53,1.54,1.55,1.55,1.56,1.59,1.61,1.62,1.64,1.64,1.68,1.68,1.69,1.71,1.72,1.73,1.74,1.74,1.77,1.78,1.79,1.81,1.82,1.86,1.87,1.89,1.92,1.93,1.94,1.98,2,2,2.01,2.03,2.04,2.06,2.07,2.08,2.08,2.09,2.1,2.11,2.12,2.12,2.14,2.14,2.15,2.16,2.17,2.19,2.21,2.23,2.25,2.29,2.3,2.35,2.37,2.39,2.4,2.42,2.45,2.45,2.45,2.46,2.5,2.54,2.54,2.55,2.59,2.61,2.65,2.66,2.69,2.7,2.71,2.73,2.75,2.78,2.85,2.88,2.89,2.89,2.91,2.97,3.03,3.05,3.22,3.24,3.24,3.53,3.57,3.65,3.77,3.8,3.93,3.93,4.13,4.38,4.41,4.65,4.95,5.38];
   static TP = [1.15,1.29,1.72,2.1,2.39,2.42,2.45,2.54,2.78,2.88,3.22,3.57,3.93];
 
   static TOPICS = [
-    { id: 'topic_7', lowN: false, pRaw: 0.035, name: 'Studying and Living in France', med: 2.45, q1: 2.10, q3: 2.88, d: 0.36, p: 0.32, v: [1.15,1.29,1.72,2.1,2.39,2.42,2.45,2.54,2.78,2.88,3.22,3.57,3.93],
+    { id: 'topic_7', insufficient_data: false, pRaw: 0.035, name: 'Studying and Living in France', med: 2.45, q1: 2.10, q3: 2.88, d: 0.36, p: 0.32, v: [1.15,1.29,1.72,2.1,2.39,2.42,2.45,2.54,2.78,2.88,3.22,3.57,3.93],
       kw: ['học','việc','anh','thời','tiếng pháp','thuê','bài','điều'],
       reps: [['Nhân dịp vừa tròn 30 tuổi, mình viết một bài vui vui về 8 kinh nghiệm cá nhân tích lũy được sau 8 năm sống và…', 0.888], ['Có 1 điều mình khá thích ở thời đại này, đó là gap infos được thu ngắn lại rất nhiều.', 0.857], ['Mình viết bài này có thể sẽ phật ý, mất lòng một số trung tâm, mentor hay content creator đang đẩy mạnh du học…', 0.847]] },
-    { id: 'topic_6', lowN: false, name: 'Master Admissions & Data Careers in France', med: 2.21, q1: 1.75, q3: 2.45, d: 0.15, p: 1, v: [0.88,1.64,1.68,1.77,2.03,2.17,2.25,2.29,2.45,2.45,2.66,3.24],
+    { id: 'topic_6', insufficient_data: false, name: 'Master Admissions & Data Careers in France', med: 2.21, q1: 1.75, q3: 2.45, d: 0.15, p: 1, v: [0.88,1.64,1.68,1.77,2.03,2.17,2.25,2.29,2.45,2.45,2.66,3.24],
       kw: ['master','ngành','quan','licence','học','tại pháp','infos','data'],
       reps: [['Hôm qua, mình có đọc và trả lời cho 1 bạn trên UEVF về apply Mon Master - Data science, Actuariat tại Pháp.', 0.880], ['APPLY MASTER TẠI PHÁP NHẤT ĐỊNH PHẢI CÓ KỸ NĂNG ĐỌC ADMISSION', 0.872], ['1 trong những câu mình thường xuyên nhận được là: Muốn học Finance, muốn làm banking, etc. ở Pháp, nhưng…', 0.863]] },
-    { id: 'topic_0', lowN: false, name: 'Flea Markets & Thrifting in France', med: 2.14, q1: 1.53, q3: 2.75, d: 0.14, p: 1, v: [0.78,1.38,1.47,1.53,1.69,2.06,2.14,2.16,2.55,2.75,3.24,3.53,3.8],
+    { id: 'topic_0', insufficient_data: false, name: 'Flea Markets & Thrifting in France', med: 2.14, q1: 1.53, q3: 2.75, d: 0.14, p: 1, v: [0.78,1.38,1.47,1.53,1.69,2.06,2.14,2.16,2.55,2.75,3.24,3.53,3.8],
       kw: ['chợ','brocante','khu','mai','đồ cũ','bán','chơi','tui'],
       reps: [['CẤP BÁO: 01/05 bạn chưa biết đi đâu chơi gì trong Île-de-France, thì mai là ngày đồng loạt xuất hiện rất nhiều…', 0.872], ['Hiuhiu đang đi brocante (chợ đồ cũ) nhưng tôi phải móc đt ra chụp ngay.', 0.870], ['Ui đang đi mua trà sữa ở Versailles, con mắt tui đã lướt qua chỗ bán đồ cổ (antiquités) siêu xinh này.', 0.836]] },
-    { id: 'topic_8', lowN: true, name: 'Life as a Vietnamese in France', med: 1.90, q1: 1.27, q3: 2.25, d: -0.08, p: 1, v: [1.2,1.21,1.29,1.79,2,2.11,2.69,3.03],
+    { id: 'topic_8', insufficient_data: false, name: 'Life as a Vietnamese in France', med: 1.90, q1: 1.27, q3: 2.25, d: -0.08, p: 1, v: [1.2,1.21,1.29,1.79,2,2.11,2.69,3.03],
       kw: ['tui','ko','học','mặt','việc','đi làm','chuyện','người pháp'],
       reps: [['Trong suốt 5 năm đầu ở Pháp, mình chẳng có bạn kiểu rất thân thiết, trò chuyện, chia sẻ được nhiều.', 0.855], ['Hôm nay ở vườn Luxembourg, tui bị một thanh niên lại kiếm chuyện vì cái chỗ ngồi và gương mặt châu Á.', 0.852], ['Mới xem được video của bạn Ly Biết Tuốt, bị bắt nạt với lí do chụp ảnh nơi công cộng…', 0.831]] },
-    { id: 'topic_1', lowN: false, name: 'Shopping Deals in France', med: 1.85, q1: 1.39, q3: 2.30, d: -0.13, p: 1, v: [0.48,0.79,1.27,1.39,1.41,1.54,1.73,1.98,2.01,2.08,2.37,2.46,2.97,3.65],
+    { id: 'topic_1', insufficient_data: false, name: 'Shopping Deals in France', med: 1.85, q1: 1.39, q3: 2.30, d: -0.13, p: 1, v: [0.48,0.79,1.27,1.39,1.41,1.54,1.73,1.98,2.01,2.08,2.37,2.46,2.97,3.65],
       kw: ['tớ','mua','bánh','chợ','giá','hổng','thị','rẻ'],
       reps: [['Tại sao dâu Tây Ban Nha bán ở Pháp lại rẻ dữ vậy luôn á?! Đợt này đang tới mùa chỉ có 3.99€/kg.', 0.846], ['Có ai hay mua đồ của hiệu Yves Rocher ở Pháp hãy khai sáng giúp toi hộ là họ làm ăn, có lợi nhuận kiểu gì nhỉ?', 0.823], ['Mấy siêu thị - chợ ở Pháp dạo này làm tôi phải há hốc mồm "ồ quao".', 0.809]] },
-    { id: 'topic_5', lowN: false, name: 'Data Science Alternance in France', med: 1.81, q1: 1.43, q3: 2.11, d: -0.17, p: 1, v: [0.73,1.41,1.42,1.48,1.68,1.94,2.09,2.12,2.19,2.59],
+    { id: 'topic_5', insufficient_data: false, name: 'Data Science Alternance in France', med: 1.81, q1: 1.43, q3: 2.11, d: -0.17, p: 1, v: [0.73,1.41,1.42,1.48,1.68,1.94,2.09,2.12,2.19,2.59],
       kw: ['alternance','học','chia sẻ','các em','data','phỏng vấn','việc','infos'],
       reps: [['POV: Một ngày làm Data Scientist alternance tại tập đoàn ngân hàng lớn thứ hai tại Pháp - Groupe BPCE', 0.889], ['Trước đến giờ, mình viết rất nhiều bài chia sẻ hành trình học tập của mình ở Pháp, nhưng chưa có bài nào…', 0.867], ['Đang mùa apply Alternance cao điểm ở Pháp, mình sẽ cố gắng có thêm nhiều content / kiến thức để các em du học…', 0.865]] },
-    { id: 'topic_3', lowN: true, name: 'Vietnamese Food Culture in France', med: 1.74, q1: 1.56, q3: 2.08, d: -0.17, p: 1, v: [1.19,1.49,1.56,1.62,1.74,1.82,2.08,2.12,2.4],
+    { id: 'topic_3', insufficient_data: false, name: 'Vietnamese Food Culture in France', med: 1.74, q1: 1.56, q3: 2.08, d: -0.17, p: 1, v: [1.19,1.49,1.56,1.62,1.74,1.82,2.08,2.12,2.4],
       kw: ['ăn','sữa','croissant','món','bánh','dừa','hỏi','toi'],
       reps: [['Có lần, đồng nghiệp hỏi: Nếu 1 ngày mày rời khỏi Pháp, món ăn nào ở đây mày sẽ nhớ nhất?', 0.858], ['Dành cho mấy ní ở Pháp mà bí ý tưởng chiêu đãi đồ ăn với đồng nghiệp, bạn bè, thầy cô người Pháp, pot de départ…', 0.839], ['Là một người đã đem bánh bò cho đồng nghiệp Pháp ăn, mình xác nhận mọi người ai cũng nhận xét sao texture…', 0.821]] },
-    { id: 'topic_2', lowN: true, name: 'Paris Food & Drink Recommendations', med: 1.66, q1: 1.39, q3: 1.79, d: -0.38, p: 1, v: [0.92,1.55,1.78,1.81],
+    { id: 'topic_2', insufficient_data: true, name: 'Paris Food & Drink Recommendations', med: 1.66, q1: 1.39, q3: 1.79, d: -0.38, p: 1, v: [0.92,1.55,1.78,1.81],
       kw: ['matcha','mùi','béo','thơm','siêu thị','nguyên','sữa','uber eats'],
       reps: [['Các bạn iu ở Pháp, tớ đã fomo hộ các bạn 2 món rần rần này đây.', 0.888], ['Các fans matcha ở Paris xin hãy rất lưu ý combo này giùm mình:', 0.834], ['Mấy con trà sữa chiến khác, người ta lên bài hết rồi. Nên tui lên cho anh em đồng môn gu trà sữa THƠM NỨC ở PA…', 0.829]] },
-    { id: 'topic_4', lowN: true, name: 'France Study Abroad Policy Updates', med: 1.44, q1: 1.27, q3: 1.89, d: -0.36, p: 0.58, v: [1.03,1.25,1.27,1.29,1.44,1.64,1.89,1.93,2.65],
+    { id: 'topic_4', insufficient_data: false, name: 'France Study Abroad Policy Updates', med: 1.44, q1: 1.27, q3: 1.89, d: -0.36, p: 0.58, v: [1.03,1.25,1.27,1.29,1.44,1.64,1.89,1.93,2.65],
       kw: ['học phí','eu','trường','miễn','giảm','thay','nóng','sinh viên'],
       reps: [['Université Paris 1 - Panthéon Sorbonne vừa quyết định áp dụng mức học phí mới cho một phần sinh viên ngoài EU:', 0.886], ['Tin rất không vui - Nổi tiếng với chi phí rẻ, nhưng du học Pháp sắp không còn câu chuyện "được trường miễn giảm"…', 0.869], ['Như các bạn đã biết về thông tin du học sinh ngoài EU tại Pháp sắp có thay đổi lớn về học phí từ năm 2026…', 0.863]] },
   ];
@@ -588,6 +589,13 @@ class Component extends DCLogic {
     this.rowDots.noise = this.rowSwarm(Component.NOISE.v, 22, 5);
     this.cmiDots = Component.CMIV.map(v => this.rowSwarm(v, 19, 4.5));
     this.mini = this.rowSwarm(Component.CH, 15, 3.4, 300, 4.2);
+    this.runAt = this.parisTime(Component.RUN_AT_UTC);
+  }
+
+  parisTime(iso) {
+    const p = {};
+    for (const x of new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso))) p[x.type] = x.value;
+    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} Paris time`;
   }
 
   componentDidMount() {
@@ -652,7 +660,7 @@ class Component extends DCLogic {
       : `Holm-corrected p ${lead0.p.toFixed(2)} across ${T.length} topics.`);
 
     const topics = T.map(t => {
-      const lead = t.id === lead0.id, h = st.hover === t.id, small = t.lowN;
+      const lead = t.id === lead0.id, h = st.hover === t.id, small = t.insufficient_data;
       return {
         name: t.name, n: t.v.length, dots: this.rowDots[t.id], q1: px(t.q1), iqrW: px(t.q3 - t.q1), medX: px(t.med),
         med: t.med.toFixed(2) + '%', d: (t.d > 0 ? '+' : '') + t.d.toFixed(2), p: t.p >= 1 ? '1.00' : t.p.toFixed(2),
@@ -679,38 +687,47 @@ class Component extends DCLogic {
     });
     const miniMap = Component.PTS.map(([x, y, c]) => ({ x: (2 + x * 0.96) + '%', y: (2 + (100 - y) * 0.26) + 'px', s: c === heroT.id ? '5px' : '3px', c: c === heroT.id ? '#B45309' : c === null ? '#E4E8ED' : '#CBD2DA' }));
 
+    const ariNull = this.props.ariNull ?? false, dbcvNull = this.props.dbcvNull ?? false;
     const ari = [
-      { label: 'vs previous run, posts clustered in both runs', v: '0.78', w: '78%' },
-      { label: 'vs previous run, noise counted as one group', v: '0.22', w: '22%' },
-    ].map(a => ({ ...a, fg: a.research ? '#6B7280' : '#111827', track: a.research ? 'transparent' : '#F1F3F6', bd: a.research ? '1px dashed #CBD2DA' : '0' }));
+      { label: 'vs previous run, posts clustered in both runs', val: ariNull ? null : 0.78 },
+      { label: 'vs previous run, noise counted as one group', val: ariNull ? null : 0.22 },
+    ].map(a => {
+      const nul = a.val == null;
+      return { label: a.label, nul, v: nul ? '—' : a.val.toFixed(2), w: nul ? '0%' : (a.val * 100) + '%',
+        fg: nul ? '#6B7280' : '#111827', track: nul ? 'transparent' : '#F1F3F6', bd: nul ? '1px dashed #CBD2DA' : '0' };
+    });
+    const ariHead = ari.every(a => a.nul) ? 'Not computed for this run.' : 'Mostly, on posts that cluster at all. Agreement drops when noise is counted.';
+    const dbcvText = dbcvNull ? 'not computed (fewer than 2 clusters)' : '0.317';
     const cmi = Component.CMI.map((g, i) => ({ ...g, med: g.med.toFixed(2) + '%', q1: px(g.q1), iqrW: px(g.q3 - g.q1), medX: px(g.med), dots: this.cmiDots[i] }));
 
     const ecol = {}, emk = {};
-    const nd = Component.NODES.find(n => n.id === st.node);
-    for (let i = 1; i <= 12; i++) { const e = 'e' + i, a = nd.edges.includes(e); ecol[e] = a ? '#F59E0B' : 'rgba(255,255,255,0.32)'; emk[e] = a ? 'url(#aa)' : 'url(#ah)'; }
+    const nd0 = Component.NODES.find(n => n.id === st.node);
+    for (let i = 1; i <= 12; i++) { const e = 'e' + i, a = nd0.edges.includes(e); ecol[e] = a ? '#F59E0B' : 'rgba(255,255,255,0.32)'; emk[e] = a ? 'url(#aa)' : 'url(#ah)'; }
     const nodes = Component.NODES.map(n => {
       const a = n.id === st.node;
       const bd = a ? '1.5px solid #F59E0B' : n.dashed ? '1.5px dashed rgba(255,255,255,0.38)' : n.dotted ? '1.5px dotted rgba(255,255,255,0.38)' : n.ext ? '1px solid rgba(255,255,255,0.22)' : '1px solid rgba(255,255,255,0.14)';
       return { ...n, x: n.x + 'px', y: n.y + 'px', w: n.w + 'px', h: n.h + 'px', on: a, bd,
         bg: a ? 'rgba(245,158,11,0.14)' : n.ext ? 'transparent' : 'rgba(255,255,255,0.06)',
         fg: n.dashed || n.dotted ? 'rgba(255,255,255,0.78)' : '#FFFFFF', sub: a ? '#F59E0B' : 'rgba(255,255,255,0.72)',
+        stack: n.id === 'cluster' ? n.stack.map(([k, v]) => k === 'result' ? [k, '9 clusters · noise 36.1% of 144 embedded · validity_index (DBCV) ' + dbcvText] : [k, v]) : n.stack,
         pick: () => this.setState({ node: n.id }) };
     });
+    const nd = nodes.find(n => n.id === st.node);
     const chip = { live: ['rgba(245,158,11,0.18)', '#FDE68A'], next: ['rgba(255,255,255,0.10)', '#FFFFFF'], research: ['rgba(255,255,255,0.10)', '#FFFFFF'] }[nd.status];
 
     return {
-      heroRef: this.heroRef, dotPx: Math.round(this.dotGap(HW) - 1) + 'px', runAt: Component.RUN_AT,
+      heroRef: this.heroRef, dotPx: Math.round(this.dotGap(HW) - 1) + 'px', runAt: this.runAt, dbcvText, ariHead,
       heroTopic: { name: heroT.name, id: heroT.id }, proofAnswer,
       animatedLogo: this.props.animatedLogo ?? true, staticLogo: !(this.props.animatedLogo ?? true),
       isChannel: isCh, isTopic: !isCh, chBg: ch.bg, chFg: ch.fg, tpBg: tp.bg, tpFg: tp.fg,
       setChannel: () => this.setState({ set: 'channel' }), setTopic: () => this.setState({ set: 'topic' }),
-      answer: isCh ? 'Yes. At 3.22% it is above 128 of the channel\'s 144 measurable posts.' : 'Above its topic\'s median too, but 13 posts is a small sample.',
+      answer: isCh ? 'Yes. At 3.22% it is above 128 of the channel\'s 144 measurable posts.' : heroT.insufficient_data ? 'Above its topic\'s median too, but the topic has too few posts to compare.' : 'Above its topic\'s median too.',
       dots: S.dots, dotOpacity: isCh ? 1 : 0.5,
       hx: (S.hero.x / S.W * 100) + '%', hy: S.hero.y + 'px', calloutTop: (S.hero.y - 52) + 'px',
       rankLabel: isCh ? 'higher than 128 of 144' : 'higher than 10 of 13',
       medLeft: px(med), medLabel: med.toFixed(2) + '%', iqrLeft: px(q1), iqrWidth: px(q3 - q1), iqrLabel: q1.toFixed(2) + '–' + q3.toFixed(2) + '%',
       ticks: [0, 1, 2, 3, 4, 5].map(t => ({ x: px(t), label: t + '%' })),
-      footNote: isCh ? '6 excluded: no views recorded' : `${heroT.name} (named by Claude) · ${heroT.id} · n = ${heroT.v.length}, read as indicative`,
+      footNote: isCh ? '6 excluded: no views recorded' : `${heroT.name} (named by Claude) · ${heroT.id} · n = ${heroT.v.length}` + (heroT.insufficient_data ? ' · insufficient data, read as indicative' : ''),
       heroM: st.heroM, proofM: st.proofM, nlpM: st.nlpM,
       toggleHeroM: tog('heroM'), toggleProofM: tog('proofM'), toggleNlpM: tog('nlpM'),
       heroMLabel: mLabel('heroM'), proofMLabel: mLabel('proofM'), nlpMLabel: mLabel('nlpM'),
