@@ -2,7 +2,7 @@
 
 3 bước, dừng ngay khi 1 bước lỗi (import không bao giờ chạy trên export hỏng):
 1. export (Windows) — `src.pipeline.clustering_export`
-2. embed + UMAP + HDBSCAN (WSL2) — `src.pipeline.cluster_wsl`
+2. tách từ cho từ khoá (ADR-0022) + embed + UMAP + HDBSCAN (WSL2) — `src.pipeline.cluster_wsl`
 3. import + đặt tên (Windows) — `src.pipeline.clustering_import`
 
 Task Scheduler gọi (không console):

@@ -20,7 +20,7 @@
 
 ## Next
 
-- **Trước khi công khai landing** (Thy chọn 2026-10-08): ADR + PR riêng — danh sách stopword tiếng Việt cho từ khoá c-TF-IDF (`src/nlp/topic_profile.py`), vì từ khoá hiện lẫn "một", "điều", "tui", "tớ", "ko"; chạy lại hồ sơ topic, so trước/sau.
+- ADR-0022 (Thy chọn V5 + tách từ trong WSL2, 2026-10-08, nhánh `feat/topic-keywords-segmentation`): từ khoá topic tách theo từ bằng underthesea 9.5.0 (chạy ở bước cluster trong WSL2 — nó kéo torch/transformers) + bigram 2 từ đơn, bỏ stopword có nhãn (`src/nlp/stopwords.py`); trên lần gom cụm 2026-10-07 từ chức năng/đại từ/teencode trong từ khoá 12/72 → 0, mảnh âm tiết ~4 → 0, lấy lại "tiếng anh", "uber eats". **Sau khi merge, trước 12:30: cài `underthesea==9.5.0 underthesea-core==3.3.2` vào `~/threads-clustering-env` (WSL2)** + `uv sync --frozen` ở thư mục chính. Lọc theo từ loại = RQ-10.
 0. Việc 1 của brief Topics (Thy chốt 1a–1e: cấu trúc trang tầng A, nhóm so sánh, họ test Holm, mean, lịch sử tên) **gộp** phần còn mở của ADR-0012 (sàn views cho bảng top theo rate; so sánh biến giải thích giữa các tầng reach + Holm) — chung Holm và câu hỏi "so với nhóm nào".
 1. Brief Việc 2–4: audit dữ liệu Topics, endpoint `/topics` mở rộng + run + stats, xuất `docs/design/data/topics/` cho Claude Design.
 2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
@@ -43,7 +43,7 @@
 
 ## Số liệu nhanh
 
-- 152 root post · 1.398 reply của tác giả (367 self_continuation · 681 author_answer · 350 outbound — ADR-0004) · 9 cluster (`validity_index` 0,261, nhiễu 41% — lần gom 2026-10-07; số sống: `GET /pipeline/summary`) · 521 test pass
+- 152 root post · 1.398 reply của tác giả (367 self_continuation · 681 author_answer · 350 outbound — ADR-0004) · 9 cluster (`validity_index` 0,261, nhiễu 41% — lần gom 2026-10-07; số sống: `GET /pipeline/summary`) · 540 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
