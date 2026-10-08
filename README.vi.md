@@ -26,8 +26,8 @@ Engineer. Không phải SaaS, không multi-tenant, và không có tham vọng tr
 Sản phẩm qua 4 bước — từ tuyên ngôn tới tận cluster chủ đề thô khám phá được.
 
 <p align="center">
-  <img src="docs/screenshots/landing.png" alt="Landing page: hero, problem, solution, tech stack" width="820"><br>
-  <sub><b>1. Landing</b> — tuyên ngôn, vấn đề, và giải pháp 3 tầng (statistics → NLP → knowledge base), cùng toàn bộ tech stack hiển thị đúng trạng thái thật.</sub>
+  <img src="docs/screenshots/landing.png" alt="Landing page: one post placed against its channel, the three layers, two dashboard panels, the pipeline diagram" width="820"><br>
+  <sub><b>1. Landing</b> — một bài thật đặt cạnh chính kênh của nó (median, độ phân tán, n), 3 tầng (statistics → NLP → knowledge base) theo dấu bài đó, 2 panel dashboard trên dữ liệu thật, và pipeline từ Threads API tới trang, mỗi bước ghi đúng trạng thái thật.</sub>
 </p>
 
 <p align="center">
