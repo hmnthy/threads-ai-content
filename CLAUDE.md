@@ -56,6 +56,7 @@ Quy tắc theo mảng code nằm ở `.claude/rules/` và **tự nạp** khi đ�
   `data/` của worktree là bản riêng, có thể cũ. Hook đầu phiên in `Git:` khi lệch quy ước.
 - **Subagents**: `@agent-code-reviewer` **bắt buộc** trước commit chạm logic (git hook pre-commit chặn nếu thiếu, ADR-0015) · `@agent-qa-tester` viết/chạy test (chỉ sửa `tests/`) ·
   `@agent-researcher` tìm paper/model/docs có trích nguồn (web + MCP `huggingface`, `context7`) ·
+  `@agent-copy-reviewer` đọc chữ tiếng Anh hiển thị như tech lead NLP + người đọc mới, đề xuất câu viết lại (Thy duyệt câu cuối) ·
   `@agent-consistency-auditor` kiểm toán độc lập 1 ADR (dùng trong `/decision-sweep`; **bắt buộc** trước commit ADR — git hook pre-commit chặn, ADR-0015).
 - **Cổng pre-commit** (chặn commit): ruff, mypy, sổ luật nhất quán (quét TOÀN repo, ~6s), pytest nhanh, eslint + tsc khi chạm dashboard, cổng review tầng 2 (chỉ commit của Claude), commit-msg.
   CI (`.github/workflows/ci.yml`) chạy lại các cổng trên máy sạch khi mở PR hoặc push vào `main`.
