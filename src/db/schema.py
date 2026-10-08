@@ -505,6 +505,12 @@ def latest_insight_snapshot(conn: sqlite3.Connection, post_id: str) -> sqlite3.R
     return row  # type: ignore[no-any-return]
 
 
+def latest_snapshot_time(conn: sqlite3.Connection) -> str | None:
+    """`fetched_at` mới nhất trên toàn bảng snapshot (UTC) — mốc "snapshot" của số liệu."""
+    row = conn.execute("SELECT MAX(fetched_at) AS t FROM insights_snapshots").fetchone()
+    return row["t"]  # type: ignore[no-any-return]
+
+
 def insight_views_series(conn: sqlite3.Connection) -> dict[str, list[tuple[str, int]]]:
     """Mọi snapshot `(fetched_at, views)` theo post, xếp theo thời gian — đường tăng views
     dùng để đo độ chín của bài (`src/analysis/reach.py`, ADR-0012). 1 truy vấn cho cả bảng."""
@@ -792,6 +798,14 @@ def load_embeddings(
         )
         for row in rows
     }
+
+
+def embedding_dim(conn: sqlite3.Connection, model_id: str) -> int | None:
+    """Số chiều vector đã lưu của 1 model (đọc từ data, không giả định theo tên model)."""
+    row = conn.execute(
+        "SELECT dim FROM embeddings WHERE model_id = ? LIMIT 1", (model_id,)
+    ).fetchone()
+    return row["dim"] if row is not None else None
 
 
 # --- cluster_runs ------------------------------------------------------------------
