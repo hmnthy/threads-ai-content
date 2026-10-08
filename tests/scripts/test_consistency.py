@@ -431,6 +431,19 @@ def test_real_sprint_step_rule_ignores_procedure_numbering_in_skills(tmp_path: P
 # Luật học được từ lượt /decision-sweep đầu tiên (consistency-auditor): mỗi luật 1 ví dụ
 # PHẢI khớp và 1 ví dụ KHÔNG được khớp, lấy từ chính phát hiện thật trong repo.
 LEARNED_RULES = [
+    # ADR-0022: token từ khoá theo âm tiết là mô tả cũ (không bắt câu nói về văn bản embed)
+    (
+        "ADR0022-syllable-keywords",
+        "src/nlp/topic_profile.py",
+        "Token: tiếng Việt viết tách âm tiết bằng dấu cách, nên 1 token = 1 âm tiết; dùng thêm",
+        "Token cho từ khoá (ADR-0022): tách TỪ bằng underthesea (`word_tokenize`) để từ ghép",
+    ),
+    (
+        "ADR0022-syllable-keywords",
+        "docs/claude/data-model.md",
+        "- Từ khoá cụm: **c-TF-IDF** (`src/nlp/topic_profile.py`) trên âm tiết + bigram, chỉ term",
+        "- Từ khoá cụm: **c-TF-IDF** (`src/nlp/topic_profile.py`) trên từ (underthesea) + bigram",
+    ),
     # ADR-0021: chữ "@" giữ chỗ trước logo Unknot (không bắt import alias "@/components")
     (
         "ADR0021-placeholder-logo",

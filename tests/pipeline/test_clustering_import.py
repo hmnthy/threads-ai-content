@@ -22,6 +22,7 @@ from src.api.models import MediaType, ThreadsPost
 from src.db.schema import connect, create_schema, upsert_content_unit, upsert_post
 from src.models.content_unit import ContentUnit
 from src.nlp.topic_identity import TopicMatch
+from src.nlp.topic_profile import Segments, word_segments
 from src.nlp.topics import CLUSTER_LABELING_MODEL, LABEL_PROMPT_VERSION, TopicLabelResult
 from src.pipeline import clustering_import
 
@@ -41,11 +42,23 @@ def _seed_content_units(db_path: Path, unit_ids: list[str]) -> None:
     conn.close()
 
 
+def _segments(ids: list[str]) -> list[Segments]:
+    """Văn bản đã tách từ như bước WSL ghi (ADR-0022) — bộ tách giả, không nạp underthesea."""
+    return [word_segments(f"content for {uid}", str.split) for uid in ids]
+
+
 def _write_results(path: Path, ids: list[str], cluster_labels: list[int]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     umap_coords = [[float(i), float(i), float(i)] for i in range(len(ids))]
     path.write_text(
-        json.dumps({"ids": ids, "cluster_labels": cluster_labels, "umap_coords": umap_coords}),
+        json.dumps(
+            {
+                "ids": ids,
+                "cluster_labels": cluster_labels,
+                "umap_coords": umap_coords,
+                "keyword_segments": _segments(ids),
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -112,6 +125,7 @@ def _write_full_results(path: Path, ids: list[str], labels: list[int]) -> None:
                 "embeddings": [vectors[label] for label in labels],
                 "dbcv": 0.3,
                 "params": {"hdbscan_min_cluster_size": 4},
+                "keyword_segments": _segments(ids),
             }
         ),
         encoding="utf-8",
@@ -155,7 +169,7 @@ def test_run_import_stores_embeddings_profiles_and_run_metrics(
     assert n_vectors == 5
     topic = conn.execute("SELECT * FROM topics WHERE id = 'topic_0'").fetchone()
     assert json.loads(topic["representative_ids_json"]) == ["u1", "u2"]
-    assert json.loads(topic["keywords_json"]) == ["content for"]
+    assert json.loads(topic["keywords_json"]) == ["content"]  # "for" là stopword (ADR-0022)
     run = conn.execute("SELECT * FROM cluster_runs ORDER BY id DESC").fetchone()
     assert run["n_clusters"] == 2
     assert run["noise_ratio"] == pytest.approx(0.2)
@@ -487,3 +501,26 @@ def test_dry_run_reports_planned_topic_events_without_claude(
         "topic_1": "retired",
     }
     assert stats["n_named_now"] == 1
+
+
+def test_run_import_refuses_results_without_keyword_segments(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # ADR-0022: từ khoá tính trên văn bản tách từ trong WSL2 — thiếu thì báo rõ, không tự tách
+    # trên Windows (underthesea kéo torch/transformers)
+    db_path = tmp_path / "test.db"
+    results_path = tmp_path / "cluster_results.json"
+    _seed_content_units(db_path, ["u1", "u2"])
+    monkeypatch.setattr(clustering_import, "RESULTS_PATH", results_path)
+    results_path.write_text(
+        json.dumps(
+            {
+                "ids": ["u1", "u2"],
+                "cluster_labels": [0, 0],
+                "umap_coords": [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="keyword_segments"):
+        clustering_import.run_import(db_path=db_path)

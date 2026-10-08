@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-521%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-540%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -81,7 +81,7 @@ Three layers, built in that order — each grounded in cited methodology, not in
 | Layer | Status | What it does |
 |---|---|---|
 | **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, share rate, conversation, velocity, longevity — never blended into one score. Median and mean reported together (never a lone mean), IQR and sample-size flags on every bucket, Mann-Whitney U + Cliff's delta for any group comparison, reach tiers (via the API) measured against the channel's recent level (median of up to 20 prior posts) instead of an arbitrary fixed threshold. |
-| **NLP layer** | Live | Multilingual sentence embeddings (content mixes Vietnamese, French and English naturally, so no per-language tokenizer) feed UMAP + HDBSCAN for unsupervised topic discovery, then Claude labels each discovered cluster in English. A Code-Mixing Index — a continuous score, not a boolean flag — measures how much a post actually switches languages. |
+| **NLP layer** | Live | Multilingual sentence embeddings (content mixes Vietnamese, French and English naturally, so no per-language tokenizer before embedding; topic keywords use a Vietnamese word segmenter) feed UMAP + HDBSCAN for unsupervised topic discovery, then Claude labels each discovered cluster in English. A Code-Mixing Index — a continuous score, not a boolean flag — measures how much a post actually switches languages. |
 | **Knowledge base** | Next | The channel's own posts and the author's answers to follower questions, turned into a searchable knowledge base: hybrid keyword (BM25) + semantic retrieval with a reranker, evaluated against real follower questions (recall@k, MRR, nDCG) before anything — such as a Q&A assistant — is built on top of it. |
 
 ## Tech stack

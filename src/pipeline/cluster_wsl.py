@@ -7,7 +7,9 @@ Control nên ổn định).
 Đọc `data/nlp_exchange/texts_export.json` (do `src/pipeline/clustering_export.py`
 tạo trên Windows), gọi lại NGUYÊN VẸN `embed_texts()` (`src/nlp/embeddings.py`) và
 `cluster_embeddings()` (`src/nlp/topics.py`) — KHÔNG viết lại logic, chỉ đổi môi
-trường chạy — để tránh 2 bản logic lệch nhau giữa Windows/WSL.
+trường chạy — để tránh 2 bản logic lệch nhau giữa Windows/WSL. Cũng tách từ cho từ khoá
+(`word_segments`, underthesea — ADR-0022) và ghi `keyword_segments`; venv WSL2
+`~/threads-clustering-env` phải có `underthesea` (ngoài `uv.lock`).
 
 Chạy trong WSL:
     wsl -d Ubuntu -- bash -c "cd /mnt/c/.../threads-ai-content/.claude/worktrees/<agent> \
@@ -18,11 +20,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+from importlib.metadata import version
 from pathlib import Path
 
 import numpy as np
 
 from src.nlp.embeddings import PRIMARY_MODEL_NAME, embed_texts
+from src.nlp.topic_profile import word_segments
 from src.nlp.topics import (
     CLUSTER_SELECTION_METHOD,
     HDBSCAN_MIN_CLUSTER_SIZE,
@@ -46,6 +50,17 @@ def run() -> dict[str, int | float | str]:
     cached: dict[str, list[float]] = data.get("cached_vectors", {})
     if data.get("cached_model_id") != PRIMARY_MODEL_NAME:
         cached = {}
+
+    # ADR-0022: tách từ cho từ khoá ở đây (WSL2), không ở bước import trên Windows — underthesea
+    # nạp kèm torch/transformers. Làm TRƯỚC embed: thiếu gói thì lỗi sau vài giây, không phải
+    # sau vài phút embed
+    keyword_segments = [word_segments(text) for text in texts]
+
+    # lưu vào params → cluster_runs: đổi phiên bản (venv WSL ngoài uv.lock) làm đổi từ khoá —
+    # phải truy được về sau
+    segmenter = (
+        f"underthesea=={version('underthesea')}; underthesea-core=={version('underthesea-core')}"
+    )
 
     # ADR-0004: chỉ embed text mới/đổi (hash khác vector đã lưu); phần còn lại dùng lại
     missing = [i for i, uid in enumerate(ids) if uid not in cached]
@@ -80,12 +95,14 @@ def run() -> dict[str, int | float | str]:
                 "embeddings": matrix.tolist(),
                 "dbcv": dbcv,
                 "dbcv_relative": result.relative_validity,
+                "keyword_segments": keyword_segments,
                 "params": {
                     "umap_n_components": UMAP_N_COMPONENTS,
                     "umap_n_neighbors": UMAP_N_NEIGHBORS,
                     "umap_random_state": UMAP_RANDOM_STATE,
                     "hdbscan_min_cluster_size": HDBSCAN_MIN_CLUSTER_SIZE,
                     "cluster_selection_method": CLUSTER_SELECTION_METHOD,
+                    "keyword_segmenter": segmenter,
                 },
             },
             f,

@@ -53,6 +53,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 | RQ-07 | Follower hỏi những gì? | cluster câu hỏi follower → lỗ hổng KB (cần D0 bước 3) |
 | RQ-08 | 6 nhãn cố định có học được từ embedding? | tác giả gán nhãn 150 bài + gán lại 30 bài sau 2 tuần (Cohen's κ); bậc thang 5 baseline; nested CV; bootstrap CI macro-F1; model card |
 | RQ-09 | Thành phần truy xuất nào thật sự có ích? | ablation BM25/dense/RRF/rerank/chunking — Phase E |
+| RQ-10 | Lọc từ khoá theo từ loại có tốt hơn danh sách stopword tay? | `underthesea.pos_tag` (giữ danh từ/động từ/tính từ) vs `src/nlp/stopwords.py` trên cùng lần gom cụm; đo từ chức năng/mảnh âm tiết/từ chung chung trong top-8 (ADR-0022) |
 
 ## E — Knowledge base (`src/kb/`) — ADR-0006
 
