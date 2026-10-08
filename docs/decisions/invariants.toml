@@ -40,9 +40,6 @@ planned_paths = [
   # Gói Claude Design 2026-10-05: file các việc kế tiếp sẽ tạo (brief Topics Việc 0–4)
   "docs/design/topics-data-audit.md",
   "src/dashboard/mockups/topics.dc.html",
-  # landing-handoff.md §1: component mới khi port landing
-  "src/dashboard/src/components/LandingProof.tsx",
-  "src/dashboard/src/components/LandingCta.tsx",
 ]
 # Có thật trên máy nhưng gitignored → không tồn tại ở clone mới/CI; chấp nhận khi được nhắc tới
 known_untracked = [
