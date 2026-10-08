@@ -1,7 +1,7 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-06
+> Cập nhật: 2026-10-08
 
 ## Now
 
@@ -14,22 +14,23 @@
 - PR #3 (2026-10-06): gói Claude Design 2026-10-05 (landing mockup chốt, design-system v3.2, brief Topics v2) + logo Unknot.
 - ADR-0012 (Thy chốt 2026-10-06, PR #5 đã merge): chỉ số (reposts + quotes) / views đổi tên thành `share_rate` (UI "Share rate"); "bài lan rộng" = tầng reach tương đối — "Top 20% reach" (P80) / "Above median reach" (P50) của views ÷ median 20 bài trước, chỉ bài đã chín (P90 thời gian đạt 90% views, đo từ snapshot); `GET /analytics/reach`, số liệu sinh lại bằng `scripts/reach_report.py`. Chưa có giao diện tầng (chờ mockup); ảnh chụp đã làm lại. Hạn chế cửa sổ 20 bài (Thy giữ, 2026-10-07): ghi ở `data-model.md`.
 - Gói Claude Design 2026-10-06 (nhánh `design/2026-10-06`): landing mockup sửa theo audit, `landing-handoff.md` §0.5 (quyết định → id `UI-…`); hợp đồng UI chốt 4 câu hỏi mở (1: một ngưỡng mẫu nhỏ = 5, UI đọc cờ backend; 2: giữ hai bộ nhãn trạng thái; 3: id `topic_N` chỉ ở metadata; 4: mốc clustered theo giờ Paris) + 7 đề xuất cột E.
-- ADR-0021 (Thy duyệt logo 2026-10-01, chốt vị trí 2026-10-07): logo Unknot qua `BrandLogo.tsx`, hai navbar dùng lockup tĩnh thay chữ "@" giữ chỗ, favicon `app/icon.svg`; chuyển động chỉ ở hero landing (áp khi port landing).
+- ADR-0021 (Thy duyệt logo 2026-10-01, chốt vị trí 2026-10-07): logo Unknot qua `BrandLogo.tsx`, hai navbar dùng lockup tĩnh thay chữ "@" giữ chỗ, favicon `app/icon.svg`; chuyển động chỉ ở hero landing.
+- PR 10 (nhánh `feat/landing-port`, Thy chọn hướng A + thêm API đọc 2026-10-07): landing port từ mockup đã chốt, mọi số đọc từ API thật. API mới chỉ đọc: `GET /pipeline/summary` (vai reply, unit không chữ, snapshot mới nhất, lần gom cụm mới nhất, phân phối bài nhiễu), `/topics` thêm từ khoá, 3 bài gần tâm, phân phối engagement mô tả + cờ `insufficient_data`; `/content-units` trả `metrics` null khi views = 0 (ADR-0011). δ + p Holm theo topic vẫn `next` (chờ Việc 1), CMI `research` (RQ-04). Navbar pill luôn 1 hàng (sửa lỗi mockup, ghi audit). Chữ landing viết lại theo 2 lượt agent mới `copy-reviewer` (Thy duyệt 2026-10-08): dải thống kê kênh ở hero, câu hỏi "do better than the channel's usual post", thứ hạng so với các bài khác; `/pipeline/summary` trả thêm ngưỡng `min_posts_to_compare`.
 - ADR-0020 (Thy chọn: Claude Code = nguồn sự thật kỹ thuật, Claude Design làm UI/UX trên nền đó; mockup chỉ cảnh báo): hợp đồng UI `docs/design/ui-contract.md` (ADR-0001 → 0020, mỗi ràng buộc kèm `file:line`, máy kiểm đường dẫn/luật/test); ADR mới có mục "Hệ quả UI"; mockup bị sổ luật quét ở mức cảnh báo; audit landing ở `docs/design/ui-contract-audit.md`.
 
 ## Next
 
+- **Trước khi công khai landing** (Thy chọn 2026-10-08): ADR + PR riêng — danh sách stopword tiếng Việt cho từ khoá c-TF-IDF (`src/nlp/topic_profile.py`), vì từ khoá hiện lẫn "một", "điều", "tui", "tớ", "ko"; chạy lại hồ sơ topic, so trước/sau.
 0. Việc 1 của brief Topics (Thy chốt 1a–1e: cấu trúc trang tầng A, nhóm so sánh, họ test Holm, mean, lịch sử tên) **gộp** phần còn mở của ADR-0012 (sàn views cho bảng top theo rate; so sánh biến giải thích giữa các tầng reach + Holm) — chung Holm và câu hỏi "so với nhóm nào".
-1. Brief Việc 2–4: audit dữ liệu Topics, endpoint `/topics` mở rộng + run + stats, xuất `docs/design/data/topics/` cho Claude Design. Port landing mockup đã chốt (Thy chọn hướng A 2026-10-07: 2 panel topic tạm "Preview"; hero logo động, CTA mark, footer lockup theo ADR-0021).
+1. Brief Việc 2–4: audit dữ liệu Topics, endpoint `/topics` mở rộng + run + stats, xuất `docs/design/data/topics/` cho Claude Design.
 2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
 3. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
 
 ## Blocked / cần Thy
 
 - Vòng 3 Claude Design (gói 2026-10-07) xong: cảnh báo mockup còn 1 (báo nhầm trong nội dung bài mẫu). Lần gửi tới kèm `ui-contract-audit.md` mới: đổi `RUN_AT_UTC` của landing thành giờ thật `2026-10-01T11:35:06Z`.
-- Landing ghi "This site, deployed on Vercel" — giữ tới khi deploy thật (Thy: chỉnh nội dung thêm 1 vòng rồi mới deploy).
 - Lần mở phiên tới: duyệt 2 MCP server trong `/mcp` (`context7`, `huggingface` — HF đăng nhập OAuth) và thử pop-up khi Claude xong việc.
-- Duyệt bio `LandingAuthor.tsx` + sub-headline tagline `LandingHero.tsx` (còn treo từ 2026-09-03).
+- Duyệt bio ở `LandingAuthor.tsx` (copy của mockup, vẫn là nháp). Nút "View the repo" đã bỏ khỏi khối CTA tới khi có repo công khai.
 - Phase C cần Thy mở VS Code Remote-WSL (Claude Code chạy trong Linux) — không tự làm được từ phiên Windows.
 - RQ-08 cần Thy gán nhãn tay 150 bài (6 nhãn cố định) + gán lại 30 bài sau 2 tuần.
 
@@ -42,7 +43,7 @@
 
 ## Số liệu nhanh
 
-- 152 root post · 1.390 reply của tác giả (367 self_continuation · 680 author_answer · 343 outbound — ADR-0004) · 9 cluster (`validity_index` 0,261, nhiễu 41% — lần gom 2026-10-04) · 516 test pass
+- 152 root post · 1.398 reply của tác giả (367 self_continuation · 681 author_answer · 350 outbound — ADR-0004) · 9 cluster (`validity_index` 0,261, nhiễu 41% — lần gom 2026-10-07; số sống: `GET /pipeline/summary`) · 521 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint

@@ -45,15 +45,25 @@ from src.analysis.reach import (
     estimate_maturity,
 )
 from src.analysis.share_rate import share_rate
-from src.analysis.stats import DistributionStats, split_measurable, window_stats
+from src.analysis.stats import (
+    MIN_N_PER_BUCKET,
+    DistributionStats,
+    split_measurable,
+    window_stats,
+)
 from src.api.models import PostInsights, ThreadsPost
 from src.db.schema import (
     DEFAULT_DB_PATH,
     connect,
+    count_reply_roles,
+    embedding_dim,
+    get_content_unit,
     get_post,
     get_post_topic_label,
     insight_views_series,
+    latest_cluster_run,
     latest_insight_snapshot,
+    latest_snapshot_time,
     list_content_units,
     list_daily_views,
     list_root_posts,
@@ -120,14 +130,6 @@ class ContentUnitOut(BaseModel):
     umap: list[float] | None  # [x, y, z] — null tới khi src/nlp/topics.py chạy
 
 
-class TopicOut(BaseModel):
-    id: str
-    label_en: str
-    description_en: str | None
-    method: str
-    post_count: int
-
-
 # Audience trải cả Pháp và Việt Nam (verify live 2026-08-31 qua
 # get_follower_demographics(breakdown="country"): 71.5% VN, 19.3% FR trên 1,423
 # follower có dữ liệu country). So sánh song song 2 timezone thay vì chọn 1 — lý do
@@ -160,6 +162,32 @@ class DistributionStatsOut(BaseModel):
     iqr_low: float
     iqr_high: float
     insufficient_data: bool
+
+
+class RepresentativePostOut(BaseModel):
+    """1 trong các bài gần tâm cụm nhất (`topics.representative_ids_json`, ADR-0004) — để
+    người đọc xem, KHÔNG phải đầu vào đặt tên của Claude (UI-0004-representatives)."""
+
+    id: str
+    full_text: str  # chỉ chữ của tác giả: root + self_continuation (ADR-0004)
+    centroid_similarity: float | None
+
+
+class TopicOut(BaseModel):
+    id: str
+    label_en: str
+    description_en: str | None
+    method: str
+    # số bài được gán topic (mọi bài đã embed, kể cả bài views = 0)
+    post_count: int
+    # c-TF-IDF (src/nlp/topic_profile.py); [] khi lần gom cụm chưa ghi hồ sơ
+    keywords: list[str]
+    representatives: list[RepresentativePostOut]
+    # phân phối engagement rate của các bài đo được trong topic — mô tả, KHÔNG kiểm định
+    # (so sánh topic vs nhóm khác + Holm chờ Việc 1 chốt nhóm so sánh); `insufficient_data`
+    # là cờ n nhỏ duy nhất của dự án (`MIN_N_PER_BUCKET`, UI-L20260903-small-n-flag)
+    engagement: DistributionStatsOut
+    excluded_no_views: int
 
 
 class HourBucket(BaseModel):
@@ -242,7 +270,8 @@ def health() -> dict[str, str]:
 def get_content_units() -> list[ContentUnitOut]:
     """List toàn bộ ContentUnit kèm 4 base metric (tính on-the-fly từ snapshot mới
     nhất — thuần arithmetic, KHÔNG phải chạy lại pipeline NLP) + topic label
-    (`method="cluster"`, có thể null nếu post chưa được gán cluster)."""
+    (`method="cluster"`, có thể null nếu post chưa được gán cluster). `metrics` null khi
+    chưa có snapshot hoặc snapshot mới nhất views = 0 (ADR-0011)."""
     with _db() as conn:
         rows = list_content_units(conn)
         result: list[ContentUnitOut] = []
@@ -250,9 +279,11 @@ def get_content_units() -> list[ContentUnitOut]:
             post_row = get_post(conn, row["id"])
             continuation_ids = json.loads(row["continuation_ids_json"])
 
+            # ADR-0011: snapshot mới nhất views = 0 là insight thiếu → metrics null (cùng điều
+            # kiện `split_measurable`), không trả rate 0.0 giả cho client vẽ vào phân phối
             metrics: ContentUnitMetrics | None = None
             snapshot = latest_insight_snapshot(conn, row["id"])
-            if snapshot is not None:
+            if snapshot is not None and snapshot["views"] > 0:
                 insights = snapshot_row_to_post_insights(snapshot)
                 metrics = ContentUnitMetrics(
                     popularity_index=popularity_index(insights),
@@ -292,26 +323,72 @@ def get_content_units() -> list[ContentUnitOut]:
 
 @app.get("/topics", response_model=list[TopicOut])
 def get_topics() -> list[TopicOut]:
-    """List topic cluster đã gán kèm số post thuộc mỗi topic — phục vụ
-    legend/filter của Topic Explorer (dashboard)."""
+    """List topic cluster đã gán kèm số post, hồ sơ cụm (từ khoá, bài gần tâm) và phân
+    phối engagement mô tả của từng topic — phục vụ Topic Explorer và landing."""
     with _db() as conn:
         topic_rows = conn.execute("SELECT * FROM topics").fetchall()
         result: list[TopicOut] = []
         for topic in topic_rows:
-            count_row = conn.execute(
-                "SELECT COUNT(*) AS n FROM post_topic_labels WHERE topic_id = ?",
+            label_rows = conn.execute(
+                "SELECT post_id, confidence FROM post_topic_labels WHERE topic_id = ?",
                 (topic["id"],),
-            ).fetchone()
+            ).fetchall()
+            similarity = {row["post_id"]: row["confidence"] for row in label_rows}
+            _, insights, excluded = split_measurable(
+                *_load_posts_with_insights(conn, list(similarity))
+            )
             result.append(
                 TopicOut(
                     id=topic["id"],
                     label_en=topic["label_en"],
                     description_en=topic["description_en"],
                     method=topic["method"],
-                    post_count=count_row["n"],
+                    post_count=len(label_rows),
+                    keywords=json.loads(topic["keywords_json"] or "[]"),
+                    representatives=_representatives(
+                        conn, json.loads(topic["representative_ids_json"] or "[]"), similarity
+                    ),
+                    engagement=_to_stats_out(window_stats(insights, lambda i: i.engagement_rate)),
+                    excluded_no_views=excluded,
                 )
             )
         return result
+
+
+def _representatives(
+    conn: sqlite3.Connection, unit_ids: list[str], similarity: dict[str, float | None]
+) -> list[RepresentativePostOut]:
+    """Giữ thứ tự đã lưu (gần tâm nhất trước); bỏ id không còn content unit."""
+    result: list[RepresentativePostOut] = []
+    for unit_id in unit_ids:
+        unit = get_content_unit(conn, unit_id)
+        if unit is None:
+            continue
+        result.append(
+            RepresentativePostOut(
+                id=unit_id,
+                full_text=unit["full_text"],
+                centroid_similarity=similarity.get(unit_id),
+            )
+        )
+    return result
+
+
+def _load_posts_with_insights(
+    conn: sqlite3.Connection, post_ids: list[str]
+) -> tuple[list[ThreadsPost], list[PostInsights]]:
+    """Như `_load_root_posts_with_insights()` nhưng cho 1 tập id cho trước (thành viên 1
+    topic, bài nhiễu) — bài chưa có snapshot nào bị bỏ, đúng cách hàm kia làm."""
+    posts: list[ThreadsPost] = []
+    insights: list[PostInsights] = []
+    for post_id in post_ids:
+        row = get_post(conn, post_id)
+        snapshot = latest_insight_snapshot(conn, post_id)
+        if row is None or snapshot is None:
+            continue
+        posts.append(ThreadsPost.model_validate_json(row["raw_json"]))
+        insights.append(snapshot_row_to_post_insights(snapshot))
+    return posts, insights
 
 
 def _load_root_posts_with_insights(
@@ -602,3 +679,98 @@ def get_analytics_reach() -> ReachTiersOut:
             for i, (post, item) in enumerate(zip(result.posts, result.insights, strict=True))
         ],
     )
+
+
+class ReplyRolesOut(BaseModel):
+    """Vai của các reply do tác giả viết (ADR-0004, `posts.reply_role`)."""
+
+    self_continuation: int
+    author_answer: int
+    outbound: int
+    # reply chưa được phân vai (ingest chưa chạy `assign_reply_roles`) — báo ra, không giấu
+    unassigned: int
+
+
+class ClusterRunOut(BaseModel):
+    """Lần gom cụm mới nhất (`cluster_runs`) — `run_at` lưu UTC, UI đổi sang Europe/Paris."""
+
+    run_at: str
+    model_id: str
+    params: dict[str, str | int | float | bool | None]
+    embedding_dim: int | None
+    # số unit có `full_text` không rỗng đã đem gom cụm — mẫu số của tỉ lệ nhiễu
+    n_units: int
+    n_clusters: int
+    n_noise: int
+    noise_ratio: float
+    # = hdbscan validity_index (DBCV đầy đủ); null khi < 2 cụm (UI-0004-dbcv-named)
+    dbcv: float | None
+    ari_vs_previous: float | None
+    ari_clustered_only: float | None
+
+
+class PipelineSummaryOut(BaseModel):
+    """Số liệu sống của pipeline cho landing và sơ đồ "How it works" — thuần đếm/đọc từ
+    SQLite, không thêm methodology mới."""
+
+    content_units: int
+    # unit không có chữ để embed (bài chỉ ảnh/video) — loại khỏi gom cụm (UI-0011-two-exclusions)
+    units_without_text: int
+    reply_roles: ReplyRolesOut
+    latest_snapshot_at: str | None
+    latest_cluster_run: ClusterRunOut | None
+    # phân phối engagement của bài nhiễu (nhãn HDBSCAN -1) ở lần gom cụm mới nhất — mô tả,
+    # không kiểm định; null khi chưa gom cụm lần nào
+    noise_engagement: DistributionStatsOut | None
+    noise_excluded_no_views: int
+    # ngưỡng mẫu nhỏ duy nhất của dự án (`MIN_N_PER_BUCKET`) — UI ghi số này thay vì tự đặt ngưỡng
+    # thứ hai (UI-L20260903-small-n-flag); dưới ngưỡng thì `insufficient_data` = true
+    min_posts_to_compare: int
+
+
+@app.get("/pipeline/summary", response_model=PipelineSummaryOut)
+def get_pipeline_summary() -> PipelineSummaryOut:
+    with _db() as conn:
+        units = list_content_units(conn)
+        roles = count_reply_roles(conn)
+        run = latest_cluster_run(conn)
+
+        run_out: ClusterRunOut | None = None
+        noise_engagement: DistributionStatsOut | None = None
+        noise_excluded = 0
+        if run is not None:
+            labels: dict[str, int] = json.loads(run["labels_json"])
+            noise_ids = [unit_id for unit_id, label in labels.items() if label == -1]
+            run_out = ClusterRunOut(
+                run_at=run["run_at"],
+                model_id=run["model_id"],
+                params=json.loads(run["params_json"]),
+                embedding_dim=embedding_dim(conn, run["model_id"]),
+                n_units=run["n_units"],
+                n_clusters=run["n_clusters"],
+                n_noise=len(noise_ids),
+                noise_ratio=run["noise_ratio"],
+                dbcv=run["dbcv"],
+                ari_vs_previous=run["ari_vs_previous"],
+                ari_clustered_only=run["ari_clustered_only"],
+            )
+            _, insights, noise_excluded = split_measurable(
+                *_load_posts_with_insights(conn, noise_ids)
+            )
+            noise_engagement = _to_stats_out(window_stats(insights, lambda i: i.engagement_rate))
+
+        return PipelineSummaryOut(
+            content_units=len(units),
+            units_without_text=sum(1 for unit in units if not (unit["full_text"] or "").strip()),
+            reply_roles=ReplyRolesOut(
+                self_continuation=roles.get("self_continuation", 0),
+                author_answer=roles.get("author_answer", 0),
+                outbound=roles.get("outbound", 0),
+                unassigned=roles.get("unassigned", 0),
+            ),
+            latest_snapshot_at=latest_snapshot_time(conn),
+            latest_cluster_run=run_out,
+            noise_engagement=noise_engagement,
+            noise_excluded_no_views=noise_excluded,
+            min_posts_to_compare=MIN_N_PER_BUCKET,
+        )

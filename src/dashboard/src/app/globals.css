@@ -20,6 +20,22 @@
 
   --positive: #15803d; /* 4.9:1 */
   --negative: #c42a2f; /* 5.1:1 */
+
+  /* Chấm biểu đồ trung tính của landing (mockup landing.dc.html) — không dùng cho chữ */
+  --chart-dot: #9aa3ae;
+  --chart-dot-faint: #cbd2da;
+
+  /* §2.6 Dải tối — chỉ tầng B landing (sơ đồ "How it works" + khối CTA) */
+  --dark-bg: #111827;
+  --dark-text: #ffffff;
+  --dark-text-secondary: rgba(255, 255, 255, 0.78);
+  --dark-text-muted: rgba(255, 255, 255, 0.72);
+  --dark-node: rgba(255, 255, 255, 0.06);
+  --dark-line: rgba(255, 255, 255, 0.14);
+  --dark-line-strong: rgba(255, 255, 255, 0.32);
+  --amber-on-dark: #f59e0b;
+  --amber-on-dark-fill: rgba(245, 158, 11, 0.14);
+  --amber-on-dark-text: #fff6ec;
 }
 
 @theme inline {
@@ -38,6 +54,18 @@
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
+  --color-chart-dot: var(--chart-dot);
+  --color-chart-dot-faint: var(--chart-dot-faint);
+  --color-dark-bg: var(--dark-bg);
+  --color-dark-text: var(--dark-text);
+  --color-dark-text-secondary: var(--dark-text-secondary);
+  --color-dark-text-muted: var(--dark-text-muted);
+  --color-dark-node: var(--dark-node);
+  --color-dark-line: var(--dark-line);
+  --color-dark-line-strong: var(--dark-line-strong);
+  --color-amber-on-dark: var(--amber-on-dark);
+  --color-amber-on-dark-fill: var(--amber-on-dark-fill);
+  --color-amber-on-dark-text: var(--amber-on-dark-text);
 
   --font-sans: var(--font-inter);
   --font-mono: var(--font-ibm-plex-mono);
@@ -46,4 +74,18 @@
 body {
   background: var(--bg-page);
   color: var(--text-primary);
+}
+
+/* Landing (tầng B): focus ring 2px amber; trên dải tối dùng amber-on-dark (design-system §5, §12) */
+.landing :focus-visible {
+  outline: 2px solid var(--amber-600);
+  outline-offset: 2px;
+}
+.landing .on-dark :focus-visible {
+  outline-color: var(--amber-on-dark);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing) {
+    scroll-behavior: smooth;
+  }
 }

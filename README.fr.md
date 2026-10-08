@@ -3,7 +3,7 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-516%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-521%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -28,8 +28,8 @@ multi-tenant, et ça n'a pas vocation à le devenir.
 Le produit en quatre étapes — du pitch jusqu'aux sujets bruts découverts par clustering.
 
 <p align="center">
-  <img src="docs/screenshots/landing.png" alt="Landing page: hero, problem, solution, tech stack" width="820"><br>
-  <sub><b>1. Landing</b> — le pitch, le problème, et la solution à trois couches (statistiques → NLP → base de connaissances), avec toute la stack technique affichée selon son statut réel.</sub>
+  <img src="docs/screenshots/landing.png" alt="Landing page: one post placed against its channel, the three layers, two dashboard panels, the pipeline diagram" width="820"><br>
+  <sub><b>1. Landing</b> — un vrai post placé face à sa propre chaîne (médiane, dispersion, n), les trois couches (statistiques → NLP → base de connaissances) suivies à travers ce post, deux panneaux du dashboard sur les données réelles, et le pipeline de l'API Threads jusqu'à la page, chaque étape avec son statut réel.</sub>
 </p>
 
 <p align="center">

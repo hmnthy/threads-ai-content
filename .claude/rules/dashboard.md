@@ -11,6 +11,8 @@ paths:
 - Không tự chọn palette/font/layout, không dùng palette mặc định của model. Icon: Phosphor.
 - Tra cứu UX/chart: skill `ui-lookup` (CLI `tools/ui-ux-pro-max/scripts/search.py`). **Không** nạp SKILL.md của tool đó; **cấm** `--design-system` và `--persist`. Query theo triệu chứng quan sát được, 2–5 từ (cookbook: `design-system.md` §11).
 - Mockup `.dc.html` là spec cho layout/tương tác; **không bao giờ** là nguồn methodology (VD công thức KPI lấy từ backend, không tính lại ở client).
+- `DistributionStats` từ API có `n === 0` → hiện "—", không vẽ median/IQR (backend trả 0.0 cho tập rỗng) — ở **mọi** chỗ đọc cùng giá trị, cả ghi chú hover, `aria-label`, `aria-live`. Kiểm "có dữ liệu" trên số (`> 0`), không trên chuỗi đã định dạng. % làm tròn floor/ceil: nhân số nguyên trước khi chia (`Math.floor(a * 100 / b)`), không `Math.floor(a / b * 100)` (sai số dấu phẩy động). Khối phân phối có toggle đổi tập so sánh phải báo `excluded_no_views` của đúng tập đang vẽ. Câu sinh tự động: "highest/lowest" trên tập con phải nêu tập con; so với median phải có nhánh bằng nhau; không dùng `|| <số>` làm số thay data.
+- Đổi chữ hiển thị (copy) → chạy `@agent-copy-reviewer` trên chữ đã render (thuật ngữ/mẫu số định nghĩa trước khi dùng, một câu một ý, không nói quá dữ liệu); Thy duyệt câu cuối, ghi vào `docs/design/ui-contract-audit.md` để mockup theo.
 - Copy UI tiếng Anh 100%. Không hiển thị nguyên văn bình luận của follower.
 - Next.js 16 có breaking changes so với kiến thức cũ — đọc `src/dashboard/AGENTS.md` và `node_modules/next/dist/docs/`, hoặc MCP `context7`.
 - Xong việc UI: `npm run lint` + `npm run typecheck` + `npm run build` sạch, và xem thật trước khi báo "done" (trình duyệt, hoặc `npm run screenshots` rồi mở ảnh).
