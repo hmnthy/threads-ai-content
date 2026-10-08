@@ -16,3 +16,7 @@ paths:
 - Snapshot insight là time-series **không hồi cứu được** — không bao giờ xoá/ghi đè `insights_snapshots`.
 - Đổi schema: thêm cột có default / bảng mới; không drop cột có data. Ghi ADR nếu đổi ý nghĩa dữ liệu. Bảng đã có thì migrate trong `_migrate()` (`src/db/schema.py`) — idempotent, vì job cron gọi `create_schema()` mỗi lần chạy.
 - Batch ≠ serving: pipeline ghi kết quả; `src/main.py` chỉ đọc, không load model.
+- Thêm/đổi thư viện mà job cron import → sau khi merge, **trước** lần chạy job kế tiếp: Windows `uv sync --frozen` ở
+  thư mục chính; WSL2 (`~/threads-clustering-env`, ngoài `uv.lock`) `pip install` đúng phiên bản trong `pyproject.toml`
+  (VD `underthesea` cho bước cluster, ADR-0022). Thư viện kéo torch/transformers/sklearn chỉ được import ở bước WSL2 —
+  kiểm import gián tiếp (`python -X importtime -c "import <gói>"`) trước khi đặt vào bước chạy trên Windows.

@@ -1,5 +1,6 @@
 """Bước 3/3 của clustering pipeline — chạy trên Windows (chỉ cần `anthropic` + numpy,
-không đụng scipy/umap/hdbscan). Đọc `data/nlp_exchange/cluster_results.json` (do
+không đụng scipy/umap/hdbscan; từ khoá tính trên văn bản ĐÃ TÁCH TỪ trong WSL2 — ADR-0022).
+Đọc `data/nlp_exchange/cluster_results.json` (do
 `src/pipeline/cluster_wsl.py` tạo trong WSL) và ghi:
 
 1. Vector embedding vào bảng `embeddings` (ADR-0004 — trước đây tính xong rồi bỏ).
@@ -70,6 +71,7 @@ from src.db.schema import (
 from src.nlp.topic_identity import TopicMatch, anchor_holds, match_topics, semantic_reference
 from src.nlp.topic_profile import (
     REPRESENTATIVES_PER_TOPIC,
+    Segments,
     adjusted_rand_index,
     class_tfidf_keywords,
     representatives,
@@ -215,6 +217,13 @@ def run_import(
     umap_coords: list[list[float]] = data["umap_coords"]
     embeddings = np.array(data["embeddings"]) if "embeddings" in data else None
     model_id: str = data.get("model_name", "unknown")
+    if "keyword_segments" not in data:
+        raise RuntimeError(
+            "cluster_results.json thiếu keyword_segments — bước WSL chạy code trước ADR-0022 "
+            "hoặc môi trường WSL2 chưa cài underthesea; chạy lại job"
+        )
+    # Văn bản đã tách từ trong WSL2 (ADR-0022) — bước này không import underthesea
+    segments_by_id: dict[str, Segments] = dict(zip(ids, data["keyword_segments"], strict=True))
 
     conn = connect(db_path)
     create_schema(conn)
@@ -237,12 +246,9 @@ def run_import(
             clusters[label].append(index)
     # Nhiễu vào làm "nền" cho IDF (như BERTopic tính cả lớp -1) nhưng không có từ khoá
     keywords = class_tfidf_keywords(
-        {
-            label: [full_texts.get(ids[i], "") for i in members]
-            for label, members in clusters.items()
-        },
+        {label: [segments_by_id[ids[i]] for i in members] for label, members in clusters.items()},
         background_docs=[
-            full_texts.get(uid, "")
+            segments_by_id[uid]
             for uid, label in zip(ids, cluster_labels, strict=True)
             if label == -1
         ],
