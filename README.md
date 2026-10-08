@@ -26,8 +26,8 @@ multi-tenant, not trying to be.
 The product in four steps — from the pitch to the raw discovered topics.
 
 <p align="center">
-  <img src="docs/screenshots/landing.png" alt="Landing page: hero, problem, solution, tech stack" width="820"><br>
-  <sub><b>1. Landing</b> — the pitch, the problem, and the three-layer solution (statistics → NLP → knowledge base), plus the full tech stack shown with its real status.</sub>
+  <img src="docs/screenshots/landing.png" alt="Landing page: one post placed against its channel, the three layers, two dashboard panels, the pipeline diagram" width="820"><br>
+  <sub><b>1. Landing</b> — one real post placed against its own channel (median, spread, n), the three layers (statistics → NLP → knowledge base) followed through that post, two dashboard panels on live data, and the pipeline from the Threads API to the page, each step with its real status.</sub>
 </p>
 
 <p align="center">
