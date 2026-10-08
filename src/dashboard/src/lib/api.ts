@@ -23,9 +23,16 @@ export interface ContentUnit {
   is_multi_post: boolean;
   continuation_count: number;
   timestamp: string | null;
+  // null khi chưa có snapshot hoặc snapshot mới nhất views = 0 (ADR-0011)
   metrics: ContentUnitMetrics | null;
   topic: TopicLabel | null;
   umap: [number, number, number] | null;
+}
+
+export interface RepresentativePost {
+  id: string;
+  full_text: string;
+  centroid_similarity: number | null;
 }
 
 export interface Topic {
@@ -34,6 +41,45 @@ export interface Topic {
   description_en: string | null;
   method: string;
   post_count: number;
+  keywords: string[];
+  // gần tâm nhất trước — để đọc, không phải đầu vào đặt tên của Claude
+  representatives: RepresentativePost[];
+  // mô tả, không kiểm định; cờ insufficient_data đọc thẳng từ backend
+  engagement: DistributionStats;
+  excluded_no_views: number;
+}
+
+export interface ReplyRoles {
+  self_continuation: number;
+  author_answer: number;
+  outbound: number;
+  unassigned: number;
+}
+
+export interface ClusterRun {
+  run_at: string; // UTC — hiển thị theo Europe/Paris kèm nhãn múi giờ
+  model_id: string;
+  params: Record<string, string | number | boolean | null>;
+  embedding_dim: number | null;
+  n_units: number;
+  n_clusters: number;
+  n_noise: number;
+  noise_ratio: number;
+  dbcv: number | null; // validity_index
+  ari_vs_previous: number | null;
+  ari_clustered_only: number | null;
+}
+
+export interface PipelineSummary {
+  content_units: number;
+  units_without_text: number;
+  reply_roles: ReplyRoles;
+  latest_snapshot_at: string | null;
+  latest_cluster_run: ClusterRun | null;
+  noise_engagement: DistributionStats | null;
+  noise_excluded_no_views: number;
+  // ngưỡng mẫu nhỏ duy nhất của backend (MIN_N_PER_BUCKET) — UI ghi số này, không tự đặt ngưỡng
+  min_posts_to_compare: number;
 }
 
 export interface TopPostEntry {
@@ -169,6 +215,10 @@ export function getContentUnits(): Promise<ContentUnit[]> {
 
 export function getTopics(): Promise<Topic[]> {
   return fetchJson<Topic[]>("/topics");
+}
+
+export function getPipelineSummary(): Promise<PipelineSummary> {
+  return fetchJson<PipelineSummary>("/pipeline/summary");
 }
 
 export function getAnalyticsOverview(): Promise<AnalyticsOverview> {

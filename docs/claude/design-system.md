@@ -45,6 +45,8 @@ Ràng buộc phát hiện khi dựng: cam rực `#F59E0B` **không dùng đượ
 | `--bg-sunken` | `#FAFAFB` | Card trạng thái deferred/disabled |
 | `--border-hairline` | `rgba(17,24,39,0.10)` | Viền tầng A |
 | `--rule` | `#E4E8ED` | Đường timeline, vạch mốc |
+| `--chart-dot` | `#9AA3AE` | Chấm trung tính trên strip/bản đồ landing (không dùng cho chữ) |
+| `--chart-dot-faint` | `#CBD2DA` | Chấm nền mờ (mini map), viền thẻ `next` |
 
 ### 2.2 Chữ — đã kiểm contrast trên `#FBFBFC`
 
