@@ -747,3 +747,13 @@ id = "ADR0021-topics-screenshot"
 adr = "0021"
 path = "docs/screenshots/topics.png"
 regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[forbid]]
+id = "ADR0022-syllable-keywords"
+adr = "0022"
+# Mô tả cũ của token từ khoá: tách theo âm tiết. Từ ADR-0022: tách TỪ bằng underthesea + bigram 2 từ đơn
+pattern = '1 token = 1 âm tiết|c-TF-IDF\*{0,2} \([^)]*\) trên âm tiết'
+why = "Từ khoá topic tách theo từ bằng underthesea + bigram 2 từ đơn, bỏ stopword có nhãn — không còn 1 token = 1 âm tiết (ADR-0022)"
+fix = "Ghi 'tách từ bằng underthesea + bigram 2 từ đơn, bỏ stopword có nhãn (ADR-0022)'"
+paths = ["docs/**", "src/**", ".claude/**"]
+allow = ["docs/decisions/**"]

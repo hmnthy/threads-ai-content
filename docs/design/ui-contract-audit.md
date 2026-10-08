@@ -111,5 +111,5 @@ Giữ nguyên: tagline "The algorithm, read back to you." (UI-0009-tagline), "na
    `UI-0012-not-tiered` là ràng buộc cho lần thiết kế Analytics / Topics tới; mốc so sánh mô tả là "the channel's recent
    level (median of up to 20 prior posts)" (hạn chế cửa sổ 20 bài: `docs/claude/data-model.md`).
 5. **Còn mở (Thy chốt ở Việc 1b):** nhóm so sánh theo topic — "phần còn lại của kênh" hay "median kênh".
-6. **Từ khoá c-TF-IDF còn lẫn stopword tiếng Việt** ("một", "điều", "tui", "tớ", "ko"…) — lỗi phương pháp, không phải
+6. **(Đã sửa bởi ADR-0022, 2026-10-08 — từ khoá mới có sau khi merge + lần gom cụm kế tiếp)** **Từ khoá c-TF-IDF còn lẫn stopword tiếng Việt** ("một", "điều", "tui", "tớ", "ko"…) — lỗi phương pháp, không phải
    chữ; Thy chọn sửa bằng ADR + PR riêng trước khi công khai trang (2026-10-08). Mockup đừng chép bộ từ khoá hiện tại.

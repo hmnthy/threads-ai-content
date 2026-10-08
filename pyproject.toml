@@ -17,6 +17,9 @@ dependencies = [
     "sentence-transformers>=6.0.1",
     "tzdata>=2025.1",
     "umap-learn>=0.5.12",
+    "underthesea==9.5.0",
+    # engine CRF của word_tokenize — ảnh hưởng thẳng tới từ khoá topic (ADR-0022)
+    "underthesea-core==3.3.2",
     "uvicorn[standard]>=0.52.4",
 ]
 
