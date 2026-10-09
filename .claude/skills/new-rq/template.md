@@ -23,7 +23,7 @@ Các bước, model/tham số, seed, baseline so sánh. Code ở đâu (`src/...
 
 ## Kết quả
 
-Bảng số kèm n, effect size, CI 95% (bootstrap). Link run trong `experiments/registry.jsonl`.
+Bảng số kèm n, effect size, CI 95% (của δ từ `compare_groups()`; bootstrap chỉ cho metric không có CI từ kiểm định hay công thức). Link run trong `experiments/registry.jsonl`.
 
 ## Diễn giải
 

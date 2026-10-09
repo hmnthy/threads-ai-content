@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-540%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-682%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -80,7 +80,7 @@ Three layers, built in that order — each grounded in cited methodology, not in
 
 | Layer | Status | What it does |
 |---|---|---|
-| **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, share rate, conversation, velocity, longevity — never blended into one score. Median and mean reported together (never a lone mean), IQR and sample-size flags on every bucket, Mann-Whitney U + Cliff's delta for any group comparison, reach tiers (via the API) measured against the channel's recent level (median of up to 20 prior posts) instead of an arbitrary fixed threshold. |
+| **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, share rate, conversation, velocity, longevity — never blended into one score. Every group of posts (a topic, an hour, a time window) shows its median, its IQR (interquartile range: the range the middle 50% of posts fall in) and its number of posts (n), flagged when n is too small to interpret. Reach tiers (via the API) are measured against the channel's recent level (median of up to 20 prior posts), not an arbitrary fixed threshold. Group comparisons use a Brunner-Munzel permutation test (a rank test that does not assume both groups are equally spread) and report Cliff's delta, P(A > B) − P(A < B), with a 95% confidence interval; p-values are Holm-corrected across all comparisons shown together, the intervals are not. Today these comparisons run in offline reports; per-topic comparisons on the dashboard are next. |
 | **NLP layer** | Live | Multilingual sentence embeddings (content mixes Vietnamese, French and English naturally, so no per-language tokenizer before embedding; topic keywords use a Vietnamese word segmenter) feed UMAP + HDBSCAN for unsupervised topic discovery, then Claude labels each discovered cluster in English. A Code-Mixing Index — a continuous score, not a boolean flag — measures how much a post actually switches languages. |
 | **Knowledge base** | Next | The channel's own posts and the author's answers to follower questions, turned into a searchable knowledge base: hybrid keyword (BM25) + semantic retrieval with a reranker, evaluated against real follower questions (recall@k, MRR, nDCG) before anything — such as a Q&A assistant — is built on top of it. |
 
@@ -113,7 +113,7 @@ threads-ai-content/
 │   ├── api/            Threads Graph API client (auth, pagination, caching) — live
 │   ├── models/          ContentUnit / InsightSnapshot domain models — live
 │   ├── processing/       thread reconstruction (root + self-reply chains), text cleaning — live
-│   ├── analysis/         6-index metric scoring + windowed statistics (median/mean/IQR) — live
+│   ├── analysis/         6-index metric scoring + windowed statistics (median/IQR/n) — live
 │   ├── nlp/              language ID, multilingual embeddings, UMAP+HDBSCAN clustering — live
 │   ├── db/                SQLite schema (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — live
 │   ├── pipeline/           ingest, 4h snapshot cron, Windows↔WSL2 clustering bridge — live
@@ -140,9 +140,10 @@ A few decisions this project treats as load-bearing, each recorded in
 [`docs/decisions/`](docs/decisions/) (one file per decision) and
 [`docs/claude/data-model.md`](docs/claude/data-model.md):
 
-- **Median-as-headline, mean-as-secondary — never a pooled ratio.** A single windowed
-  Σinteractions/Σviews ratio is dominated by whichever post got the most views; median across posts
-  is reported first everywhere, with mean, sample size (`n`) and an IQR shown alongside it.
+- **Median as the headline — no pooled ratio, no mean on screen.** A single windowed
+  Σinteractions/Σviews ratio is dominated by whichever post got the most views, and a few breakout
+  posts pull the mean up. Every rate leads with the median across posts, with the IQR and sample
+  size (`n`) beside it; the API still returns the mean for analysis.
 - **Six indices, never one blended score.** Popularity, engagement, share rate, conversation,
   velocity and longevity answer different questions and are never averaged together into a single
   "score."

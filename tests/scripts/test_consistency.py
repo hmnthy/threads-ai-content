@@ -431,6 +431,105 @@ def test_real_sprint_step_rule_ignores_procedure_numbering_in_skills(tmp_path: P
 # Luật học được từ lượt /decision-sweep đầu tiên (consistency-auditor): mỗi luật 1 ví dụ
 # PHẢI khớp và 1 ví dụ KHÔNG được khớp, lấy từ chính phát hiện thật trong repo.
 LEARNED_RULES = [
+    # ADR-0023: UI không đọc `.mean` để hiển thị (khai báo field `mean: number` vẫn hợp lệ)
+    (
+        "ADR0023-mean-on-ui",
+        "src/dashboard/src/components/KpiStrip.tsx",
+        "  return `mean ${stats.mean.toFixed(2)}% · n=${stats.n}${",
+        "  return `IQR ${stats.iqr_low.toFixed(2)}–${stats.iqr_high.toFixed(2)}% · n=${stats.n}${",
+    ),
+    (
+        "ADR0023-mean-on-ui",
+        "src/dashboard/src/lib/api.ts",
+        "      : `mean ${formatPercent(engagement.mean)} · IQR`",
+        "  mean: number;",
+    ),
+    (
+        "ADR0023-mean-on-ui",
+        "README.md",
+        "Median and mean reported together (never a lone mean), IQR and sample-size flags",
+        "Median with IQR and a sample-size flag on every bucket (the mean is pulled up",
+    ),
+    (
+        "ADR0023-mean-on-ui",
+        "src/dashboard/src/components/HeroBand.tsx",
+        "  const { median, mean } = stats;",
+        "  const { median, n } = stats;",
+    ),
+    # ADR-0023 (review): engine cũ viết tắt "MWU" / gạch en / "… U test"
+    (
+        "ADR0023-old-test-engine",
+        "docs/design/topics-proposal.md",
+        "| Cliff's δ, p | B | `compare_groups()` có MWU + δ + bootstrap CI |",
+        "| Cliff's δ, p | B | `compare_groups()` có Brunner-Munzel + δ + CI của δ |",
+    ),
+    (
+        "ADR0023-old-test-engine",
+        "README.md",
+        "group comparisons use a Mann–Whitney U test",
+        "Mann-Whitney is kept only as a sensitivity check",
+    ),
+    # ADR-0023 (lượt auditor 1): diễn đạt lại "mean là số phụ" — không bắt câu nói mean không hiện
+    (
+        "ADR0023-mean-secondary",
+        "README.md",
+        "- **Median-as-headline, mean-as-secondary — never a pooled ratio.** A single windowed",
+        "  but not shown: a few breakout posts pull it up.",
+    ),
+    (
+        "ADR0023-mean-secondary",
+        "src/dashboard/src/components/HeroBand.tsx",
+        '// docs/claude/data-model.md). Mean/n đi kèm ngay dưới, "2 con số nên đi cùng',
+        "// docs/claude/data-model.md). IQR/n đi kèm ngay dưới (không hiện mean — ADR-0023)",
+    ),
+    # ADR-0023: CI chính là CI của δ từ Brunner-Munzel — không bắt bootstrap mô tả chênh median
+    (
+        "ADR0023-bootstrap-ci-primary",
+        ".claude/rules/nlp-research.md",
+        "n → median/IQR → effect size (Cliff's δ) → CI (bootstrap) →",
+        "- `median_diff_ci_*`: bootstrap percentile của chênh median — chỉ mô tả.",
+    ),
+    # ADR-0023 (auditor cuối): câu nói quá về độ đúng mức của bản hoán vị
+    (
+        "ADR0023-perm-claim-overstated",
+        "src/analysis/significance.py",
+        "  dựng bằng cách xáo nhãn nhóm → không vượt mức báo động giả ở cả 2",
+        "  dựng bằng cách xáo nhãn nhóm → ở ngưỡng Holm không vượt mức đạt được",
+    ),
+    # ADR-0023 (auditor cuối): p xấp xỉ chuẩn của mockup cũ không còn là cách tính số thật
+    (
+        "ADR0023-normal-approx-p",
+        "docs/design/topics-proposal.md",
+        "Mockup sẽ dùng lại số loại B (`landing.dc.html`, p xấp xỉ chuẩn, không hiệu chỉnh ties).",
+        "Số thật tính bằng `compare_groups()` (Brunner-Munzel hoán vị, ADR-0023).",
+    ),
+    # ADR-0023 (auditor cuối): họ Holm tính cả topic quá nhỏ để có câu kết luận
+    (
+        "ADR0023-holm-family-wording",
+        ".claude/rules/nlp-research.md",
+        "So sánh nhiều nhóm → hiệu chỉnh Holm, 1 họ = mọi phép so có kết luận trên cùng 1 trang.",
+        "So sánh nhiều nhóm → hiệu chỉnh Holm, 1 họ = mọi phép so có p xác định trên cùng 1 trang.",
+    ),
+    # ADR-0023: nhóm so sánh đã chốt — chỉ còn chờ endpoint
+    (
+        "ADR0023-holm-wait",
+        "src/main.py",
+        "    # (so sánh topic vs nhóm khác + Holm chờ Việc 1 chốt nhóm so sánh);",
+        "    # (so sánh topic vs phần còn lại + Holm: endpoint ở Việc 3, ADR-0023);",
+    ),
+    # ADR-0023: Mann-Whitney là engine cũ — không bắt câu nói nó là phân tích độ nhạy
+    (
+        "ADR0023-old-test-engine",
+        "src/dashboard/src/components/LandingTechStack.tsx",
+        "median/IQR live · Mann-Whitney U + Cliff's δ + bootstrap CI + Holm in src/analysis",
+        "median/IQR live · Brunner-Munzel test + Cliff's δ with CI + Holm in src/analysis",
+    ),
+    (
+        "ADR0023-old-test-engine",
+        "docs/claude/data-model.md",
+        "    p_value: float | None          # Mann-Whitney U, two-sided; None nếu 1 nhóm rỗng",
+        "- Mann-Whitney vẫn tính (`p_value_mann_whitney`) làm phân tích độ nhạy.",
+    ),
     # ADR-0022: token từ khoá theo âm tiết là mô tả cũ (không bắt câu nói về văn bản embed)
     (
         "ADR0022-syllable-keywords",

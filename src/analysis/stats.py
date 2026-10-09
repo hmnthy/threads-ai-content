@@ -6,7 +6,8 @@ tránh viết lặp lại median+mean+n+IQR+insufficient_data 3 lần cho 3 inde
 QUAN TRỌNG: mockup UI (`overview-amber.dc.html`) tự tính hero/KPI bằng pooled ratio
 (Σinteractions/Σviews) — đó là code demo cho ĐẸP, KHÔNG phải methodology. Methodology
 thật của dự án (đã chốt ở Layer 2, xem docs/claude/data-model.md "Narrative Layering
-Principle") là median+mean CỦA TỪNG POST, không phải tỉ lệ gộp. Module này giữ đúng
+Principle") là phân phối CỦA TỪNG POST (median, IQR, n — mean chỉ để phân tích, UI không
+hiện, ADR-0023), không phải tỉ lệ gộp. Module này giữ đúng
 methodology gốc — mockup không được phép ảnh hưởng tới đây."""
 
 from __future__ import annotations
@@ -34,7 +35,8 @@ __all__ = [
 class DistributionStats:
     """Median/mean/n/IQR/insufficient_data của 1 tập giá trị liên tục — dùng cho cả
     bucket giờ/thứ (engagement.py) LẪN aggregate theo cửa sổ thời gian (share rate/
-    conversation/engagement). Giữ mean+median song song CỐ TÌNH — xem docstring gốc
+    conversation/engagement). Giữ mean+median song song CỐ TÌNH (mean cho phân tích, UI
+    không hiện — ADR-0023) — xem docstring gốc
     `EngagementBucketStats` (engagement.py) cho lý do đầy đủ (case Hwemo-Chung)."""
 
     median: float

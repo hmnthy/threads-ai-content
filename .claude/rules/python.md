@@ -21,4 +21,5 @@ paths:
 - **Không bao giờ** đọc/ghi `data/threads.db` thật trong test — dùng `tmp_path` / SQLite `:memory:`.
 - Test chạy `git` trong repo tạm: `tests/conftest.py` đã xoá biến `GIT_*` (git hook xuất `GIT_INDEX_FILE` tuyệt đối của repo thật — thừa hưởng là ghi đè index thật). Không truyền lại `GIT_*` vào subprocess.
 - Test cần tải model transformer hoặc gọi API thật: đánh dấu `@pytest.mark.slow` / `@pytest.mark.live` (CI bỏ qua).
+- Test cho 1 bản sửa lỗi phải **fail khi tạm gỡ bản sửa** (kiểm đột biến tay: sửa tạm, chạy test, khôi phục) và có assert xác nhận dữ liệu test thật sự chạm vào lỗi; dung sai của assert phải nhỏ hơn hiệu ứng bản sửa tạo ra (bài học ADR-0023: test dung sai dấu phẩy động ban đầu vẫn pass khi gỡ bản sửa).
 - Chạy đúng phạm vi đang sửa trước (`uv run pytest tests/analysis -q`). Pre-commit chạy bộ nhanh (`-m "not slow and not live"`, ~20s); `/checkpoint` luôn chạy cả suite (~1 phút).
