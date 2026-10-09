@@ -78,7 +78,7 @@ quá dữ liệu. Code đã đổi theo bản dưới; **mockup nên lấy đún
   "Partly. A of the N posts with text fall into K topics; the other M fit none and stay unclustered." · 2 dòng loại gộp
   thành "6 of 152 posts have no text to embed; the same 6 have no recorded views." **chỉ khi** code kiểm thấy 2 tập
   trùng nhau (khác thì giữ 2 dòng, UI-0011-two-exclusions) · Limits "Topics with fewer than <min_posts_to_compare>
-  posts with recorded views are faded…" (ngưỡng đọc từ API — một tên duy nhất cho cờ: "too few posts to compare") ·
+  posts with recorded views are faded…" (ngưỡng đọc từ API — một tên duy nhất cho cờ: "too few posts to interpret" — Thy đổi 2026-10-09, ADR-0023, dùng chung landing + app) ·
   CMI "(roughly, how much of it is in languages other than its main one)… still open: no number appears here until it
   is tested with an effect size and Holm correction."
 - **How it works**: node Knowledge base "It will be scored on a test set of real questions, once a privacy decision is
@@ -93,8 +93,8 @@ Giữ nguyên: tagline "The algorithm, read back to you." (UI-0009-tagline), "na
 ### Ghi chú cho vòng thiết kế kế tiếp
 
 1. **Dữ liệu landing:** API đã trả bài gần tâm, từ khoá, `run_at`, DBCV (`validity_index`), 2 ARI, nhiễu và cờ n nhỏ
-   theo topic (`/topics`, `/pipeline/summary`, PR 10). Còn thiếu: δ + p Holm theo topic (chờ Việc 1b chốt nhóm so
-   sánh), CMI theo engagement (RQ-04). Lần gom cụm mới nhất (2026-10-07, `cluster_runs.id = 7`) có số khác mockup:
+   theo topic (`/topics`, `/pipeline/summary`, PR 10). Còn thiếu: δ + p Holm theo topic (API: Việc 3 — nhóm so
+   sánh đã chốt, mục 5), CMI theo engagement (RQ-04). Lần gom cụm mới nhất (2026-10-07, `cluster_runs.id = 7`) có số khác mockup:
    nhiễu 41,1%, validity_index (DBCV) 0,261 — mockup sẽ đổi số khi có file xuất (Việc 4).
 2. **Chưa audit theo hợp đồng** `overview-amber.dc.html`, `overview-cyan.dc.html`, `design-system.dc.html`,
    `docs/design/layout-tiers.dc.html` — ngoài cảnh báo tự động ở mục 1. Làm khi các mockup đó vào vòng port.
@@ -107,9 +107,19 @@ Giữ nguyên: tagline "The algorithm, read back to you." (UI-0009-tagline), "na
    `landing-handoff.md` §0 (bảng A, B) và §4: trường đã có API trỏ tới `/topics`, `/pipeline/summary`;
    `docs/claude/design-system.md` §2.1 thêm token `--chart-dot` / `--chart-dot-faint` (2 màu chấm mockup landing đang
    dùng mà §2 chưa có) — mockup nên gọi đúng tên token này.
+   2026-10-09 (ADR-0023) — `topics-proposal.md` §2: engine so sánh là Brunner-Munzel (không còn Mann-Whitney), họ
+   Holm 27 phép so (không còn 9); §1 bảng trường: engine Brunner-Munzel, `holm_adjust` đã có, nhóm so sánh đã
+   chốt. `landing-handoff.md` §4 dòng δ/Holm: "chưa có API — Việc 3"; §0 bảng A dòng "Cliff's δ, p, p Holm": việc repo đã làm/còn thiếu, ghi chú họ 27; ref `src/main.py:270` → `:302`. `topics-brief-for-claude-code.md` Việc 1:
+   ghi chú "đã chốt ở ADR-0023" (1a–1f + 1h), Việc 3: `holm_adjust` đã có.
 4. **Tầng reach (ADR-0012)** chưa có trên mockup nào: `UI-0012-reach-tiers`, `UI-0012-raw-views-reference`,
    `UI-0012-not-tiered` là ràng buộc cho lần thiết kế Analytics / Topics tới; mốc so sánh mô tả là "the channel's recent
    level (median of up to 20 prior posts)" (hạn chế cửa sổ 20 bài: `docs/claude/data-model.md`).
-5. **Còn mở (Thy chốt ở Việc 1b):** nhóm so sánh theo topic — "phần còn lại của kênh" hay "median kênh".
+5. **(Đã chốt bởi ADR-0023, 2026-10-09)** Nhóm so sánh theo topic = phần còn lại của kênh, gồm bài nhiễu; kiểm định
+   Brunner-Munzel hoán vị, số chính là Cliff's δ kèm CI ghi "unadjusted"; chỉ khẳng định khi p Holm < 0.05 trong họ
+   mọi phép so của trang Topics (9 topic × 3 chỉ số) — landing dùng đúng p Holm đó, không có họ riêng 9 phép so;
+   topic n < `min_posts_to_compare` không kết luận. Mean không hiện ở đâu trên UI (median + IQR + n; IQR có
+   tooltip "interquartile range: the range the middle 50% of posts fall in"; n = 0 → "—").
+   Mockup landing còn ghi "Mann-Whitney U … Holm across 9 tests" và "Mann-Whitney U + Cliff's δ + bootstrap CI" (cảnh <!-- consistency: allow ADR0023-old-test-engine — trích nguyên văn mockup để Claude Design sửa -->
+   báo `ADR0023-old-test-engine`) — đổi theo câu mới trong code (`LandingProof.tsx`, `LandingTechStack.tsx`).
 6. **(Đã sửa bởi ADR-0022, 2026-10-08 — từ khoá mới có sau khi merge + lần gom cụm kế tiếp)** **Từ khoá c-TF-IDF còn lẫn stopword tiếng Việt** ("một", "điều", "tui", "tớ", "ko"…) — lỗi phương pháp, không phải
    chữ; Thy chọn sửa bằng ADR + PR riêng trước khi công khai trang (2026-10-08). Mockup đừng chép bộ từ khoá hiện tại.

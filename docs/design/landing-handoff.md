@@ -17,7 +17,7 @@ Kiểm toán 2026-10-02 — mỗi trường trên UI thuộc 1 trong 3 loại:
 | engagement % từng bài | `PostInsights.engagement_rate` (`src/api/models.py`) — `(likes+replies+reposts+quotes)/views×100`; trả 0.0 khi views = 0 → **phải lọc trước** (ADR-0011, `src/analysis/stats.py`) |
 | median / IQR kênh, n = 144, 6 bị loại | `window_stats` + `DistributionStatsOut` (`src/main.py`) |
 | 353 / 674 / 342 vai reply | `posts.reply_role` (ADR-0004) |
-| cụm, `centroid_similarity` | `post_topic_labels.confidence`, API đổi tên thành `centroid_similarity` (`src/main.py:270`) |
+| cụm, `centroid_similarity` | `post_topic_labels.confidence`, API đổi tên thành `centroid_similarity` (`src/main.py:302`) |
 | từ khoá c-TF-IDF, 3 bài gần tâm | `topics.keywords_json`, `topics.representative_ids_json` (`src/nlp/topic_profile.py`, `clustering_import.py`) — API: `TopicOut.keywords`, `TopicOut.representatives` (PR 10) |
 | toạ độ bản đồ | `content_units.umap_x/y/z` |
 | 9 cụm · nhiễu 36,1% · DBCV (validity_index) 0,317 | `cluster_runs.n_clusters/noise_ratio/dbcv` — DBCV ghi kèm tên hàm `validity_index` |
@@ -30,7 +30,7 @@ Kiểm toán 2026-10-02 — mỗi trường trên UI thuộc 1 trong 3 loại:
 | Trường UI | Cách mockup tính | Phải làm trong repo |
 |---|---|---|
 | median/IQR/n từng cụm | quantile nội suy tuyến tính trên `er` | đã có: `TopicOut.engagement` (`window_stats`, mô tả, kèm cờ `insufficient_data`) — PR 10 |
-| Cliff's δ, p, p Holm từng cụm | mỗi cụm vs phần còn lại của kênh (gồm nhiễu); **p bằng xấp xỉ chuẩn, không hiệu chỉnh ties**; Holm trên 9 test | `compare_groups()` (`src/analysis/significance.py`) + thêm Holm; chốt nhóm so sánh (vs rest hay vs median kênh) trước khi code |
+| Cliff's δ, p, p Holm từng cụm | mỗi cụm vs phần còn lại của kênh (gồm nhiễu); <!-- consistency: allow ADR0023-normal-approx-p --> ~~**p bằng xấp xỉ chuẩn, không hiệu chỉnh ties**; Holm trên 9 test~~ (ADR-0023: họ 27 — 9 topic × 3 chỉ số; kiểm định Brunner-Munzel, có xử lý ties) | đã có `compare_groups()` (Brunner-Munzel + δ + CI của δ) và `holm_adjust` (`src/analysis/significance.py`); nhóm so sánh đã chốt (vs phần còn lại gồm nhiễu, ADR-0023); thiếu API theo topic (Việc 3) |
 | hàng nhiễu (median 2,05%) | như trên | đã có: `PipelineSummaryOut.noise_engagement` — PR 10 |
 | "higher than 128 of 144" | đếm bài có rate nhỏ hơn | tính trong API/landing |
 | CMI chia 3 nhóm, δ, p | tertile tự chọn, xấp xỉ chuẩn | **RQ-04 chưa làm** — chỉ hiện trạng thái research, không hiện số |
@@ -141,7 +141,7 @@ Khối `--dark-bg` radius 20, padding 80/32, mark 52px, H2 52px. Nút chính `--
 |---|---|
 | Phân phối engagement, bài hero, rank | `GET /content-units` (`metrics.engagement_rate`), lọc views = 0 trước |
 | Cụm, n, centroid_similarity, umap | `GET /content-units` (`topic`, `umap`) + `GET /topics` |
-| Median/IQR theo cụm | `GET /topics` → `engagement` (PR 10). δ/Holm theo cụm: **chưa có** — chờ Việc 1b chốt nhóm so sánh |
+| Median/IQR theo cụm | `GET /topics` → `engagement` (PR 10). δ/Holm theo cụm: **chưa có API** — Việc 3 (nhóm so sánh đã chốt, ADR-0023) |
 | Từ khoá, 3 bài đại diện | `GET /topics` → `keywords`, `representatives` (PR 10) |
 | ARI, DBCV, nhiễu, `run_at`, vai reply | `GET /pipeline/summary` → `latest_cluster_run`, `reply_roles` (PR 10) |
 | CMI | research — chờ RQ-04 |

@@ -27,5 +27,6 @@ Mỗi quyết định kiến trúc/methodology = 1 file ngắn `NNNN-ten-ngan.md
 | [0020](0020-ui-contract.md) | Hợp đồng UI `docs/design/ui-contract.md` neo thiết kế vào ADR (ADR → hợp đồng → mockup → code); ADR có mục "Hệ quả UI"; mockup bị sổ luật quét ở mức cảnh báo | Accepted | 2026-10-06 |
 | [0021](0021-brand-logo-unknot.md) | Logo Unknot: một nguồn file `public/brand/`, component `BrandLogo`, vị trí cố định (chuyển động chỉ ở hero landing), favicon `app/icon.svg`, tôn trọng `prefers-reduced-motion` | Accepted | 2026-10-07 |
 | [0022](0022-topic-keywords-word-segmentation.md) | Từ khoá topic tách theo từ bằng underthesea 9.5.0 + bigram 2 từ đơn, bỏ stopword có nhãn (`src/nlp/stopwords.py`) — chỉ ở bước c-TF-IDF sau gom cụm | Accepted | 2026-10-08 |
+| [0023](0023-page-roles-and-topic-comparison.md) | Vai trò 3 trang app (câu hỏi → câu trả lời → bằng chứng → phương pháp); so topic với phần còn lại của kênh bằng Brunner-Munzel hoán vị + Cliff's δ kèm CI, họ Holm = mọi phép so trên trang Topics (landing dùng chung); UI không hiện mean; sàn views P25 cho bảng top theo tỉ lệ | Accepted | 2026-10-09 |
 
 Dự kiến (đánh số giữ chỗ theo `docs/roadmap.md` và plan P1 dashboard): 0002 runtime WSL2 · 0005 experiment tracking JSON + git · 0006 lưu trữ + truy xuất KB · 0007 dữ liệu bình luận follower & privacy.

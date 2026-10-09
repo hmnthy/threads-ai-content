@@ -3,7 +3,7 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-540%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-682%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -82,7 +82,7 @@ phải cảm tính.
 
 | Tầng | Trạng thái | Làm gì |
 |---|---|---|
-| **Statistics layer** | Đã có | 6 index tách biệt — popularity, engagement, share rate, conversation, velocity, longevity — không bao giờ gộp lại thành 1 điểm số duy nhất. Median luôn đi kèm mean (không bao giờ chỉ báo mean 1 mình), mọi bucket đều có IQR + cờ cảnh báo cỡ mẫu nhỏ, dùng Mann-Whitney U + Cliff's delta cho mọi so sánh nhóm, tầng reach (qua API) đo so với mức gần đây của kênh (median của tối đa 20 bài trước) thay vì 1 ngưỡng cố định tùy tiện. |
+| **Statistics layer** | Đã có | 6 index tách biệt — popularity, engagement, share rate, conversation, velocity, longevity — không bao giờ gộp lại thành 1 điểm số duy nhất. Mỗi nhóm bài (1 topic, 1 khung giờ, 1 cửa sổ thời gian) hiện median, IQR (khoảng tứ phân vị: khoảng giá trị chứa 50% bài ở giữa) và số bài (n), kèm cờ khi n quá nhỏ để diễn giải. Tầng reach (qua API) đo so với mức gần đây của kênh (median của tối đa 20 bài trước), không theo 1 ngưỡng cố định tùy tiện. So sánh nhóm dùng kiểm định Brunner-Munzel hoán vị (kiểm định theo thứ hạng, không giả định 2 nhóm phân tán như nhau) và báo Cliff's delta, P(A > B) − P(A < B), kèm khoảng tin cậy 95%; p được hiệu chỉnh Holm trên mọi phép so hiện cùng nhau, khoảng tin cậy thì không. Hiện các phép so chạy trong báo cáo ngoại tuyến; so sánh theo topic trên dashboard là bước tiếp theo. |
 | **NLP layer** | Đã có | Embedding đa ngôn ngữ (content trộn tự nhiên VI/FR/EN nên không dùng tokenizer riêng cho 1 ngôn ngữ trước khi embed; từ khoá topic dùng bộ tách từ tiếng Việt) đưa vào UMAP + HDBSCAN để tự động khám phá chủ đề (unsupervised), sau đó Claude gán tên tiếng Anh cho từng cluster tìm được. Code-Mixing Index — một điểm số liên tục, không phải cờ boolean — đo mức độ 1 bài thực sự chuyển đổi ngôn ngữ. |
 | **Knowledge base** | Tiếp theo | Bài đăng của kênh và câu trả lời của tác giả cho câu hỏi của follower, biến thành cơ sở tri thức tra cứu được: tìm kiếm hybrid (từ khoá BM25 + ngữ nghĩa) kèm reranker, được đo trên câu hỏi thật của follower (recall@k, MRR, nDCG) trước khi xây bất cứ thứ gì — như trợ lý hỏi đáp — lên trên. |
 
@@ -115,7 +115,7 @@ threads-ai-content/
 │   ├── api/            Client Threads Graph API (auth, pagination, caching) — đã có
 │   ├── models/          Domain model ContentUnit / InsightSnapshot — đã có
 │   ├── processing/       Ghép lại thread (root + chuỗi self-reply), làm sạch text — đã có
-│   ├── analysis/         Metric 6-index + thống kê theo cửa sổ thời gian (median/mean/IQR) — đã có
+│   ├── analysis/         Metric 6-index + thống kê theo cửa sổ thời gian (median/IQR/n) — đã có
 │   ├── nlp/              Language ID, embedding đa ngôn ngữ, clustering UMAP+HDBSCAN — đã có
 │   ├── db/                Schema SQLite (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — đã có
 │   ├── pipeline/           Ingest, cron snapshot 4h, cầu nối clustering Windows↔WSL2 — đã có
@@ -142,9 +142,10 @@ Một vài quyết định dự án coi là nền tảng, mỗi quyết định 
 [`docs/decisions/`](docs/decisions/) và
 [`docs/claude/data-model.md`](docs/claude/data-model.md):
 
-- **Median làm số liệu chính, mean là số phụ — không bao giờ dùng tỉ lệ pooled.** Một tỉ lệ
-  Σinteractions/Σviews gộp cho cả cửa sổ thời gian sẽ bị chi phối bởi bài có views cao nhất; median
-  giữa các bài luôn được báo cáo trước, kèm mean, cỡ mẫu (`n`), và IQR đi cùng.
+- **Median làm số liệu chính — không tỉ lệ pooled, không hiện mean.** Một tỉ lệ Σinteractions/Σviews
+  gộp cho cả cửa sổ bị chi phối bởi bài có views cao nhất, còn mean bị vài bài đột biến kéo lên. Mọi
+  tỉ lệ đều mở đầu bằng median giữa các bài, kèm IQR và cỡ mẫu (`n`); API vẫn trả mean để phân
+  tích.
 - **6 index riêng biệt, không bao giờ gộp thành 1 điểm.** Popularity, engagement, share rate,
   conversation, velocity, longevity trả lời những câu hỏi khác nhau và không bao giờ bị trung bình
   hoá lại thành 1 "điểm số" duy nhất.

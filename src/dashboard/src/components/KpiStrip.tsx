@@ -1,20 +1,27 @@
+import type { ReactNode } from "react";
+
 import type { DistributionStats, WindowAnalytics } from "@/lib/api";
+import { DistributionCaption, hasPosts } from "./DistributionCaption";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-function statCaption(stats: DistributionStats): string {
-  return `mean ${stats.mean.toFixed(2)}% · n=${stats.n}${
-    stats.insufficient_data ? " (insufficient data)" : ""
-  }`;
+function rateValue(stats: DistributionStats): string {
+  return hasPosts(stats) ? `${stats.median.toFixed(2)}%` : "—";
+}
+
+// IQR và n trên 2 dòng (`split`) — 1 dòng làm dải KPI tràn ngang ở 1160px
+function statCaption(stats: DistributionStats): ReactNode {
+  return <DistributionCaption stats={stats} split />;
 }
 
 // Hàng ngang phẳng, không bọc card (docs/claude/design-system.md §6). 3 index
 // cuối hiện MEDIAN làm số chính (methodology Layer 2, không phải pooled ratio) —
-// mean/n đi kèm ở dòng mono bên dưới, "2 con số nên đi cùng nhau".
+// IQR/n đi kèm ở dòng mono bên dưới; không hiện mean (ADR-0023: phân phối lệch phải, mean bị vài
+// bài đột biến kéo lên).
 export function KpiStrip({ data }: { data: WindowAnalytics | null }) {
-  const items = [
+  const items: { label: string; value: string; caption: ReactNode; dot: boolean }[] = [
     {
       label: "Views",
       value: data ? formatNumber(data.views) : "—",
@@ -38,19 +45,19 @@ export function KpiStrip({ data }: { data: WindowAnalytics | null }) {
     },
     {
       label: "Engagement",
-      value: data ? `${data.engagement.median.toFixed(2)}%` : "—",
+      value: data ? rateValue(data.engagement) : "—",
       caption: data ? statCaption(data.engagement) : "median per-post rate",
       dot: true,
     },
     {
       label: "Share rate",
-      value: data ? `${data.share_rate.median.toFixed(2)}%` : "—",
+      value: data ? rateValue(data.share_rate) : "—",
       caption: data ? statCaption(data.share_rate) : "median per-post rate",
       dot: false,
     },
     {
       label: "Conversation",
-      value: data ? `${data.conversation.median.toFixed(2)}%` : "—",
+      value: data ? rateValue(data.conversation) : "—",
       caption: data ? statCaption(data.conversation) : "median per-post rate",
       dot: false,
     },

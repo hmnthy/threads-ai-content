@@ -150,9 +150,9 @@ class TopPostEntry(BaseModel):
 
 class DistributionStatsOut(BaseModel):
     """Mirror của `DistributionStats` (`src/analysis/stats.py`, generalize từ
-    `EngagementBucketStats` cũ) — median/mean cạnh nhau CỐ TÌNH (tầng 3 "Narrative
-    Layering Principle", xem docs/claude/data-model.md), kèm n/IQR/insufficient_data
-    để dashboard không tuyên bố "tốt nhất" từ 1 tập quá ít bài. Dùng chung cho bucket
+    `EngagementBucketStats` cũ) — median + IQR + n + insufficient_data để dashboard không
+    tuyên bố "tốt nhất" từ 1 tập quá ít bài. `mean` vẫn trả cho phân tích/script nhưng UI
+    KHÔNG hiện (ADR-0023: tỉ lệ lệch phải, mean bị vài bài đột biến kéo lên). Dùng chung cho bucket
     giờ/thứ (`HourBucket`/`WeekdayBucket`) VÀ cho engagement/share rate/conversation
     của `WindowAnalyticsOut` (Overview mới) — 1 shape, không lặp lại 2 lần."""
 
@@ -184,7 +184,7 @@ class TopicOut(BaseModel):
     keywords: list[str]
     representatives: list[RepresentativePostOut]
     # phân phối engagement rate của các bài đo được trong topic — mô tả, KHÔNG kiểm định
-    # (so sánh topic vs nhóm khác + Holm chờ Việc 1 chốt nhóm so sánh); `insufficient_data`
+    # (so sánh topic vs phần còn lại + Holm: endpoint ở Việc 3, ADR-0023); `insufficient_data`
     # là cờ n nhỏ duy nhất của dự án (`MIN_N_PER_BUCKET`, UI-L20260903-small-n-flag)
     engagement: DistributionStatsOut
     excluded_no_views: int
@@ -207,9 +207,10 @@ class TimezoneEngagement(BaseModel):
 
 
 class AnalyticsOverviewOut(BaseModel):
-    """`engagement` là median+mean+IQR+n của engagement rate TỪNG root post trên toàn
-    kênh — thay `average_engagement_rate` (chỉ mean, bị 1 bài đột biến kéo lệch) để trang
-    Analytics hiện median làm số chính, đúng tầng 3 "Narrative Layering Principle"."""
+    """`engagement` là phân phối engagement rate TỪNG root post trên toàn kênh (median, IQR,
+    n; `mean` có trong API, UI không hiện — ADR-0023) — thay `average_engagement_rate` (chỉ
+    mean, bị 1 bài đột biến kéo lệch) để trang Analytics hiện median làm số chính, đúng tầng 3
+    "Narrative Layering Principle"."""
 
     post_count: int
     # ADR-0011: bài có views = 0 (insight thiếu) bị loại khỏi MỌI phân phối rate
@@ -242,7 +243,7 @@ class WindowAnalyticsOut(BaseModel):
     """Hero band + KPI strip + top content units — tính lại từ data thật CHỈ trong
     [start, end]. `views` = Σ account_daily_views (account-level, gồm views từ
     replies) — KHÁC `top_content_units[].metrics.popularity_index` (post-level, per
-    ContentUnit). `engagement`/`share_rate`/`conversation` là median+mean CỦA TỪNG
+    ContentUnit). `engagement`/`share_rate`/`conversation` là phân phối CỦA TỪNG
     POST trong cửa sổ (đúng methodology Layer 2 đã chốt) — KHÔNG phải pooled ratio
     Σinteractions/Σviews như mockup UI tự vẽ cho đẹp (xem `src/analysis/stats.py`
     docstring)."""

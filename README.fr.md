@@ -3,7 +3,7 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-540%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-682%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -85,7 +85,7 @@ citée, jamais dans l'intuition.
 
 | Couche | Statut | Ce qu'elle fait |
 |---|---|---|
-| **Couche statistique** | En ligne | Six indices intrinsèques gardés séparés — popularité, engagement, taux de partage, conversation, vélocité, longévité — jamais fusionnés en un seul score. Médiane et moyenne toujours rapportées ensemble (jamais une moyenne seule), IQR et alerte de taille d'échantillon sur chaque groupe, test de Mann-Whitney U + delta de Cliff pour toute comparaison de groupes, paliers de portée (via l'API) mesurés par rapport au niveau récent du compte (médiane d'au plus 20 publications précédentes) plutôt qu'avec un seuil fixe arbitraire. |
+| **Couche statistique** | En ligne | Six indices intrinsèques gardés séparés — popularité, engagement, taux de partage, conversation, vélocité, longévité — jamais fusionnés en un seul score. Chaque groupe de publications (un sujet, une heure, une fenêtre temporelle) affiche sa médiane, son IQR (écart interquartile : l'intervalle où se situent les 50 % de publications du milieu) et son nombre de publications (n), avec une alerte quand n est trop petit pour être interprété. Les paliers de portée (via l'API) se mesurent par rapport au niveau récent du compte (médiane d'au plus 20 publications précédentes), pas avec un seuil fixe arbitraire. Les comparaisons de groupes utilisent un test de Brunner-Munzel par permutation (un test sur les rangs qui ne suppose pas que les deux groupes ont la même dispersion) et rapportent le delta de Cliff, P(A > B) − P(A < B), avec un intervalle de confiance à 95 % ; les p-valeurs sont corrigées par Holm sur toutes les comparaisons affichées ensemble, pas les intervalles. Ces comparaisons tournent aujourd'hui dans des rapports hors ligne ; les comparaisons par sujet sur le tableau de bord sont la prochaine étape. |
 | **Couche NLP** | En ligne | Des embeddings de phrases multilingues (le contenu mélange naturellement vietnamien, français et anglais, donc aucun tokenizer propre à une langue avant l'embedding ; les mots-clés des sujets utilisent un segmenteur de mots vietnamien) alimentent UMAP + HDBSCAN pour une découverte de sujets non supervisée, puis Claude nomme chaque cluster découvert en anglais. Un Code-Mixing Index — un score continu, pas un simple booléen — mesure à quel point une publication mélange réellement les langues. |
 | **Base de connaissances** | Prochaine étape | Les publications du compte et les réponses de l'autrice aux questions des abonnés, transformées en base de connaissances interrogeable : recherche hybride (mots-clés BM25 + sémantique) avec reranker, évaluée sur de vraies questions d'abonnés (recall@k, MRR, nDCG) avant de construire quoi que ce soit — comme un assistant de questions-réponses — par-dessus. |
 
@@ -119,7 +119,7 @@ threads-ai-content/
 │   ├── api/            Client Threads Graph API (auth, pagination, cache) — en ligne
 │   ├── models/          Modèles de domaine ContentUnit / InsightSnapshot — en ligne
 │   ├── processing/       Reconstruction des threads (racine + chaîne de self-reply), nettoyage texte — en ligne
-│   ├── analysis/         Scoring 6 indices + statistiques par fenêtre temporelle (médiane/moyenne/IQR) — en ligne
+│   ├── analysis/         Scoring 6 indices + statistiques par fenêtre temporelle (médiane/IQR/n) — en ligne
 │   ├── nlp/              Détection de langue, embeddings multilingues, clustering UMAP+HDBSCAN — en ligne
 │   ├── db/                Schéma SQLite (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — en ligne
 │   ├── pipeline/           Ingestion, cron de snapshot toutes les 4h, pont de clustering Windows↔WSL2 — en ligne
@@ -147,10 +147,11 @@ Quelques décisions considérées comme structurantes pour ce projet, chacune co
 [`docs/decisions/`](docs/decisions/) (un fichier par décision) et
 [`docs/claude/data-model.md`](docs/claude/data-model.md) :
 
-- **Médiane en chiffre principal, moyenne en secondaire — jamais un ratio agrégé.** Un ratio
-  Σinteractions/Σvues calculé sur toute une fenêtre temporelle est dominé par la publication ayant
-  le plus de vues ; la médiane entre publications est toujours rapportée en premier, accompagnée
-  de la moyenne, de la taille d'échantillon (`n`) et de l'IQR.
+- **Médiane en chiffre principal — pas de ratio agrégé, pas de moyenne à l'écran.** Un ratio
+  Σinteractions/Σvues calculé sur toute une fenêtre est dominé par la publication ayant le plus de
+  vues, et quelques publications exceptionnelles tirent la moyenne vers le haut. Chaque taux
+  commence par la médiane entre publications, avec l'IQR et la taille d'échantillon (`n`) à côté ;
+  l'API renvoie toujours la moyenne pour l'analyse.
 - **Six indices, jamais un seul score fusionné.** Popularité, engagement, taux de partage, conversation,
   vélocité et longévité répondent à des questions différentes et ne sont jamais moyennés en un
   seul « score ».

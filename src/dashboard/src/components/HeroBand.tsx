@@ -1,5 +1,6 @@
 import type { WindowAnalytics } from "@/lib/api";
 import { daysBetweenInclusive } from "@/lib/dates";
+import { DistributionCaption, hasPosts } from "./DistributionCaption";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
@@ -7,8 +8,8 @@ function formatNumber(n: number): string {
 
 // Số headline = MEDIAN engagement rate của cửa sổ (không phải pooled ratio
 // Σinteractions/Σviews mà mockup UI tự vẽ) — đúng methodology đã chốt (Layer 2,
-// docs/claude/data-model.md). Mean/n đi kèm ngay dưới, "2 con số nên đi cùng
-// nhau" thay vì chỉ hiện công thức tĩnh.
+// docs/claude/data-model.md). IQR/n đi kèm ngay dưới (không hiện mean — ADR-0023)
+// thay vì chỉ hiện công thức tĩnh.
 export function HeroBand({ data }: { data: WindowAnalytics | null }) {
   const engagement = data?.engagement;
 
@@ -24,14 +25,19 @@ export function HeroBand({ data }: { data: WindowAnalytics | null }) {
           Engagement rate (median) · selected window
         </span>
         <span className="text-[56px] leading-none font-bold tracking-tight text-white tabular-nums">
-          {engagement ? `${engagement.median.toFixed(2)}%` : "—"}
+          {hasPosts(engagement) ? `${engagement.median.toFixed(2)}%` : "—"}
         </span>
         <span className="font-mono text-xs text-[#FFF6EC]">
-          {engagement
-            ? `mean ${engagement.mean.toFixed(2)}% · n=${engagement.n}${
-                engagement.insufficient_data ? " (insufficient data)" : ""
-              }${data && data.excluded_no_views > 0 ? ` · ${data.excluded_no_views} excluded: no views recorded` : ""}`
-            : "(likes + replies + reposts + quotes) / views × 100"}
+          {engagement ? (
+            <>
+              <DistributionCaption stats={engagement} />
+              {data && data.excluded_no_views > 0
+                ? ` · ${data.excluded_no_views} excluded: no views recorded`
+                : ""}
+            </>
+          ) : (
+            "(likes + replies + reposts + quotes) / views × 100"
+          )}
         </span>
       </div>
       <div className="flex flex-wrap gap-8">

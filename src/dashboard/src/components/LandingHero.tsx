@@ -173,7 +173,7 @@ function HeroPanel({ data }: { data: LandingData }) {
     ? otherCount === 0
       ? "It is the only post with recorded views so far."
       : flagged
-        ? `Its engagement rate is higher than ${share}% of the channel's other posts; too few posts to compare.`
+        ? `Its engagement rate is higher than ${share}% of the channel's other posts; too few posts to interpret.`
         : above
           ? `Yes. Its engagement rate is higher than ${share}% of the channel's other posts.`
           : atMedian
@@ -182,7 +182,7 @@ function HeroPanel({ data }: { data: LandingData }) {
     : otherCount === 0
       ? "It is the only post with recorded views in its topic."
       : flagged
-        ? `Within its topic: higher than ${below} of the other ${otherCount} "${topic.name}" ${postWord}; too few posts to compare.`
+        ? `Within its topic: higher than ${below} of the other ${otherCount} "${topic.name}" ${postWord}; too few posts to interpret.`
         : atMedian
           ? "About usual within its topic: it sits at the topic median."
           : above
@@ -193,7 +193,7 @@ function HeroPanel({ data }: { data: LandingData }) {
       ? `${data.channel.excluded} of ${count(data.channel.total)} excluded: no views recorded`
       : null
     : `${topic.name} (named by Claude) · ${topic.id} · ${stats.n} posts with recorded views${
-        stats.insufficient_data ? " · too few posts to compare, read as indicative" : ""
+        stats.insufficient_data ? " · too few posts to interpret" : ""
       }${topic.excluded > 0 ? ` · ${topic.excluded} excluded: no views recorded` : ""}`;
 
   const toggle = (value: "channel" | "topic", label: string, disabled = false) => (

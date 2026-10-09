@@ -2,6 +2,12 @@
 
 import { useMemo, useState, type CSSProperties } from "react";
 import { WEEKDAY_LABELS, type DistributionStats, type TimezoneEngagement } from "@/lib/api";
+import {
+  Iqr,
+  TOO_FEW_POSTS,
+  distributionCaptionText,
+  formatIqrRange,
+} from "@/components/DistributionCaption";
 
 // Heatmap giờ/thứ đăng — design-system.md §9: "Giờ/thứ đăng hiệu quả → Heatmap, thang
 // tuần tự 1 hue (amber)". Mỗi ô ghi n (Narrative Layering tầng 3): ô thiếu dữ liệu
@@ -32,8 +38,7 @@ function pct(value: number): string {
 
 function describe(prefix: string, stats: DistributionStats | null): string {
   if (stats === null || stats.n === 0) return `${prefix} · no posts`;
-  const base = `${prefix} · median ${pct(stats.median)} · mean ${pct(stats.mean)} · IQR ${pct(stats.iqr_low)}–${pct(stats.iqr_high)} · n=${stats.n}`;
-  return stats.insufficient_data ? `${base} · too few posts to read` : base;
+  return `${prefix} · median ${pct(stats.median)} · ${distributionCaptionText(stats)}`;
 }
 
 // Thang màu chỉ trải trên các ô ĐỦ dữ liệu — ô thiếu dữ liệu không được kéo giãn thang.
@@ -177,7 +182,7 @@ export function PostingTimeHeatmap({
           </h2>
           <p className="text-[13px] leading-snug text-text-secondary">
             The same posts, placed on a Paris or a Vietnam clock. Each cell shows the median rate (%) and
-            how many posts it rests on. Hatched cells hold too few posts to read; their median is only in the table below.
+            how many posts it rests on. Hatched cells hold too few posts to interpret; their median is only in the table below.
           </p>
         </div>
         <div className="flex gap-2" role="group" aria-label="Clock">
@@ -247,12 +252,12 @@ export function PostingTimeHeatmap({
         )}
         <div className="flex items-center gap-2">
           <span aria-hidden="true" className="h-3 w-5 rounded-[3px] border border-border-hairline" style={cellStyle(null, true)} />
-          <span>too few posts to read</span>
+          <span>too few posts to interpret</span>
         </div>
       </div>
 
       <p className="min-h-[20px] font-mono text-xs tabular-nums text-text-primary" aria-live="polite">
-        {activeCell?.description ?? "Hover or focus a cell for median, mean, IQR and n."}
+        {activeCell?.description ?? "Hover or focus a cell for median, IQR and n."}
       </p>
 
       <p className="text-[13px] leading-snug text-text-muted">
@@ -271,8 +276,9 @@ export function PostingTimeHeatmap({
               <tr className="text-left text-[11px] font-semibold text-text-muted">
                 <th className="py-1.5 pr-4">Bucket ({clockLabel})</th>
                 <th className="py-1.5 pr-4">Median</th>
-                <th className="py-1.5 pr-4">Mean</th>
-                <th className="py-1.5 pr-4">IQR</th>
+                <th className="py-1.5 pr-4">
+                  <Iqr />
+                </th>
                 <th className="py-1.5">n</th>
               </tr>
             </thead>
@@ -281,13 +287,12 @@ export function PostingTimeHeatmap({
                 <tr key={cell.key} className="border-t border-border-hairline hover:bg-bg-surface">
                   <td className="py-1.5 pr-4">{cell.key.startsWith("h") ? `${cell.label}:00` : cell.label}</td>
                   <td className="py-1.5 pr-4">{pct(cell.stats!.median)}</td>
-                  <td className="py-1.5 pr-4">{pct(cell.stats!.mean)}</td>
                   <td className="py-1.5 pr-4">
-                    {pct(cell.stats!.iqr_low)}–{pct(cell.stats!.iqr_high)}
+                    {formatIqrRange(cell.stats!)}
                   </td>
                   <td className="py-1.5">
                     {cell.stats!.n}
-                    {cell.stats!.insufficient_data ? " · too few" : ""}
+                    {cell.stats!.insufficient_data ? ` · ${TOO_FEW_POSTS}` : ""}
                   </td>
                 </tr>
               ))}

@@ -47,7 +47,7 @@ function buildNodes(data: LandingData | null): Node[] {
       stack: [["tables", "posts · content_units · insights_snapshots"], ["", "embeddings · topics · cluster_runs"]], edges: ["e2", "e3", "e5", "e8", "e10"] },
     { id: "api", name: "API", tag: "FastAPI", x: 740, y: 32, w: 170, h: 100, status: "live",
       body: "Read-only. Serves posts, insights, topics and channel statistics from what the jobs stored. Posts with no recorded views are excluded and counted. Per-topic comparisons are next.",
-      stack: [["server", "FastAPI + uvicorn"], ["statistics", "median/IQR live · Mann-Whitney U + Cliff's δ + bootstrap CI + Holm in src/analysis · per-topic tests next"]], edges: ["e3", "e4"] },
+      stack: [["server", "FastAPI + uvicorn"], ["statistics", "median/IQR live · Brunner-Munzel permutation test + Cliff's δ (95% CI) + Holm correction in src/analysis, used by offline reports today · per-topic endpoint next"]], edges: ["e3", "e4"] },
     { id: "web", name: "Dashboard · Landing", tag: "Next.js 16", x: 966, y: 32, w: 170, h: 100, status: "live",
       body: "The dashboard and this page. Charts are hand-built SVG; the topic map uses Plotly.",
       stack: [["framework", "Next.js 16 · Tailwind v4"], ["charts", "SVG · Plotly"], ["icons", "Phosphor"]], edges: ["e4", "e11"] },
