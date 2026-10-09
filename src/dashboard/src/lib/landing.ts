@@ -3,10 +3,13 @@
 // median/IQR/n/cờ insufficient_data luôn lấy từ backend (UI-L20260903-small-n-flag).
 import type {
   AnalyticsOverview,
+  ComparisonMethod,
   ContentUnit,
   DistributionStats,
   PipelineSummary,
   Topic,
+  TopicComparisonRow,
+  TopicComparisons,
 } from "@/lib/api";
 
 // Bài minh hoạ của hero — lựa chọn thiết kế của mockup (post 17939285085325700), không phải số liệu
@@ -53,6 +56,40 @@ export interface LandingData {
   noise: { rates: number[]; stats: DistributionStats | null; excluded: number };
   mapPoints: { x: number; y: number; topicId: string | null }[]; // UMAP dim 1–2, chuẩn hoá 0–100
   summary: PipelineSummary;
+  // Kiểm định engagement theo topic (ADR-0023), tính trong job NLP: null khi chưa có kết quả nào
+  // hoặc không tải được. Mô tả (median/IQR/chấm) ở trên vẫn đọc dữ liệu mới nhất; kiểm định mang
+  // mốc giờ riêng (`computedAt`, `snapshotAsOf`). `stale` → API đã ẩn δ/p (Thy chốt D3).
+  topicTests: TopicTests | null;
+}
+
+export interface TopicTests {
+  computedAt: string | null;
+  snapshotAsOf: string | null;
+  stale: boolean;
+  method: ComparisonMethod;
+  engagement: Record<string, TopicComparisonRow>; // topic id → dòng engagement
+}
+
+// Kết luận theo đúng quy tắc ADR-0023: chỉ khẳng định khi p Holm < ngưỡng VÀ topic đủ bài
+export function testVerdict(
+  row: TopicComparisonRow | undefined,
+  method: ComparisonMethod,
+): "higher" | "lower" | "not distinguishable" | "too few posts" | "not tested" {
+  if (!row || row.p_value_holm === null || row.effect_size === null) return "not tested";
+  if (row.insufficient_data) return "too few posts";
+  if (row.p_value_holm >= method.conclusion_alpha) return "not distinguishable";
+  return row.effect_size > 0 ? "higher" : "lower";
+}
+
+// δ có dấu, 2 chữ số: "+0.62" / "−0.47" (dấu trừ thật, U+2212)
+export function signed(value: number): string {
+  const text = Math.abs(value).toFixed(2);
+  return value > 0 ? `+${text}` : value < 0 ? `−${text}` : text;
+}
+
+// p theo mức phân giải của số hoán vị: dưới 0.001 ghi "< 0.001", không ghi số 0 giả
+export function formatP(value: number): string {
+  return value < 0.001 ? "< 0.001" : value.toFixed(3);
 }
 
 export function firstLine(text: string, max = 110): string {
@@ -83,6 +120,29 @@ export function parisTime(iso: string): string {
     parts[part.type] = part.value;
   }
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} Paris time`;
+}
+
+// Mốc kiểm định: 1 nhãn "Paris time" cho cả câu, bỏ ngày của mốc dữ liệu khi trùng ngày
+// (UI-0017-run-time) — "2026-10-09 at 21:08 on data collected up to 17:18 (Paris time)"
+export function testTimes(computedAt: string, dataAsOf: string | null): string {
+  const [ranDate, ranTime] = parisTime(computedAt).replace(" Paris time", "").split(" ");
+  if (!dataAsOf) return `${ranDate} at ${ranTime} (Paris time)`;
+  const [dataDate, dataTime] = parisTime(dataAsOf).replace(" Paris time", "").split(" ");
+  const upTo = dataDate === ranDate ? dataTime : `${dataDate} ${dataTime}`;
+  return `${ranDate} at ${ranTime} on data collected up to ${upTo} (Paris time)`;
+}
+
+// "A", "A and B", "A, B and C"
+export function andList(items: string[]): string {
+  return items.length <= 1
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+// Cách đọc chuẩn của Cliff's δ: (1 + δ) / 2 = tỉ lệ cặp (bài topic, bài khác) mà bài topic thắng,
+// cặp hoà tính nửa — δ = P(>) − P(<) nên (1 + δ)/2 = P(>) + ½P(=)
+export function winShare(delta: number): number {
+  return Math.round(((1 + delta) / 2) * 100);
 }
 
 // "April 2025", "7 Oct 2026" — ngày theo Europe/Paris như mọi mốc khác trên trang
@@ -120,6 +180,7 @@ export function buildLandingData(
   topics: Topic[],
   overview: AnalyticsOverview,
   summary: PipelineSummary,
+  comparisons: TopicComparisons | null = null,
 ): LandingData {
   const measurable = units.filter((unit) => unit.metrics !== null);
   const rateOf = new Map(measurable.map((unit) => [unit.id, unit.metrics!.engagement_rate]));
@@ -213,6 +274,20 @@ export function buildLandingData(
       topicId: unit.topic?.topic_id ?? null,
     })),
     summary,
+    topicTests:
+      comparisons && comparisons.method
+        ? {
+            computedAt: comparisons.computed_at,
+            snapshotAsOf: comparisons.snapshot_as_of,
+            stale: comparisons.stale,
+            method: comparisons.method,
+            engagement: Object.fromEntries(
+              comparisons.rows
+                .filter((row) => row.kind === "topic" && row.metric === "engagement")
+                .map((row) => [row.group_id, row]),
+            ),
+          }
+        : null,
   };
 }
 

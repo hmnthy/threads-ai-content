@@ -7,7 +7,14 @@ import { LandingProblem } from "@/components/LandingProblem";
 import { LandingProof } from "@/components/LandingProof";
 import { LandingSolution } from "@/components/LandingSolution";
 import { LandingTechStack } from "@/components/LandingTechStack";
-import { getAnalyticsOverview, getContentUnits, getPipelineSummary, getTopics } from "@/lib/api";
+import {
+  getAnalyticsOverview,
+  getContentUnits,
+  getPipelineSummary,
+  getTopicComparisons,
+  getTopics,
+  type TopicComparisons,
+} from "@/lib/api";
 import { buildLandingData, dayMonthYear, type LandingData } from "@/lib/landing";
 
 // Landing / story page (Tầng B — docs/design/landing-handoff.md, design-system §7). Trang duy
@@ -16,13 +23,19 @@ import { buildLandingData, dayMonthYear, type LandingData } from "@/lib/landing"
 // rõ ràng thay vì khung trục trống (design-system §9).
 async function loadLandingData(): Promise<LandingData | null> {
   try {
-    const [units, topics, overview, summary] = await Promise.all([
+    const [units, topics, overview, summary, comparisons] = await Promise.all([
       getContentUnits(),
       getTopics(),
       getAnalyticsOverview(),
       getPipelineSummary(),
+      // Kiểm định theo topic (ADR-0023) là lớp thêm: lỗi riêng nó không được làm mất cả landing —
+      // panel vẫn hiện phần mô tả, ô kiểm định "—"
+      getTopicComparisons().catch((error: unknown): TopicComparisons | null => {
+        console.error("landing: could not load topic comparisons", error);
+        return null;
+      }),
     ]);
-    return buildLandingData(units, topics, overview, summary);
+    return buildLandingData(units, topics, overview, summary, comparisons);
   } catch (error) {
     // in ra log server để lỗi lập trình không bị nhầm thành "API không chạy"
     console.error("landing: could not load data", error);

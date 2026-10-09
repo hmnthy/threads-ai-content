@@ -156,10 +156,16 @@ def test_touches_cron_code_reads_renames_quotes_and_ignores_scripts() -> None:
         " M src/db/schema.py\n"
         'R  old.py -> "src/nlp/tên mới.py"\n'
         " M scripts/x.py\n"
-        " M src/analysis/stats.py\n"
+        " M src/main.py\n"  # chỉ API server import — không thuộc cron
+        " M src/analysis/stats.py\n"  # thuộc cron từ ADR-0023 (bước `compare` của job NLP)
         "?? uv.lock\n"
     )
-    assert gh.touches_cron_code(status) == ["src/db/schema.py", "src/nlp/tên mới.py", "uv.lock"]
+    assert gh.touches_cron_code(status) == [
+        "src/db/schema.py",
+        "src/nlp/tên mới.py",
+        "src/analysis/stats.py",
+        "uv.lock",
+    ]
 
 
 def test_parse_ahead_behind_drops_main_zero_and_garbage() -> None:

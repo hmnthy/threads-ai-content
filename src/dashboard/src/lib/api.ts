@@ -47,6 +47,65 @@ export interface Topic {
   // mô tả, không kiểm định; cờ insufficient_data đọc thẳng từ backend
   engagement: DistributionStats;
   excluded_no_views: number;
+  // ADR-0018 + ADR-0023 1e: ngày đặt tên (UTC) + số lần gom cụm liền gần nhất giữ tên
+  labeled_at: string | null;
+  label_model: string | null;
+  label_prompt_version: number | null;
+  runs_keeping_label: number;
+}
+
+export type ComparisonMetric = "engagement" | "share_rate" | "conversation";
+
+// Mô tả 1 nhóm trong phép so topic — median + IQR + n, không có mean (ADR-0023 1d)
+export interface GroupStats {
+  n: number;
+  excluded_no_views: number;
+  median: number;
+  iqr_low: number;
+  iqr_high: number;
+  insufficient_data: boolean;
+}
+
+// Mirror của TopicComparisonRowOut (src/main.py). `kind = topic`: so với `rest` (phần còn lại
+// của kênh, gồm nhiễu); noise/channel chỉ mô tả. Chỉ khẳng định khi p_value_holm <
+// method.conclusion_alpha VÀ insufficient_data = false; CI chưa hiệu chỉnh. Trường kiểm định
+// null khi `stale` (Thy chốt D3) hoặc không kiểm định được.
+export interface TopicComparisonRow {
+  group_id: string;
+  kind: "topic" | "noise" | "channel";
+  metric: ComparisonMetric;
+  group: GroupStats;
+  rest: GroupStats | null;
+  tested: boolean;
+  insufficient_data: boolean;
+  effect_size: number | null;
+  effect_size_ci_low: number | null;
+  effect_size_ci_high: number | null;
+  p_value: number | null;
+  p_value_holm: number | null;
+  test_method: string | null;
+}
+
+export interface ComparisonMethod {
+  test: string;
+  effect_size: string;
+  ci: string;
+  comparison_group: string;
+  n_permutations: number;
+  random_seed: number;
+  // số phép so trong họ Holm — UI đọc số này, không tự nhân topic × chỉ số
+  holm_family_size: number;
+  conclusion_alpha: number;
+  min_posts_to_compare: number;
+}
+
+export interface TopicComparisons {
+  cluster_run_id: number | null;
+  computed_at: string | null; // UTC
+  snapshot_as_of: string | null; // UTC — số liệu "tính tới" lúc này
+  stale: boolean;
+  method: ComparisonMethod | null;
+  rows: TopicComparisonRow[];
 }
 
 export interface ReplyRoles {
@@ -125,6 +184,11 @@ export interface AnalyticsOverview {
   excluded_no_views: number;
   // Engagement rate toàn kênh, tính theo từng root post — median là số chính
   engagement: DistributionStats;
+  // ADR-0023 1f: 3 bảng top chỉ xếp bài có views ≥ sàn (P25 views, tính lại mỗi lần); null khi
+  // quá ít bài để tính phân vị (không lọc). `below_views_floor` bài đo được nằm dưới sàn.
+  views_floor: number | null;
+  views_floor_rule: string;
+  below_views_floor: number;
   top_by_engagement: TopPostEntry[];
   top_by_share_rate: TopPostEntry[];
   top_by_conversation: TopPostEntry[];
@@ -215,6 +279,10 @@ export function getContentUnits(): Promise<ContentUnit[]> {
 
 export function getTopics(): Promise<Topic[]> {
   return fetchJson<Topic[]>("/topics");
+}
+
+export function getTopicComparisons(): Promise<TopicComparisons> {
+  return fetchJson<TopicComparisons>("/topics/comparisons");
 }
 
 export function getPipelineSummary(): Promise<PipelineSummary> {

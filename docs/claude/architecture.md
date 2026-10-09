@@ -29,9 +29,9 @@ threads-ai-content/
 │   ├── models/                # ContentUnit, InsightSnapshot
 │   ├── processing/            # thread_reconstruction (root + continuation), text (NFC, dấu thanh)
 │   ├── nlp/                   # language (CMI + LID cấp từ), embeddings (bge-m3), topics (UMAP+HDBSCAN+Claude label), topic_profile (c-TF-IDF trên từ tách bằng underthesea, bài đại diện, ARI), stopwords (stopword từ khoá có nhãn, ADR-0022), topic_identity (danh tính cụm bền, ADR-0018)
-│   ├── analysis/              # 6 index (share_rate…) + reach (tầng, ADR-0012) + stats/significance/reply_thread/topic_affinity
-│   ├── db/schema.py           # SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs, topic_label_history
-│   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job + nlp_cluster_job (cron, pythonw — ADR-0013), job_log, cầu nối clustering Win↔WSL2 (bỏ ở Phase C)
+│   ├── analysis/              # 6 index (share_rate…) + reach (tầng, ADR-0012) + stats/significance/topic_comparison/reply_thread/topic_affinity
+│   ├── db/schema.py           # SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs, topic_label_history, topic_comparison_runs, topic_comparisons
+│   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job + nlp_cluster_job (cron, pythonw — ADR-0013), job_log, cầu nối clustering Win↔WSL2 (bỏ ở Phase C), compare_topics (bước cuối job NLP, ADR-0023)
 │   ├── main.py                # FastAPI — chỉ đọc SQLite, không load model trong request
 │   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
 │                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)
@@ -56,7 +56,7 @@ threads-ai-content/
 | Embedding | sentence-transformers `BAAI/bge-m3` (1024D, 8.192 token, MIT) | Live, chạy trong WSL2 |
 | Topic discovery | UMAP (3D) + HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8` — calibrate lại 2026-10-01, ADR-0004) | Live, re-cluster hằng ngày |
 | LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — CHỈ đặt tên cluster (tiếng Anh) | Live |
-| Thống kê | median/IQR, Brunner-Munzel hoán vị + Cliff's δ kèm CI + Holm (numpy/scipy, ADR-0023) — engine live, so sánh theo topic trên dashboard: next | Live |
+| Thống kê | median/IQR, Brunner-Munzel hoán vị + Cliff's δ kèm CI + Holm (numpy/scipy, ADR-0023) — so sánh topic vs phần còn lại tính trong job NLP, landing live (`GET /topics/comparisons`); trang Topics: next (Việc 4) | Live |
 | Dashboard | Next.js 16 + Tailwind v4 + chart SVG tự dựng + Plotly (bản đồ topic) + Phosphor icons | Live (chưa deploy cố định) |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
@@ -69,7 +69,7 @@ threads-ai-content/
 Threads Graph API ──(Task Scheduler, 4h, pythonw)──► src/pipeline/scheduled_job
         │   posts + replies + per-post insights + account daily views
         ▼
-SQLite data/threads.db ◄──(hằng ngày 12:30: src/pipeline/nlp_cluster_job)── export → WSL2 embed+cluster → import+Claude label
+SQLite data/threads.db ◄──(hằng ngày 12:30: src/pipeline/nlp_cluster_job)── export → WSL2 embed+cluster → import+Claude label → compare (topic vs phần còn lại, ADR-0023)
         │
         ▼
 FastAPI src/main.py  ──►  Next.js dashboard (landing + 3 tab)

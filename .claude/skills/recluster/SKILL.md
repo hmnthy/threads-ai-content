@@ -1,6 +1,6 @@
 ---
 name: recluster
-description: Re-run the NLP clustering job (embed, UMAP, HDBSCAN, Claude labels) on the real database and report what changed.
+description: Re-run the NLP clustering job (embed, UMAP, HDBSCAN, Claude labels, per-topic comparisons) on the real database and report what changed.
 disable-model-invocation: true
 ---
 
@@ -18,7 +18,7 @@ Job này **ghi vào `data/threads.db` thật** (gán lại bài → topic; giữ
 
 ## Chạy
 
-- **Trước Phase C** (hiện tại, Windows + cầu nối WSL2): `uv run python -m src.pipeline.nlp_cluster_job` (in ra màn hình; thêm `--log data/logs/nlp_cluster_job.log` để ghi như cron) — export (Windows) → embed + cluster (WSL2) → import + đặt tên (Windows), dừng ở bước lỗi đầu tiên.
+- **Trước Phase C** (hiện tại, Windows + cầu nối WSL2): `uv run python -m src.pipeline.nlp_cluster_job` (in ra màn hình; thêm `--log data/logs/nlp_cluster_job.log` để ghi như cron) — export (Windows) → embed + cluster (WSL2) → import + đặt tên (Windows) → so sánh topic vs phần còn lại của kênh (Windows, ~70 giây, ADR-0023); 3 bước đầu dừng ở bước lỗi đầu tiên, bước so sánh lỗi thì kết quả gom cụm vẫn giữ, API đánh dấu kết quả so sánh cũ là `stale` (chạy lại riêng: `uv run python -m src.pipeline.compare_topics`).
 - **Sau Phase C**: `scripts/jobs/run_job.sh nlp` (1 process trong WSL2, có `flock`).
 
 ## Báo cáo
@@ -26,4 +26,5 @@ Job này **ghi vào `data/threads.db` thật** (gán lại bài → topic; giữ
 - Kết quả từng bước trong log (dòng `{'content_units': ..., 'n_clusters': ..., 'n_noise': ..., 'dbcv_validity_index': ..., 'dbcv_relative_validity': ...}`); lỗi thì dán traceback cuối.
 - Trước → sau (đọc 2 dòng mới nhất của `cluster_runs`): số cụm, % nhiễu, `dbcv` (validity_index) và `dbcv_relative` (relative_validity_ — dao động mạnh, không dùng làm ngưỡng), tên + từ khoá cụm mới. Hai lần chạy khác nhau cả dữ liệu lẫn tham số → ghi ARI là hiệu ứng gộp.
 - ARI (Adjusted Rand Index — độ giống nhau giữa 2 cách phân cụm) so với lần trước: cột `ari_vs_previous` của `cluster_runs` (ADR-0004).
+- Dòng `topic_comparison_runs` mới (cùng `cluster_run_id`, `holm_family_size`) và các phép so đạt p Holm < 0.05 (log bước `compare` in `p_holm_below_alpha`); `uv run python -m scripts.job_health` không còn dòng "topic comparisons".
 - Muốn xem trước khi ghi đè topic: `python -m src.pipeline.clustering_import --dry-run` (không ghi, không gọi Claude).

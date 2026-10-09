@@ -59,6 +59,7 @@ from src.analysis.stats import split_measurable
 from src.api.models import PostInsights
 from src.db.schema import DEFAULT_DB_PATH, latest_cluster_run
 from src.main import _load_posts_with_insights, _load_root_posts_with_insights
+from src.nlp.topic_identity import runs_keeping_label
 
 SEED = 0  # mọi mô phỏng, hoán vị và bootstrap — cố định để số in ra lặp lại được
 ALPHA = 0.05
@@ -84,7 +85,6 @@ SPREAD_RATIOS = (0.5, 1.0, 2.0)
 SIMULATED_TOPIC_SIZES = (5, 8, 12)
 PERM_CHECK_SIZES = (5, 12)  # bản hoán vị: chỉ 2 cỡ (đắt) — nhỏ nhất và lớn nhất thường gặp
 TOP_N = 10  # bảng top của `/analytics/overview` (`ANALYTICS_TOP_N`)
-KEPT_EVENTS = frozenset({"kept", "kept_semantic"})  # sự kiện ADR-0018 giữ nguyên tên
 
 Metric = Callable[[PostInsights], float]
 METRICS: dict[str, Metric] = {
@@ -242,17 +242,6 @@ def binomial_se_points(rate_pct: float, views: int) -> float:
     phải phép thử độc lập."""
     p = rate_pct / 100
     return math.sqrt(p * (1 - p) / views) * 100
-
-
-def runs_keeping_label(events_by_run: Sequence[dict[str, str] | None], topic_id: str) -> int:
-    """Số lần chạy LIÊN TIẾP gần nhất mà topic có sự kiện giữ tên (`KEPT_EVENTS`), đếm ngược từ lần
-    mới nhất; dừng ở lần đặt/đổi tên gần nhất hoặc lần chưa ghi sự kiện (trước ADR-0018)."""
-    count = 0
-    for events in reversed(events_by_run):
-        if events is None or events.get(topic_id) not in KEPT_EVENTS:
-            break
-        count += 1
-    return count
 
 
 def holm_by_key(tests: Sequence[TopicTest], method: str) -> dict[tuple[str, str], float]:
