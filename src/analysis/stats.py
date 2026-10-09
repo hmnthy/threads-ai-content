@@ -27,6 +27,7 @@ __all__ = [
     "MIN_N_PER_BUCKET",
     "distribution_stats",
     "split_measurable",
+    "views_floor",
     "window_stats",
 ]
 
@@ -86,6 +87,19 @@ def split_measurable(
     kept_ids = {item.post_id for item in measurable}
     kept_posts = [post for post in posts if post.id in kept_ids]
     return kept_posts, measurable, len(insights) - len(measurable)
+
+
+def views_floor(insights: list[PostInsights]) -> float | None:
+    """Sàn views cho bảng top theo tỉ lệ (ADR-0023 1f): P25 views của các bài đo được, tính lại từ
+    dữ liệu mỗi lần (quy tắc, không phải hằng số). Cùng cách tính phân vị với IQR của
+    `distribution_stats` — `statistics.quantiles(method="inclusive")`, nội suy tuyến tính (Hyndman
+    & Fan 1996 loại 7). Căn cứ: tỉ lệ của bài ít views dao động ~5 lần nhiều hơn (sai số chuẩn nhị
+    thức, ADR-0023 mục 7). `insights` đã qua `split_measurable`; < 2 bài → None (không có phân vị,
+    người gọi không lọc)."""
+    if len(insights) < 2:
+        return None
+    q1, _, _ = statistics.quantiles([item.views for item in insights], n=4, method="inclusive")
+    return q1
 
 
 def window_stats(

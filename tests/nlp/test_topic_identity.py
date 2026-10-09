@@ -4,7 +4,25 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.nlp.topic_identity import TopicMatch, anchor_holds, match_topics, semantic_reference
+from src.nlp.topic_identity import (
+    TopicMatch,
+    anchor_holds,
+    match_topics,
+    runs_keeping_label,
+    semantic_reference,
+)
+
+
+def test_runs_keeping_label_counts_only_the_latest_consecutive_kept_runs() -> None:
+    events = [
+        None,  # lần chạy trước ADR-0018 — chưa ghi sự kiện
+        {"topic_0": "relabeled"},
+        {"topic_0": "kept"},
+        {"topic_0": "kept_semantic"},
+    ]
+
+    assert runs_keeping_label(events, "topic_0") == 2
+    assert runs_keeping_label(events, "topic_9") == 0
 
 
 def _prev(**topics: str) -> dict[str, str]:

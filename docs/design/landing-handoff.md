@@ -17,7 +17,7 @@ Kiểm toán 2026-10-02 — mỗi trường trên UI thuộc 1 trong 3 loại:
 | engagement % từng bài | `PostInsights.engagement_rate` (`src/api/models.py`) — `(likes+replies+reposts+quotes)/views×100`; trả 0.0 khi views = 0 → **phải lọc trước** (ADR-0011, `src/analysis/stats.py`) |
 | median / IQR kênh, n = 144, 6 bị loại | `window_stats` + `DistributionStatsOut` (`src/main.py`) |
 | 353 / 674 / 342 vai reply | `posts.reply_role` (ADR-0004) |
-| cụm, `centroid_similarity` | `post_topic_labels.confidence`, API đổi tên thành `centroid_similarity` (`src/main.py:302`) |
+| cụm, `centroid_similarity` | `post_topic_labels.confidence`, API đổi tên thành `centroid_similarity` (`src/main.py:325`) |
 | từ khoá c-TF-IDF, 3 bài gần tâm | `topics.keywords_json`, `topics.representative_ids_json` (`src/nlp/topic_profile.py`, `clustering_import.py`) — API: `TopicOut.keywords`, `TopicOut.representatives` (PR 10) |
 | toạ độ bản đồ | `content_units.umap_x/y/z` |
 | 9 cụm · nhiễu 36,1% · DBCV (validity_index) 0,317 | `cluster_runs.n_clusters/noise_ratio/dbcv` — DBCV ghi kèm tên hàm `validity_index` |
@@ -30,7 +30,7 @@ Kiểm toán 2026-10-02 — mỗi trường trên UI thuộc 1 trong 3 loại:
 | Trường UI | Cách mockup tính | Phải làm trong repo |
 |---|---|---|
 | median/IQR/n từng cụm | quantile nội suy tuyến tính trên `er` | đã có: `TopicOut.engagement` (`window_stats`, mô tả, kèm cờ `insufficient_data`) — PR 10 |
-| Cliff's δ, p, p Holm từng cụm | mỗi cụm vs phần còn lại của kênh (gồm nhiễu); <!-- consistency: allow ADR0023-normal-approx-p --> ~~**p bằng xấp xỉ chuẩn, không hiệu chỉnh ties**; Holm trên 9 test~~ (ADR-0023: họ 27 — 9 topic × 3 chỉ số; kiểm định Brunner-Munzel, có xử lý ties) | đã có `compare_groups()` (Brunner-Munzel + δ + CI của δ) và `holm_adjust` (`src/analysis/significance.py`); nhóm so sánh đã chốt (vs phần còn lại gồm nhiễu, ADR-0023); thiếu API theo topic (Việc 3) |
+| Cliff's δ, p, p Holm từng cụm | mỗi cụm vs phần còn lại của kênh (gồm nhiễu); <!-- consistency: allow ADR0023-normal-approx-p --> ~~**p bằng xấp xỉ chuẩn, không hiệu chỉnh ties**; Holm trên 9 test~~ (ADR-0023: họ 27 — 9 topic × 3 chỉ số; kiểm định Brunner-Munzel, có xử lý ties) | đã có `compare_groups()` (Brunner-Munzel + δ + CI của δ) và `holm_adjust` (`src/analysis/significance.py`); nhóm so sánh đã chốt (vs phần còn lại gồm nhiễu, ADR-0023); API theo topic: `GET /topics/comparisons`, tính trong job NLP (Việc 3, 2026-10-09) |
 | hàng nhiễu (median 2,05%) | như trên | đã có: `PipelineSummaryOut.noise_engagement` — PR 10 |
 | "higher than 128 of 144" | đếm bài có rate nhỏ hơn | tính trong API/landing |
 | CMI chia 3 nhóm, δ, p | tertile tự chọn, xấp xỉ chuẩn | **RQ-04 chưa làm** — chỉ hiện trạng thái research, không hiện số |
@@ -51,8 +51,8 @@ Nguồn: `docs/design/ui-contract.md` (ADR-0020). Mỗi quyết định cấu tr
 | "named by Claude" một lần mỗi khối: tiêu đề cột bảng, nhãn danh sách, dưới tên hồ sơ, cạnh tên đứng một mình | 3.3, 3.4, 3.6 | UI-0018-label-provenance |
 | Tên topic, câu trả lời 1 dòng và câu đọc mặc định của panel 1 sinh từ dữ liệu (topic có median cao nhất, `p_holm`), không viết cứng | logic `proofAnswer`, `leadNote` | UI-0018-names-change |
 | Tên dài: danh sách cắt + `title` đủ tên; hồ sơ topic xuống dòng | 3.4 | UI-0018-label-length |
-| Panel 1 gắn pill `next` + câu "Preview…"; không trình bày như số live | 3.4 panel 1 | UI-L20260903-stack-real-status, UI-0001-status-labels |
-| Tầng 01 Measure (live) không nhận việc so sánh nhóm: "Comparing groups with an effect size is next." | 3.3 | UI-L20260903-stack-real-status |
+| Panel 1: pill `live` khi `/topics/comparisons` có kết quả (Việc 3, 2026-10-09); chưa có kết quả → pill `next` + câu "Preview…" (nhánh dự phòng), không trình bày như số live | 3.4 panel 1 | UI-L20260903-stack-real-status, UI-0001-status-labels |
+| Tầng 01 Measure (live): "Each topic is then compared with the rest of the channel, with an effect size and a corrected p-value." (Việc 3, 2026-10-09) | 3.3 | UI-L20260903-stack-real-status |
 | "N excluded: no views recorded" hiện ngay ở chân mọi khối phân phối (hero, panel 1, CMI), không giấu trong panel gập | 3.1, 3.4 | UI-0011-excluded |
 | Panel 2 có hai dòng loại riêng, mỗi dòng một mẫu số: "6 of 150 posts have no text to embed" / "6 of 150 excluded: no views recorded" | 3.4 panel 2 | UI-0011-two-exclusions |
 | Câu trả lời panel 2 và tỉ lệ nhiễu ghi mẫu số "of N embedded posts"; nhiễu là hàng/vòng rỗng riêng | 3.4 | UI-0004-noise-basis |
@@ -114,7 +114,7 @@ Lưới 2 cột (`minmax(min(100%,420px),1fr)`, gap 56). Trái: eyebrow, H2, đo
 - Cột nối: `←` amber "topic becomes the comparison group"; `→` muted "text and topic become documents".
 
 ### 3.4 Product proof
-**Panel 1 — Which topics get more engagement than the channel?** Pill `next` cạnh câu hỏi + câu "Preview. Per-topic tests are not in the dashboard yet…" dưới câu trả lời, cho tới khi có endpoint topic stats. Bảng `minmax(150px,240px) 44px 1fr 64px 52px 60px`: tên cụm, n, strip (chấm 6px, IQR band, vạch median 3px), median, Cliff's δ, p Holm. Đường dashed `--text-primary` = median kênh 1.99%. Cụm dẫn đầu chữ amber w600, IQR `--amber-soft`. Cụm có cờ low n mờ 50% (hover/focus bỏ mờ; cờ backend `insufficient_data`, n < 5 — UI-L20260903-small-n-flag). Chân bảng: `6 excluded: no views recorded` luôn hiện. Hàng cuối "Unclustered (HDBSCAN noise)" n 52, chấm rỗng, `not tested`. Hover/focus hàng → ghi chú đổi thành mô tả hàng đó.
+**Panel 1 — Which topics get a higher engagement rate than the rest of the channel?** (Thy duyệt 2026-10-09) Pill `live` khi `GET /topics/comparisons` có kết quả (Việc 3, 2026-10-09): câu trả lời nêu topic cao/thấp hơn phần còn lại sau hiệu chỉnh (chỉ khi p Holm < 0.05 và topic không mang cờ n nhỏ), dòng dưới ghi giờ tính kiểm định và mốc views đã dùng; cột δ, p Holm điền số thật; kết quả thuộc lần gom cụm cũ (`stale`) → ô "—" kèm lý do. Chưa có kết quả nào → pill `next` + câu "Preview. Per-topic tests are not in the dashboard yet…". Bảng `minmax(150px,240px) 44px 1fr 64px 52px 60px`: tên cụm, n, strip (chấm 6px, IQR band, vạch median 3px), median, Cliff's δ, p Holm. Đường dashed `--text-primary` = median kênh 1.99%. Cụm dẫn đầu chữ amber w600, IQR `--amber-soft`. Cụm có cờ low n mờ 50% (hover/focus bỏ mờ; cờ backend `insufficient_data`, n < 5 — UI-L20260903-small-n-flag). Chân bảng: `6 excluded: no views recorded` luôn hiện. Hàng cuối "Unclustered (HDBSCAN noise)" n 52, chấm rỗng, `not tested`. Hover/focus hàng → ghi chú đổi thành mô tả hàng đó.
 
 **Panel 2 — Do the topics describe real structure in the text?**
 - Bản đồ UMAP (dim 1–2 của 3), tỉ lệ 4:3, nền `--bg-sunken`: chấm xám 7px, nhiễu = vòng rỗng, cụm đang chọn amber 10px. Legend luôn hiện.
@@ -141,7 +141,7 @@ Khối `--dark-bg` radius 20, padding 80/32, mark 52px, H2 52px. Nút chính `--
 |---|---|
 | Phân phối engagement, bài hero, rank | `GET /content-units` (`metrics.engagement_rate`), lọc views = 0 trước |
 | Cụm, n, centroid_similarity, umap | `GET /content-units` (`topic`, `umap`) + `GET /topics` |
-| Median/IQR theo cụm | `GET /topics` → `engagement` (PR 10). δ/Holm theo cụm: **chưa có API** — Việc 3 (nhóm so sánh đã chốt, ADR-0023) |
+| Median/IQR theo cụm | `GET /topics` → `engagement` (PR 10). δ/Holm theo cụm: `GET /topics/comparisons` (Việc 3, 2026-10-09; kích thước họ Holm ở `method.holm_family_size`) |
 | Từ khoá, 3 bài đại diện | `GET /topics` → `keywords`, `representatives` (PR 10) |
 | ARI, DBCV, nhiễu, `run_at`, vai reply | `GET /pipeline/summary` → `latest_cluster_run`, `reply_roles` (PR 10) |
 | CMI | research — chờ RQ-04 |

@@ -29,10 +29,11 @@ from pathlib import Path
 MAIN_BRANCH = "main"
 UPSTREAM = f"origin/{MAIN_BRANCH}"
 # Module mà 2 cron import (đồ thị import của `src.pipeline.scheduled_job` + `nlp_cluster_job` —
-# test `test_cron_code_covers_the_cron_import_graph` giữ danh sách này đúng). `src/analysis/`
-# chỉ API server (`src/main.py`) dùng — không thuộc cron.
+# test `test_cron_code_covers_the_cron_import_graph` giữ danh sách này đúng). `src/analysis/` thuộc
+# cron từ ADR-0023: bước `compare` của job NLP (`src.pipeline.compare_topics`) chạy engine thống kê.
 CRON_CODE_PREFIXES = (
     "src/pipeline/",
+    "src/analysis/",
     "src/db/",
     "src/nlp/",
     "src/api/",

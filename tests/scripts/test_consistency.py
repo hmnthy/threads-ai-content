@@ -489,6 +489,37 @@ LEARNED_RULES = [
         "n → median/IQR → effect size (Cliff's δ) → CI (bootstrap) →",
         "- `median_diff_ci_*`: bootstrap percentile của chênh median — chỉ mô tả.",
     ),
+    # ADR-0023 Việc 3: so sánh topic đã live — câu cũ nói "next" / chỉ có báo cáo offline
+    (
+        "ADR0023-topic-tests-next",
+        "src/dashboard/src/components/LandingTechStack.tsx",
+        '      body: "… excluded and counted. Per-topic comparisons are next.",',
+        '      body: "… Per-topic tests are computed by the daily job after each clustering run.",',
+    ),
+    (
+        "ADR0023-topic-tests-next",
+        "docs/design/topics-proposal.md",
+        "| Cliff's δ, p, p Holm | B | `holm_adjust` có; API theo topic chưa có (Việc 3) |",
+        "| Cliff's δ, p, p Holm | B | `holm_adjust` có; API `GET /topics/comparisons` |",
+    ),
+    (
+        "ADR0023-topic-tests-next",
+        "docs/claude/architecture.md",
+        "| Thống kê | median/IQR — engine live, so sánh theo topic trên dashboard: next | Live |",
+        "| Thống kê | median/IQR — so sánh topic tính trong job NLP, landing live | Live |",
+    ),
+    (
+        "ADR0023-job-steps-three",
+        ".claude/skills/recluster/SKILL.md",
+        "- … → import + đặt tên (Windows), dừng ở bước lỗi đầu tiên.",
+        "- … → import + đặt tên (Windows) → so sánh topic (bước cuối; lỗi chỉ đánh dấu `stale`).",
+    ),
+    (
+        "ADR0023-more-engagement-question",
+        "docs/design/topics-proposal.md",
+        "3. **Panel 1 — Which topics get more engagement than the channel?**",
+        "3. **Panel 1 — Which topics get a higher engagement rate than the rest of the channel?**",
+    ),
     # ADR-0023 (auditor cuối): câu nói quá về độ đúng mức của bản hoán vị
     (
         "ADR0023-perm-claim-overstated",

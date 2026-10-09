@@ -10,23 +10,31 @@ import {
   StatusPill,
 } from "@/components/LandingParts";
 import {
+  andList,
   axisPct,
   count,
+  formatP,
   parisTime,
   pct,
   rowSwarm,
+  signed,
+  testTimes,
+  testVerdict,
   ticks,
+  winShare,
   type LandingData,
   type TopicView,
 } from "@/lib/landing";
 
-// "Product proof" (handoff §3.4). Panel 1: median/IQR/n theo topic là số thật từ API (mô tả);
-// Cliff's δ + p Holm theo topic chờ endpoint (Việc 3, ADR-0023) → pill `next` + câu "Preview", ô
-// hiện "—", không điền số giả (UI-L20260903-stack-real-status). Panel 2 đọc cluster_runs thật.
-
-// Họ Holm của so sánh topic (ADR-0023) = mọi topic × 3 chỉ số engagement / share_rate / conversation
-// của trang Topics — landing dùng đúng p Holm đó dù panel chỉ hiện engagement.
-const TOPIC_METRICS = 3;
+// "Product proof" (handoff §3.4). Panel 1: median/IQR/n theo topic là số thật từ API (mô tả, dữ
+// liệu mới nhất); Cliff's δ + p Holm đọc `/topics/comparisons` — tính trong job NLP sau mỗi lần
+// gom cụm, mang mốc giờ riêng (ADR-0023). Họ Holm = mọi phép so có p xác định trên trang Topics
+// (mọi topic × engagement / share_rate / conversation): landing dùng đúng p Holm đó dù panel chỉ
+// hiện engagement, và đọc kích thước họ từ API (`holm_family_size`), không tự nhân. Chưa có kết
+// quả → pill `next`, ô "—"; kết quả thuộc lần gom cụm cũ → API ẩn δ/p, ô "—" kèm lý do (Thy chốt
+// D3). Panel 2 đọc cluster_runs thật.
+// Chữ Thy duyệt 2026-10-09: phép so là TỈ LỆ engagement so với PHẦN CÒN LẠI của kênh
+const PANEL_QUESTION = "Which topics get a higher engagement rate than the rest of the channel?";
 const TABLE = "grid grid-cols-[minmax(150px,240px)_44px_minmax(0,1fr)_64px_52px_60px] gap-4";
 
 export function LandingProof({ data }: { data: LandingData | null }) {
@@ -48,7 +56,7 @@ export function LandingProof({ data }: { data: LandingData | null }) {
       ) : (
         <div className={`${PANEL} gap-2`}>
           <span className="text-[13px] font-semibold text-amber-600">
-            Which topics get more engagement than the channel?
+            {PANEL_QUESTION}
           </span>
           <span className="text-base text-text-secondary">
             {!data
@@ -69,12 +77,22 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
   const axisMax = data.axisMax;
   const channelMedian = data.channel.stats.median;
   const hasChannelMedian = data.channel.stats.n > 0;
-  // Topic mang cờ insufficient_data không nhận câu kết luận → không chọn làm topic dẫn đầu
+  const tests = data.topicTests;
+  const testsShown = tests !== null && !tests.stale;
+  const verdictOf = (t: TopicView) =>
+    testsShown ? testVerdict(tests.engagement[t.id], tests.method) : "not tested";
+  const higher = data.topics.filter((t) => verdictOf(t) === "higher");
+  const lower = data.topics.filter((t) => verdictOf(t) === "lower");
+  // Có kiểm định: tô màu đúng các topic CAO hơn phần còn lại sau hiệu chỉnh. Chưa có: topic median
+  // cao nhất trong các topic đủ bài (mô tả) — topic mang cờ insufficient_data không được chọn.
   const comparable = data.topics.filter((t) => !t.stats.insufficient_data && t.stats.n > 0);
-  const lead = comparable.reduce<TopicView | null>(
-    (best, t) => (best === null || t.stats.median > best.stats.median ? t : best),
-    null,
-  );
+  const lead = testsShown
+    ? null
+    : comparable.reduce<TopicView | null>(
+        (best, t) => (best === null || t.stats.median > best.stats.median ? t : best),
+        null,
+      );
+  const highlighted = new Set(testsShown ? higher.map((t) => t.id) : lead ? [lead.id] : []);
   const rows = useMemo(
     () => data.topics.map((t) => ({ topic: t, dots: rowSwarm(t.rates, axisMax, 20, 5) })),
     [data.topics, axisMax],
@@ -87,32 +105,80 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
   const excluded = data.topics.reduce((sum, t) => sum + t.excluded, 0) + data.noise.excluded;
 
   const anyFlagged = data.topics.some((t) => t.stats.insufficient_data);
-  const answer = lead
-    ? `${lead.name} has the highest median engagement rate${anyFlagged ? " among topics with enough posts to compare" : ""}: ${pct(lead.stats.median)}${hasChannelMedian ? `, against ${pct(channelMedian)} for the channel` : ""}. The gap is not tested yet.`
-    : "Every topic is too small to compare yet.";
+  const names = (list: TopicView[]) => andList(list.map((t) => t.name));
+  const family = tests?.method.holm_family_size ?? 0;
+  // "9 topics ×" chỉ khi họ đúng bằng số topic × 3 chỉ số (topic không có p nào thì đứng ngoài họ)
+  const familyBreakdown =
+    family === data.topics.length * 3
+      ? `: ${data.topics.length} topics × engagement, share rate and conversation`
+      : "";
+  const answer = testsShown
+    ? higher.length + lower.length === 0
+      ? "No topic's engagement rate can be told apart from the rest of the channel after correcting for multiple comparisons."
+      : higher.length > 0
+        ? `Posts on ${names(higher)} tend to get a higher engagement rate than the rest of the channel${
+            lower.length > 0 ? `; posts on ${names(lower)} tend to get a lower one` : ""
+          }.`
+        : `Posts on ${names(lower)} tend to get a lower engagement rate than the rest of the channel.`
+    : lead
+      ? `${lead.name} has the highest median engagement rate${anyFlagged ? " among topics with enough posts to compare" : ""}: ${pct(lead.stats.median)}${hasChannelMedian ? `, against ${pct(channelMedian)} for the channel` : ""}. ${
+          tests?.stale ? "The gap is not tested on the current topics yet." : "The gap is not tested yet."
+        }`
+      : "Every topic is too small to compare yet.";
+  const hoveredRow = hovered && testsShown ? tests.engagement[hovered.id] : undefined;
+  const hoveredVerdict = hovered ? verdictOf(hovered) : "not tested";
+  const testFigures =
+    hoveredRow && hoveredRow.effect_size !== null && hoveredRow.p_value_holm !== null
+      ? `Cliff's δ ${signed(hoveredRow.effect_size)}${
+          hoveredRow.effect_size_ci_low !== null && hoveredRow.effect_size_ci_high !== null
+            ? `, 95% CI ${signed(hoveredRow.effect_size_ci_low)} to ${signed(hoveredRow.effect_size_ci_high)}, unadjusted`
+            : ""
+        }; Holm-corrected p ${formatP(hoveredRow.p_value_holm)}`
+      : null;
+  const testNote =
+    hoveredRow && hoveredRow.effect_size !== null && testFigures
+      ? hoveredVerdict === "higher" || hoveredVerdict === "lower"
+        ? ` Its posts tend to get a ${hoveredVerdict} rate than the rest of the channel: one of its posts beats a randomly picked other post ${winShare(hoveredRow.effect_size)}% of the time (${testFigures}).`
+        : hoveredVerdict === "too few posts"
+          ? ` Too few posts to draw a conclusion; read as indicative only (${testFigures}).`
+          : ` Not distinguishable from the rest of the channel after correction (${testFigures}).`
+      : hovered?.stats.insufficient_data
+        ? " Too few posts to draw a conclusion; read as indicative only."
+        : "";
+  const deltaHint = testsShown
+    ? " δ runs from −1 to +1: above 0, the topic's posts tend to have a higher rate than the rest of the channel."
+    : "";
   const readNote = hovered
     ? hovered.stats.n === 0
       ? `${hovered.name}: no measured posts (n = 0).`
-      : `${hovered.name}: median ${pct(hovered.stats.median)}, IQR ${hovered.stats.iqr_low.toFixed(2)}–${pct(hovered.stats.iqr_high)}, n = ${hovered.stats.n}.${
-        hovered.stats.insufficient_data ? " Too few posts to compare, read as indicative." : ""
-      }`
+      : `${hovered.name}: median ${pct(hovered.stats.median)}, IQR ${hovered.stats.iqr_low.toFixed(2)}–${pct(hovered.stats.iqr_high)}, n = ${hovered.stats.n}.${testNote}`
     : hasChannelMedian
-      ? `Dashed line: channel median ${pct(channelMedian)}. Hover or focus a row to read it.`
-      : "Hover or focus a row to read it.";
+      ? `Dashed line: channel median ${pct(channelMedian)}.${deltaHint} Hover or focus a row to read it.`
+      : `${deltaHint.trim()} Hover or focus a row to read it.`.trim();
+  const subline = !tests
+    ? "Preview. Per-topic tests are not in the dashboard yet: medians and spread are live, Cliff's δ and Holm-corrected p-values are next."
+    : tests.stale
+      ? `Effect sizes and p-values are hidden: topics were re-clustered after the last tests ran${
+          tests.computedAt ? ` on ${testTimes(tests.computedAt, null)}` : ""
+        }, so those results describe an older grouping of posts. They return once the tests are rerun on the current topics.`
+      : `Each topic is compared with every other post, unclustered ones included. p-values are corrected for all ${family} tests${familyBreakdown}.${
+          tests.computedAt
+            ? ` Tests ran ${testTimes(tests.computedAt, tests.snapshotAsOf)}; the medians and dots (one per post) use the latest data.`
+            : ""
+        }`;
 
   return (
     <div className={`${PANEL} gap-[22px]`}>
       <div className="flex max-w-[840px] flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="text-[13px] font-semibold text-amber-600">
-            Which topics get more engagement than the channel?
+            {PANEL_QUESTION}
           </span>
-          <StatusPill status="next" />
+          <StatusPill status={tests ? "live" : "next"} />
         </div>
         <span className="text-2xl font-bold leading-[1.3] tracking-[-0.02em]">{answer}</span>
         <span className="text-[13px] leading-[1.55] text-text-secondary [text-wrap:pretty]">
-          Preview. Per-topic tests are not in the dashboard yet: medians and spread are live, Cliff&apos;s
-          δ and Holm-corrected p-values are next.
+          {subline}
         </span>
       </div>
 
@@ -135,8 +201,10 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
               ))}
             </div>
             <span className="text-right">median</span>
-            <span className="text-right">δ · next</span>
-            <span className="text-right">p, Holm · next</span>
+            <span className="text-right" title="Cliff's delta, from −1 to +1">
+              {tests ? "δ" : "δ · next"}
+            </span>
+            <span className="text-right">{tests ? "Holm p" : "Holm p · next"}</span>
           </div>
           <div className="relative">
             <div className={`${TABLE} pointer-events-none absolute inset-0`} aria-hidden="true">
@@ -152,7 +220,15 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
               </div>
             </div>
             {rows.map(({ topic, dots }) => {
-              const isLead = topic.id === lead?.id;
+              const isLead = highlighted.has(topic.id);
+              const row = testsShown ? tests.engagement[topic.id] : undefined;
+              const delta = row?.effect_size ?? null;
+              const pHolm = row?.p_value_holm ?? null;
+              const missingReason = !tests
+                ? "not computed yet"
+                : tests.stale
+                  ? "hidden: tests belong to an earlier clustering run"
+                  : "not tested";
               const isHover = hover === topic.id;
               const faded = topic.stats.insufficient_data && !isHover;
               // n = 0: backend trả 0.0 cho tập rỗng — không vẽ median/IQR giả (ADR-0011)
@@ -211,13 +287,29 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
                   >
                     {showStats ? pct(topic.stats.median) : "—"}
                   </span>
-                  <span className="text-right font-mono text-[12.5px] text-text-muted">
-                    <span aria-hidden="true">—</span>
-                    <span className="sr-only">not computed yet</span>
+                  <span
+                    className={`text-right font-mono text-[12.5px] ${delta === null ? "text-text-muted" : isLead ? "text-amber-600" : "text-text-primary"}`}
+                  >
+                    {delta === null ? (
+                      <>
+                        <span aria-hidden="true">—</span>
+                        <span className="sr-only">{missingReason}</span>
+                      </>
+                    ) : (
+                      signed(delta)
+                    )}
                   </span>
-                  <span className="text-right font-mono text-[12.5px] text-text-muted">
-                    <span aria-hidden="true">—</span>
-                    <span className="sr-only">not computed yet</span>
+                  <span
+                    className={`text-right font-mono text-[12.5px] ${pHolm === null ? "text-text-muted" : isLead ? "text-amber-600" : "text-text-primary"}`}
+                  >
+                    {pHolm === null ? (
+                      <>
+                        <span aria-hidden="true">—</span>
+                        <span className="sr-only">{missingReason}</span>
+                      </>
+                    ) : (
+                      formatP(pHolm)
+                    )}
                   </span>
                 </div>
               );
@@ -276,8 +368,16 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
       {methodOpen ? (
         <div className="-mt-2">
           <MethodBlock
-            formula={`median and IQR of engagement rate per topic, posts with recorded views only · dashed line = channel median ${hasChannelMedian ? pct(channelMedian) : "—"} · next: test each topic against the rest of the channel (Brunner-Munzel permutation test) and report Cliff's δ with a 95% CI (not corrected for multiple comparisons) · p to be Holm-corrected across the Topics page's ${data.topics.length * TOPIC_METRICS} comparisons (${data.topics.length} topics × engagement, share rate, conversation)`}
-            limits={`Topics with fewer than ${data.summary.min_posts_to_compare} posts with recorded views are faded and read as indicative. A higher median is a description, not a tested difference, until the per-topic tests ship.`}
+            formula={`engagement rate per topic: median and IQR, posts with recorded views only · dashed line = channel median ${hasChannelMedian ? pct(channelMedian) : "—"}, a reference, not the comparison group · ${
+              tests
+                ? `each topic vs the rest of the channel, unclustered posts included: two-sided Brunner-Munzel permutation test (${count(tests.method.n_permutations)} permutations, fixed seed) · effect size Cliff's δ = P(topic > rest) − P(topic < rest); (1 + δ) / 2 is the share of pairs a topic post wins, ties counted as half · 95% CI from inverting the same permutation test, unadjusted · p Holm-corrected across ${family} tests${familyBreakdown ? ` (${data.topics.length} topics × engagement, share rate, conversation)` : ""}`
+                : "next: test each topic against the rest of the channel (Brunner-Munzel permutation test) and report Cliff's δ with a 95% CI (unadjusted) · p to be Holm-corrected across every topic × engagement, share rate, conversation"
+            }`}
+            limits={
+              tests
+                ? `A topic is called higher or lower only when its Holm-corrected p is below ${tests.method.conclusion_alpha} and it has at least ${tests.method.min_posts_to_compare} posts with recorded views; smaller topics are faded and read as indicative only. Medians describe; only the test decides higher or lower. The CI is unadjusted, so it can exclude 0 while the corrected p stays above ${tests.method.conclusion_alpha}. Holm-corrected p-values are capped at 1. With so few posts per topic only very large differences can be detected, so "not distinguishable" (even at p = 1.000) does not mean "no difference".`
+                : `Topics with fewer than ${data.summary.min_posts_to_compare} posts with recorded views are faded and read as indicative. A higher median is a description, not a tested difference, until the per-topic tests ship.`
+            }
           />
         </div>
       ) : null}

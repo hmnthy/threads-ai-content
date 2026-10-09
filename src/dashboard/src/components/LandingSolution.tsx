@@ -122,7 +122,7 @@ export function LandingSolution({ data }: { data: LandingData | null }) {
               num="01"
               title="Measure"
               status="live"
-              body="Answers Q1. Each post's engagement rate is placed among all the channel's posts, with the median, the middle half and the post count shown. Comparing groups with an effect size is next."
+              body="Answers Q1. Each post's engagement rate is placed among all the channel's posts, with the median, the middle half and the post count shown. Each topic is then compared with the rest of the channel, with an effect size and a corrected p-value."
               slotLabel="This post"
             >
               {hero && channel ? (

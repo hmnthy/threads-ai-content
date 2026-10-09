@@ -126,8 +126,9 @@ def test_console_python_swaps_pythonw_only() -> None:
 
 def test_build_steps_order_and_wsl_command() -> None:
     steps = nlp_cluster_job.build_steps(PureWindowsPath(r"C:\repo"), "py.exe")
-    assert [s.name for s in steps] == ["export", "cluster_wsl", "import"]
+    assert [s.name for s in steps] == ["export", "cluster_wsl", "import", "compare"]
     assert steps[0].argv == ["py.exe", "-m", "src.pipeline.clustering_export"]
+    assert steps[3].argv == ["py.exe", "-m", "src.pipeline.compare_topics"]
     wsl = steps[1].argv
     assert wsl[:5] == ["wsl", "-d", "Ubuntu", "--", "bash"]
     assert wsl[-1].startswith("cd /mnt/c/repo && source ")

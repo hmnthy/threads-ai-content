@@ -27,8 +27,8 @@
 | `centroid_similarity` từng bài | A | `/content-units` `topic.centroid_similarity` |
 | từ khoá c-TF-IDF, 3 bài gần tâm | A (DB) | `topics.keywords_json/representative_ids_json` — **chưa có trong `TopicOut`** |
 | nhiễu 36,1%, `validity_index` 0,317, ARI 1,00/0,78/0,22 | A (DB) | `cluster_runs` — **chưa có endpoint** (`/research/runs`, roadmap E) <!-- consistency: allow ADR0004-ari-not-measurable --> |
-| median/IQR/n từng cụm | B | chưa có endpoint topic stats (status.md Next, Bước 3–4). `window_stats` dùng lại được |
-| Cliff's δ, p, p Holm | B | `compare_groups()` có Brunner-Munzel + δ + CI của δ; `holm_adjust` có; nhóm so sánh đã chốt (ADR-0023); API theo topic chưa có (Việc 3) |
+| median/IQR/n từng cụm | B | `GET /topics` → `engagement` (PR 10); phép so theo topic: `GET /topics/comparisons` (Việc 3, 2026-10-09) |
+| Cliff's δ, p, p Holm | B | `compare_groups()` có Brunner-Munzel + δ + CI của δ; `holm_adjust` có; nhóm so sánh đã chốt (ADR-0023); API theo topic `GET /topics/comparisons`, tính trong job NLP (Việc 3, 2026-10-09) |
 | ARI 10 seed | — | research RQ-01, hiện ô trạng thái |
 | CMI theo cụm | — | research RQ-04, không hiện số |
 | Câu trả lời 1 dòng | C | sinh từ kết quả (VD "none clearly" chỉ khi mọi p Holm ≥ 0,05) |
@@ -39,11 +39,11 @@ Mockup Topics dùng số minh hoạ và ghi rõ là minh hoạ; số thật tín
 
 ## 1. Phương án
 
-Câu hỏi của trang: **What does the channel write about, and does any topic get more engagement than the channel?**
+Câu hỏi của trang: **What does the channel write about, and does any topic get a higher engagement rate than the rest of the channel?** (chữ Thy duyệt 2026-10-09)
 
 1. **Header** — tiêu đề, câu trả lời 1 dòng (sinh từ kết quả), dòng meta: run date · n · `validity_index` · nhiễu.
 2. **Độ phủ** (thanh 1 dòng, không phải KPI card): 150 units → 144 embedded (6 no text) → 92 in 9 topics · 52 unclustered; 6 excluded: no views recorded.
-3. **Panel 1 — Which topics get more engagement than the channel?** Bảng strip theo cụm (cùng ngữ vựng Proof panel 1 của landing): tên · n · strip + IQR · median · δ · p Holm. Đường dashed = median kênh. n < 10 mờ. Hàng nhiễu "not tested". Hàng = bộ chọn cụm.
+3. **Panel 1 — Which topics get a higher engagement rate than the rest of the channel?** Bảng strip theo cụm (cùng ngữ vựng Proof panel 1 của landing): tên · n · strip + IQR · median · δ · p Holm. Đường dashed = median kênh. Cụm mang cờ `insufficient_data` (n < 5) mờ. Hàng nhiễu "not tested". Hàng = bộ chọn cụm.
 4. **Panel 2 — What is this topic about?** Hồ sơ cụm đang chọn: tên + mô tả (ghi "named by Claude"), từ khoá, 3 bài gần tâm + `centroid_similarity`, danh sách mọi bài trong cụm (ngày, engagement, số phần nối). Bản đồ UMAP nhỏ bên cạnh, cụm chọn amber, nhiễu vòng rỗng.
 5. **Panel 3 — How stable are these topics?** DBCV (`validity_index`), nhiễu, ARI 3 mức; 10 seed = ô research RQ-01. Khối phương pháp mở ra: pipeline, tham số, giới hạn.
 

@@ -44,18 +44,6 @@ def test_binomial_se_shrinks_with_views() -> None:
     assert report.binomial_se_points(2.0, 40_000) == pytest.approx(0.07, abs=1e-9)
 
 
-def test_runs_keeping_label_counts_only_the_latest_consecutive_kept_runs() -> None:
-    events = [
-        None,  # lần chạy trước ADR-0018 — chưa ghi sự kiện
-        {"topic_0": "relabeled"},
-        {"topic_0": "kept"},
-        {"topic_0": "kept_semantic"},
-    ]
-
-    assert report.runs_keeping_label(events, "topic_0") == 2
-    assert report.runs_keeping_label(events, "topic_9") == 0
-
-
 def test_attainable_level_reflects_permutation_discreteness() -> None:
     # B = 2.000: ở 0.05/27 chỉ p = 2/2001 đạt → 0.10%; ở 0.05 → 100/2001
     assert report.attainable_level(0.05 / 27, 2_000) == pytest.approx(2 / 2001)
