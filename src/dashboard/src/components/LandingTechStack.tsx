@@ -43,11 +43,11 @@ function buildNodes(data: LandingData | null): Node[] {
         ...(roles ? [["roles", `${count(roles.self_continuation)} self_continuation · ${count(roles.author_answer)} author_answer · ${count(roles.outbound)} outbound`] as [string, string]] : [])],
       edges: ["e1", "e2"] },
     { id: "store", name: "SQLite", tag: "data/threads.db", x: 490, y: 32, w: 190, h: 100, status: "live",
-      body: "One file holds posts, content units, insight snapshots over time, embeddings and every clustering run with its parameters and scores. It is the only database.",
-      stack: [["tables", "posts · content_units · insights_snapshots"], ["", "embeddings · topics · cluster_runs"]], edges: ["e2", "e3", "e5", "e8", "e10"] },
+      body: "One file holds posts, content units, insight snapshots over time, embeddings and every clustering run with its parameters, scores and per-topic test results. It is the only database.",
+      stack: [["tables", "posts · content_units · insights_snapshots"], ["", "embeddings · topics · cluster_runs · topic_comparisons"]], edges: ["e2", "e3", "e5", "e8", "e10"] },
     { id: "api", name: "API", tag: "FastAPI", x: 740, y: 32, w: 170, h: 100, status: "live",
-      body: "Read-only. Serves posts, insights, topics and channel statistics from what the jobs stored. Posts with no recorded views are excluded and counted. Per-topic comparisons are next.",
-      stack: [["server", "FastAPI + uvicorn"], ["statistics", "median/IQR live · Brunner-Munzel permutation test + Cliff's δ (95% CI) + Holm correction in src/analysis, used by offline reports today · per-topic endpoint next"]], edges: ["e3", "e4"] },
+      body: "Read-only. Serves posts, insights, topics and channel statistics from what the jobs stored. Posts with no recorded views are excluded and counted. Per-topic tests (each topic against the rest of the channel) run in the daily NLP job right after clustering; the API only reads the stored results.",
+      stack: [["server", "FastAPI + uvicorn"], ["statistics", "median/IQR on request · per topic, precomputed daily: Brunner-Munzel permutation test, Cliff's δ (95% CI), Holm correction"]], edges: ["e3", "e4"] },
     { id: "web", name: "Dashboard · Landing", tag: "Next.js 16", x: 966, y: 32, w: 170, h: 100, status: "live",
       body: "The dashboard and this page. Charts are hand-built SVG; the topic map uses Plotly.",
       stack: [["framework", "Next.js 16 · Tailwind v4"], ["charts", "SVG · Plotly"], ["icons", "Phosphor"]], edges: ["e4", "e11"] },
@@ -59,6 +59,7 @@ function buildNodes(data: LandingData | null): Node[] {
       stack: run
         ? [["reduce", `UMAP ${p.umap_n_components ?? "?"}D · n_neighbors ${p.umap_n_neighbors ?? "?"} · seed ${p.umap_random_state ?? "?"}`],
            ["cluster", `HDBSCAN ${p.cluster_selection_method ?? "?"} · min_cluster_size ${p.hdbscan_min_cluster_size ?? "?"}`],
+           ["tests", "each topic vs the rest: Brunner-Munzel permutation, daily after clustering"],
            ["result", `${run.n_clusters} clusters · noise ${(run.noise_ratio * 100).toFixed(1)}% of ${count(run.n_units)} embedded · validity_index (DBCV) ${dbcv}`]]
         : [["result", "no clustering run stored yet"]],
       edges: ["e6", "e7"] },

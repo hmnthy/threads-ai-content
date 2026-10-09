@@ -180,6 +180,10 @@ Số trong các file này chỉ dùng để mockup trông giống thật. Cấu 
 | 0.5 "3 posts" | Cần kiểm số bài thật | Đúng ở khối hồ sơ cụm (3 bài đại diện); sai ở mô tả bước đặt tên | Ghi audit |
 | Việc 2.7 | `MIN_N_PER_BUCKET = 5` vs landing mờ n < 10 | `HDBSCAN_MIN_CLUSTER_SIZE = 4` → cụm 4–9 bài có thật, hai ngưỡng cho kết quả khác | Đã chốt 2026-10-06: một ngưỡng = 5, UI đọc cờ backend (UI-L20260903-small-n-flag) |
 | Việc 3 | Trường `n_input`, `n_noise`, `validity_fn` | Cột thật `n_units`; số nhiễu không lưu riêng (suy từ `noise_ratio` / `labels_json`); `validity_index` lấy từ cột `dbcv` | Ghi nhận khi làm Việc 3 |
+| Việc 3 | `GET /topics/stats` | Tên thật `GET /topics/comparisons`: mỗi dòng = 1 nhóm × 1 chỉ số (engagement / share_rate / conversation), không chỉ engagement; tính trong job NLP sau mỗi lần gom cụm (~70 giây), không theo request; kèm `method.holm_family_size`, `computed_at`, `snapshot_as_of`, `stale` | Đã làm 2026-10-09 |
+| Việc 3 | `GET /topics/run` | Không tạo: `GET /pipeline/summary` → `latest_cluster_run` đã trả `run_at`, `n_units`, `n_clusters`, `n_noise`, `noise_ratio`, `dbcv`, ARI, tham số. Sự kiện topic dùng qua `TopicOut.runs_keeping_label` | Thêm trường khi mockup Topics cần |
+| Việc 3 | Dòng kênh khớp `/analytics/overview` | Hai mẫu số khác nhau: phép so topic dùng unit trong lần gom cụm (unit có chữ), Overview dùng mọi bài gốc đo được; hôm nay trùng vì 6 bài loại là cùng 6 repost (`topics-data-audit.md` mục 1–2), code không bảo đảm. Test thay bằng `Σ n topic + n nhiễu = n kênh` | Đã làm 2026-10-09 |
+| Việc 3 | Lịch sử tên (1e) | `TopicOut` thêm `labeled_at`, `label_model`, `label_prompt_version`, `runs_keeping_label`; danh sách đổi tên + lý do chưa có API (hiện mọi topic chưa đổi tên lần nào) | Thêm khi có topic đổi tên |
 | landing-handoff §0 | Gọi Claude 1 lần mỗi cụm | Từ ADR-0018 chỉ gọi cho cụm cần đặt lại tên | Ghi audit |
 
 ## Claude Design làm gì khi nhận đủ

@@ -243,6 +243,7 @@ def brunner_munzel_permutation(
       T* thay cho phân vị t — CI và p cùng 1 phân phối tham chiếu. None khi SE quan sát = 0 (2
       nhóm tách hẳn hoặc mọi giá trị bằng nhau); p hoán vị vẫn xác định trong trường hợp đó.
     - None khi 1 nhóm < 2 phần tử hoặc đầu vào có NaN.
+    - Cùng tập giá trị + cùng seed → cùng p và CI, bất kể thứ tự phần tử trong mỗi nhóm.
     - So T* với T quan sát có dung sai dấu phẩy động (quy ước của `scipy.stats.permutation_test`):
       cùng 1 tập giá trị khác thứ tự cho T lệch ~1e-15, không có dung sai thì hoán vị "bằng" T
       bị đếm sót và p nhỏ hơn thật — rõ nhất khi nhiều số 0 (share_rate, conversation).
@@ -252,8 +253,12 @@ def brunner_munzel_permutation(
     n_a, n_b = len(group_a), len(group_b)
     if n_a < 2 or n_b < 2:
         return None
-    a = np.asarray(group_a, dtype=float)
-    b = np.asarray(group_b, dtype=float)
+    # Sắp xếp mỗi nhóm: hoán vị thứ k của `rng` xáo VỊ TRÍ trong mảng gộp, nên cùng seed nhưng
+    # khác thứ tự đầu vào (VD SQL không có ORDER BY) cho tập T* khác → p/CI lệch trong sai số
+    # Monte Carlo (đo 2026-10-09: tới 0.008 giữa job và script báo cáo). Sắp xếp → kết quả chỉ
+    # phụ thuộc tập giá trị + seed; p̂ và SE vốn không phụ thuộc thứ tự.
+    a = np.sort(np.asarray(group_a, dtype=float))
+    b = np.sort(np.asarray(group_b, dtype=float))
     if not (np.isfinite(a).all() and np.isfinite(b).all()):
         return None
     p_hat, se = _brunner_munzel_rows(a[None, :], b[None, :])

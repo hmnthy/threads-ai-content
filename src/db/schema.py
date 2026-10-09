@@ -1,7 +1,7 @@
 """SQLite schema — `posts`, `content_units`, `insights_snapshots`, `topics`,
 `post_topic_labels`, `account_daily_views`, `embeddings`, `cluster_runs` (2 bảng từ
-ADR-0004), `topic_label_history` (ADR-0018), theo đúng spec tại docs/claude/data-model.md
-mục "Storage".
+ADR-0004), `topic_label_history` (ADR-0018), `topic_comparison_runs` + `topic_comparisons`
+(ADR-0023), theo đúng spec tại docs/claude/data-model.md mục "Storage".
 
 Cột `umap_x/y/z` + `language_primary`/`language_mix_score` nằm thẳng trong
 `content_units` (không phải bảng riêng) để dashboard Topic Explorer đọc trực tiếp toạ độ
@@ -159,6 +159,50 @@ CREATE TABLE IF NOT EXISTS topic_label_history (
     reason TEXT NOT NULL,
     -- topic cũ liên quan (cha khi nhập, topic gốc khi tách)
     sources_json TEXT
+);
+
+-- ADR-0023: so sánh topic vs phần còn lại của kênh, tính trong job NLP sau mỗi lần gom cụm
+-- (`src/pipeline/compare_topics.py`). 1 dòng `topic_comparison_runs` mỗi lần gom cụm (giữ lịch sử
+-- để thấy kết luận có ổn định qua các lần chạy); chạy lại cho cùng lần gom cụm thì thay toàn bộ.
+CREATE TABLE IF NOT EXISTS topic_comparison_runs (
+    cluster_run_id INTEGER PRIMARY KEY REFERENCES cluster_runs(id),
+    computed_at TEXT NOT NULL,
+    -- `fetched_at` mới nhất trong các snapshot đã dùng — số liệu "tính tới" thời điểm này
+    snapshot_as_of TEXT,
+    n_permutations INTEGER NOT NULL,
+    random_seed INTEGER NOT NULL,
+    -- số phép so có p xác định = họ Holm (ADR-0023 1c) — UI đọc số này, không tự nhân
+    holm_family_size INTEGER NOT NULL
+);
+
+-- 1 dòng = 1 nhóm (topic_N | noise | channel) × 1 chỉ số. Mô tả (median/IQR/n) và kiểm định tính
+-- từ CÙNG tập giá trị. Dòng noise/channel: `tested` = 0, mọi cột kiểm định + rest_* NULL.
+CREATE TABLE IF NOT EXISTS topic_comparisons (
+    cluster_run_id INTEGER NOT NULL REFERENCES topic_comparison_runs(cluster_run_id),
+    group_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('topic', 'noise', 'channel')),
+    metric TEXT NOT NULL CHECK (metric IN ('engagement', 'share_rate', 'conversation')),
+    n INTEGER NOT NULL,
+    excluded_no_views INTEGER NOT NULL,
+    median REAL NOT NULL,
+    iqr_low REAL NOT NULL,
+    iqr_high REAL NOT NULL,
+    rest_n INTEGER,
+    rest_excluded_no_views INTEGER,
+    rest_median REAL,
+    rest_iqr_low REAL,
+    rest_iqr_high REAL,
+    tested INTEGER NOT NULL,
+    effect_size REAL,
+    effect_size_ci_low REAL,
+    effect_size_ci_high REAL,
+    p_value REAL,
+    p_value_holm REAL,
+    -- phân tích độ nhạy, không lên UI (ADR-0023)
+    p_value_mann_whitney REAL,
+    test_method TEXT,
+    insufficient_data INTEGER NOT NULL,
+    PRIMARY KEY (cluster_run_id, group_id, metric)
 );
 
 -- Account-level daily views (Threads `threads_insights?metric=views&period=day`,
@@ -857,3 +901,113 @@ def insert_cluster_run(
 def latest_cluster_run(conn: sqlite3.Connection) -> sqlite3.Row | None:
     row = conn.execute("SELECT * FROM cluster_runs ORDER BY id DESC LIMIT 1").fetchone()
     return row  # type: ignore[no-any-return]
+
+
+def cluster_run_topic_events(conn: sqlite3.Connection) -> list[dict[str, str] | None]:
+    """`topic_events_json` của mọi lần gom cụm, cũ → mới; None = lần chạy trước ADR-0018."""
+    return [
+        json.loads(row["topic_events_json"]) if row["topic_events_json"] else None
+        for row in conn.execute("SELECT topic_events_json FROM cluster_runs ORDER BY id")
+    ]
+
+
+# --- topic_comparisons (ADR-0023) ---------------------------------------------------
+
+_TOPIC_COMPARISON_COLUMNS = (
+    "group_id",
+    "kind",
+    "metric",
+    "n",
+    "excluded_no_views",
+    "median",
+    "iqr_low",
+    "iqr_high",
+    "rest_n",
+    "rest_excluded_no_views",
+    "rest_median",
+    "rest_iqr_low",
+    "rest_iqr_high",
+    "tested",
+    "effect_size",
+    "effect_size_ci_low",
+    "effect_size_ci_high",
+    "p_value",
+    "p_value_holm",
+    "p_value_mann_whitney",
+    "test_method",
+    "insufficient_data",
+)
+
+
+def replace_topic_comparisons(
+    conn: sqlite3.Connection,
+    *,
+    cluster_run_id: int,
+    computed_at: str,
+    snapshot_as_of: str | None,
+    n_permutations: int,
+    random_seed: int,
+    holm_family_size: int,
+    rows: list[Mapping[str, object]],
+) -> None:
+    """Ghi kết quả so sánh của 1 lần gom cụm, thay mọi dòng cũ của chính lần đó (idempotent) —
+    trong 1 transaction riêng: lỗi giữa chừng thì kết quả cũ còn nguyên. Khác các helper khác của
+    module (người gọi commit), hàm này TỰ commit nên đòi connection không có transaction đang mở
+    — không thì nó sẽ commit/rollback luôn việc dở của người gọi. `rows` có đúng các khoá của
+    `_TOPIC_COMPARISON_COLUMNS`."""
+    if conn.in_transaction:
+        raise RuntimeError("replace_topic_comparisons cần connection không có transaction đang mở")
+    placeholders = ", ".join("?" * (len(_TOPIC_COMPARISON_COLUMNS) + 1))
+    with conn:
+        conn.execute("DELETE FROM topic_comparisons WHERE cluster_run_id = ?", (cluster_run_id,))
+        conn.execute(
+            """
+            INSERT INTO topic_comparison_runs (
+                cluster_run_id, computed_at, snapshot_as_of, n_permutations, random_seed,
+                holm_family_size
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT (cluster_run_id) DO UPDATE SET
+                computed_at = excluded.computed_at,
+                snapshot_as_of = excluded.snapshot_as_of,
+                n_permutations = excluded.n_permutations,
+                random_seed = excluded.random_seed,
+                holm_family_size = excluded.holm_family_size
+            """,
+            (
+                cluster_run_id,
+                computed_at,
+                snapshot_as_of,
+                n_permutations,
+                random_seed,
+                holm_family_size,
+            ),
+        )
+        conn.executemany(
+            f"INSERT INTO topic_comparisons (cluster_run_id, "
+            f"{', '.join(_TOPIC_COMPARISON_COLUMNS)}) VALUES ({placeholders})",
+            [
+                (cluster_run_id, *(row[column] for column in _TOPIC_COMPARISON_COLUMNS))
+                for row in rows
+            ],
+        )
+
+
+def latest_topic_comparison_run(conn: sqlite3.Connection) -> sqlite3.Row | None:
+    """Lần so sánh của lần gom cụm mới nhất ĐÃ có kết quả (có thể cũ hơn `latest_cluster_run`
+    khi bước so sánh lỗi — người gọi so 2 id để biết kết quả có lỗi thời không). API không gọi
+    `create_schema`: DB chưa migrate (chưa có bảng) đọc là "chưa có kết quả", không phải lỗi 500."""
+    try:
+        row = conn.execute(
+            "SELECT * FROM topic_comparison_runs ORDER BY cluster_run_id DESC LIMIT 1"
+        ).fetchone()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc):
+            return None
+        raise
+    return row  # type: ignore[no-any-return]
+
+
+def list_topic_comparisons(conn: sqlite3.Connection, cluster_run_id: int) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM topic_comparisons WHERE cluster_run_id = ?", (cluster_run_id,)
+    ).fetchall()

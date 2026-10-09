@@ -32,7 +32,7 @@ Tiền lệ: BERTopic `merge_models` (cosine embedding topic), BERTilda (thành 
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -41,6 +41,8 @@ import numpy as np
 Event = Literal["kept", "new", "split", "merged"]
 Via = Literal["membership", "semantic"]
 Vectors = Mapping[str, np.ndarray]  # {unit_id: embedding}
+# Sự kiện của 1 lần chạy (`cluster_runs.topic_events_json`) mà topic giữ nguyên id VÀ tên
+KEPT_EVENTS = frozenset({"kept", "kept_semantic"})
 
 
 @dataclass(frozen=True)
@@ -194,3 +196,15 @@ def anchor_holds(
         return False
     a, c = centroid(anchor, vectors), centroid(cluster, vectors)
     return a is not None and c is not None and float(a @ c) > reference
+
+
+def runs_keeping_label(events_by_run: Sequence[dict[str, str] | None], topic_id: str) -> int:
+    """Số lần chạy LIÊN TIẾP gần nhất mà topic có sự kiện giữ tên (`KEPT_EVENTS`), đếm ngược từ lần
+    mới nhất; dừng ở lần đặt/đổi tên gần nhất hoặc lần chưa ghi sự kiện (trước ADR-0018).
+    Trang Topics hiện số này cạnh ngày đặt tên (ADR-0023 1e)."""
+    count = 0
+    for events in reversed(events_by_run):
+        if events is None or events.get(topic_id) not in KEPT_EVENTS:
+            break
+        count += 1
+    return count

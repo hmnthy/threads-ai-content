@@ -159,6 +159,58 @@ def test_latest_write_reads_db(tmp_path: Path) -> None:
     assert job_health.latest_write(tmp_path / "missing.db", SNAPSHOT.query) is None
 
 
+def _runs_db(tmp_path: Path, cluster_runs: int, compared: list[int] | None) -> Path:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    db = tmp_path / "runs.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE cluster_runs (id INTEGER PRIMARY KEY, run_at TEXT)")
+    conn.executemany(
+        "INSERT INTO cluster_runs VALUES (?, ?)",
+        [(i, "2026-10-01T10:30:00+00:00") for i in range(1, cluster_runs + 1)],
+    )
+    if compared is not None:
+        conn.execute("CREATE TABLE topic_comparison_runs (cluster_run_id INTEGER PRIMARY KEY)")
+        conn.executemany("INSERT INTO topic_comparison_runs VALUES (?)", [(i,) for i in compared])
+    conn.commit()
+    conn.close()
+    return db
+
+
+def test_comparison_lag_flags_a_cluster_run_without_comparisons(tmp_path: Path) -> None:
+    assert job_health.comparison_lag(_runs_db(tmp_path, 3, [1, 2])) == (3, 2)
+
+
+def test_comparison_lag_is_quiet_when_comparisons_match(tmp_path: Path) -> None:
+    assert job_health.comparison_lag(_runs_db(tmp_path, 3, [2, 3])) is None
+    assert job_health.comparison_lag(tmp_path / "missing.db") is None
+
+
+def test_comparison_lag_before_the_table_exists(tmp_path: Path) -> None:
+    # DB chưa migrate (trước lần chạy đầu của bước compare) → báo "none", không crash
+    assert job_health.comparison_lag(_runs_db(tmp_path, 2, None)) == (2, None)
+
+
+def test_report_warns_on_comparison_lag_unless_the_nlp_job_is_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _runs_db(tmp_path, 3, [2])
+    monkeypatch.setattr(job_health, "task_results", lambda: {})
+    lines = job_health.report(db, NOW, repo=tmp_path)
+    assert lines[-1].startswith(
+        "WARN topic comparisons: latest cluster run 3; results are for run 2"
+    )
+    assert "hides δ and p" in lines[-1]
+
+    # chưa từng có kết quả → landing hiện `next`, không phải "ẩn"
+    never = job_health.report(_runs_db(tmp_path / "never", 2, None), NOW, repo=tmp_path)
+    assert "no results yet" in never[-1] and "hides" not in never[-1]
+
+    running = {NLP.task: task(job_health.TASK_RUNNING)}
+    monkeypatch.setattr(job_health, "task_results", lambda: running)
+    lines = job_health.report(db, NOW, repo=tmp_path)
+    assert not any("topic comparisons" in line for line in lines)
+
+
 def test_report_survives_db_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def locked(db_path: Path, query: str) -> datetime | None:
         raise sqlite3.OperationalError("database is locked")

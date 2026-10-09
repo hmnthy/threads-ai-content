@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-682%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-717%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -80,7 +80,7 @@ Three layers, built in that order — each grounded in cited methodology, not in
 
 | Layer | Status | What it does |
 |---|---|---|
-| **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, share rate, conversation, velocity, longevity — never blended into one score. Every group of posts (a topic, an hour, a time window) shows its median, its IQR (interquartile range: the range the middle 50% of posts fall in) and its number of posts (n), flagged when n is too small to interpret. Reach tiers (via the API) are measured against the channel's recent level (median of up to 20 prior posts), not an arbitrary fixed threshold. Group comparisons use a Brunner-Munzel permutation test (a rank test that does not assume both groups are equally spread) and report Cliff's delta, P(A > B) − P(A < B), with a 95% confidence interval; p-values are Holm-corrected across all comparisons shown together, the intervals are not. Today these comparisons run in offline reports; per-topic comparisons on the dashboard are next. |
+| **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, share rate, conversation, velocity, longevity — never blended into one score. Every group of posts (a topic, an hour, a time window) shows its median, its IQR (interquartile range: the range the middle 50% of posts fall in) and its number of posts (n), flagged when n is too small to interpret. Reach tiers (via the API) are measured against the channel's recent level (median of up to 20 prior posts), not an arbitrary fixed threshold. Group comparisons use a Brunner-Munzel permutation test (a rank test that does not assume both groups are equally spread) and report Cliff's delta, P(A > B) − P(A < B), with a 95% confidence interval; p-values are Holm-corrected across each family of comparisons (for topics: every topic × engagement, share rate and conversation), the intervals are not. Each topic is compared with the rest of the channel by the daily job after every clustering run, and the landing page shows the results; the Topics page is next. Top-post tables rank only posts with at least the channel's 25th-percentile views, because a rate measured on few views swings too much to compare. |
 | **NLP layer** | Live | Multilingual sentence embeddings (content mixes Vietnamese, French and English naturally, so no per-language tokenizer before embedding; topic keywords use a Vietnamese word segmenter) feed UMAP + HDBSCAN for unsupervised topic discovery, then Claude labels each discovered cluster in English. A Code-Mixing Index — a continuous score, not a boolean flag — measures how much a post actually switches languages. |
 | **Knowledge base** | Next | The channel's own posts and the author's answers to follower questions, turned into a searchable knowledge base: hybrid keyword (BM25) + semantic retrieval with a reranker, evaluated against real follower questions (recall@k, MRR, nDCG) before anything — such as a Q&A assistant — is built on top of it. |
 

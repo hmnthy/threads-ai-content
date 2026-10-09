@@ -81,7 +81,14 @@ export function AnalyticsBreakdown() {
             </button>
           ))}
         </div>
-        <TopPostsTable entries={activeList} field={activeField} maxValue={maxValue} />
+        <TopPostsTable
+          entries={activeList}
+          field={activeField}
+          maxValue={maxValue}
+          viewsFloor={data.views_floor}
+          belowFloor={data.below_views_floor}
+          postCount={data.post_count}
+        />
       </div>
 
       <PostingTimeHeatmap timezones={data.timezones} excludedNoViews={data.excluded_no_views} />
@@ -122,14 +129,30 @@ function StatRow({ data }: { data: AnalyticsOverview }) {
   );
 }
 
+// Sàn views (ADR-0023 1f) tính ở backend — UI chỉ ghi số và quy tắc, không tự tính phân vị
+function floorNote(viewsFloor: number | null, belowFloor: number, postCount: number): string {
+  if (viewsFloor === null) {
+    return "Ranked by rate, with no minimum views yet: there are too few posts with recorded views to set one. Read the Views column alongside the rate.";
+  }
+  // views là số nguyên: ≥ P25 (VD 1,900.25) ⇔ ≥ làm tròn lên (1,901)
+  const floor = Math.ceil(viewsFloor).toLocaleString("en-US");
+  return `Only posts with at least ${floor} views are ranked: below that, a few reactions move a rate too much for a fair comparison. The cut-off is the 25th percentile of views among posts with recorded views, recomputed as new views come in; ${belowFloor} of ${postCount} posts fall below it.`;
+}
+
 function TopPostsTable({
   entries,
   field,
   maxValue,
+  viewsFloor,
+  belowFloor,
+  postCount,
 }: {
   entries: TopPostEntry[];
   field: keyof TopPostEntry["metrics"];
   maxValue: number;
+  viewsFloor: number | null;
+  belowFloor: number;
+  postCount: number;
 }) {
   if (entries.length === 0) {
     return <p className="text-sm text-text-secondary">No post has an insight snapshot yet.</p>;
@@ -180,10 +203,7 @@ function TopPostsTable({
           </tbody>
         </table>
       </div>
-      <p className="text-[13px] leading-snug text-text-muted">
-        Ranked by rate, so a post with few views can reach the top by chance — read the Views column
-        alongside it.
-      </p>
+      <p className="text-[13px] leading-snug text-text-muted">{floorNote(viewsFloor, belowFloor, postCount)}</p>
     </div>
   );
 }

@@ -199,6 +199,30 @@ chứng mô phỏng (`scripts/topic_method_report.py` mục 5, ở ngưỡng 0.0
 - Sức mạnh thống kê thấp: với cỡ topic 8–13 bài, chỉ chênh lệch |delta| ≳ 0.62–0.75 mới được phát hiện 80% số lần ở
   bước chặt nhất của Holm 27 (mục 6) — "not distinguishable" ≠ "no difference".
 - Đây là phân tích thăm dò trên quan sát, không nhân quả; thành viên cụm có thể đổi giữa các lần chạy nên p đổi theo.
+- **Chạy ở đâu (Việc 3, 2026-10-09):** bước cuối `compare` của job NLP (`src/pipeline/compare_topics.py` →
+  `src/analysis/topic_comparison.py`) tính mọi topic × engagement / share_rate / conversation + dòng nhiễu và dòng
+  kênh (chỉ mô tả) trên lần gom cụm mới nhất, ghi `topic_comparison_runs` + `topic_comparisons` (giữ lịch sử mỗi lần
+  gom cụm). ~70 giây/27 phép so → không tính theo request; chỉ sau lần gom cụm (12:30), không sau mỗi snapshot 4h vì
+  thành viên topic chỉ đổi lúc gom cụm (Thy chốt D1). API `GET /topics/comparisons` trả kèm `holm_family_size`,
+  `computed_at`, `snapshot_as_of` (snapshot mới nhất đã dùng); kết quả thuộc lần gom cụm cũ → `stale`, API ẩn δ/p,
+  giữ phần mô tả (D3); `scripts/job_health.py` cảnh báo. Mẫu số = unit trong lần gom cụm, khác "bài gốc đo được" của
+  Overview (`docs/design/topics-data-audit.md` mục 1–2).
+- **Tái lập:** cùng tập giá trị + cùng seed → cùng p và CI bất kể thứ tự bài (engine sắp xếp mỗi nhóm trước khi xáo,
+  2026-10-09 — trước đó job và `scripts/topic_method_report.py` lệch tới 0.008 vì đưa bài vào theo thứ tự khác).
+- **Số in trong ADR-0023 và ADR-0012 tính TRƯỚC thay đổi đó** (và trên snapshot sớm hơn trong ngày), nên chạy lại lệch
+  trong sai số Monte Carlo. Kết luận họ 27 không đổi — trên lần gom cụm 9, snapshot 2026-10-09T15:18Z: 3/27 đạt
+  (topic_8 engagement p Holm 0.0016 · topic_8 share_rate 0.0036 · topic_0 conversation 0.0255; topic_4 engagement
+  0.151, không đạt). **Riêng ô minh hoạ "họ 9" của ADR-0023 (topic_4 = 0.049) nay là 0.0502** — đúng ô sát ngưỡng mà
+  ADR dùng làm ví dụ 2 họ kết luận ngược nhau; lập luận chọn họ 27 (1 topic = 1 kết luận ở mọi nơi) không dựa vào số
+  này, nhưng ví dụ cụ thể không còn đúng trên dữ liệu hiện tại. Số hiện hành: `GET /topics/comparisons`.
+
+### Sàn views cho bảng top theo tỉ lệ (ADR-0023 1f)
+
+`views_floor()` (`src/analysis/stats.py`) = P25 views của các bài gốc đo được, `statistics.quantiles(method="inclusive")`
+(Hyndman & Fan 1996 loại 7, cùng cách tính IQR), tính lại mỗi request. `/analytics/overview` chỉ xếp vào 3 bảng top
+bài có views ≥ sàn, trả `views_floor`, `views_floor_rule`, `below_views_floor`; phân phối và bucket giờ/thứ vẫn dùng
+mọi bài đo được. < 2 bài đo được → không có sàn, không lọc. Căn cứ: sai số chuẩn nhị thức của tỉ lệ ở bài ít views
+lớn hơn ~5 lần (ADR-0023 mục 7).
 
 ### Tầng reach: `assign_reach_tiers()` (`src/analysis/reach.py`, Layer 3, ADR-0012, 2026-10-06)
 
@@ -529,7 +553,7 @@ Sau khi bỏ câu trả lời follower khỏi `full_text`, chạy lại đúng t
 ### Storage
 
 - `data/raw/` — archive JSON vĩnh viễn (KHÁC `data/cache/` hiện có, TTL 6h) — cho phép rerun pipeline từ đầu khi model NLP tốt hơn, không cần crawl lại
-- SQLite: `posts`, `content_units`, `insights_snapshots` (time-series), `account_daily_views`, `topics` (id `topic_N` bền, label_en, description_en, method — chỉ "cluster", centroid_embedding_json, keywords_json, representative_ids_json, labeled_at, label_model, label_prompt_version, label_anchor_json = bản neo thành viên lúc đặt tên — ADR-0018), `topic_label_history` (mỗi lần đặt tên 1 dòng: lý do, topic nguồn), `post_topic_labels` (post_id, topic_id, method, confidence = cosine tới tâm cụm), `embeddings` (vector theo `content_hash`), `cluster_runs` (DBCV, nhiễu, ARI, sự kiện topic mỗi lần gom cụm) — ADR-0004
+- SQLite: `posts`, `content_units`, `insights_snapshots` (time-series), `account_daily_views`, `topics` (id `topic_N` bền, label_en, description_en, method — chỉ "cluster", centroid_embedding_json, keywords_json, representative_ids_json, labeled_at, label_model, label_prompt_version, label_anchor_json = bản neo thành viên lúc đặt tên — ADR-0018), `topic_label_history` (mỗi lần đặt tên 1 dòng: lý do, topic nguồn), `post_topic_labels` (post_id, topic_id, method, confidence = cosine tới tâm cụm), `embeddings` (vector theo `content_hash`), `cluster_runs` (DBCV, nhiễu, ARI, sự kiện topic mỗi lần gom cụm) — ADR-0004; `topic_comparison_runs` + `topic_comparisons` (so sánh topic vs phần còn lại của kênh mỗi lần gom cụm: mô tả + δ, CI, p, p Holm — ADR-0023)
 - **Đã có (ADR-0004)**: embedding lưu trong SQLite (bảng `embeddings`, kèm `content_hash` để chỉ embed lại khi nội dung đổi). **Kế hoạch (Phase E)**: knowledge base cũng trong cùng file SQLite (`kb_documents`, `kb_chunks`, FTS5 cho BM25). Không dùng vector store riêng ngoài SQLite — lý do sẽ ghi tại ADR-0006 khi triển khai.
 
 ### Knowledge base + RAG (Retrieval-Augmented Generation)
