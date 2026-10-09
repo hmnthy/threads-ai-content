@@ -279,6 +279,19 @@ def test_brunner_munzel_permutation_is_reproducible_with_a_seed() -> None:
     assert first == second
 
 
+def test_brunner_munzel_permutation_does_not_depend_on_input_order() -> None:
+    # Job (unit theo id) và script báo cáo (thứ tự SQL) đưa cùng tập giá trị theo thứ tự khác
+    # nhau — cùng seed phải ra cùng p và CI (lệch tới 0.008 trước khi engine sắp xếp đầu vào)
+    group_a, group_b = _skewed_groups(3, 8, 40)
+    shuffled_a, shuffled_b = list(reversed(group_a)), random.Random(1).sample(group_b, len(group_b))
+    assert shuffled_a != group_a and shuffled_b != group_b
+
+    first = brunner_munzel_permutation(group_a, group_b, n_permutations=2_000, random_seed=7)
+    second = brunner_munzel_permutation(shuffled_a, shuffled_b, n_permutations=2_000, random_seed=7)
+
+    assert first == second
+
+
 def test_brunner_munzel_permutation_handles_complete_separation_without_fallback() -> None:
     # p chính xác của hoán vị khi 5 vs 5 tách hẳn = 2 / C(10, 5) = 2/252
     result = brunner_munzel_permutation(

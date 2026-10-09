@@ -1,6 +1,12 @@
 from datetime import UTC, datetime
 
-from src.analysis.stats import MIN_N_PER_BUCKET, distribution_stats, split_measurable, window_stats
+from src.analysis.stats import (
+    MIN_N_PER_BUCKET,
+    distribution_stats,
+    split_measurable,
+    views_floor,
+    window_stats,
+)
 from src.api.models import MediaType, PostInsights, ThreadsPost
 
 
@@ -100,3 +106,19 @@ def test_split_measurable_ignores_posts_without_insight() -> None:
     assert [p.id for p in kept_posts] == ["a"]
     assert len(kept_insights) == 1
     assert excluded == 0
+
+
+def _with_views(*views: int) -> list[PostInsights]:
+    return [PostInsights(post_id=f"p{i}", views=v) for i, v in enumerate(views)]
+
+
+def test_views_floor_is_the_inclusive_25th_percentile() -> None:
+    # Hyndman & Fan loại 7: vị trí (n − 1) × 0.25 = 1 → giá trị thứ 2 khi sắp xếp
+    assert views_floor(_with_views(500, 100, 300, 200, 400)) == 200
+    # nội suy: 4 bài → vị trí 0.75 giữa 100 và 200
+    assert views_floor(_with_views(100, 200, 300, 400)) == 175
+
+
+def test_views_floor_needs_two_posts() -> None:
+    assert views_floor([]) is None
+    assert views_floor(_with_views(1000)) is None

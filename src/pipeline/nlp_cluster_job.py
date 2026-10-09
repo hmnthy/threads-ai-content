@@ -1,9 +1,12 @@
 """Job gom cụm hằng ngày (Task Scheduler 12:30, ADR-0017) — thay launcher .bat cũ (ADR-0013).
 
-3 bước, dừng ngay khi 1 bước lỗi (import không bao giờ chạy trên export hỏng):
+4 bước, dừng ngay khi 1 bước lỗi (import không bao giờ chạy trên export hỏng):
 1. export (Windows) — `src.pipeline.clustering_export`
 2. tách từ cho từ khoá (ADR-0022) + embed + UMAP + HDBSCAN (WSL2) — `src.pipeline.cluster_wsl`
 3. import + đặt tên (Windows) — `src.pipeline.clustering_import`
+4. so sánh topic vs phần còn lại của kênh (Windows, ~70 giây, ADR-0023) —
+   `src.pipeline.compare_topics`. Bước cuối: lỗi ở đây không làm mất kết quả gom cụm của bước 3;
+   API đánh dấu kết quả so sánh cũ là `stale`.
 
 Task Scheduler gọi (không console):
 `.venv\\Scripts\\pythonw.exe -m src.pipeline.nlp_cluster_job --log data\\logs\\nlp_cluster_job.log`
@@ -64,6 +67,7 @@ def build_steps(repo: PureWindowsPath | Path, python: str) -> list[Step]:
         Step("export", [python, "-m", "src.pipeline.clustering_export"]),
         Step("cluster_wsl", ["wsl", "-d", WSL_DISTRO, "--", "bash", "-c", wsl_cmd]),
         Step("import", [python, "-m", "src.pipeline.clustering_import"]),
+        Step("compare", [python, "-m", "src.pipeline.compare_topics"]),
     ]
 
 

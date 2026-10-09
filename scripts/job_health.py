@@ -226,6 +226,34 @@ def assess(
     return f"WARN {spec.label} `{spec.task}`: {age_text}; " + "; ".join(problems) + f" → {hint}"
 
 
+def comparison_lag(db_path: Path) -> tuple[int, int | None] | None:
+    """(lần gom cụm mới nhất, lần gom cụm của kết quả so sánh topic mới nhất) khi 2 số lệch nhau —
+    bước `compare` (bước cuối của job NLP, ADR-0023) lỗi hoặc chưa chạy; None khi khớp hoặc chưa
+    gom cụm lần nào. Lỗi sqlite khác "chưa có bảng" → raise như `latest_write`."""
+    if not db_path.exists():
+        return None
+    conn = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True, timeout=2)
+    try:
+        latest = conn.execute("SELECT MAX(id) FROM cluster_runs").fetchone()[0]
+        try:
+            compared = conn.execute(
+                "SELECT MAX(cluster_run_id) FROM topic_comparison_runs"
+            ).fetchone()[0]
+        except sqlite3.OperationalError as exc:
+            if "no such table" not in str(exc):
+                raise
+            compared = None  # DB chưa migrate: bước so sánh chưa từng chạy
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc):
+            return None
+        raise
+    finally:
+        conn.close()
+    if latest is None or latest == compared:
+        return None
+    return latest, compared
+
+
 def report(
     db_path: Path = DB_PATH, now: datetime | None = None, repo: Path = REPO_ROOT
 ) -> list[str]:
@@ -240,6 +268,26 @@ def report(
             continue
         last_ok = last_success(repo / spec.log, spec.job_name)
         lines.append(assess(spec, latest, now, tasks.get(spec.task), last_ok))
+    nlp = next(spec for spec in JOBS if spec.job_name == "nlp_cluster_job")
+    nlp_task = tasks.get(nlp.task)
+    try:
+        lag = comparison_lag(db_path)
+    except sqlite3.Error as exc:
+        lines.append(f"WARN topic comparisons: could not read DB ({exc}) — retry later")
+        lag = None
+    # Job NLP đang chạy: bước compare (cuối) chưa tới lượt — không phải lỗi
+    if lag is not None and not (nlp_task and nlp_task.result == TASK_RUNNING):
+        latest_run, compared = lag
+        # Chưa từng có kết quả → landing hiện `next`; có kết quả cũ → API ẩn δ/p (`stale`)
+        effect = (
+            "no results yet, the landing shows the tests as next"
+            if compared is None
+            else f"results are for run {compared}, the dashboard hides δ and p"
+        )
+        lines.append(
+            f"WARN topic comparisons: latest cluster run {latest_run}; {effect} — run "
+            f"`uv run python -m src.pipeline.compare_topics` (see {nlp.log})"
+        )
     return lines
 
 

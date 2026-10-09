@@ -10,12 +10,17 @@
 ## 1. Cảnh báo tự động của sổ luật
 
 Nguồn: `uv run python -m scripts.consistency.check --all` — mục "Cảnh báo mockup" (không chặn commit). Hook đầu phiên
-in số cảnh báo; khi về 0, hàng này xoá. Hiện: **3** (1 báo nhầm + 2 theo ADR-0021). 8 cảnh báo ADR-0012 của vòng 2
-đã hết.
+in số cảnh báo; khi về 0, hàng này xoá. Hiện (2026-10-09, Việc 3): **9** (1 báo nhầm + 2 theo ADR-0021 + 6 theo
+ADR-0023). 8 cảnh báo ADR-0012 của vòng 2 đã hết.
 
 | File mockup | Dòng | Luật | Khớp | Xử lý |
 |---|---|---|---|---|
 | `src/dashboard/mockups/landing.dc.html` | 533 | `ADR0001-coming-soon` | "sắp có" | **Báo nhầm**: nội dung bài gốc tiếng Việt dùng làm dữ liệu mẫu, không phải nhãn trạng thái. Hết khi mockup lấy dữ liệu từ file xuất <!-- consistency: allow ADR0001-coming-soon --> |
+| `src/dashboard/mockups/landing.dc.html` | 258, 558 | `ADR0023-old-test-engine` | tên kiểm định cũ | Theo câu Method mới ở mục "Việc 3" bên dưới |
+| `src/dashboard/mockups/landing.dc.html` | 557 | `ADR0023-topic-tests-next` | node API "Per-topic comparisons are next." | Theo câu node API ở mục "Việc 3" bên dưới <!-- consistency: allow ADR0023-topic-tests-next — trích nguyên văn mockup để Claude Design sửa --> |
+| `src/dashboard/mockups/landing.dc.html` | 150 | `ADR0023-topic-tests-next` | lớp 01 Measure "Comparing groups with an effect size is next." | Theo câu Approach lớp 1 ở mục "Việc 3" |
+| `src/dashboard/mockups/landing.dc.html` | 210 | `ADR0023-more-engagement-question` | câu hỏi panel 1 "…more engagement than the channel?" | "Which topics get a higher engagement rate than the rest of the channel?" |
+| `docs/design/layout-tiers.dc.html` | 172 | `ADR0023-more-engagement-question` | như trên (minh hoạ khối tầng A) | như trên |
 | `src/dashboard/mockups/overview-amber.dc.html` | 30 | `ADR0021-placeholder-logo` | logo giữ chỗ bằng icon "at" trong vòng tròn amber | `../public/brand/unthreaded-lockup.svg` cao 28px, tagline chữ HTML bên dưới (`UI-0021-logo-placement`) |
 | `src/dashboard/mockups/overview-cyan.dc.html` | 30 | `ADR0021-placeholder-logo` | như trên | như trên (hoặc bỏ file — hướng không chọn) |
 
@@ -39,7 +44,7 @@ landing giờ đọc từ API (`/content-units`, `/topics`, `/analytics/overview
 | ui-contract id | Mockup | Code | Mức |
 |---|---|---|---|
 | UI-L20260829-mobile | Pill navbar `flex-wrap`: ở ~1360px nút "View live dashboard" rơi xuống hàng 2, khung sticky trong suốt che và chặn bấm nội dung | Pill luôn 1 hàng; dưới 1024px chỉ còn logo + nút; khung sticky không nhận chuột (`LandingNav.tsx`) | cấu trúc |
-| UI-L20260903-stack-real-status | Panel 1 điền δ, p Holm, câu "None clearly…" và "computed offline from the 2026-10-01 snapshot" | Median/IQR/n theo topic là số thật (`TopicOut.engagement`); cột δ và p Holm hiện "—" kèm pill `next`; câu trả lời "<topic> has the highest median engagement rate among topics with enough posts to compare: X, against Y for the channel. The gap is not tested yet." (vế "among…" chỉ khi có topic mang cờ `insufficient_data`); cột "δ · next", "p, Holm · next"; dòng Preview: "medians and spread are live, Cliff's δ and Holm-corrected p-values are next" | chữ |
+| UI-L20260903-stack-real-status | Panel 1 điền δ, p Holm, câu "None clearly…" và "computed offline from the 2026-10-01 snapshot" | Median/IQR/n theo topic là số thật (`TopicOut.engagement`); cột δ và p Holm hiện "—" kèm pill `next`; câu trả lời "<topic> has the highest median engagement rate among topics with enough posts to compare: X, against Y for the channel. The gap is not tested yet." (vế "among…" chỉ khi có topic mang cờ `insufficient_data`); cột "δ · next", "p, Holm · next"; dòng Preview: "medians and spread are live, Cliff's δ and Holm-corrected p-values are next" — từ Việc 3 (2026-10-09) chỉ còn là nhánh dự phòng khi API chưa có kết quả; chữ hiện hành ở mục "Việc 3" bên dưới | chữ |
 | UI-0011-excluded | Panel 1 luôn ghi "6 excluded: no views recorded" | Chỉ hiện khi N > 0, N = số bài views = 0 trong các hàng của bảng (hiện 0 → ẩn) | chữ |
 | UI-0004-ari-two-ways | Câu trả lời ARI viết cứng "Mostly, on posts that cluster at all…" | Sinh từ 2 số: cả hai = 1 → "This run matches the previous one exactly (ARI 1.00 on both measures). With the seed fixed, that shows it is reproducible, not that it is stable; stability across seeds is still research (RQ-01)."; khác → "Agreement a on posts clustered in both runs, b with noise counted."; cả hai null → "Not computed for this run." | chữ |
 | UI-0004-representatives | "nearest post to the centre, similarity 0.888" luôn hiện ở thẻ Group | Chỉ ghi "nearest post to the centre" khi bài hero đứng đầu danh sách bài gần tâm; ngược lại "similarity to the centre" | chữ |
@@ -90,11 +95,50 @@ quá dữ liệu. Code đã đổi theo bản dưới; **mockup nên lấy đún
 
 Giữ nguyên: tagline "The algorithm, read back to you." (UI-0009-tagline), "named by Claude", "validity_index (DBCV)".
 
+### Việc 3 — kiểm định theo topic lên landing, sàn views ở Analytics (Thy duyệt 2026-10-09, `copy-reviewer` 1 lượt)
+
+Code đọc `GET /topics/comparisons` (tính trong job NLP sau mỗi lần gom cụm) và `views_floor` của `/analytics/overview`.
+Mockup nên lấy đúng các câu dưới; số trong câu sinh từ API (`UI-0023-comparison-test`, `-holm-family`, `-stale-tests`,
+`-views-floor`).
+
+- **Panel 1** — câu hỏi "Which topics get a higher engagement rate than the rest of the channel?" (thay câu duyệt
+  2026-10-08: phép so là *tỉ lệ*, so với *phần còn lại*) · pill `live` khi có kết quả · trả lời "Posts on <topic> tend
+  to get a higher engagement rate than the rest of the channel." (nhiều topic nối "A, B and C"; có topic thấp hơn: "…;
+  posts on <C> tend to get a lower one."; không topic nào: "No topic's engagement rate can be told apart from the rest
+  of the channel after correcting for multiple comparisons.") · dòng dưới "Each topic is compared with every other post,
+  unclustered ones included. p-values are corrected for all 27 tests: 9 topics × engagement, share rate and
+  conversation. Tests ran <ngày> at <giờ> on data collected up to <giờ> (Paris time); the medians and dots (one per
+  post) use the latest data." · cột "δ" (tooltip "Cliff's delta, from −1 to +1") và "Holm p" · ghi chú mặc định thêm
+  "δ runs from −1 to +1: above 0, the topic's posts tend to have a higher rate than the rest of the channel." · hover:
+  "Its posts tend to get a higher rate than the rest of the channel: one of its posts beats a randomly picked other
+  post 81% of the time (Cliff's δ +0.62, 95% CI +0.43 to +0.81, unadjusted; Holm-corrected p 0.002)." / "Not
+  distinguishable from the rest of the channel after correction (…)" / "Too few posts to draw a conclusion; read as
+  indicative only (…)" · Method định nghĩa δ, "(1 + δ) / 2 … ties counted as half", "two-sided", "95% CI from
+  inverting the same permutation test, unadjusted", "across 27 tests (9 topics × …)" — chưa nói "Topics page" vì trang
+  đó chưa hiện kiểm định · Limits thêm "Medians describe; only the test decides higher or lower. The CI is unadjusted,
+  so it can exclude 0 while the corrected p stays above 0.05. Holm-corrected p-values are capped at 1." · kết quả
+  thuộc lần gom cụm cũ: ô "—", câu "Effect sizes and p-values are hidden: topics were re-clustered after the last tests
+  ran (…), so those results describe an older grouping of posts. They return once the tests are rerun on the current
+  topics."
+- **Approach, lớp 1** — "…with the median, the middle half and the post count shown. Each topic is then compared with
+  the rest of the channel, with an effect size and a corrected p-value." (bỏ "Comparing groups with an effect size is
+  next.").
+- **How it works** — node API: "…Per-topic tests (each topic against the rest of the channel) run in the daily NLP job
+  right after clustering; the API only reads the stored results." · stack "median/IQR on request · per topic,
+  precomputed daily: Brunner-Munzel permutation test, Cliff's δ (95% CI), Holm correction" · node SQLite "…every
+  clustering run with its parameters, scores and per-topic test results." + bảng `topic_comparisons` · node Cluster
+  thêm dòng "tests: each topic vs the rest: Brunner-Munzel permutation, daily after clustering" (Thy chọn dòng stack,
+  không thêm node).
+- **Analytics, bảng top** — "Only posts with at least 1,901 views are ranked: below that, a few reactions move a rate
+  too much for a fair comparison. The cut-off is the 25th percentile of views among posts with recorded views,
+  recomputed as new views come in; 37 of 146 posts fall below it." (thay câu "Ranked by rate, so a post with few views
+  can reach the top by chance…").
+
 ### Ghi chú cho vòng thiết kế kế tiếp
 
 1. **Dữ liệu landing:** API đã trả bài gần tâm, từ khoá, `run_at`, DBCV (`validity_index`), 2 ARI, nhiễu và cờ n nhỏ
-   theo topic (`/topics`, `/pipeline/summary`, PR 10). Còn thiếu: δ + p Holm theo topic (API: Việc 3 — nhóm so
-   sánh đã chốt, mục 5), CMI theo engagement (RQ-04). Lần gom cụm mới nhất (2026-10-07, `cluster_runs.id = 7`) có số khác mockup:
+   theo topic (`/topics`, `/pipeline/summary`, PR 10), và từ Việc 3 (2026-10-09) δ + CI + p Holm theo topic × 3 chỉ số
+   (`/topics/comparisons`). Còn thiếu: CMI theo engagement (RQ-04). Lần gom cụm mới nhất lúc audit vòng 3 (2026-10-07, `cluster_runs.id = 7`) có số khác mockup:
    nhiễu 41,1%, validity_index (DBCV) 0,261 — mockup sẽ đổi số khi có file xuất (Việc 4).
 2. **Chưa audit theo hợp đồng** `overview-amber.dc.html`, `overview-cyan.dc.html`, `design-system.dc.html`,
    `docs/design/layout-tiers.dc.html` — ngoài cảnh báo tự động ở mục 1. Làm khi các mockup đó vào vòng port.

@@ -49,11 +49,14 @@ from src.analysis.stats import (
     MIN_N_PER_BUCKET,
     DistributionStats,
     split_measurable,
+    views_floor,
     window_stats,
 )
+from src.analysis.topic_comparison import CONCLUSION_ALPHA, METRICS, GroupKind, Metric
 from src.api.models import PostInsights, ThreadsPost
 from src.db.schema import (
     DEFAULT_DB_PATH,
+    cluster_run_topic_events,
     connect,
     count_reply_roles,
     embedding_dim,
@@ -64,12 +67,15 @@ from src.db.schema import (
     latest_cluster_run,
     latest_insight_snapshot,
     latest_snapshot_time,
+    latest_topic_comparison_run,
     list_content_units,
     list_daily_views,
     list_root_posts,
     list_root_posts_in_range,
+    list_topic_comparisons,
     snapshot_row_to_post_insights,
 )
+from src.nlp.topic_identity import runs_keeping_label
 
 app = FastAPI(
     title="Unthreaded API",
@@ -139,6 +145,10 @@ ANALYTICS_TIMEZONES: Final = (
     ("Asia/Ho_Chi_Minh", ZoneInfo("Asia/Ho_Chi_Minh")),
 )
 ANALYTICS_TOP_N: Final = 10
+# Mô tả quy tắc sàn trả kèm số (UI ghi từ đây, không tự đặt) — `views_floor` (ADR-0023 1f)
+VIEWS_FLOOR_RULE: Final = (
+    "25th percentile of views among posts with recorded views (linear interpolation)"
+)
 
 
 class TopPostEntry(BaseModel):
@@ -184,10 +194,17 @@ class TopicOut(BaseModel):
     keywords: list[str]
     representatives: list[RepresentativePostOut]
     # phân phối engagement rate của các bài đo được trong topic — mô tả, KHÔNG kiểm định
-    # (so sánh topic vs phần còn lại + Holm: endpoint ở Việc 3, ADR-0023); `insufficient_data`
+    # (so với phần còn lại + Holm: `GET /topics/comparisons`, ADR-0023); `insufficient_data`
     # là cờ n nhỏ duy nhất của dự án (`MIN_N_PER_BUCKET`, UI-L20260903-small-n-flag)
     engagement: DistributionStatsOut
     excluded_no_views: int
+    # ADR-0018 + ADR-0023 1e: tên đặt lúc nào, bằng model/phiên bản prompt nào; null với topic
+    # chưa được đặt tên lại từ ADR-0018 (`docs/design/topics-data-audit.md` mục 3)
+    labeled_at: str | None
+    label_model: str | None
+    label_prompt_version: int | None
+    # số lần gom cụm LIÊN TIẾP gần nhất giữ nguyên tên (`runs_keeping_label`)
+    runs_keeping_label: int
 
 
 class HourBucket(BaseModel):
@@ -217,6 +234,12 @@ class AnalyticsOverviewOut(BaseModel):
     # bên dưới — `post_count` chỉ đếm bài đo được, số bị loại báo riêng ở đây.
     excluded_no_views: int
     engagement: DistributionStatsOut
+    # ADR-0023 1f: 3 bảng top theo tỉ lệ chỉ xếp bài có views ≥ sàn = P25 views của các bài đo
+    # được, tính lại mỗi request (`views_floor`); null khi < 2 bài đo được (không lọc).
+    # `below_views_floor` = số bài đo được nằm dưới sàn, không vào 3 bảng top.
+    views_floor: float | None
+    views_floor_rule: str
+    below_views_floor: int
     top_by_engagement: list[TopPostEntry]
     top_by_share_rate: list[TopPostEntry]
     top_by_conversation: list[TopPostEntry]
@@ -328,6 +351,7 @@ def get_topics() -> list[TopicOut]:
     phối engagement mô tả của từng topic — phục vụ Topic Explorer và landing."""
     with _db() as conn:
         topic_rows = conn.execute("SELECT * FROM topics").fetchall()
+        events_by_run = cluster_run_topic_events(conn)
         result: list[TopicOut] = []
         for topic in topic_rows:
             label_rows = conn.execute(
@@ -351,9 +375,169 @@ def get_topics() -> list[TopicOut]:
                     ),
                     engagement=_to_stats_out(window_stats(insights, lambda i: i.engagement_rate)),
                     excluded_no_views=excluded,
+                    labeled_at=topic["labeled_at"],
+                    label_model=topic["label_model"],
+                    label_prompt_version=topic["label_prompt_version"],
+                    runs_keeping_label=runs_keeping_label(events_by_run, topic["id"]),
                 )
             )
         return result
+
+
+class GroupStatsOut(BaseModel):
+    """Mô tả 1 nhóm trong phép so topic: median + IQR + n của bài đo được (không có mean —
+    ADR-0023 1d), số bài bị loại vì views = 0 (ADR-0011)."""
+
+    n: int
+    excluded_no_views: int
+    median: float
+    iqr_low: float
+    iqr_high: float
+    insufficient_data: bool
+
+
+class TopicComparisonRowOut(BaseModel):
+    """1 nhóm × 1 chỉ số. `kind = topic`: so với `rest` (phần còn lại của kênh, gồm nhiễu);
+    `noise`/`channel`: chỉ mô tả, `tested = false`. `effect_size` = Cliff's delta, > 0 nghĩa bài
+    của topic có xu hướng cao hơn; CI 95% CHƯA hiệu chỉnh; chỉ được khẳng định khi
+    `p_value_holm < conclusion_alpha` VÀ `insufficient_data = false`. Các trường kiểm định null
+    khi `stale` (kết quả thuộc lần gom cụm cũ — Thy chốt D3) hoặc khi không kiểm định được."""
+
+    group_id: str
+    kind: GroupKind
+    metric: Metric
+    group: GroupStatsOut
+    rest: GroupStatsOut | None
+    tested: bool
+    # min(n topic, n phần còn lại) < `MIN_N_PER_BUCKET`: vẫn có p trong họ Holm, không có kết luận
+    insufficient_data: bool
+    effect_size: float | None
+    effect_size_ci_low: float | None
+    effect_size_ci_high: float | None
+    p_value: float | None
+    p_value_holm: float | None
+    test_method: str | None
+
+
+class ComparisonMethodOut(BaseModel):
+    """Phương pháp đi kèm số liệu (ADR-0023) — UI ghi từ đây, không tự đặt."""
+
+    test: str
+    effect_size: str
+    ci: str
+    comparison_group: str
+    n_permutations: int
+    random_seed: int
+    holm_family_size: int
+    conclusion_alpha: float
+    min_posts_to_compare: int
+
+
+class TopicComparisonsOut(BaseModel):
+    # null khi bước so sánh chưa chạy lần nào
+    cluster_run_id: int | None
+    computed_at: str | None
+    # `fetched_at` mới nhất trong các snapshot đã dùng — số liệu "tính tới" lúc này
+    snapshot_as_of: str | None
+    # true khi kết quả thuộc 1 lần gom cụm cũ hơn lần mới nhất (bước so sánh của job lỗi): các
+    # trường kiểm định bị ẩn (null), phần mô tả vẫn trả, ghi rõ của lần gom cụm nào
+    stale: bool
+    method: ComparisonMethodOut | None
+    rows: list[TopicComparisonRowOut]
+
+
+def _group_stats_out(
+    n: int, excluded: int, median: float, iqr_low: float, iqr_high: float
+) -> GroupStatsOut:
+    return GroupStatsOut(
+        n=n,
+        excluded_no_views=excluded,
+        median=median,
+        iqr_low=iqr_low,
+        iqr_high=iqr_high,
+        insufficient_data=n < MIN_N_PER_BUCKET,
+    )
+
+
+@app.get("/topics/comparisons", response_model=TopicComparisonsOut)
+def get_topic_comparisons() -> TopicComparisonsOut:
+    """Mỗi topic × engagement / share_rate / conversation so với phần còn lại của kênh, cộng
+    dòng nhiễu và dòng kênh — ĐỌC kết quả bước `compare` của job NLP (`compare_topics`), không
+    tính theo request (~70 giây cho 27 phép so). Họ Holm = mọi phép so có p xác định; kích thước
+    họ ở `method.holm_family_size` (ADR-0023)."""
+    with _db() as conn:
+        run = latest_topic_comparison_run(conn)
+        if run is None:
+            return TopicComparisonsOut(
+                cluster_run_id=None,
+                computed_at=None,
+                snapshot_as_of=None,
+                stale=False,
+                method=None,
+                rows=[],
+            )
+        latest = latest_cluster_run(conn)
+        stale = latest is not None and latest["id"] != run["cluster_run_id"]
+        order = {metric: index for index, metric in enumerate(METRICS)}
+        kind_order = {"topic": 0, "noise": 1, "channel": 2}
+        rows = sorted(
+            list_topic_comparisons(conn, run["cluster_run_id"]),
+            key=lambda row: (order[row["metric"]], kind_order[row["kind"]], row["group_id"]),
+        )
+        out: list[TopicComparisonRowOut] = []
+        for row in rows:
+            show_test = bool(row["tested"]) and not stale
+            out.append(
+                TopicComparisonRowOut(
+                    group_id=row["group_id"],
+                    kind=row["kind"],
+                    metric=row["metric"],
+                    group=_group_stats_out(
+                        row["n"],
+                        row["excluded_no_views"],
+                        row["median"],
+                        row["iqr_low"],
+                        row["iqr_high"],
+                    ),
+                    rest=(
+                        _group_stats_out(
+                            row["rest_n"],
+                            row["rest_excluded_no_views"],
+                            row["rest_median"],
+                            row["rest_iqr_low"],
+                            row["rest_iqr_high"],
+                        )
+                        if row["rest_n"] is not None
+                        else None
+                    ),
+                    tested=bool(row["tested"]),
+                    insufficient_data=bool(row["insufficient_data"]),
+                    effect_size=row["effect_size"] if show_test else None,
+                    effect_size_ci_low=row["effect_size_ci_low"] if show_test else None,
+                    effect_size_ci_high=row["effect_size_ci_high"] if show_test else None,
+                    p_value=row["p_value"] if show_test else None,
+                    p_value_holm=row["p_value_holm"] if show_test else None,
+                    test_method=row["test_method"] if show_test else None,
+                )
+            )
+        return TopicComparisonsOut(
+            cluster_run_id=run["cluster_run_id"],
+            computed_at=run["computed_at"],
+            snapshot_as_of=run["snapshot_as_of"],
+            stale=stale,
+            method=ComparisonMethodOut(
+                test="brunner_munzel_permutation",
+                effect_size="cliffs_delta",
+                ci="95% from the permutation distribution, not adjusted for multiple comparisons",
+                comparison_group="rest of the channel, including posts in no topic",
+                n_permutations=run["n_permutations"],
+                random_seed=run["random_seed"],
+                holm_family_size=run["holm_family_size"],
+                conclusion_alpha=CONCLUSION_ALPHA,
+                min_posts_to_compare=MIN_N_PER_BUCKET,
+            ),
+            rows=out,
+        )
 
 
 def _representatives(
@@ -463,7 +647,11 @@ def get_analytics_overview() -> AnalyticsOverviewOut:
     lại Threads API, KHÔNG chạy lại pipeline NLP."""
     with _db() as conn:
         posts, insights, excluded = split_measurable(*_load_root_posts_with_insights(conn))
-        top_engagement_pairs = top_posts_by_engagement(posts, insights, limit=ANALYTICS_TOP_N)
+        # Sàn chỉ áp cho 3 bảng top theo tỉ lệ — phân phối và bucket giờ/thứ vẫn dùng mọi bài đo
+        # được (ADR-0023 1f: tỉ lệ của bài ít views dao động mạnh, chiếm bảng top)
+        floor = views_floor(insights)
+        ranked = insights if floor is None else [item for item in insights if item.views >= floor]
+        top_engagement_pairs = top_posts_by_engagement(posts, ranked, limit=ANALYTICS_TOP_N)
 
         timezones = [
             TimezoneEngagement(
@@ -488,11 +676,14 @@ def get_analytics_overview() -> AnalyticsOverviewOut:
             post_count=len(posts),
             excluded_no_views=excluded,
             engagement=_to_stats_out(window_stats(insights, lambda i: i.engagement_rate)),
+            views_floor=floor,
+            views_floor_rule=VIEWS_FLOOR_RULE,
+            below_views_floor=len(insights) - len(ranked),
             top_by_engagement=[
                 _to_top_post_entry(post, item) for post, item in top_engagement_pairs
             ],
-            top_by_share_rate=_top_by(posts, insights, share_rate, ANALYTICS_TOP_N),
-            top_by_conversation=_top_by(posts, insights, conversation_rate, ANALYTICS_TOP_N),
+            top_by_share_rate=_top_by(posts, ranked, share_rate, ANALYTICS_TOP_N),
+            top_by_conversation=_top_by(posts, ranked, conversation_rate, ANALYTICS_TOP_N),
             timezones=timezones,
         )
 

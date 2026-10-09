@@ -819,10 +819,10 @@ allow = ["docs/decisions/**"]
 [[forbid]]
 id = "ADR0023-holm-wait"
 adr = "0023"
-# Nhóm so sánh topic đã chốt (ADR-0023) — phần còn lại là endpoint (Việc 3)
+# Nhóm so sánh topic đã chốt (ADR-0023); endpoint đã có từ Việc 3 (luật ADR0023-topic-tests-next)
 pattern = 'chờ Việc 1b? chốt nhóm so sánh'
-why = "Nhóm so sánh theo topic đã chốt ở ADR-0023; còn chờ endpoint (Việc 3)"
-fix = "Ghi 'chờ endpoint (Việc 3) — nhóm so sánh đã chốt (ADR-0023)'"
+why = "Nhóm so sánh theo topic đã chốt ở ADR-0023; endpoint `GET /topics/comparisons` đã có (Việc 3)"
+fix = "Ghi 'nhóm so sánh đã chốt (ADR-0023), API `GET /topics/comparisons`'"
 paths = ["docs/**", "src/**"]
 allow = ["docs/decisions/**"]
 
@@ -855,3 +855,38 @@ why = "Bản hoán vị chỉ không vượt mức ở ngưỡng Holm (trừ 1 �
 fix = "Ghi 'ở ngưỡng Holm không vượt mức đạt được ngoài sai số Monte Carlo trừ 1 ô; ở 0.05 có 2 ô vượt'"
 paths = ["docs/**", "src/**", ".claude/**"]
 allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0023-topic-tests-next"
+adr = "0023"
+mockups = true
+# Việc 3 (2026-10-09): so sánh topic tính trong job NLP, API `GET /topics/comparisons`, landing panel 1 live.
+# Bắt câu cũ nói so sánh theo topic "next" / chỉ chạy trong báo cáo offline / chưa có API theo topic.
+pattern = 'Per-topic comparisons are next|per-topic endpoint next|per-topic comparisons on the dashboard are next|run in offline reports|used by offline reports|thiếu API theo topic|API theo topic chưa có|δ/Holm theo cụm: \*\*chưa có API|báo cáo ngoại tuyến; so sánh theo topic|so sánh theo topic trên dashboard: next|Comparing groups with an effect size is next|Panel 1 gắn pill `next` \+'
+why = "So sánh topic vs phần còn lại đã tính trong job NLP và có API `GET /topics/comparisons`; landing panel 1 live (ADR-0023, Việc 3)"
+fix = "Ghi 'computed by the daily job after each clustering run' / 'API `GET /topics/comparisons`'; chỉ trang Topics là next"
+paths = ["docs/**", "src/**", "README*.md", ".claude/**"]
+# audit trích nguyên văn chữ cũ của mockup để Claude Design sửa
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
+
+[[forbid]]
+id = "ADR0023-job-steps-three"
+adr = "0023"
+# Job NLP có 4 bước từ Việc 3: bước cuối `compare` lỗi không làm mất kết quả gom cụm (lượt auditor Việc 3)
+pattern = 'import \+ đặt tên \(Windows\), dừng ở bước lỗi đầu tiên'
+why = "Job NLP có 4 bước; bước cuối `compare` (so sánh topic, ADR-0023) lỗi thì kết quả gom cụm vẫn giữ, API trả `stale`"
+fix = "Ghi '… → import + đặt tên (Windows) → so sánh topic (bước cuối; lỗi chỉ đánh dấu `stale`)'"
+paths = [".claude/**", "docs/**"]
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0023-more-engagement-question"
+adr = "0023"
+mockups = true
+# Cliff's δ nói bài của topic có xu hướng có TỈ LỆ cao hơn phần còn lại — không phải "nhiều engagement hơn kênh"
+# (Thy duyệt chữ 2026-10-09, UI-0023-comparison-test)
+pattern = '(?:gets?|get) more engagement than the (?:channel|rest of the channel)'
+why = "Phép so là tỉ lệ engagement của topic so với phần còn lại của kênh, đọc theo xu hướng (Cliff's δ) — UI-0023-comparison-test"
+fix = "Ghi 'get a higher engagement rate than the rest of the channel' / 'tend to get a higher engagement rate'"
+paths = ["docs/**", "src/**", "README*.md"]
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]

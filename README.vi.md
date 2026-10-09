@@ -3,7 +3,7 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-682%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-717%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -82,7 +82,7 @@ phải cảm tính.
 
 | Tầng | Trạng thái | Làm gì |
 |---|---|---|
-| **Statistics layer** | Đã có | 6 index tách biệt — popularity, engagement, share rate, conversation, velocity, longevity — không bao giờ gộp lại thành 1 điểm số duy nhất. Mỗi nhóm bài (1 topic, 1 khung giờ, 1 cửa sổ thời gian) hiện median, IQR (khoảng tứ phân vị: khoảng giá trị chứa 50% bài ở giữa) và số bài (n), kèm cờ khi n quá nhỏ để diễn giải. Tầng reach (qua API) đo so với mức gần đây của kênh (median của tối đa 20 bài trước), không theo 1 ngưỡng cố định tùy tiện. So sánh nhóm dùng kiểm định Brunner-Munzel hoán vị (kiểm định theo thứ hạng, không giả định 2 nhóm phân tán như nhau) và báo Cliff's delta, P(A > B) − P(A < B), kèm khoảng tin cậy 95%; p được hiệu chỉnh Holm trên mọi phép so hiện cùng nhau, khoảng tin cậy thì không. Hiện các phép so chạy trong báo cáo ngoại tuyến; so sánh theo topic trên dashboard là bước tiếp theo. |
+| **Statistics layer** | Đã có | 6 index tách biệt — popularity, engagement, share rate, conversation, velocity, longevity — không bao giờ gộp lại thành 1 điểm số duy nhất. Mỗi nhóm bài (1 topic, 1 khung giờ, 1 cửa sổ thời gian) hiện median, IQR (khoảng tứ phân vị: khoảng giá trị chứa 50% bài ở giữa) và số bài (n), kèm cờ khi n quá nhỏ để diễn giải. Tầng reach (qua API) đo so với mức gần đây của kênh (median của tối đa 20 bài trước), không theo 1 ngưỡng cố định tùy tiện. So sánh nhóm dùng kiểm định Brunner-Munzel hoán vị (kiểm định theo thứ hạng, không giả định 2 nhóm phân tán như nhau) và báo Cliff's delta, P(A > B) − P(A < B), kèm khoảng tin cậy 95%; p được hiệu chỉnh Holm trên từng họ phép so (với topic: mọi topic × engagement, share rate và conversation), khoảng tin cậy thì không. Job hằng ngày so mỗi topic với phần còn lại của kênh sau mỗi lần gom cụm, và trang landing hiện kết quả; trang Topics là bước tiếp theo. Bảng top bài chỉ xếp bài có views ít nhất bằng phân vị 25% của kênh, vì tỉ lệ đo trên ít views dao động quá mạnh để so. |
 | **NLP layer** | Đã có | Embedding đa ngôn ngữ (content trộn tự nhiên VI/FR/EN nên không dùng tokenizer riêng cho 1 ngôn ngữ trước khi embed; từ khoá topic dùng bộ tách từ tiếng Việt) đưa vào UMAP + HDBSCAN để tự động khám phá chủ đề (unsupervised), sau đó Claude gán tên tiếng Anh cho từng cluster tìm được. Code-Mixing Index — một điểm số liên tục, không phải cờ boolean — đo mức độ 1 bài thực sự chuyển đổi ngôn ngữ. |
 | **Knowledge base** | Tiếp theo | Bài đăng của kênh và câu trả lời của tác giả cho câu hỏi của follower, biến thành cơ sở tri thức tra cứu được: tìm kiếm hybrid (từ khoá BM25 + ngữ nghĩa) kèm reranker, được đo trên câu hỏi thật của follower (recall@k, MRR, nDCG) trước khi xây bất cứ thứ gì — như trợ lý hỏi đáp — lên trên. |
 
