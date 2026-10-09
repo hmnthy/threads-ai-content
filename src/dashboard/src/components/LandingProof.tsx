@@ -21,9 +21,12 @@ import {
 } from "@/lib/landing";
 
 // "Product proof" (handoff §3.4). Panel 1: median/IQR/n theo topic là số thật từ API (mô tả);
-// Cliff's δ + p Holm theo topic chờ Việc 1 chốt nhóm so sánh → pill `next` + câu "Preview", ô
+// Cliff's δ + p Holm theo topic chờ endpoint (Việc 3, ADR-0023) → pill `next` + câu "Preview", ô
 // hiện "—", không điền số giả (UI-L20260903-stack-real-status). Panel 2 đọc cluster_runs thật.
 
+// Họ Holm của so sánh topic (ADR-0023) = mọi topic × 3 chỉ số engagement / share_rate / conversation
+// của trang Topics — landing dùng đúng p Holm đó dù panel chỉ hiện engagement.
+const TOPIC_METRICS = 3;
 const TABLE = "grid grid-cols-[minmax(150px,240px)_44px_minmax(0,1fr)_64px_52px_60px] gap-4";
 
 export function LandingProof({ data }: { data: LandingData | null }) {
@@ -273,7 +276,7 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
       {methodOpen ? (
         <div className="-mt-2">
           <MethodBlock
-            formula={`median and IQR of engagement rate per topic, posts with recorded views only · dashed line = channel median ${hasChannelMedian ? pct(channelMedian) : "—"} · next: Mann-Whitney U per topic, Cliff's δ, Holm across topics`}
+            formula={`median and IQR of engagement rate per topic, posts with recorded views only · dashed line = channel median ${hasChannelMedian ? pct(channelMedian) : "—"} · next: test each topic against the rest of the channel (Brunner-Munzel permutation test) and report Cliff's δ with a 95% CI (not corrected for multiple comparisons) · p to be Holm-corrected across the Topics page's ${data.topics.length * TOPIC_METRICS} comparisons (${data.topics.length} topics × engagement, share rate, conversation)`}
             limits={`Topics with fewer than ${data.summary.min_posts_to_compare} posts with recorded views are faded and read as indicative. A higher median is a description, not a tested difference, until the per-topic tests ship.`}
           />
         </div>

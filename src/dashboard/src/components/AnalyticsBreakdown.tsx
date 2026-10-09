@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getAnalyticsOverview, type AnalyticsOverview, type TopPostEntry } from "@/lib/api";
+import { DistributionCaption } from "@/components/DistributionCaption";
 import { PostingTimeHeatmap } from "@/components/PostingTimeHeatmap";
 import { formatPostDateTimeParis } from "@/lib/dates";
 
@@ -102,10 +103,7 @@ function StatRow({ data }: { data: AnalyticsOverview }) {
     {
       label: "Median engagement rate",
       value: engagement.n === 0 ? "—" : formatPercent(engagement.median),
-      detail:
-        engagement.n === 0
-          ? "no post with an insight snapshot yet"
-          : `mean ${formatPercent(engagement.mean)} · IQR ${formatPercent(engagement.iqr_low)}–${formatPercent(engagement.iqr_high)} · n=${engagement.n}${engagement.insufficient_data ? " · too few posts to read" : ""}`,
+      detail: <DistributionCaption stats={engagement} />,
     },
   ];
 

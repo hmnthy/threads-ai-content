@@ -28,14 +28,14 @@
 | từ khoá c-TF-IDF, 3 bài gần tâm | A (DB) | `topics.keywords_json/representative_ids_json` — **chưa có trong `TopicOut`** |
 | nhiễu 36,1%, `validity_index` 0,317, ARI 1,00/0,78/0,22 | A (DB) | `cluster_runs` — **chưa có endpoint** (`/research/runs`, roadmap E) <!-- consistency: allow ADR0004-ari-not-measurable --> |
 | median/IQR/n từng cụm | B | chưa có endpoint topic stats (status.md Next, Bước 3–4). `window_stats` dùng lại được |
-| Cliff's δ, p, p Holm | B | `compare_groups()` có MWU + δ + bootstrap CI; **Holm chưa có**; nhóm so sánh chưa chốt |
+| Cliff's δ, p, p Holm | B | `compare_groups()` có Brunner-Munzel + δ + CI của δ; `holm_adjust` có; nhóm so sánh đã chốt (ADR-0023); API theo topic chưa có (Việc 3) |
 | ARI 10 seed | — | research RQ-01, hiện ô trạng thái |
 | CMI theo cụm | — | research RQ-04, không hiện số |
 | Câu trả lời 1 dòng | C | sinh từ kết quả (VD "none clearly" chỉ khi mọi p Holm ≥ 0,05) |
 
 **Cần kiểm trong DB:** 6 bài không chữ và 6 bài views = 0 có phải cùng 6 bài không. Code không đảm bảo điều đó; số trong landing (13 + … + 52 = 144) gợi ý là trùng.
 
-Mockup sẽ dùng lại số loại B đã tính cho landing (`landing.dc.html`, p xấp xỉ chuẩn, không hiệu chỉnh ties) và ghi rõ là B.
+Mockup Topics dùng số minh hoạ và ghi rõ là minh hoạ; số thật tính bằng `compare_groups()` (Brunner-Munzel hoán vị, ADR-0023), xuất cho Claude Design ở Việc 4.
 
 ## 1. Phương án
 
@@ -50,4 +50,4 @@ Câu hỏi của trang: **What does the channel write about, and does any topic 
 Bỏ: 3 KPI card, tooltip mô tả, banner xanh (nội dung chuyển vào khối phương pháp).
 
 ## 2. Đề xuất cho câu hỏi mở
-Nhóm so sánh: **cụm vs phần còn lại của kênh (gồm nhiễu)** — 2 nhóm độc lập, khớp `compare_groups()` (Mann-Whitney). So với "median kênh" thì median đó đã chứa chính cụm, và cần test 1 mẫu khác engine. Median kênh vẫn là đường mốc trên biểu đồ. Holm trên 9 test (chỉ engagement).
+Nhóm so sánh: **cụm vs phần còn lại của kênh (gồm nhiễu)** — 2 nhóm độc lập, khớp `compare_groups()` (Brunner-Munzel + Cliff's δ kèm CI — ADR-0023). So với "median kênh" thì median đó đã chứa chính cụm, và cần test 1 mẫu khác engine. Median kênh vẫn là đường mốc trên biểu đồ. Họ Holm = mọi phép so có p xác định trên trang Topics, kể cả topic n < 5 (ADR-0023: 9 topic × 3 chỉ số = 27; landing dùng chung).

@@ -69,8 +69,8 @@ class EngagementBucketStats:
     1 câu chuyện thống kê thật, không phải nhiễu (case thực nghiệm median 412 vs
     mean 2.254, gấp 5.5 lần, nguồn `Hwemo-Chung/threads-analytics`: "giờ tốt nhất
     theo mean lại là giờ tệ nhất theo median" — do 1 bài đột biến kéo lệch mean của
-    đúng bucket đó). Tầng trình bày (dashboard/report) nên hiện cả 2 cạnh nhau,
-    không chỉ chọn 1.
+    đúng bucket đó). Mean giữ cho phân tích/script; UI chỉ hiện median + IQR + n
+    (ADR-0023 — rate lệch phải, mean không đại diện bài điển hình).
 
     `iqr_low`/`iqr_high` = Q1/Q3 (percentile 25/75, `statistics.quantiles(...,
     method="inclusive")` — ổn định hơn cho mẫu nhỏ so với "exclusive" mặc định).

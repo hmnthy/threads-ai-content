@@ -757,3 +757,101 @@ why = "Từ khoá topic tách theo từ bằng underthesea + bigram 2 từ đơn
 fix = "Ghi 'tách từ bằng underthesea + bigram 2 từ đơn, bỏ stopword có nhãn (ADR-0022)'"
 paths = ["docs/**", "src/**", ".claude/**"]
 allow = ["docs/decisions/**"]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0023 — vai trò 3 trang + phương pháp so sánh topic (Brunner-Munzel, Holm theo trang)
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0023-mean-on-ui"
+adr = "0023"
+mockups = true
+# UI không hiện mean (rate lệch phải, mean bị vài bài đột biến kéo lên). API vẫn trả `mean`
+# (field `mean: number` trong api.ts không bị bắt — chỉ bắt chỗ ĐỌC `.mean` để hiển thị).
+pattern = '\.mean\b|(?:const|let) \{[^}]*\bmean\b|\[["\x27]mean["\x27]\]|Median and mean reported|Median luôn đi kèm mean|Médiane et moyenne toujours'
+why = "UI chỉ hiện median + IQR + n, không hiện mean (ADR-0023)"
+fix = "Thay mean bằng IQR (`iqr_low`–`iqr_high`) cạnh n; README ghi 'median with IQR and a sample-size flag'"
+paths = ["src/dashboard/src/**", "README*.md"]
+
+[[forbid]]
+id = "ADR0023-old-test-engine"
+adr = "0023"
+mockups = true
+# Engine so sánh nhóm là Brunner-Munzel (+ CI của delta từ chính kiểm định); Mann-Whitney chỉ còn là
+# phân tích độ nhạy. Bắt mô tả cũ "Mann-Whitney U + Cliff", "Mann-Whitney U, each topic", "… per topic".
+pattern = '\bMWU\b|Mann[-–]Whitney U(?: \+|,| per topic| test)'
+why = "Kiểm định so sánh nhóm là Brunner-Munzel; Mann-Whitney chỉ là phân tích độ nhạy (ADR-0023)"
+fix = "Ghi 'Brunner-Munzel test + Cliff's δ with CI + Holm' (UI) / 'Brunner-Munzel + Cliff's δ kèm CI' (docs)"
+paths = ["docs/**", "src/**", "README*.md", ".claude/**"]
+allow = ["docs/decisions/**"]
+
+[[stale_asset]]
+id = "ADR0023-overview-screenshot"
+adr = "0023"
+path = "docs/screenshots/overview.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0023-analytics-screenshot"
+adr = "0023"
+path = "docs/screenshots/analytics.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[forbid]]
+id = "ADR0023-mean-secondary"
+adr = "0023"
+# Diễn đạt lại "mean là số phụ trên UI" mà ADR0023-mean-on-ui không bắt (lượt auditor 1, 2026-10-09)
+pattern = 'mean-as-secondary|mean là số phụ|moyenne en secondaire|(?:kèm|with) mean,|accompagnée de la moyenne|Mean/n đi kèm|median/mean/IQR|médiane/moyenne/IQR|nên hiện cả 2 cạnh nhau'
+why = "UI chỉ hiện median + IQR + n; mean vẫn tính cho phân tích nhưng không hiển thị (ADR-0023)"
+fix = "Ghi 'median + IQR + n (mean computed, not shown)' / 'median + IQR + n (mean vẫn tính, UI không hiện)'"
+paths = ["README*.md", "src/**", "docs/claude/**", ".claude/**"]
+
+[[forbid]]
+id = "ADR0023-bootstrap-ci-primary"
+adr = "0023"
+# CI chính của so sánh nhóm là CI của δ từ Brunner-Munzel; bootstrap percentile chỉ còn mô tả chênh median
+pattern = 'Cliff.s δ\) → CI \(bootstrap\)|CI 95% \(bootstrap\)'
+why = "CI của so sánh nhóm là CI của δ từ chính kiểm định Brunner-Munzel trong compare_groups() (ADR-0023)"
+fix = "Ghi 'CI của δ (Brunner-Munzel, compare_groups(), chưa hiệu chỉnh)'; bootstrap chỉ cho metric không có CI giải tích"
+paths = [".claude/**", "docs/**"]
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0023-holm-wait"
+adr = "0023"
+# Nhóm so sánh topic đã chốt (ADR-0023) — phần còn lại là endpoint (Việc 3)
+pattern = 'chờ Việc 1b? chốt nhóm so sánh'
+why = "Nhóm so sánh theo topic đã chốt ở ADR-0023; còn chờ endpoint (Việc 3)"
+fix = "Ghi 'chờ endpoint (Việc 3) — nhóm so sánh đã chốt (ADR-0023)'"
+paths = ["docs/**", "src/**"]
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0023-holm-family-wording"
+adr = "0023"
+# Họ Holm gồm mọi phép so có p xác định — kể cả topic quá nhỏ để có câu kết luận (lượt auditor cuối)
+pattern = 'mọi phép so có kết luận'
+why = "Họ Holm = mọi phép so có p xác định trên trang, kể cả topic n < 5 không có câu kết luận (ADR-0023)"
+fix = "Ghi 'mọi phép so có p xác định (kể cả topic n < 5)'"
+paths = ["docs/**", ".claude/**", "src/**"]
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0023-normal-approx-p"
+adr = "0023"
+# Mockup cũ tính p bằng xấp xỉ chuẩn không hiệu chỉnh ties — phương pháp đã bị thay (lượt auditor cuối)
+pattern = '\bp (?:bằng )?xấp xỉ chuẩn, không hiệu chỉnh ties'
+why = "p so sánh topic tính bằng Brunner-Munzel hoán vị trong compare_groups() (ADR-0023), không xấp xỉ chuẩn"
+fix = "Ghi 'số thật tính bằng compare_groups() (Brunner-Munzel hoán vị, ADR-0023)'; số trong mockup là minh hoạ"
+paths = ["docs/**", "src/**", ".claude/**"]
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0023-perm-claim-overstated"
+adr = "0023"
+# Câu nói quá về bản hoán vị: ở 0.05 có 2 ô mô phỏng vượt mức (1 chưa rõ nguyên nhân) — lượt auditor cuối
+pattern = 'không vượt mức báo động giả ở cả 2'
+why = "Bản hoán vị chỉ không vượt mức ở ngưỡng Holm (trừ 1 ô); ở 0.05 có 2 ô vượt (ADR-0023)"
+fix = "Ghi 'ở ngưỡng Holm không vượt mức đạt được ngoài sai số Monte Carlo trừ 1 ô; ở 0.05 có 2 ô vượt'"
+paths = ["docs/**", "src/**", ".claude/**"]
+allow = ["docs/decisions/**"]

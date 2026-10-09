@@ -112,7 +112,10 @@ def conversation_rate(insights: PostInsights) -> float:
     """replies / views * 100. V2: nâng cấp bằng unique repliers/reply depth qua ContentUnit."""
 ```
 
-### Central tendency: median cạnh mean (`src/analysis/engagement.py`, Layer 2, 2026-09-03)
+### Central tendency: median + IQR + n, mean chỉ để phân tích (`src/analysis/engagement.py`, Layer 2, 2026-09-03)
+
+> **ADR-0023 (2026-10-09):** API vẫn trả `mean` cho phân tích/script nhưng **UI không hiện mean** — số chính là
+> median, dòng phụ là IQR + n. Lý do: rate lệch phải, mean bị vài bài đột biến kéo lên (số đo trong ADR-0023).
 
 ```python
 def median_engagement_rate(insights: list[PostInsights]) -> float:
@@ -134,7 +137,7 @@ def engagement_by_weekday(posts, insights, *, timezone=None) -> dict[int, Engage
 
 **Breaking change (2026-09-03)**: `engagement_by_hour`/`engagement_by_weekday` trước đây trả `dict[int, float]` (mean thô) — nay trả `dict[int, EngagementBucketStats]`. Lý do: case thực nghiệm median 412 vs mean 2.254 (gấp 5.5 lần, nguồn `Hwemo-Chung/threads-analytics`) cho thấy "giờ tốt nhất" theo mean có thể là "giờ tệ nhất" theo median — 1 con số mean đơn lẻ không đủ để kết luận, cần median (bền với outlier) + n + spread đi kèm để biết có đủ căn cứ diễn giải không. `MIN_N_PER_BUCKET = 5` (mượn `vunderkind/threads-analytics`) — bucket dưới ngưỡng này vẫn trả về số liệu thô (không loại bỏ) nhưng đánh dấu `insufficient_data=True`, tầng trình bày phải tôn trọng cờ này (không tuyên bố "giờ này tốt nhất" từ 1-2 bài). Đây là ứng dụng trực tiếp tầng 3 "Narrative Layering Principle" ở trên. Xem "Narrative Layering Principle" cho thứ tự trình bày đầy đủ.
 
-### Suy diễn thống kê: `compare_groups()` (`src/analysis/significance.py`, Layer 4, 2026-09-03)
+### Suy diễn thống kê: `compare_groups()` (`src/analysis/significance.py`, Layer 4 — phương pháp từ ADR-0023)
 
 ```python
 @dataclass(frozen=True)
@@ -143,16 +146,59 @@ class ComparisonResult:
     median_b: float
     n_a: int
     n_b: int
-    p_value: float | None          # Mann-Whitney U, two-sided; None nếu 1 nhóm rỗng
-    effect_size: float | None      # Cliff's delta [-1, 1]; None nếu 1 nhóm rỗng
-    median_diff_ci_low: float | None   # bootstrap CI 95%, median(b) - median(a)
+    p_value: float | None              # 2 phía, kiểm định ghi ở test_method; None nếu 1 nhóm rỗng
+    test_method: "brunner_munzel_permutation" | "mann_whitney" | None
+    p_value_mann_whitney: float | None # phân tích độ nhạy
+    effect_size: float | None          # Cliff's delta [-1, 1], dương = group_a có xu hướng lớn hơn
+    effect_size_ci_low: float | None   # CI 95% của delta từ cùng phân phối hoán vị, CHƯA hiệu chỉnh
+    effect_size_ci_high: float | None
+    median_diff_ci_low: float | None   # bootstrap percentile, median(b) − median(a) — chỉ mô tả
     median_diff_ci_high: float | None
-    insufficient_data: bool        # True nếu min(n_a, n_b) < MIN_N_PER_BUCKET
+    insufficient_data: bool            # min(n_a, n_b) < MIN_N_PER_BUCKET
 
-def compare_groups(group_a: list[float], group_b: list[float], *, n_resamples: int = 1000, random_seed: int | None = None) -> ComparisonResult: ...
+def compare_groups(group_a, group_b, *, n_resamples=1000, n_permutations=100_000, random_seed=None): ...
+def brunner_munzel_permutation(group_a, group_b, *, n_permutations, random_seed) -> BrunnerMunzelResult | None: ...
+def brunner_munzel_asymptotic(group_a, group_b) -> BrunnerMunzelResult | None: ...  # chỉ để so sánh
+def holm_adjust(p_values: list[float]) -> list[float]: ...
 ```
 
-**Engine dùng chung** cho mọi so sánh 2 nhóm: tầng reach vs phần còn lại (dự kiến — Việc 1, ADR-0012), có/không author reply event (`topic_affinity.py`, Layer 7), topic vs topic. Mann-Whitney U (không giả định phân phối chuẩn — đúng lý do median thắng mean ở Layer 2, engagement rate lệch phải mạnh) + Cliff's delta (effect size non-parametric tương ứng, dương = `group_a` xu hướng lớn hơn `group_b`) + bootstrap CI 95% (1000 resample, percentile method) trên `median(group_b) - median(group_a)`. Bộ 3 kiểm định port từ `vunderkind/threads-analytics`. `insufficient_data` dùng LẠI `MIN_N_PER_BUCKET` của `engagement.py` (1 nguồn sự thật "mẫu quá nhỏ để diễn giải" xuyên suốt dự án) — khác với 2 nhóm rỗng (không thể tính Mann-Whitney, trả `None` thay vì chỉ đánh cờ). Đây là tầng 5 "Narrative Layering Principle".
+**Engine dùng chung** cho mọi so sánh 2 nhóm: topic vs phần còn lại của kênh (ADR-0023), tầng reach vs phần còn lại
+(ADR-0012), có/không author reply event (`topic_affinity.py`, Layer 7). Câu hỏi luôn là "bài nhóm A có xu hướng cao hơn
+bài nhóm B không" — Cliff's delta = P(A > B) − P(A < B). Phương pháp chọn qua 3 bước, mỗi bước bị thay vì một bằng
+chứng mô phỏng (`scripts/topic_method_report.py` mục 5, ở ngưỡng 0.05 **và** ngưỡng chặt nhất của Holm 0.05/27):
+
+1. **Mann-Whitney** (bộ cũ, port từ `vunderkind/threads-analytics`) suy phương sai từ công thức, giả định 2 nhóm cùng
+   phân phối → topic phân tán gấp đôi kênh: báo động giả ~13–14% thay vì 5%; topic đồng đều hơn: gần như mù. Topic gồm
+   bài cùng nội dung nên độ phân tán thường khác kênh (IQR topic ÷ phần còn lại 0.18–1.52, mục 4).
+2. **Brunner-Munzel xấp xỉ t** ước lượng phương sai từ dữ liệu (hết lỗi trên ở ngưỡng 0.05) nhưng phân phối t sai ở
+   vùng đuôi khi mẫu nhỏ → ở 0.05/27 báo động giả gấp 2–10 lần với topic 4–13 bài.
+3. **Brunner-Munzel hoán vị có chuẩn hoá** (Neubert & Brunner 2007) — **dùng**: phân phối tham chiếu của
+   T = (p̂ − ½)/SE dựng bằng 100.000 lần xáo nhãn (mỗi lần tính lại cả p̂ lẫn SE), ở ngưỡng Holm không vượt mức đạt
+   được ngoài sai số Monte Carlo trừ 1 ô (ở 0.05 có 2 ô vượt, 1 ô chưa rõ nguyên nhân — ADR-0023); CI của delta từ cùng phân phối (Pauly, Asendorf & Konietschke 2016). Còn lệch khi topic rất nhỏ (n = 5) VÀ
+   phân tán hơn kênh; bảo thủ (mất power, không sinh kết luận sai) khi topic đồng đều hơn kênh — trường hợp phổ biến.
+
+- 2 nhóm tách hẳn → SE = 0, p hoán vị vẫn xác định, không có CI. 1 nhóm < 2 phần tử hoặc NaN → p Mann-Whitney
+  (`test_method = "mann_whitney"`). Mọi giá trị bằng nhau → p = 1.
+- p phụ thuộc seed (sai số Monte Carlo ≈ ±0.0002 ở p = 0.002: p = 2 × đuôi nhỏ hơn q nên SE = 2·√(q(1−q)/B)) → mọi chỗ số liệu được trình bày truyền `random_seed`.
+  ~2.5 giây mỗi phép so ở n ≈ 146 → tính sẵn trong job, không theo request.
+- CI bootstrap percentile của delta đã bị loại: loại trừ 0 quá thường khi topic nhỏ (7.3–16.8% thay vì 5%, mục 5c).
+- **Holm** (`holm_adjust`, Holm 1979) kiểm soát xác suất có ≥ 1 kết luận sai trong cả họ, đúng với mọi kiểu phụ thuộc
+  giữa các phép so (các nhóm "phần còn lại" chồng lên nhau). **Họ = mọi phép so có p xác định cùng hiện trên 1 trang,
+  kể cả topic n < 5** (Topics: 9 topic × 3 chỉ số = 27; landing dùng đúng p Holm của họ 27). Chỉ được khẳng định khi
+  p Holm < 0.05; CI ghi "unadjusted".
+- `insufficient_data` dùng LẠI `MIN_N_PER_BUCKET` của `engagement.py` (1 nguồn sự thật "mẫu quá nhỏ để diễn giải").
+  Đây là tầng 5 "Narrative Layering Principle".
+
+### So sánh topic với phần còn lại của kênh (ADR-0023)
+
+- Nhóm so sánh: **topic vs mọi bài có embedding còn lại, gồm bài nhiễu HDBSCAN** — "phần còn lại của kênh" là cách
+  người đọc hiểu; bỏ nhiễu sẽ bỏ ~41% kênh. So với 1 con số median kênh bị loại vì median đó chứa chính topic và có
+  sai số riêng. Median kênh vẫn là đường mốc trên biểu đồ.
+- Phép so hợp lệ vì **việc chia topic không nhìn kết quả**: gom cụm chỉ nhận `(id, full_text)`
+  (`src/pipeline/clustering_export.py`), không thấy views/engagement — không có "phân tích vòng tròn".
+- Sức mạnh thống kê thấp: với cỡ topic 8–13 bài, chỉ chênh lệch |delta| ≳ 0.62–0.75 mới được phát hiện 80% số lần ở
+  bước chặt nhất của Holm 27 (mục 6) — "not distinguishable" ≠ "no difference".
+- Đây là phân tích thăm dò trên quan sát, không nhân quả; thành viên cụm có thể đổi giữa các lần chạy nên p đổi theo.
 
 ### Tầng reach: `assign_reach_tiers()` (`src/analysis/reach.py`, Layer 3, ADR-0012, 2026-10-06)
 
@@ -169,7 +215,7 @@ def assign_reach_tiers(views_in_post_order, ages_days, maturity) -> ReachTiers:
     "Above median reach" (above_median) / "Top 20% reach" (top_20)."""
 ```
 
-"Bài nào lan rộng" đo bằng **độ phủ (views)**, không bằng tỉ lệ chia sẻ — `share_rate` là một chiều khác (engagement rate median "Top 20% reach" 1.61%, n = 27, vs dưới median 2.13%, n = 67: Cliff's δ = −0.32, CI 95% hiệu median [0.06; 0.94] điểm %; tầng giữa chưa phân biệt được). Views thô tương quan âm với tuổi bài (Spearman ρ = −0.39, p ≈ 8e−7, n = 146: kênh lớn dần), nên tầng xếp theo **reach tương đối** = views ÷ mức gần đây của kênh — median tối đa 20 bài trước (ρ với tuổi bài còn 0.04, p = 0.62, n = 135). Views thô ở cùng phân vị trả kèm làm tham chiếu (`p50_views`, `p80_views`). Tuổi để xét độ chín là tuổi tại snapshot mới nhất (cron có thể ngắt vài ngày). Bài chưa chín → `still_growing`, chưa xếp tầng, API trả `relative_reach = null`. Tên tầng tự giải thích, không dùng nhãn cũ (Thy chốt 2026-10-06). Số liệu sinh lại bằng `uv run python -m scripts.reach_report`. API: `GET /analytics/reach`. Chi tiết, phương án đã loại (P90 tỉ lệ chia sẻ + sàn views P25 cũ) và độ nhạy cửa sổ 10/20/30: ADR-0012.
+"Bài nào lan rộng" đo bằng **độ phủ (views)**, không bằng tỉ lệ chia sẻ — `share_rate` là một chiều khác (engagement rate median "Top 20% reach" 1.61%, n = 27, vs dưới median 2.13%, n = 67: Cliff's δ = −0.32, CI 95% hiệu median [0.06; 0.94] điểm % — số lúc chốt ADR-0012, bộ Mann-Whitney cũ; chạy lại bằng engine hoán vị ADR-0023 trên dữ liệu 2026-10-09: δ −0.32, CI của δ [−0.56; −0.07], p Holm 0.031; tầng giữa chưa phân biệt được). Views thô tương quan âm với tuổi bài (Spearman ρ = −0.39, p ≈ 8e−7, n = 146: kênh lớn dần), nên tầng xếp theo **reach tương đối** = views ÷ mức gần đây của kênh — median tối đa 20 bài trước (ρ với tuổi bài còn 0.04, p = 0.62, n = 135). Views thô ở cùng phân vị trả kèm làm tham chiếu (`p50_views`, `p80_views`). Tuổi để xét độ chín là tuổi tại snapshot mới nhất (cron có thể ngắt vài ngày). Bài chưa chín → `still_growing`, chưa xếp tầng, API trả `relative_reach = null`. Tên tầng tự giải thích, không dùng nhãn cũ (Thy chốt 2026-10-06). Số liệu sinh lại bằng `uv run python -m scripts.reach_report`. API: `GET /analytics/reach`. Chi tiết, phương án đã loại (P90 tỉ lệ chia sẻ + sàn views P25 cũ) và độ nhạy cửa sổ 10/20/30: ADR-0012.
 
 **Hạn chế đã biết — cửa sổ mốc 20 bài (Thy chốt giữ, 2026-10-07):** mốc (tối đa 20 bài trước) thường trải ~48 ngày, nhưng có bài trải tới 240 ngày. 21/135 bài đã xếp tầng có mốc rộng hơn 90 ngày — đúng điều kiện "xem lại" của ADR-0012. Đó là các bài đăng 2025-09-26 → 2026-01-07, có mốc kéo về 2025-04-14 → 2025-09-26, khi kênh còn đăng thưa; 10 bài trong số đó là bài đầu kênh, chỉ có 10–19 bài trước (mốc neo vào bài đầu tiên). Với các bài này hiệu chỉnh tăng trưởng yếu hơn; giả thuyết: mốc lấy từ thời kênh còn nhỏ làm reach tương đối bị thổi phồng — 3 bài trong số đó đang ở "Top 20% reach" chỉ nên coi là tạm thời. Phương án đã bàn nếu cần đổi: cửa sổ theo thời gian (VD bài trong 45 ngày trước, ≥ 10 bài) — sẽ là ADR mới. Mọi số ở đây do `scripts/reach_report.py` in (dòng `baseline span` và dòng ngay sau).
 

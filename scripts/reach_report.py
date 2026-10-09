@@ -35,7 +35,7 @@ from src.main import compute_reach
 
 SENSITIVITY_WINDOWS = (10, 20, 30)
 CURVE_CHECK_DAYS = (1, 2, 7, 14)
-SEED = 0  # bootstrap CI của compare_groups — cố định để số in ra lặp lại được
+SEED = 0  # bootstrap CI chênh median của compare_groups — cố định để số in ra lặp lại được
 MIN_POSTS = 3  # dưới mức này không có phân vị / tương quan nào để in
 # Mục "Xem lại khi" của ADR-0012: mốc 20 bài trải dài hơn ~3 tháng thì hiệu chỉnh tăng trưởng yếu
 # đi. Thy chốt giữ 20 bài (2026-10-07) và ghi hạn chế — script đếm số bài bị ảnh hưởng.
@@ -51,7 +51,9 @@ def _fmt_compare(name: str, r: ComparisonResult) -> str:
         return f"{name}: một nhóm rỗng (n={r.n_a} vs n={r.n_b}) — không so được"
     return (
         f"{name}: median {r.median_a:.2f}% (n={r.n_a}) vs {r.median_b:.2f}% (n={r.n_b}), "
-        f"Cliff's delta={r.effect_size:.2f}, p={r.p_value:.3g}, "
+        f"Cliff's delta={r.effect_size:.2f} CI95=[{_num(r.effect_size_ci_low, '.2f')}, "
+        f"{_num(r.effect_size_ci_high, '.2f')}], p={r.p_value:.3g} ({r.test_method}; "
+        f"Mann-Whitney p={_num(r.p_value_mann_whitney, '.3g')}), "
         f"CI95 median(b)-median(a)=[{r.median_diff_ci_low:.2f}, {r.median_diff_ci_high:.2f}]"
     )
 
@@ -138,7 +140,8 @@ def main() -> None:
     for label, tier in pairs:
         r = compare_groups(er.get(tier, []), below, random_seed=SEED)
         print(_fmt_compare(f"engagement {label}", r))
-        if r.p_value is not None and not math.isnan(r.p_value):  # NaN: mọi giá trị bằng nhau
+        # NaN chỉ còn ở nhánh dự phòng Mann-Whitney (nhóm < 2 bài, đầu vào NaN) — loại khỏi họ Holm
+        if r.p_value is not None and not math.isnan(r.p_value):
             tested.append((label, r.p_value))
     # Holm cho họ các phép so ở trên
     for (label, _), p_holm in zip(tested, holm_adjust([p for _, p in tested]), strict=True):
