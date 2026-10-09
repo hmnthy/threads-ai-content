@@ -12,7 +12,7 @@ tiếp nội dung của chính mình ngay từ đầu, đã gộp vào `full_tex
 
 from __future__ import annotations
 
-from src.analysis.significance import ComparisonResult, compare_groups
+from src.analysis.significance import DEFAULT_N_PERMUTATIONS, ComparisonResult, compare_groups
 from src.api.models import ThreadsPost
 from src.models.content_unit import ContentUnit
 
@@ -33,13 +33,17 @@ def is_author_reply_event(post: ThreadsPost, root_content_unit: ContentUnit) -> 
 
 
 def compare_with_without_author_reply(
-    posts_with_reply: list[float], posts_without_reply: list[float]
+    posts_with_reply: list[float],
+    posts_without_reply: list[float],
+    *,
+    n_permutations: int = DEFAULT_N_PERMUTATIONS,
+    random_seed: int | None = None,
 ) -> ComparisonResult:
     """So sánh share_rate (hoặc velocity — tuỳ metric người gọi truyền vào)
     của root-post CÓ author reply event trong 24h đầu (`post_maturity_window`,
     xem "Metric Architecture") vs KHÔNG có. TÁI SỬ DỤNG `compare_groups()`
-    (`src/analysis/significance.py`) — không viết lại Mann-Whitney U/Cliff's
-    delta/bootstrap CI ở đây.
+    (`src/analysis/significance.py`) — không viết lại kiểm định (Brunner-Munzel,
+    ADR-0023)/Cliff's delta/CI ở đây.
 
     **CẢNH BÁO BẮT BUỘC ĐỌC TRƯỚC KHI DIỄN GIẢI KẾT QUẢ — correlation, not
     causation.** Ngay cả khi kết quả có ý nghĩa thống kê (p-value nhỏ, effect
@@ -52,4 +56,9 @@ def compare_with_without_author_reply(
     thực nghiệm A/B thật), không dùng để khẳng định chiến lược "reply nhiều hơn
     để lan rộng hơn" đã được chứng minh.
     """
-    return compare_groups(posts_with_reply, posts_without_reply)
+    return compare_groups(
+        posts_with_reply,
+        posts_without_reply,
+        n_permutations=n_permutations,
+        random_seed=random_seed,
+    )

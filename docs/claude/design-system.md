@@ -174,6 +174,13 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 
 **Tầng A · App shell** (ưu tiên — `src/dashboard/`, sản phẩm thật): `max-width 1280`, padding 24. Thứ tự dọc: topbar (logo + tagline + account pill + avatar) → tab pill → **dải hero gradient** → chart + timeline brush → KPI strip → metric architecture → top content units. Top nav tab pill, không sidebar.
 
+Mỗi trang app trả lời đúng 1 câu hỏi chính (ADR-0023): `/overview` — kênh đang thế nào trong cửa sổ đã chọn? ·
+`/analytics` — bài nào, giờ nào hiệu quả? · `/topics` — kênh viết về gì, và chủ đề có liên quan tới engagement không?
+Mỗi khối nội dung tầng A đi theo thứ tự đọc của landing: **câu hỏi → câu trả lời 1 dòng → bằng chứng (chart/bảng) →
+"Method and limits"** (công thức, phương pháp, n, giới hạn) — nhưng **giữ hình khối tầng A**: card 12px có viền
+hairline trên nền sáng, không dải tối, không tiêu đề cỡ landing. Câu trả lời chỉ khẳng định khi phép so có ý nghĩa
+sau hiệu chỉnh Holm; còn lại mô tả ("not distinguishable"). Số chính là median + IQR + n, không hiện mean.
+
 **Tầng B · Landing** — chốt 2026-10-01, mockup `src/dashboard/mockups/landing.dc.html`, spec port ở `docs/design/landing-handoff.md`. Trang giới thiệu tool cho portfolio; pricing, FAQ, Login/Register **ngoài scope** (không phải SaaS); landing thương hiệu thydilammuon là việc của roadmap Phase F, cần ADR riêng.
 
 Thứ tự: navbar pill sticky → **Hero** (H1 tagline + panel bằng chứng: beeswarm 144 bài, bài hero amber, toggle Channel/Topic) → **Problem** (3 câu hỏi của người làm kênh, mỗi câu "Threads shows / Missing") → **How it solves** (3 tầng Measure · Group · Search nối bằng mũi tên, theo 1 bài thật) → **Product proof** (2 panel dashboard: chủ đề so với kênh; kết quả NLP) → **How it works** (sơ đồ trên dải tối §2.6, bấm node xem stack) → **About the channel** → **CTA** (dải tối) → footer có câu miễn trừ Meta.

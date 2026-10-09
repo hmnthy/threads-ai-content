@@ -1,7 +1,7 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-08
+> Cập nhật: 2026-10-09
 
 ## Now
 
@@ -15,16 +15,18 @@
 - ADR-0012 (Thy chốt 2026-10-06, PR #5 đã merge): chỉ số (reposts + quotes) / views đổi tên thành `share_rate` (UI "Share rate"); "bài lan rộng" = tầng reach tương đối — "Top 20% reach" (P80) / "Above median reach" (P50) của views ÷ median 20 bài trước, chỉ bài đã chín (P90 thời gian đạt 90% views, đo từ snapshot); `GET /analytics/reach`, số liệu sinh lại bằng `scripts/reach_report.py`. Chưa có giao diện tầng (chờ mockup); ảnh chụp đã làm lại. Hạn chế cửa sổ 20 bài (Thy giữ, 2026-10-07): ghi ở `data-model.md`.
 - Gói Claude Design 2026-10-06 (nhánh `design/2026-10-06`): landing mockup sửa theo audit, `landing-handoff.md` §0.5 (quyết định → id `UI-…`); hợp đồng UI chốt 4 câu hỏi mở (1: một ngưỡng mẫu nhỏ = 5, UI đọc cờ backend; 2: giữ hai bộ nhãn trạng thái; 3: id `topic_N` chỉ ở metadata; 4: mốc clustered theo giờ Paris) + 7 đề xuất cột E.
 - ADR-0021 (Thy duyệt logo 2026-10-01, chốt vị trí 2026-10-07): logo Unknot qua `BrandLogo.tsx`, hai navbar dùng lockup tĩnh thay chữ "@" giữ chỗ, favicon `app/icon.svg`; chuyển động chỉ ở hero landing.
-- PR 10 (nhánh `feat/landing-port`, Thy chọn hướng A + thêm API đọc 2026-10-07): landing port từ mockup đã chốt, mọi số đọc từ API thật. API mới chỉ đọc: `GET /pipeline/summary` (vai reply, unit không chữ, snapshot mới nhất, lần gom cụm mới nhất, phân phối bài nhiễu), `/topics` thêm từ khoá, 3 bài gần tâm, phân phối engagement mô tả + cờ `insufficient_data`; `/content-units` trả `metrics` null khi views = 0 (ADR-0011). δ + p Holm theo topic vẫn `next` (chờ Việc 1), CMI `research` (RQ-04). Navbar pill luôn 1 hàng (sửa lỗi mockup, ghi audit). Chữ landing viết lại theo 2 lượt agent mới `copy-reviewer` (Thy duyệt 2026-10-08): dải thống kê kênh ở hero, câu hỏi "do better than the channel's usual post", thứ hạng so với các bài khác; `/pipeline/summary` trả thêm ngưỡng `min_posts_to_compare`.
+- PR 10 (nhánh `feat/landing-port`, Thy chọn hướng A + thêm API đọc 2026-10-07): landing port từ mockup đã chốt, mọi số đọc từ API thật. API mới chỉ đọc: `GET /pipeline/summary` (vai reply, unit không chữ, snapshot mới nhất, lần gom cụm mới nhất, phân phối bài nhiễu), `/topics` thêm từ khoá, 3 bài gần tâm, phân phối engagement mô tả + cờ `insufficient_data`; `/content-units` trả `metrics` null khi views = 0 (ADR-0011). δ + p Holm theo topic vẫn `next` (chờ Việc 3 — endpoint, ADR-0023), CMI `research` (RQ-04). Navbar pill luôn 1 hàng (sửa lỗi mockup, ghi audit). Chữ landing viết lại theo 2 lượt agent mới `copy-reviewer` (Thy duyệt 2026-10-08): dải thống kê kênh ở hero, câu hỏi "do better than the channel's usual post", thứ hạng so với các bài khác; `/pipeline/summary` trả thêm ngưỡng `min_posts_to_compare`.
+- ADR-0022 (PR #11, merge `96986a6`): từ khoá topic tách theo từ bằng underthesea 9.5.0 trong WSL2 + stopword có nhãn; lần gom cụm 2026-10-09 là lần đầu dùng (`params.keyword_segmenter` có ghi), cụm giữ nguyên (ARI 1.0). Lọc theo từ loại = RQ-10.
+- ADR-0023 (nhánh docs/page-roles-adr, Thy chốt 2026-10-09): vai trò 3 trang + khối câu hỏi → câu trả lời → bằng chứng → Method and limits; so topic với phần còn lại của kênh (gồm nhiễu) bằng **Brunner-Munzel hoán vị** (thay Mann-Whitney + bootstrap: báo động giả 13–14% khi độ phân tán lệch; thay bản xấp xỉ t: sai gấp 2–10 lần ở ngưỡng Holm) + Cliff's δ kèm CI từ cùng phân phối hoán vị; họ Holm 27 dùng chung trang Topics và landing; UI không hiện mean (`DistributionCaption`, IQR có tooltip); sàn views P25 cho bảng top (code ở Việc 3). Trên dữ liệu 2026-10-09: 3/27 phép so đạt p Holm < 0.05. Số sinh lại bằng `scripts/topic_method_report.py`.
 - ADR-0020 (Thy chọn: Claude Code = nguồn sự thật kỹ thuật, Claude Design làm UI/UX trên nền đó; mockup chỉ cảnh báo): hợp đồng UI `docs/design/ui-contract.md` (ADR-0001 → 0020, mỗi ràng buộc kèm `file:line`, máy kiểm đường dẫn/luật/test); ADR mới có mục "Hệ quả UI"; mockup bị sổ luật quét ở mức cảnh báo; audit landing ở `docs/design/ui-contract-audit.md`.
 
 ## Next
 
-- ADR-0022 (Thy chọn V5 + tách từ trong WSL2, 2026-10-08, nhánh `feat/topic-keywords-segmentation`): từ khoá topic tách theo từ bằng underthesea 9.5.0 (chạy ở bước cluster trong WSL2 — nó kéo torch/transformers) + bigram 2 từ đơn, bỏ stopword có nhãn (`src/nlp/stopwords.py`); trên lần gom cụm 2026-10-07 từ chức năng/đại từ/teencode trong từ khoá 12/72 → 0, mảnh âm tiết ~4 → 0, lấy lại "tiếng anh", "uber eats". **Sau khi merge, trước 12:30: cài `underthesea==9.5.0 underthesea-core==3.3.2` vào `~/threads-clustering-env` (WSL2)** + `uv sync --frozen` ở thư mục chính. Lọc theo từ loại = RQ-10.
-0. Việc 1 của brief Topics (Thy chốt 1a–1e: cấu trúc trang tầng A, nhóm so sánh, họ test Holm, mean, lịch sử tên) **gộp** phần còn mở của ADR-0012 (sàn views cho bảng top theo rate; so sánh biến giải thích giữa các tầng reach + Holm) — chung Holm và câu hỏi "so với nhóm nào".
-1. Brief Việc 2–4: audit dữ liệu Topics, endpoint `/topics` mở rộng + run + stats, xuất `docs/design/data/topics/` cho Claude Design.
-2. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
-3. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
+0. Merge PR ADR-0023 (nhánh docs/page-roles-adr) → `uv sync --frozen` ở thư mục chính.
+1. Brief Việc 2–4 theo ADR-0023: audit dữ liệu Topics; endpoint so sánh theo topic (δ, CI, p, p Holm họ 27, cờ n nhỏ) **tính sẵn trong job hằng ngày** (~1 phút/27 phép so); sàn P25 cho bảng top ở `/analytics/overview`; landing panel 1 `next` → `live`; xuất `docs/design/data/topics/` cho Claude Design. Phần còn mở của ADR-0012 (so sánh biến giải thích giữa các tầng reach) dùng cùng engine + quy tắc họ Holm.
+2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
+3. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
+4. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
 
 ## Blocked / cần Thy
 
@@ -43,9 +45,9 @@
 
 ## Số liệu nhanh
 
-- 152 root post · 1.398 reply của tác giả (367 self_continuation · 681 author_answer · 350 outbound — ADR-0004) · 9 cluster (`validity_index` 0,261, nhiễu 41% — lần gom 2026-10-07; số sống: `GET /pipeline/summary`) · 540 test pass
+- 152 root post · 1.398 reply của tác giả (367 self_continuation · 681 author_answer · 350 outbound — ADR-0004) · 9 cluster (nhiễu 41% — lần gom 2026-10-09; số sống: `GET /pipeline/summary`) · 682 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Use the Unknot logo from a single asset source with fixed placements (ADR-0021)
+- Tokenise topic keywords by word in WSL2 with labelled stopwords (ADR-0022) — PR #11 merged

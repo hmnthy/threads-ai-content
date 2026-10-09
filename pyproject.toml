@@ -46,8 +46,8 @@ module = ["hdbscan", "hdbscan.*", "umap", "umap.*"]
 ignore_missing_imports = true
 
 # scipy.stats không ship stub đầy đủ cho mypy strict (cần gói `scipy-stubs` riêng,
-# chưa thêm vào dev deps) — dùng ở src/analysis/significance.py (Layer 4, Mann-Whitney
-# U). numpy CÓ py.typed đầy đủ nên không cần liệt kê.
+# chưa thêm vào dev deps) — dùng ở src/analysis/significance.py (Layer 4, Brunner-Munzel
+# + Mann-Whitney). numpy CÓ py.typed đầy đủ nên không cần liệt kê.
 [[tool.mypy.overrides]]
 module = ["scipy", "scipy.*"]
 ignore_missing_imports = true

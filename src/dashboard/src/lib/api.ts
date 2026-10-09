@@ -89,9 +89,9 @@ export interface TopPostEntry {
   metrics: ContentUnitMetrics;
 }
 
-// Mirror của DistributionStatsOut (src/main.py) — median/mean cạnh nhau CỐ TÌNH
-// (Narrative Layering Principle, docs/claude/data-model.md), kèm n/IQR/
-// insufficient_data để UI không tuyên bố "tốt nhất" từ 1 tập quá ít bài. Dùng
+// Mirror của DistributionStatsOut (src/main.py) — median + IQR + n + insufficient_data
+// để UI không tuyên bố "tốt nhất" từ 1 tập quá ít bài. `mean` có trong API nhưng UI
+// không hiện (ADR-0023). Dùng
 // chung cho bucket giờ/thứ VÀ cho engagement/share_rate/conversation của 1 cửa sổ
 // thời gian (WindowAnalytics bên dưới) — 1 shape, không lặp lại.
 export interface DistributionStats {
@@ -146,7 +146,7 @@ export interface DailyViewsSeries {
 // lại từ data thật CHỈ trong [start, end] mỗi khi cửa sổ đổi. `views` = tổng
 // account-level daily views trong cửa sổ (gồm views từ replies) — KHÁC
 // `top_content_units[].metrics.popularity_index` (post-level, per content unit).
-// `engagement`/`share_rate`/`conversation` là median+mean CỦA TỪNG POST trong cửa
+// `engagement`/`share_rate`/`conversation` là phân phối CỦA TỪNG POST trong cửa
 // sổ — KHÔNG phải pooled ratio Σinteractions/Σviews (xem src/analysis/stats.py).
 export interface WindowAnalytics {
   start: string;

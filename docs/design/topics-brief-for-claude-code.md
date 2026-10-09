@@ -103,7 +103,9 @@ Chưa có tài liệu nào quy định mỗi trang trả lời câu hỏi gì; O
 | `/analytics` | Bài nào, giờ nào hiệu quả? |
 | `/topics` | Kênh viết về gì, và chủ đề có liên quan tới engagement không? |
 
-ADR này cần chốt:
+ADR này cần chốt: *(Claude Code, 2026-10-09: đã chốt hết ở ADR-0023 — 1a nhận; 1b (i) gồm nhiễu; 1c họ 27 = mọi
+phép so trên trang; 1d ẩn mean; 1e ngày đặt tên + số lần chạy giữ tên. Thêm 1f sàn views P25 cho bảng top và 1h
+kiểm định Brunner-Munzel + CI của δ thay Mann-Whitney + bootstrap.)*
 - **1a. Cấu trúc trang tầng A.** Có nhận trình tự "câu hỏi → câu trả lời 1 dòng → bằng chứng → phương pháp" không, trong khi vẫn giữ hình khối tầng A (card 12px có viền, không dải tối). Minh hoạ: `docs/design/layout-tiers.dc.html` (1a / 1b). Nếu nhận thì sửa design-system §7.
 - **1b. Nhóm so sánh cho Cliff's δ và p.** (i) cụm so với phần còn lại, gồm nhiễu (Claude Design đề xuất; khớp `compare_groups`); (ii) cụm so với phần còn lại, bỏ nhiễu; (iii) cụm so với median kênh (test 1 mẫu, cần engine khác). Median kênh vẫn là đường mốc trên biểu đồ.
 - **1c. Họ test Holm.** 9 test (chỉ engagement) hay 27 test (3 chỉ số).
@@ -131,7 +133,7 @@ Làm sau khi Việc 1 đã chốt. Tên endpoint là gợi ý; khớp convention
 
 - **`GET /topics` mở rộng:** `keywords`, `representative_ids`, `n_embedded`, `n_measurable`, cùng các trường nhãn của ADR-0018 (`labeled_at`, `label_model`, `label_prompt_version`, và lịch sử nếu 1e chọn hiện).
 - **`GET /topics/run`** (hoặc `/research/runs/latest`, theo roadmap E): `run_id`, `run_at`, `n_input`, `n_clusters`, `n_noise`, `noise_ratio`, `validity_index`, `validity_fn` (bắt buộc), tham số, `topic_events`, `ari` (null kèm `ari_status` ∈ `live / next / research`).
-- **`GET /topics/stats`:** mỗi topic một dòng, thêm dòng nhiễu và dòng kênh. Các trường: `topic_id`, `n`, `n_excluded_no_views`, `median`, `q1`, `q3` (`window_stats`), `cliffs_delta` cùng CI, `p_raw`, `p_holm` (`compare_groups` cộng hàm Holm mới), `low_n`, `comparison` (chuỗi mô tả nhóm so sánh). Dòng nhiễu có `tested: false`.
+- **`GET /topics/stats`:** mỗi topic một dòng, thêm dòng nhiễu và dòng kênh. Các trường: `topic_id`, `n`, `n_excluded_no_views`, `median`, `q1`, `q3` (`window_stats`), `cliffs_delta` cùng CI, `p_raw`, `p_holm` (`compare_groups` cộng `holm_adjust` — đã có, ADR-0023), `low_n`, `comparison` (chuỗi mô tả nhóm so sánh). Dòng nhiễu có `tested: false`.
 - **Holm:** hàm thuần trong `significance.py`, test với ví dụ tính tay.
 - **Test:** Pydantic khớp response thật; `tổng n các topic + n_noise == n_embedded`; dòng kênh khớp `/analytics/overview` **tại cùng thời điểm chạy** (so 2 endpoint với nhau, không so với số cố định).
 
