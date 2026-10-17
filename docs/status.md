@@ -17,14 +17,15 @@
 - ADR-0021 (Thy duyệt logo 2026-10-01, chốt vị trí 2026-10-07): logo Unknot qua `BrandLogo.tsx`, hai navbar dùng lockup tĩnh thay chữ "@" giữ chỗ, favicon `app/icon.svg`; chuyển động chỉ ở hero landing.
 - PR 10 (nhánh `feat/landing-port`, Thy chọn hướng A + thêm API đọc 2026-10-07): landing port từ mockup đã chốt, mọi số đọc từ API thật. API mới chỉ đọc: `GET /pipeline/summary` (vai reply, unit không chữ, snapshot mới nhất, lần gom cụm mới nhất, phân phối bài nhiễu), `/topics` thêm từ khoá, 3 bài gần tâm, phân phối engagement mô tả + cờ `insufficient_data`; `/content-units` trả `metrics` null khi views = 0 (ADR-0011). δ + p Holm theo topic lên landing ở Việc 3 (dưới), CMI `research` (RQ-04). Navbar pill luôn 1 hàng (sửa lỗi mockup, ghi audit). Chữ landing viết lại theo 2 lượt agent mới `copy-reviewer` (Thy duyệt 2026-10-08): dải thống kê kênh ở hero, câu hỏi "do better than the channel's usual post", thứ hạng so với các bài khác; `/pipeline/summary` trả thêm ngưỡng `min_posts_to_compare`.
 - ADR-0022 (PR #11, merge `96986a6`): từ khoá topic tách theo từ bằng underthesea 9.5.0 trong WSL2 + stopword có nhãn; lần gom cụm 2026-10-09 là lần đầu dùng (`params.keyword_segmenter` có ghi), cụm giữ nguyên (ARI 1.0). Lọc theo từ loại = RQ-10.
-- Sửa job snapshot (nhánh `fix/snapshot-pagination`, 2026-10-17): lỗi 16/17 lần 13→17/10 do Meta trả HTTP 500 code 1 khi phân trang `/threads` + `/replies`, và 1 ảnh con hỏng phía Meta của bài `CAROUSEL_ALBUM` 2025-06-08. `_paginate` thu nhỏ `limit` khi 5xx/timeout và thử lại cùng cursor; trang 1 bài vẫn lỗi → lấy bài không kèm `children` rồi gọi riêng; guard cursor lặp + tham số `next` lạ. Kiểm live: đủ mọi bài + reply, không trùng. Chi tiết + hạn chế (`children` của bài hỏng dao động trong `raw_json`): `data-model.md`. Repo đang public — Thy tạm chấp nhận (2026-10-17).
+- Khoá DB + độ tươi số liệu so sánh (nhánh `fix/job-health-stale-and-db-lock`, 2026-10-17): job snapshot gọi API xong mới ghi (trước giữ khoá ghi ~1–2 phút → job NLP `database is locked` 10–11/10); `connect()` chờ khoá 2 phút; `job_health` cảnh báo khi lần so sánh topic dùng số liệu cũ hơn 5h so với lúc tính (job snapshot hỏng, hoặc chạy chồng sau một lần ngủ dài — như 13→17/10).
+- Sửa job snapshot (PR #14, merge `9c8d145`; chạy lại OK 17/10 17:10 UTC): lỗi 16/17 lần 13→17/10 do Meta trả HTTP 500 code 1 khi phân trang `/threads` + `/replies`, và 1 ảnh con hỏng phía Meta của bài `CAROUSEL_ALBUM` 2025-06-08. `_paginate` thu nhỏ `limit` khi 5xx/timeout và thử lại cùng cursor; trang 1 bài vẫn lỗi → lấy bài không kèm `children` rồi gọi riêng; guard cursor lặp + tham số `next` lạ. Kiểm live: đủ mọi bài + reply, không trùng. Chi tiết + hạn chế (`children` của bài hỏng dao động trong `raw_json`): `data-model.md`. Repo đang public — Thy tạm chấp nhận (2026-10-17).
 - Việc 3 (PR #13, merge `c1abbb1`; Thy duyệt plan D1–D4 + chữ 2026-10-09): bước `compare` cuối job NLP ghi `topic_comparison_runs` + `topic_comparisons` (mọi topic × 3 chỉ số, giữ lịch sử mỗi lần gom cụm, ~70 giây); `GET /topics/comparisons` (họ Holm từ API, `stale` → ẩn δ/p); `/topics` thêm ngày đặt tên + số lần giữ tên; sàn views P25 cho 3 bảng top `/analytics/overview`; landing panel 1 `live`; `job_health` cảnh báo khi kết quả so sánh lỗi thời; engine hoán vị sắp xếp đầu vào (job và `topic_method_report.py` giờ ra cùng số). Audit dữ liệu Topics: `docs/design/topics-data-audit.md`. Trang Topics chờ mockup (Việc 4).
 - ADR-0023 (PR #12, merge `dd16d16`, Thy chốt 2026-10-09): vai trò 3 trang + khối câu hỏi → câu trả lời → bằng chứng → Method and limits; so topic với phần còn lại của kênh (gồm nhiễu) bằng **Brunner-Munzel hoán vị** (thay Mann-Whitney + bootstrap: báo động giả 13–14% khi độ phân tán lệch; thay bản xấp xỉ t: sai gấp 2–10 lần ở ngưỡng Holm) + Cliff's δ kèm CI từ cùng phân phối hoán vị; họ Holm 27 dùng chung trang Topics và landing; UI không hiện mean (`DistributionCaption`, IQR có tooltip); sàn views P25 cho bảng top (code ở Việc 3). Trên dữ liệu 2026-10-09: 3/27 phép so đạt p Holm < 0.05. Số sinh lại bằng `scripts/topic_method_report.py`.
 - ADR-0020 (Thy chọn: Claude Code = nguồn sự thật kỹ thuật, Claude Design làm UI/UX trên nền đó; mockup chỉ cảnh báo): hợp đồng UI `docs/design/ui-contract.md` (ADR-0001 → 0020, mỗi ràng buộc kèm `file:line`, máy kiểm đường dẫn/luật/test); ADR mới có mục "Hệ quả UI"; mockup bị sổ luật quét ở mức cảnh báo; audit landing ở `docs/design/ui-contract-audit.md`.
 
 ## Next
 
-0. Merge PR `fix/snapshot-pagination` → pull + `uv sync --frozen` ở thư mục chính → job 4h kế tiếp phải `xong (exit 0)` trong `data/logs/scheduled_job.log`. Rồi: `job_health` cảnh báo khi job NLP gom cụm trên dữ liệu cũ (13→16/10 báo "OK" dù data đứng ở 12/10); `busy_timeout` cho bước import (`database is locked` khi 2 job chạy bù cùng giây). Dọn worktree `topic-comparisons` (chờ Thy "OK dọn").
+0. Merge PR `fix/job-health-stale-and-db-lock` → pull ở thư mục chính → chạy lại `compare_topics` 1 lần (lần so sánh 16 dùng số liệu 12/10). Dọn worktree `topic-comparisons` + `snapshot-pagination` (chờ Thy "OK dọn").
 0b. Độ bền kết luận topic: số phép so đạt p Holm < 0.05 đổi 3 → 0 → 1 giữa các lần gom cụm (09→16/10) — cần Thy chọn hướng trước Việc 4.
 1. Việc 4: xuất `docs/design/data/topics/` cho Claude Design (kèm `/topics/comparisons`) → mockup Topics → port. Phần còn mở của ADR-0012 (so sánh biến giải thích giữa các tầng reach) dùng cùng engine + quy tắc họ Holm.
 2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
@@ -43,14 +44,14 @@
 
 | Job | Kết quả gần nhất | Ghi chú |
 |---|---|---|
-| `ThreadsAI_SnapshotJob_4h` | LỖI 16/17 lần 13→17/10 (Meta 500 khi phân trang) — sửa ở `fix/snapshot-pagination`, chờ merge | pythonw không console (ADR-0013); chạy cả khi dùng pin (ADR-0017) |
-| `ThreadsAI_NLPClusterJob_Daily` | OK hằng ngày, nhưng 13→16/10 gom cụm lại trên data đứng ở 12/10 | giờ 12:30 vì máy ngủ đêm cắt job (ADR-0017). `HCS_E_CONNECTION_TIMEOUT` + `database is locked` còn lại cho Phase C |
+| `ThreadsAI_SnapshotJob_4h` | OK 17/10 17:10 UTC sau PR #14 (lỗi 16/17 lần 13→17/10: Meta 500 khi phân trang) | pythonw không console (ADR-0013); chạy cả khi dùng pin (ADR-0017) |
+| `ThreadsAI_NLPClusterJob_Daily` | OK hằng ngày, nhưng 13→17/10 so sánh topic trên số liệu 12/10 (`job_health` giờ cảnh báo) | giờ 12:30 vì máy ngủ đêm cắt job (ADR-0017). `HCS_E_CONNECTION_TIMEOUT` + WAL còn lại cho Phase C |
 
 ## Số liệu nhanh
 
-- 152 root post · 1.398 reply của tác giả (367 self_continuation · 681 author_answer · 350 outbound — ADR-0004) · 9 cluster (nhiễu 41% — lần gom 2026-10-09; số sống: `GET /pipeline/summary`) · 733 test pass
+- 152 root post · 1.398 reply của tác giả (367 self_continuation · 681 author_answer · 350 outbound — ADR-0004) · 9 cluster (nhiễu 41% — lần gom 2026-10-09; số sống: `GET /pipeline/summary`) · 745 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Retry Threads API pages on Meta server errors instead of failing the job
+- Write snapshots after the API calls and warn on stale topic comparisons
