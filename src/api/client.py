@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from types import TracebackType
 from typing import Any, Final
 
@@ -7,14 +8,31 @@ import httpx
 
 THREADS_GRAPH_BASE_URL: Final = "https://graph.threads.net/v1.0"
 
+# Token đi trong query string; httpx log mỗi request kèm URL đầy đủ ở mức INFO. Ghim httpx ở
+# WARNING để dù ai bật `logging.basicConfig(level=INFO)` token cũng không vào file log.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 class ThreadsAPIError(RuntimeError):
     """Raised when the Threads Graph API returns an error payload."""
 
-    def __init__(self, message: str, *, status_code: int, error_code: int | None = None) -> None:
-        super().__init__(message)
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        error_code: int | None = None,
+        fbtrace_id: str | None = None,
+    ) -> None:
+        # Ghi kèm HTTP status + code + fbtrace_id vào chuỗi lỗi: log job chỉ in str(lỗi),
+        # và "An unknown error has occurred." một mình không phân biệt được lỗi 5xx tạm
+        # thời của Meta với lỗi token/tham số (bài học 2026-10-17).
+        super().__init__(
+            f"{message} (HTTP {status_code}, code {error_code}, fbtrace_id {fbtrace_id})"
+        )
         self.status_code = status_code
         self.error_code = error_code
+        self.fbtrace_id = fbtrace_id
 
 
 class ThreadsClient:
@@ -34,12 +52,6 @@ class ThreadsClient:
         response = await self._http.get(path, params=self._with_token(params))
         return self._parse(response)
 
-    async def get_url(self, url: str) -> dict[str, Any]:
-        """Fetch an absolute URL as-is — used for a Graph API `paging.next` cursor
-        link, which already carries the access token and all query params."""
-        response = await self._http.get(url)
-        return self._parse(response)
-
     async def post(self, path: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
         response = await self._http.post(path, params=self._with_token(params))
         return self._parse(response)
@@ -48,14 +60,20 @@ class ThreadsClient:
         return {"access_token": self._access_token, **(params or {})}
 
     def _parse(self, response: httpx.Response) -> dict[str, Any]:
-        payload: dict[str, Any] = response.json()
         if response.is_error:
-            error = payload.get("error", {})
+            # Lỗi 5xx từ gateway có thể là HTML, không phải JSON — vẫn phải ra
+            # ThreadsAPIError (có status_code) để `_fetch_page` thử lại được
+            try:
+                error = response.json().get("error", {})
+            except ValueError:
+                error = {}
             raise ThreadsAPIError(
                 error.get("message", "Unknown Threads API error"),
                 status_code=response.status_code,
                 error_code=error.get("code"),
+                fbtrace_id=error.get("fbtrace_id"),
             )
+        payload: dict[str, Any] = response.json()
         return payload
 
     async def aclose(self) -> None:
