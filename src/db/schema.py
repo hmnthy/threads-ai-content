@@ -221,11 +221,21 @@ CREATE TABLE IF NOT EXISTS account_daily_views (
 )
 
 
+# Thời gian 1 connection chờ khoá ghi của tiến trình khác trước khi báo `database is locked`
+# (mặc định của sqlite3 là 5 giây). Quy tắc vận hành, không phải tham số thống kê: 2 cron
+# chạy chồng nhau khi máy thức dậy (job NLP 10/10 + 11/10/2026 lỗi ở bước import, 1 lần ở
+# export); khoá ghi dài nhất còn lại là bước import của job NLP và vòng nhận diện ngôn ngữ của
+# bước export (mỗi cái vài giây với ~160 unit) — 2 phút đủ dư mà vẫn để lỗi thật hiện ra trong
+# 1 lần chạy. Phase C mới chuyển WAL.
+LOCK_WAIT_S = 120
+
+
 def connect(db_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """Mở connection SQLite, tạo thư mục cha nếu chưa có. KHÔNG tự tạo schema —
-    gọi `create_schema()` riêng (tách bạch "mở kết nối" và "khởi tạo cấu trúc")."""
+    gọi `create_schema()` riêng (tách bạch "mở kết nối" và "khởi tạo cấu trúc").
+    Chờ khoá ghi tới `LOCK_WAIT_S` thay vì 5 giây mặc định."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=LOCK_WAIT_S)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

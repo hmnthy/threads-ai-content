@@ -491,3 +491,14 @@ def test_migration_recovers_db_left_half_renamed_by_old_version(tmp_path: Path) 
         "'fixed'"
         not in conn.execute("SELECT sql FROM sqlite_master WHERE name = 'topics'").fetchone()[0]
     )
+
+
+def test_connect_waits_for_another_writer_longer_than_the_sqlite_default(
+    tmp_path: Path,
+) -> None:
+    # 2 cron chạy chồng lúc máy thức dậy: chờ khoá thay vì `database is locked` sau 5 giây
+    conn = schema_module.connect(tmp_path / "t.db")
+    busy_ms = conn.execute("PRAGMA busy_timeout").fetchone()[0]
+    conn.close()
+    assert busy_ms == schema_module.LOCK_WAIT_S * 1000
+    assert busy_ms > 5_000

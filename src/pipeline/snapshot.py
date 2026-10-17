@@ -23,26 +23,32 @@ from src.models.insight_snapshot import InsightSnapshot
 async def fetch_and_store_insights_snapshot(
     client: ThreadsClient, conn: sqlite3.Connection, post_ids: list[str]
 ) -> int:
-    """Gọi `get_post_insights()` tuần tự cho từng post_id, insert 1 InsightSnapshot
-    mỗi post (fetched_at = now). Tuần tự (không concurrent) — rate limit Threads rất
-    cao (4,800 x impressions/24h) nên không bắt buộc, nhưng an toàn hơn cho 1 job
-    chạy nền không giám sát. Trả về số snapshot đã insert."""
-    count = 0
+    """Gọi `get_post_insights()` tuần tự cho từng post_id (fetched_at = lúc gọi), rồi mới
+    insert hết + commit 1 lần. Tuần tự (không concurrent) — rate limit Threads rất cao
+    (4,800 x impressions/24h) nên không bắt buộc, nhưng an toàn hơn cho 1 job chạy nền
+    không giám sát. Trả về số snapshot đã insert.
+
+    Gọi API xong mới ghi: insert ngay sau mỗi lần gọi sẽ mở transaction từ bài đầu và giữ
+    khoá ghi suốt ~160 lần gọi API (1–2 phút) — job NLP chạy chồng lúc máy thức dậy gặp
+    `database is locked` (10/10 + 11/10/2026). Lỗi giữa chừng vẫn không ghi gì, như trước."""
+    snapshots: list[InsightSnapshot] = []
     for post_id in post_ids:
         insights = await get_post_insights(client, post_id)
-        snapshot = InsightSnapshot(
-            post_id=post_id,
-            fetched_at=datetime.now(UTC),
-            views=insights.views,
-            likes=insights.likes,
-            replies=insights.replies,
-            reposts=insights.reposts,
-            quotes=insights.quotes,
+        snapshots.append(
+            InsightSnapshot(
+                post_id=post_id,
+                fetched_at=datetime.now(UTC),
+                views=insights.views,
+                likes=insights.likes,
+                replies=insights.replies,
+                reposts=insights.reposts,
+                quotes=insights.quotes,
+            )
         )
+    for snapshot in snapshots:
         insert_insight_snapshot(conn, snapshot)
-        count += 1
     conn.commit()
-    return count
+    return len(snapshots)
 
 
 async def _main() -> None:
