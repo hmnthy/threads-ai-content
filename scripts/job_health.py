@@ -26,7 +26,9 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = REPO_ROOT / "data" / "threads.db"
 # Hook SessionStart có timeout 20s (.claude/settings.json) — PowerShell lạnh có thể chậm
-POWERSHELL_TIMEOUT_S = 6  # + 2 truy vấn sqlite (≤2s) < 10s hook cấp cho script này
+# + 3 kết nối sqlite (chờ khoá ≤2s mỗi cái, thường vài ms) + git ≤2s: thường ≪ 10s hook cấp cho
+# script này; ca xấu nhất (DB bị khoá suốt cả 3 lần) vượt → hook in "timed out", lần sau thử lại
+POWERSHELL_TIMEOUT_S = 6
 # Đọc tối đa phần cuối này của log khi tìm lần chạy thành công gần nhất
 LOG_TAIL_BYTES = 512_000
 
@@ -226,32 +228,98 @@ def assess(
     return f"WARN {spec.label} `{spec.task}`: {age_text}; " + "; ".join(problems) + f" → {hint}"
 
 
-def comparison_lag(db_path: Path) -> tuple[int, int | None] | None:
-    """(lần gom cụm mới nhất, lần gom cụm của kết quả so sánh topic mới nhất) khi 2 số lệch nhau —
-    bước `compare` (bước cuối của job NLP, ADR-0023) lỗi hoặc chưa chạy; None khi khớp hoặc chưa
-    gom cụm lần nào. Lỗi sqlite khác "chưa có bảng" → raise như `latest_write`."""
+@dataclass(frozen=True)
+class ComparisonInputs:
+    cluster_run_id: int
+    computed_at: datetime
+    snapshot_as_of: datetime
+    newest_snapshot: datetime | None
+
+
+Lag = tuple[int, int | None]
+
+
+def comparison_status(db_path: Path) -> tuple[Lag | None, ComparisonInputs | None]:
+    """Trạng thái so sánh topic, đọc trong 1 kết nối (hook đầu phiên có ngân sách thời gian):
+
+    - lag: (lần gom cụm mới nhất, lần gom cụm của kết quả so sánh mới nhất) khi 2 số lệch nhau —
+      bước `compare` (bước cuối của job NLP, ADR-0023) lỗi hoặc chưa chạy; None khi khớp hoặc
+      chưa gom cụm lần nào.
+    - inputs: lần so sánh mới nhất tính lúc nào, trên số liệu "tính tới" lúc nào, và snapshot
+      mới nhất trong DB; None khi chưa có kết quả hoặc thiếu mốc.
+
+    Bảng chưa có (DB chưa migrate) = chưa có kết quả. Lỗi sqlite khác → raise như `latest_write`.
+    """
     if not db_path.exists():
-        return None
+        return None, None
     conn = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True, timeout=2)
     try:
-        latest = conn.execute("SELECT MAX(id) FROM cluster_runs").fetchone()[0]
+        latest = _scalar_or_none(conn, "SELECT MAX(id) FROM cluster_runs")
+        if latest is None:
+            return None, None
         try:
-            compared = conn.execute(
-                "SELECT MAX(cluster_run_id) FROM topic_comparison_runs"
-            ).fetchone()[0]
+            row = conn.execute(
+                "SELECT cluster_run_id, computed_at, snapshot_as_of FROM topic_comparison_runs "
+                "ORDER BY cluster_run_id DESC LIMIT 1"
+            ).fetchone()
         except sqlite3.OperationalError as exc:
             if "no such table" not in str(exc):
                 raise
-            compared = None  # DB chưa migrate: bước so sánh chưa từng chạy
+            row = None  # DB chưa migrate: bước so sánh chưa từng chạy
+        newest = _scalar_or_none(conn, "SELECT MAX(fetched_at) FROM insights_snapshots")
+    finally:
+        conn.close()
+    compared = row[0] if row is not None else None
+    lag = None if latest == compared else (latest, compared)
+    computed_at = parse_timestamp(row[1]) if row is not None else None
+    as_of = parse_timestamp(row[2]) if row is not None else None
+    if compared is None or computed_at is None or as_of is None:
+        return lag, None
+    return lag, ComparisonInputs(compared, computed_at, as_of, parse_timestamp(newest))
+
+
+def _scalar_or_none(conn: sqlite3.Connection, query: str) -> Any:
+    try:
+        return conn.execute(query).fetchone()[0]
     except sqlite3.OperationalError as exc:
         if "no such table" in str(exc):
             return None
         raise
-    finally:
-        conn.close()
-    if latest is None or latest == compared:
+
+
+def comparison_lag(db_path: Path) -> Lag | None:
+    return comparison_status(db_path)[0]
+
+
+def comparison_inputs(db_path: Path) -> ComparisonInputs | None:
+    return comparison_status(db_path)[1]
+
+
+def stale_comparison_warning(
+    inputs: ComparisonInputs, max_age: timedelta, snapshot_running: bool = False
+) -> str | None:
+    """Kết quả so sánh topic tính trên số liệu cũ hơn ngưỡng tươi của job snapshot (so với lúc
+    tính) → cảnh báo. Dòng "NLP recluster OK" chỉ đo lần gom cụm, không đo số liệu nó dùng.
+    Ca thật: 13→16/10/2026 job snapshot hỏng, job NLP vẫn "OK" nhưng tính lại trên số liệu
+    12/10; 17/10 hai job chạy bù cùng lúc sau 5 ngày đó, `compare` đọc trước khi snapshot kịp
+    commit. Chạy chồng sau 1 lần ngủ ngắn (số liệu cũ < ngưỡng) thì không cảnh báo — kết quả
+    vẫn trung thực vì trang ghi mốc `snapshot_as_of`."""
+    lag = inputs.computed_at - inputs.snapshot_as_of
+    if lag <= max_age:
         return None
-    return latest, compared
+    newer = inputs.newest_snapshot is not None and inputs.newest_snapshot > inputs.snapshot_as_of
+    if newer:
+        action = "newer snapshots exist now — run `uv run python -m src.pipeline.compare_topics`"
+    elif snapshot_running:
+        action = "the snapshot job is running now — wait for it, then rerun compare_topics"
+    else:
+        action = "the snapshot job has not written newer data — fix it first"
+    as_of = inputs.snapshot_as_of.astimezone(UTC)
+    return (
+        f"WARN topic comparisons: run {inputs.cluster_run_id} used metrics as of "
+        f"{as_of:%Y-%m-%d %H:%M} UTC, {lag.total_seconds() / 3600:.0f}h before "
+        f"it was computed; {action}"
+    )
 
 
 def report(
@@ -269,25 +337,33 @@ def report(
         last_ok = last_success(repo / spec.log, spec.job_name)
         lines.append(assess(spec, latest, now, tasks.get(spec.task), last_ok))
     nlp = next(spec for spec in JOBS if spec.job_name == "nlp_cluster_job")
-    nlp_task = tasks.get(nlp.task)
+    snapshot = next(spec for spec in JOBS if spec.job_name == "scheduled_job")
+    nlp_task, snapshot_task = tasks.get(nlp.task), tasks.get(snapshot.task)
     try:
-        lag = comparison_lag(db_path)
+        lag, inputs = comparison_status(db_path)
     except sqlite3.Error as exc:
         lines.append(f"WARN topic comparisons: could not read DB ({exc}) — retry later")
-        lag = None
-    # Job NLP đang chạy: bước compare (cuối) chưa tới lượt — không phải lỗi
-    if lag is not None and not (nlp_task and nlp_task.result == TASK_RUNNING):
-        latest_run, compared = lag
-        # Chưa từng có kết quả → landing hiện `next`; có kết quả cũ → API ẩn δ/p (`stale`)
-        effect = (
-            "no results yet, the landing shows the tests as next"
-            if compared is None
-            else f"results are for run {compared}, the dashboard hides δ and p"
-        )
-        lines.append(
-            f"WARN topic comparisons: latest cluster run {latest_run}; {effect} — run "
-            f"`uv run python -m src.pipeline.compare_topics` (see {nlp.log})"
-        )
+        lag, inputs = None, None
+    if lag is not None:
+        # Job NLP đang chạy: bước compare (cuối) chưa tới lượt — không phải lỗi
+        if not (nlp_task and nlp_task.result == TASK_RUNNING):
+            latest_run, compared = lag
+            # Chưa từng có kết quả → landing hiện `next`; có kết quả cũ → API ẩn δ/p (`stale`)
+            effect = (
+                "no results yet, the landing shows the tests as next"
+                if compared is None
+                else f"results are for run {compared}, the dashboard hides δ and p"
+            )
+            lines.append(
+                f"WARN topic comparisons: latest cluster run {latest_run}; {effect} — run "
+                f"`uv run python -m src.pipeline.compare_topics` (see {nlp.log})"
+            )
+    elif inputs is not None:
+        # Cùng ngưỡng "tươi" với job snapshot (chu kỳ 4h + 1h ân hạn): quy tắc vận hành
+        running = snapshot_task is not None and snapshot_task.result == TASK_RUNNING
+        warning = stale_comparison_warning(inputs, snapshot.max_age, running)
+        if warning:
+            lines.append(warning)
     return lines
 
 

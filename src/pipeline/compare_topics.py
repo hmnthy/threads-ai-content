@@ -43,10 +43,6 @@ from src.db.schema import (
     snapshot_row_to_post_insights,
 )
 
-# Quy tắc vận hành, không phải tham số thống kê: job snapshot giữ khoá ghi ~2 phút mỗi lần chạy
-# (`scripts/job_health.py`: "job snapshot chạy ~2 phút")
-WRITE_LOCK_WAIT_MS = 120_000
-
 
 def load_observations(
     conn: sqlite3.Connection, labels: dict[str, int]
@@ -125,12 +121,9 @@ def store(
 def run_compare(
     db_path: Path = DEFAULT_DB_PATH, *, n_permutations: int = DEFAULT_N_PERMUTATIONS
 ) -> dict[str, Any]:
+    # Chờ khoá ghi: `LOCK_WAIT_S` trong `connect` (lý do ở `src/db/schema.py`). Hết hạn vẫn khoá
+    # → bước lỗi, API trả `stale`, `job_health` cảnh báo.
     conn = connect(db_path)
-    # Job snapshot 4h có thể đang giữ khoá ghi (DB chưa WAL tới Phase C): chờ tới 2 phút thay vì
-    # 5 giây mặc định, để ~70 giây tính toán không mất vì `database is locked` lúc ghi
-    # (code-reviewer 2026-10-09). Hết 2 phút vẫn khoá → bước lỗi, API trả `stale`, `job_health`
-    # cảnh báo.
-    conn.execute(f"PRAGMA busy_timeout = {WRITE_LOCK_WAIT_MS}")
     try:
         create_schema(conn)
         run = latest_cluster_run(conn)

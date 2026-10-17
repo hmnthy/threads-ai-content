@@ -169,8 +169,14 @@ def _runs_db(tmp_path: Path, cluster_runs: int, compared: list[int] | None) -> P
         [(i, "2026-10-01T10:30:00+00:00") for i in range(1, cluster_runs + 1)],
     )
     if compared is not None:
-        conn.execute("CREATE TABLE topic_comparison_runs (cluster_run_id INTEGER PRIMARY KEY)")
-        conn.executemany("INSERT INTO topic_comparison_runs VALUES (?)", [(i,) for i in compared])
+        conn.execute(
+            "CREATE TABLE topic_comparison_runs "
+            "(cluster_run_id INTEGER PRIMARY KEY, computed_at TEXT, snapshot_as_of TEXT)"
+        )
+        conn.executemany(
+            "INSERT INTO topic_comparison_runs (cluster_run_id) VALUES (?)",
+            [(i,) for i in compared],
+        )
     conn.commit()
     conn.close()
     return db
@@ -209,6 +215,132 @@ def test_report_warns_on_comparison_lag_unless_the_nlp_job_is_running(
     monkeypatch.setattr(job_health, "task_results", lambda: running)
     lines = job_health.report(db, NOW, repo=tmp_path)
     assert not any("topic comparisons" in line for line in lines)
+
+
+def _inputs_db(
+    tmp_path: Path, computed_at: str, as_of: str, newest_snapshot: str, cluster_runs: int = 16
+) -> Path:
+    """DB có lần so sánh 16 (lệch run khi `cluster_runs` > 16) + 1 snapshot mới nhất."""
+    db = _runs_db(tmp_path, cluster_runs, None)
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE topic_comparison_runs "
+        "(cluster_run_id INTEGER PRIMARY KEY, computed_at TEXT, snapshot_as_of TEXT)"
+    )
+    conn.execute("INSERT INTO topic_comparison_runs VALUES (16, ?, ?)", (computed_at, as_of))
+    conn.execute("CREATE TABLE insights_snapshots (fetched_at TEXT)")
+    conn.execute("INSERT INTO insights_snapshots VALUES (?)", (newest_snapshot,))
+    conn.commit()
+    conn.close()
+    return db
+
+
+def test_report_warns_when_comparisons_used_old_metrics(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Ca thật 17/10/2026: job snapshot đã chạy lại được, nhưng lần so sánh 16 (10:57) tính trên
+    # số liệu 12/10 19:17 — 2 dòng job đều "OK", chỉ dòng này cho biết δ/p đang dùng số cũ.
+    monkeypatch.setattr(job_health, "task_results", lambda: {})
+    db = _inputs_db(
+        tmp_path,
+        computed_at="2026-10-17T10:57:41+00:00",
+        as_of="2026-10-12T19:17:26+00:00",
+        newest_snapshot="2026-10-17T17:10:37+00:00",
+    )
+    lines = job_health.report(db, NOW, repo=tmp_path)
+    assert lines[-1] == (
+        "WARN topic comparisons: run 16 used metrics as of 2026-10-12 19:17 UTC, 112h before "
+        "it was computed; newer snapshots exist now — run "
+        "`uv run python -m src.pipeline.compare_topics`"
+    )
+
+
+def test_stale_comparison_while_snapshot_job_is_still_broken_says_fix_it_first() -> None:
+    # 13→16/10: không có snapshot nào mới hơn → chạy lại compare không giúp gì
+    inputs = job_health.ComparisonInputs(
+        14,
+        datetime(2026, 10, 15, 10, 33, tzinfo=UTC),
+        datetime(2026, 10, 12, 19, 17, tzinfo=UTC),
+        datetime(2026, 10, 12, 19, 17, tzinfo=UTC),
+    )
+    warning = job_health.stale_comparison_warning(inputs, SNAPSHOT.max_age)
+    assert warning is not None
+    assert "fix it first" in warning and "compare_topics" not in warning
+
+
+def test_stale_comparison_threshold_is_the_snapshot_freshness_rule() -> None:
+    computed = datetime(2026, 10, 9, 10, 30, tzinfo=UTC)
+    at_limit = job_health.ComparisonInputs(9, computed, computed - SNAPSHOT.max_age, None)
+    over = job_health.ComparisonInputs(
+        9, computed, computed - SNAPSHOT.max_age - timedelta(minutes=1), None
+    )
+    assert job_health.stale_comparison_warning(at_limit, SNAPSHOT.max_age) is None
+    assert job_health.stale_comparison_warning(over, SNAPSHOT.max_age) is not None
+
+
+def test_report_is_quiet_when_comparisons_used_fresh_metrics(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(job_health, "task_results", lambda: {})
+    db = _inputs_db(
+        tmp_path,
+        computed_at="2026-10-09T10:31:00+00:00",
+        as_of="2026-10-09T07:15:00+00:00",
+        newest_snapshot="2026-10-09T11:15:00+00:00",
+    )
+    lines = job_health.report(db, NOW, repo=tmp_path)
+    assert not any("topic comparisons" in line for line in lines)
+
+
+# Lần so sánh 16 thật (17/10/2026): tính 10:57, số liệu tính tới 12/10 19:17
+COMPUTED_17_10 = "2026-10-17T10:57:41+00:00"
+AS_OF_12_10 = "2026-10-12T19:17:26+00:00"
+
+
+def test_stale_check_is_skipped_when_comparisons_lag_behind_the_cluster_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Lệch run đã có cảnh báo riêng (và δ/p bị ẩn) — không thêm dòng "used metrics as of"
+    monkeypatch.setattr(job_health, "task_results", lambda: {})
+    db = _inputs_db(
+        tmp_path, COMPUTED_17_10, AS_OF_12_10, "2026-10-17T17:10:37+00:00", cluster_runs=17
+    )
+    comparison_lines = [
+        line for line in job_health.report(db, NOW, repo=tmp_path) if "topic comparisons" in line
+    ]
+    assert len(comparison_lines) == 1
+    assert "latest cluster run 17; results are for run 16" in comparison_lines[0]
+
+
+def test_comparison_db_error_is_reported_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def locked(db_path: Path) -> None:
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(job_health, "task_results", lambda: {})
+    monkeypatch.setattr(job_health, "comparison_status", locked)
+    lines = job_health.report(tmp_path / "missing.db", NOW, repo=tmp_path)
+    assert [line for line in lines if "topic comparisons" in line] == [
+        "WARN topic comparisons: could not read DB (database is locked) — retry later"
+    ]
+
+
+def test_stale_comparison_while_the_snapshot_job_runs_says_wait(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Vừa thức dậy, job snapshot đang chạy bù, chưa commit → chờ nó, đừng bảo "sửa"
+    running = {SNAPSHOT.task: task(job_health.TASK_RUNNING)}
+    monkeypatch.setattr(job_health, "task_results", lambda: running)
+    db = _inputs_db(tmp_path, COMPUTED_17_10, AS_OF_12_10, AS_OF_12_10)
+    lines = job_health.report(db, NOW, repo=tmp_path)
+    assert "the snapshot job is running now — wait for it" in lines[-1]
+    assert "fix it first" not in lines[-1]
+
+
+def test_comparison_inputs_before_tables_exist(tmp_path: Path) -> None:
+    assert job_health.comparison_inputs(_runs_db(tmp_path, 2, None)) is None
+    assert job_health.comparison_inputs(tmp_path / "missing.db") is None
 
 
 def test_report_survives_db_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
