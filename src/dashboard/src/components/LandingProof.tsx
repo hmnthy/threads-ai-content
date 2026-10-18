@@ -112,14 +112,17 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
     family === data.topics.length * 3
       ? `: ${data.topics.length} topics × engagement, share rate and conversation`
       : "";
+  // ADR-0024: kết quả đạt p Holm vẫn chỉ là gợi ý (chưa có luật bền qua các cách chia cụm) — "for now
+  // … stands out", tên topic đặt sau dấu hai chấm; không câu khẳng định kiểu "posts on X tend to …"
+  // (chữ Thy duyệt 2026-10-18 sau copy-reviewer)
+  const standOut = (list: TopicView[], side: "above" | "below") =>
+    `${list.length === 1 ? "one topic stands" : `${list.length} topics stand`} out ${side} the rest of the channel: ${names(list)}.`;
   const answer = testsShown
     ? higher.length + lower.length === 0
-      ? "No topic's engagement rate can be told apart from the rest of the channel after correcting for multiple comparisons."
-      : higher.length > 0
-        ? `Posts on ${names(higher)} tend to get a higher engagement rate than the rest of the channel${
-            lower.length > 0 ? `; posts on ${names(lower)} tend to get a lower one` : ""
-          }.`
-        : `Posts on ${names(lower)} tend to get a lower engagement rate than the rest of the channel.`
+      ? "For now, no topic's engagement rate can be told apart from the rest of the channel after correcting for multiple comparisons."
+      : higher.length > 0 && lower.length > 0
+        ? `For now, ${higher.length + lower.length} topics stand out from the rest of the channel: ${names(higher)} above it; ${names(lower)} below it.`
+        : `For now, ${standOut(higher.length > 0 ? higher : lower, higher.length > 0 ? "above" : "below")}`
     : lead
       ? `${lead.name} has the highest median engagement rate${anyFlagged ? " among topics with enough posts to compare" : ""}: ${pct(lead.stats.median)}${hasChannelMedian ? `, against ${pct(channelMedian)} for the channel` : ""}. ${
           tests?.stale ? "The gap is not tested on the current topics yet." : "The gap is not tested yet."
@@ -138,7 +141,7 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
   const testNote =
     hoveredRow && hoveredRow.effect_size !== null && testFigures
       ? hoveredVerdict === "higher" || hoveredVerdict === "lower"
-        ? ` Its posts tend to get a ${hoveredVerdict} rate than the rest of the channel: one of its posts beats a randomly picked other post ${winShare(hoveredRow.effect_size)}% of the time (${testFigures}).`
+        ? ` A random post from this topic beats a random post from the rest of the channel ${winShare(hoveredRow.effect_size)}% of the time (${testFigures}). A lead in the current topics, not a finding yet.`
         : hoveredVerdict === "too few posts"
           ? ` Too few posts to draw a conclusion; read as indicative only (${testFigures}).`
           : ` Not distinguishable from the rest of the channel after correction (${testFigures}).`
@@ -161,7 +164,11 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
       ? `Effect sizes and p-values are hidden: topics were re-clustered after the last tests ran${
           tests.computedAt ? ` on ${testTimes(tests.computedAt, null)}` : ""
         }, so those results describe an older grouping of posts. They return once the tests are rerun on the current topics.`
-      : `Each topic is compared with every other post, unclustered ones included. p-values are corrected for all ${family} tests${familyBreakdown}.${
+      : `${
+          higher.length + lower.length > 0
+            ? "This is a lead, not a finding: it holds for the current topics, which are re-clustered as new posts arrive. "
+            : ""
+        }Each topic is compared with every other post, unclustered ones included. p-values are corrected for all ${family} tests${familyBreakdown}.${
           tests.computedAt
             ? ` Tests ran ${testTimes(tests.computedAt, tests.snapshotAsOf)}; the medians and dots (one per post) use the latest data.`
             : ""
@@ -375,7 +382,7 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
             }`}
             limits={
               tests
-                ? `A topic is called higher or lower only when its Holm-corrected p is below ${tests.method.conclusion_alpha} and it has at least ${tests.method.min_posts_to_compare} posts with recorded views; smaller topics are faded and read as indicative only. Medians describe; only the test decides higher or lower. The CI is unadjusted, so it can exclude 0 while the corrected p stays above ${tests.method.conclusion_alpha}. Holm-corrected p-values are capped at 1. With so few posts per topic only very large differences can be detected, so "not distinguishable" (even at p = 1.000) does not mean "no difference".`
+                ? `A topic is named in the answer above only when its Holm-corrected p is below ${tests.method.conclusion_alpha} and it has at least ${tests.method.min_posts_to_compare} posts with recorded views; smaller topics are faded and read as indicative only. Medians only describe; the test alone decides which topics are named. Every comparison here is exploratory: it depends on where the topic boundaries fall. Topics are re-clustered daily with a fixed random seed, so the same posts give the same topics, but a few new posts or a different seed can redraw them. Re-running the tests on earlier groupings of the same posts has made results appear and disappear. A topic will be reported as a finding only once it passes a stability rule (re-clustering with several random seeds); that rule is not set yet. The CI is unadjusted, so it can exclude 0 while the corrected p stays above ${tests.method.conclusion_alpha}. Holm-corrected p-values are capped at 1. With so few posts per topic only very large differences can be detected, so "not distinguishable" (even at p = 1.000) does not mean "no difference".`
                 : `Topics with fewer than ${data.summary.min_posts_to_compare} posts with recorded views are faded and read as indicative. A higher median is a description, not a tested difference, until the per-topic tests ship.`
             }
           />

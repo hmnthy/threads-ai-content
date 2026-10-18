@@ -70,7 +70,7 @@ export interface TopicTests {
   engagement: Record<string, TopicComparisonRow>; // topic id → dòng engagement
 }
 
-// Kết luận theo đúng quy tắc ADR-0023: chỉ khẳng định khi p Holm < ngưỡng VÀ topic đủ bài
+// Đánh dấu theo ADR-0023 (p Holm < ngưỡng VÀ đủ bài); ADR-0024: chỉ là gợi ý, không câu khẳng định
 export function testVerdict(
   row: TopicComparisonRow | undefined,
   method: ComparisonMethod,

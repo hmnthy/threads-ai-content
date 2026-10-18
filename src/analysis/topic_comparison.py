@@ -41,7 +41,7 @@ METRICS: dict[Metric, Callable[[PostInsights], float]] = {
     "share_rate": share_rate,
     "conversation": conversation_rate,
 }
-# Chỉ được khẳng định khi p Holm < ngưỡng này (ADR-0023 1c)
+# Điều kiện cần để đánh dấu 1 phép so (ADR-0023 1c); khẳng định còn cần luật bền (ADR-0024)
 CONCLUSION_ALPHA = 0.05
 NOISE_GROUP = "noise"
 CHANNEL_GROUP = "channel"
