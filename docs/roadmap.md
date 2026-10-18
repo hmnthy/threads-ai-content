@@ -44,7 +44,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 
 | RQ | Câu hỏi | Ghi chú |
 |---|---|---|
-| RQ-01 | Cluster có ổn định không? | 10 seed, ARI/AMI cặp, bootstrap subsample, DBCV vào code |
+| RQ-01 | Cluster có ổn định không? | 10 seed, ARI/AMI cặp, bootstrap subsample, DBCV vào code. **Làm ngay sau deploy (ADR-0024):** đầu ra chọn luật bền cho câu khẳng định về topic — tỉ lệ seed mà mỗi kết luận đạt p Holm + ARI cặp seed |
 | RQ-02 | HDBSCAN có hơn baseline không? | KMeans (silhouette), agglomerative, c-TF-IDF, NPMI coherence |
 | RQ-03 | Model embedding nào tốt nhất cho VI/FR/EN trộn? | bge-m3 vs multilingual-e5-large vs mpnet đa ngôn ngữ; trên cluster + RQ-09 |
 | RQ-04 | Mức trộn ngôn ngữ (CMI) có liên quan engagement? | `compare_groups()` (`src/analysis/significance.py`) + hiệu chỉnh Holm |

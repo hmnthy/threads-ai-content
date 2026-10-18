@@ -520,6 +520,13 @@ LEARNED_RULES = [
         "3. **Panel 1 — Which topics get more engagement than the channel?**",
         "3. **Panel 1 — Which topics get a higher engagement rate than the rest of the channel?**",
     ),
+    # ADR-0024: chưa có luật bền qua các cách chia cụm → không câu khẳng định (cả chuỗi sinh động)
+    (
+        "ADR0024-topic-claim",
+        "src/dashboard/src/components/LandingProof.tsx",
+        "        ? ` Its posts tend to get a ${hoveredVerdict} rate than the rest of the channel`",
+        "        ? ` A lead, not a finding: δ ${signed(row.effect_size)} vs the rest`",
+    ),
     # ADR-0023 (auditor cuối): câu nói quá về độ đúng mức của bản hoán vị
     (
         "ADR0023-perm-claim-overstated",
