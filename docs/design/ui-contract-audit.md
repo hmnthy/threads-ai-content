@@ -101,7 +101,8 @@ Code đọc `GET /topics/comparisons` (tính trong job NLP sau mỗi lần gom c
 Mockup nên lấy đúng các câu dưới; số trong câu sinh từ API (`UI-0023-comparison-test`, `-holm-family`, `-stale-tests`,
 `-views-floor`).
 
-- **Panel 1** — câu hỏi "Which topics get a higher engagement rate than the rest of the channel?" (thay câu duyệt
+- **Panel 1** — **Đã thay bởi mục "ADR-0024" bên dưới (2026-10-18)** cho dòng trả lời, dòng phụ, hover, Limits; câu
+  cũ giữ lại để đối chiếu. Câu hỏi "Which topics get a higher engagement rate than the rest of the channel?" (thay câu duyệt
   2026-10-08: phép so là *tỉ lệ*, so với *phần còn lại*) · pill `live` khi có kết quả · trả lời "Posts on <topic> tend
   to get a higher engagement rate than the rest of the channel." (nhiều topic nối "A, B and C"; có topic thấp hơn: "…;
   posts on <C> tend to get a lower one."; không topic nào: "No topic's engagement rate can be told apart from the rest
@@ -134,6 +135,47 @@ Mockup nên lấy đúng các câu dưới; số trong câu sinh từ API (`UI-0
   recomputed as new views come in; 37 of 146 posts fall below it." (thay câu "Ranked by rate, so a post with few views
   can reach the top by chance…").
 
+### ADR-0024 — so sánh topic dạng khám phá (Thy duyệt 2026-10-18, `copy-reviewer` 1 lượt)
+
+Kết quả đạt p Holm chưa bền qua các cách chia cụm → là **gợi ý, chưa phải kết luận** cho tới khi RQ-01 chọn luật bền
+(`UI-0024-exploratory-comparisons`). Mockup nên lấy đúng các câu dưới (số và tên sinh từ API); luật
+`ADR0024-topic-claim` cảnh báo mọi câu "tend to get a higher / lower …".
+
+- **Câu hỏi panel 1 giữ nguyên có chủ đích** (Thy chọn): "Which topics get a higher engagement rate than the rest of
+  the channel?" — câu hỏi hợp lệ; dòng trả lời mang ý tạm thời.
+- **Dòng trả lời (đậm):** "For now, one topic stands out above the rest of the channel: <topic>." · nhiều topic: "For
+  now, 2 topics stand out above the rest of the channel: <A> and <B>." · chỉ thấp hơn: "…stands out below the rest of
+  the channel: <C>." · cả hai chiều (Thy đổi 2026-10-18 để tên luôn sau dấu hai chấm): "For now, 3 topics stand out from the rest of the
+  channel: <A> and <B> above it; <C> below it." (dấu chấm phẩy: danh sách 3+ tên đã có dấu phẩy bên trong)
+  · không topic nào: "For now, no topic's engagement rate can be told apart from the rest of the channel after
+  correcting for multiple comparisons." — tên topic đặt sau dấu hai chấm (tên do Claude đặt, hay mở đầu bằng động từ
+  "-ing", làm chủ ngữ sẽ đọc nhầm).
+- **Dòng phụ:** khi có topic được nêu tên, câu đầu là "This is a lead, not a finding: it holds for the current topics,
+  which are re-clustered as new posts arrive." rồi mới tới "Each topic is compared with every other post…".
+- **Hover topic được nêu tên:** "A random post from this topic beats a random post from the rest of the channel 80% of
+  the time (Cliff's δ +0.60, 95% CI +0.39 to +0.81, unadjusted; Holm-corrected p < 0.001). A lead in the current
+  topics, not a finding yet." (bỏ "one of its posts" — đọc như 1 bài cụ thể).
+- **Limits:** "A topic is named in the answer above only when its Holm-corrected p is below 0.05 and it has at least 5
+  posts with recorded views; smaller topics are faded and read as indicative only. Medians only describe; the test
+  alone decides which topics are named. Every comparison here is exploratory: it depends on where the topic boundaries
+  fall. Topics are re-clustered daily with a fixed random seed, so the same posts give the same topics, but a few new
+  posts or a different seed can redraw them. Re-running the tests on earlier groupings of the same posts has made
+  results appear and disappear. A topic will be reported as a finding only once it passes a stability rule
+  (re-clustering with several random seeds); that rule is not set yet." + phần CI / Holm / "not distinguishable" giữ
+  nguyên.
+- **Thuật ngữ trên lớp chính:** "topics" + "re-clustered"; "grouping" chỉ trong Method; không dùng "re-clusterings",
+  "exploratory" chỉ trong Limits (kèm định nghĩa).
+- **Mockup còn câu kết luận dạng khác** mà regex `ADR0024-topic-claim` không bắt: `src/dashboard/mockups/landing.dc.html`
+  "`N of T topics differ from the rest of the channel after correction.`" — Claude Design đổi theo dòng trả lời ở trên
+  ("For now, … stands out …").
+- **Không ghi số 0/2/0/1/1 lên UI** (nghiên cứu một lần, không có API) — chờ `UI-0024-partition-history` có số sống
+  "passed in k of the last m clusterings".
+- **Yêu cầu thiết kế (Thy chọn 2026-10-18): đánh dấu cả topic THẤP hơn kênh.** Hiện chỉ topic cao hơn được tô amber
+  (`src/dashboard/src/components/LandingProof.tsx` — `highlighted`); design system chưa có token cho "thấp hơn" nên
+  Claude Code không tự chọn màu. Claude Design: đề xuất kiểu đánh dấu (màu/biểu tượng, đạt AA) trong mockup + token
+  trong `design-system.md`; tới lúc đó topic thấp hơn chỉ được nêu tên ở dòng trả lời. Khi có kiểu đánh dấu, Limits có
+  thể thêm "topics named above or below are highlighted".
+
 ### Ghi chú cho vòng thiết kế kế tiếp
 
 1. **Dữ liệu landing:** API đã trả bài gần tâm, từ khoá, `run_at`, DBCV (`validity_index`), 2 ARI, nhiễu và cờ n nhỏ
@@ -160,7 +202,8 @@ Mockup nên lấy đúng các câu dưới; số trong câu sinh từ API (`UI-0
    level (median of up to 20 prior posts)" (hạn chế cửa sổ 20 bài: `docs/claude/data-model.md`).
 5. **(Đã chốt bởi ADR-0023, 2026-10-09)** Nhóm so sánh theo topic = phần còn lại của kênh, gồm bài nhiễu; kiểm định
    Brunner-Munzel hoán vị, số chính là Cliff's δ kèm CI ghi "unadjusted"; chỉ khẳng định khi p Holm < 0.05 trong họ
-   mọi phép so của trang Topics (9 topic × 3 chỉ số) — landing dùng đúng p Holm đó, không có họ riêng 9 phép so;
+   mọi phép so của trang Topics (9 topic × 3 chỉ số) **và** — từ ADR-0024 (2026-10-18) — qua luật bền qua các cách
+   chia cụm (chưa có luật nên hiện chưa có câu khẳng định; xem mục ADR-0024) — landing dùng đúng p Holm đó, không có họ riêng 9 phép so;
    topic n < `min_posts_to_compare` không kết luận. Mean không hiện ở đâu trên UI (median + IQR + n; IQR có
    tooltip "interquartile range: the range the middle 50% of posts fall in"; n = 0 → "—").
    Mockup landing còn ghi "Mann-Whitney U … Holm across 9 tests" và "Mann-Whitney U + Cliff's δ + bootstrap CI" (cảnh <!-- consistency: allow ADR0023-old-test-engine — trích nguyên văn mockup để Claude Design sửa -->

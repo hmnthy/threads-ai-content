@@ -194,7 +194,8 @@ chứng mô phỏng (`scripts/topic_method_report.py` mục 5, ở ngưỡng 0.0
 - **Holm** (`holm_adjust`, Holm 1979) kiểm soát xác suất có ≥ 1 kết luận sai trong cả họ, đúng với mọi kiểu phụ thuộc
   giữa các phép so (các nhóm "phần còn lại" chồng lên nhau). **Họ = mọi phép so có p xác định cùng hiện trên 1 trang,
   kể cả topic n < 5** (Topics: 9 topic × 3 chỉ số = 27; landing dùng đúng p Holm của họ 27). Chỉ được khẳng định khi
-  p Holm < 0.05; CI ghi "unadjusted".
+  p Holm < 0.05 **và** kết luận qua luật bền qua các cách chia cụm (ADR-0024 — luật chọn sau RQ-01; tới lúc đó chưa có
+  câu khẳng định nào); CI ghi "unadjusted".
 - `insufficient_data` dùng LẠI `MIN_N_PER_BUCKET` của `engagement.py` (1 nguồn sự thật "mẫu quá nhỏ để diễn giải").
   Đây là tầng 5 "Narrative Layering Principle".
 
@@ -208,6 +209,14 @@ chứng mô phỏng (`scripts/topic_method_report.py` mục 5, ở ngưỡng 0.0
 - Sức mạnh thống kê thấp: với cỡ topic 8–13 bài, chỉ chênh lệch |delta| ≳ 0.62–0.75 mới được phát hiện 80% số lần ở
   bước chặt nhất của Holm 27 (mục 6) — "not distinguishable" ≠ "no difference".
 - Đây là phân tích thăm dò trên quan sát, không nhân quả; thành viên cụm có thể đổi giữa các lần chạy nên p đổi theo.
+- **Độ bền qua các cách chia cụm (ADR-0024, 2026-10-18):** 16 lần gom cụm (2–17) chỉ là 5 cách chia khác nhau (cùng
+  dữ liệu → nhãn y hệt; thêm 1–5 bài → ARI 0.30–0.48 so với lần trước). "Cùng cách chia" = nhãn của mọi unit giống hệt,
+  không phải ARI = 1 (ARI chỉ tính trên unit chung). Giữ cố định số liệu, 5 cách chia cho **0 / 2 / 0 / 1 / 1** kết luận
+  đạt — giữ cố định cả tập bài (144 unit chung) vẫn vậy. Bài của topic_11 ở lần 16: 9–11 bài luôn chung 1 cụm ở các
+  cách chia khác, nhưng chỉ thành kết luận khi ranh giới cụm ôm gọn chúng. Sinh lại bằng `uv run python -m
+  scripts.topic_stability_report --reference-run 16 --reference-cluster 8`. Vì vậy kết quả so sánh hiển thị **dạng
+  gợi ý** ("a lead, not a finding": δ + CI + p Holm, câu giới hạn; lịch sử "đạt ở k trong m cách chia" — chưa làm, việc
+  trước deploy) cho tới khi RQ-01 (đa seed) đo được độ nhạy và ADR mới chọn luật bền.
 - **Chạy ở đâu (Việc 3, 2026-10-09):** bước cuối `compare` của job NLP (`src/pipeline/compare_topics.py` →
   `src/analysis/topic_comparison.py`) tính mọi topic × engagement / share_rate / conversation + dòng nhiễu và dòng
   kênh (chỉ mô tả) trên lần gom cụm mới nhất, ghi `topic_comparison_runs` + `topic_comparisons` (giữ lịch sử mỗi lần

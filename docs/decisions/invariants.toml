@@ -887,6 +887,25 @@ mockups = true
 # (Thy duyệt chữ 2026-10-09, UI-0023-comparison-test)
 pattern = '(?:gets?|get) more engagement than the (?:channel|rest of the channel)'
 why = "Phép so là tỉ lệ engagement của topic so với phần còn lại của kênh, đọc theo xu hướng (Cliff's δ) — UI-0023-comparison-test"
-fix = "Ghi 'get a higher engagement rate than the rest of the channel' / 'tend to get a higher engagement rate'"
+fix = "Ghi 'higher engagement rate than the rest of the channel' — dạng mô tả khám phá, không câu khẳng định 'tend to get' (ADR-0024)"
+paths = ["docs/**", "src/**", "README*.md"]
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
+
+[[stale_asset]]
+id = "ADR0024-landing-screenshot"
+adr = "0024"
+# Ảnh landing chụp cả panel 1 — dòng trả lời, dòng phụ đổi sang dạng khám phá
+path = "docs/screenshots/landing.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots -- landing` trong src/dashboard"
+
+[[forbid]]
+id = "ADR0024-topic-claim"
+adr = "0024"
+mockups = true
+# Kết luận so sánh topic chưa bền qua các cách chia cụm (0/2/0/1/1 kết luận trên 5 cách chia, cùng số liệu) → chưa
+# được viết thành câu khẳng định tới khi RQ-01 chọn luật bền (ADR mới). Bắt cả chuỗi sinh động `tend to get a ${…}`.
+pattern = 'tends? to get a (?:higher|lower|\$\{)'
+why = "Câu khẳng định về topic chỉ khi p Holm < 0.05 VÀ qua luật bền đo bằng RQ-01 — tới lúc đó hiển thị dạng khám phá (ADR-0024, UI-0024-exploratory-comparisons)"
+fix = "Ghi δ + CI (unadjusted) + p Holm như kết quả khám phá, kèm câu giới hạn 'topics are recomputed when new posts arrive' — không 'posts on X tend to get a higher/lower … rate'"
 paths = ["docs/**", "src/**", "README*.md"]
 allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]

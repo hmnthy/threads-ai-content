@@ -67,8 +67,8 @@ export interface GroupStats {
 }
 
 // Mirror của TopicComparisonRowOut (src/main.py). `kind = topic`: so với `rest` (phần còn lại
-// của kênh, gồm nhiễu); noise/channel chỉ mô tả. Chỉ khẳng định khi p_value_holm <
-// method.conclusion_alpha VÀ insufficient_data = false; CI chưa hiệu chỉnh. Trường kiểm định
+// của kênh, gồm nhiễu); noise/channel chỉ mô tả. p Holm < ngưỡng + đủ bài chỉ để đánh dấu,
+// khẳng định còn cần luật bền (ADR-0024); CI chưa hiệu chỉnh. Trường kiểm định
 // null khi `stale` (Thy chốt D3) hoặc không kiểm định được.
 export interface TopicComparisonRow {
   group_id: string;

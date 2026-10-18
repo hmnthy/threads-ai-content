@@ -399,8 +399,8 @@ class GroupStatsOut(BaseModel):
 class TopicComparisonRowOut(BaseModel):
     """1 nhóm × 1 chỉ số. `kind = topic`: so với `rest` (phần còn lại của kênh, gồm nhiễu);
     `noise`/`channel`: chỉ mô tả, `tested = false`. `effect_size` = Cliff's delta, > 0 nghĩa bài
-    của topic có xu hướng cao hơn; CI 95% CHƯA hiệu chỉnh; chỉ được khẳng định khi
-    `p_value_holm < conclusion_alpha` VÀ `insufficient_data = false`. Các trường kiểm định null
+    của topic có xu hướng cao hơn; CI 95% CHƯA hiệu chỉnh; p Holm < `conclusion_alpha` + đủ bài
+    chỉ để đánh dấu, khẳng định còn cần luật bền (ADR-0024). Các trường kiểm định null
     khi `stale` (kết quả thuộc lần gom cụm cũ — Thy chốt D3) hoặc khi không kiểm định được."""
 
     group_id: str
