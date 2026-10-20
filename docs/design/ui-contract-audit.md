@@ -159,22 +159,59 @@ Kết quả đạt p Holm chưa bền qua các cách chia cụm → là **gợi 
   posts with recorded views; smaller topics are faded and read as indicative only. Medians only describe; the test
   alone decides which topics are named. Every comparison here is exploratory: it depends on where the topic boundaries
   fall. Topics are re-clustered daily with a fixed random seed, so the same posts give the same topics, but a few new
-  posts or a different seed can redraw them. Re-running the tests on earlier groupings of the same posts has made
-  results appear and disappear. A topic will be reported as a finding only once it passes a stability rule
-  (re-clustering with several random seeds); that rule is not set yet." + phần CI / Holm / "not distinguishable" giữ
-  nguyên.
-- **Thuật ngữ trên lớp chính:** "topics" + "re-clustered"; "grouping" chỉ trong Method; không dùng "re-clusterings",
-  "exploratory" chỉ trong Limits (kèm định nghĩa).
+  posts or a different seed can redraw them. [câu "Re-running the tests on earlier groupings…" — Thy thay 2026-10-20,
+  xem mục dưới] A topic will be reported as a finding only once it passes a stability rule (re-clustering with several
+  random seeds); that rule is not set yet." + phần CI / Holm / "not distinguishable" giữ nguyên.
+- **Thuật ngữ trên lớp chính:** "topics" + "re-clustered"; từ 2026-10-20 chỉ dùng "clustering" (bỏ "grouping"), định
+  nghĩa trong Method; "exploratory" chỉ trong Limits (kèm định nghĩa).
 - **Mockup còn câu kết luận dạng khác** mà regex `ADR0024-topic-claim` không bắt: `src/dashboard/mockups/landing.dc.html`
   "`N of T topics differ from the rest of the channel after correction.`" — Claude Design đổi theo dòng trả lời ở trên
   ("For now, … stands out …").
-- **Không ghi số 0/2/0/1/1 lên UI** (nghiên cứu một lần, không có API) — chờ `UI-0024-partition-history` có số sống
-  "passed in k of the last m clusterings".
+- **Không ghi số 0/2/0/1/1 lên UI** (nghiên cứu một lần, không có API) — số sống là cột "stood out in" (mục dưới).
 - **Yêu cầu thiết kế (Thy chọn 2026-10-18): đánh dấu cả topic THẤP hơn kênh.** Hiện chỉ topic cao hơn được tô amber
   (`src/dashboard/src/components/LandingProof.tsx` — `highlighted`); design system chưa có token cho "thấp hơn" nên
   Claude Code không tự chọn màu. Claude Design: đề xuất kiểu đánh dấu (màu/biểu tượng, đạt AA) trong mockup + token
   trong `design-system.md`; tới lúc đó topic thấp hơn chỉ được nêu tên ở dòng trả lời. Khi có kiểu đánh dấu, Limits có
   thể thêm "topics named above or below are highlighted".
+
+### ADR-0024 — lịch sử "k of m" (Thy duyệt 2026-10-20, `copy-reviewer` 1 lượt + sửa theo `code-reviewer`)
+
+`UI-0024-partition-history`: cột mới cạnh "Holm p" ở panel 1 (code: `LandingProof.tsx`, câu hover ở `historySentence`,
+`src/dashboard/src/lib/landing.ts`; hướng + k từ API `history.direction` / `stood_out`). Bản nháp "passed in k of the
+last m clusterings" bị thay vì "passed" đụng chữ "passes a stability rule" và đứng cạnh câu trả lời "no topic … can be
+told apart"; "stood out" dùng lại đúng từ của dòng trả lời. Mockup Topics/landing lấy đúng các câu dưới (số từ API).
+
+- **Tên cột:** "stood out in" (khi chưa có kiểm định: "stood out in · next"); tooltip: "Clusterings in which this
+  topic stood out, out of those with enough of its posts to test. See Method and limits."
+- **Ô:** "2 of 3 ↑" (↓ = thấp hơn kênh); k = 0 → "0 of 5", không mũi tên; "—" khi m = 0. Mũi tên bắt buộc: thiếu
+  hướng, topic thấp hơn sẽ đọc thành "cao hơn" dưới câu hỏi "higher…". Screen reader: "stood out above the rest of
+  the channel in 2 of 3 clusterings" · k = 0: "stood out in 0 of 5 clusterings" · m = 0: "no clustering had enough of
+  its posts to test yet".
+- **Hover (nối sau câu kiểm định):** "Since 2026-10-12, this topic has been tested on 4 clusterings: it stood out
+  above the rest of the channel in 2 of the 3 with enough of its posts to test, but not in the current one." (4 = số
+  cách chia ĐÃ kiểm định topic — không viết "the posts have been clustered N ways": bước so sánh có thể lỗi suốt 1
+  cách chia; đuôi "including the current one" khi lần hiện tại đạt — đạt cả hai hướng thì thêm "(above)"/"(below)";
+  "; the current one had too few of its posts to test" khi thiếu bài; bỏ hẳn khi `stale`; không có cách chia thiếu bài
+  → "in 2 of them") · cả hai hướng: "…stood out above the rest of the channel in 2 and below it in 1 of the 3 …" · k =
+  0: "Since 2026-10-09, this topic has been tested on 5 clusterings and did not stand out in any of them." · k = 0 có
+  cách chia thiếu bài: "Since 2026-10-17, this topic has been tested on 3 clusterings; it had enough posts to test in
+  2 and stood out in none." · 1 cách chia: "Since 2026-10-20, this topic has been tested on one clustering and did not
+  stand out in it." / "…and stood out above the rest of the channel in it." · m = 1 có cách chia thiếu bài và đã
+  đạt: "Since 2026-10-19, this topic has been tested on 2 clusterings: it stood out above the rest of the channel in
+  the only one with enough of its posts to test, the current one." (không "in 1 of the 1") · m = 0: "Since 2026-10-17, this topic has
+  never had enough posts to test."
+- **Limits — câu 2026-10-18 chỉ đổi 1 từ:** "Re-running the tests on earlier clusterings of the same posts has made
+  results appear and disappear." ("groupings" → "clusterings"; không gắn "the column shows this" — cột tính trên tập
+  bài lớn dần, không phải cùng tập bài)
+- **Limits — thêm sau "that rule is not set yet.":** "The "stood out in" column is a record, not that rule. A
+  clustering is one way of grouping the posts into topics; daily runs that give the same topics count once, using the
+  latest test. The column counts the 5 clusterings tested since 2026-10-09 and leaves out those that gave a topic too
+  few posts to test; each topic's count starts at its first counted clustering. ↑ means above the rest of the channel,
+  ↓ below; a topic that stood out both ways shows the direction of its current δ, or, while tests are hidden, the
+  direction it stood out in more often. The clusterings share most of their
+  posts, so they are not independent tests. Topics are matched across clusterings by their posts and content; when
+  topics merge or split, the result may count as a new topic, and its count starts again." (không ghi "id" — chữ nội
+  bộ, và sai một nửa với ADR-0018: phần giữ quá nửa bài khi tách vẫn giữ id)
 
 ### Ghi chú cho vòng thiết kế kế tiếp
 

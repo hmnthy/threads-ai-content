@@ -1,12 +1,13 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-17
+> Cập nhật: 2026-10-20
 
 ## Now
 
 - `main` (2026-10-05, PR #1 merge commit `e8d645e`, CI xanh lần đầu) gồm: tái cấu trúc "LESS IS MORE" (ADR-0001, 0003); cưỡng chế nhất quán (ADR-0008) + tên **Unthreaded** (ADR-0009); P0 dashboard trung thực — median + n + IQR, heatmap giờ đăng (ADR-0010 SQLite là CSDL duy nhất, ADR-0011 bài views = 0 là dữ liệu thiếu); P1 Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, 9 cụm; `/conversation` trả được bình luận follower); các mục dưới đến ADR-0018.
 - CI lần đầu (PR #1): job `web` đỏ vì `LayoutProps` (kiểu Next sinh vào `.next/`, máy sạch chưa có) → `npm run typecheck` = `next typegen && tsc --noEmit` (`67c3bf8`).
+- Lịch sử "k of m" (nhánh `feat/partition-history`, ADR-0024 quyết định 3; Thy chốt cách đếm + chữ 2026-10-20): `GET /topics/comparisons` trả `history` mỗi topic × chỉ số, tính khi đọc từ kết quả đã lưu (không bảng mới, không sửa job) — mỗi cách chia đếm 1 lần bằng lần so sánh mới nhất, m chỉ gồm cách chia đủ bài, k tách hướng (`src/analysis/partition_history.py`); landing panel 1 thêm cột "stood out in" ("2 of 3 ↑") + hover + Limits. Số 2026-10-20: topic_11 engagement 2 of 3 (+1 thiếu bài). Sinh lại: `scripts.topic_stability_report --history-only`.
 - Vá lỗ hổng cảnh sát (Thy duyệt 2026-10-01): ADR-0014 (pre-commit quét toàn repo `--commit`, CI GitHub Actions) + ADR-0013 (job snapshot hỏng do cửa sổ console → chạy bằng pythonw, hook đo độ tươi từ DB). ADR-0015 (Thy chọn A + B): bắt buộc review tầng 2 — git hook pre-commit (chỉ commit do Claude chạy) chặn commit chạm logic/ADR khi chưa có dấu review khớp nội dung; dấu do hook SubagentStart/Stop ghi.
 - 2026-10-04: key Claude cũ hết hạn 02/10 → key mới (hết hạn 2026-12-04); ADR-0016 — đặt tên cụm bằng `claude-sonnet-5-5` (thay Opus), bỏ lời hứa prompt caching. ADR-0017 — Modern Standby đóng băng tiến trình khi máy ngủ → job NLP chạy 12:30, cả 2 cron chạy khi dùng pin (`scripts/configure_jobs.ps1`); snapshot hở ban đêm (trung vị khoảng trống ~16h) được chấp nhận và ghi trong data-model.md.
 - ADR-0018 (Thy chọn phương án B + 4 lựa chọn sau thí nghiệm 10 seed + kiểm tài liệu MONIC/Greene/Palla/BERTopic): danh tính cụm bền `topic_N` — ghép theo thành viên (bỏ nhiễu ở phép thử giữ, lõi giữ tên) rồi ngữ nghĩa (trừ cụm nhập), đặt lại tên khi trôi khỏi bản neo; prompt đặt tên v2. Đổi tên khi data không đổi: 30,6% [21,0; 40,3] → 15,2% [10,7; 19,9] (828 cụm, 90 cặp seed). DB thật đã migrate một phần (id `topic_N`) do job snapshot 21:15 chạy code đang sửa; lần job NLP kế tiếp thêm cột bản neo và đặt lại tên 9 cụm 1 lần.
@@ -26,8 +27,8 @@
 
 ## Next
 
-0. Merge PR ADR-0024. Dọn worktree `topic-comparisons`, `snapshot-pagination`, `job-health-db-lock` (chờ Thy "OK dọn").
-0b. Trước deploy: lịch sử "đạt ở k trong m cách chia" (job + API + panel, `UI-0024-partition-history`); ADR deploy (snapshot tĩnh, job snapshot chạy ở đâu + lưu vào đâu — cũng quyết chất lượng dữ liệu velocity). Ngay sau deploy: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
+0. Merge PR `feat/partition-history` (Thy push → PR → CI → merge commit).
+0b. **ADR deploy** (`/record-decision`) — Thy làm gấp sau PR này: phương án A (snapshot tĩnh JSON xuất qua API) hay D (FastAPI serverless chỉ đọc + bản sao DB, cần thử dung lượng gói numpy/scipy trên Vercel); landing fetch phía server (`no-store`), Overview/Analytics/Topics fetch trong trình duyệt → A phải đổi cả 2 kiểu, D chỉ đổi URL API. Job snapshot chạy ở đâu (khoảng hở đêm, velocity). Ngay sau deploy: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
 1. Việc 4: xuất `docs/design/data/topics/` cho Claude Design (kèm `/topics/comparisons`) → mockup Topics → port. Phần còn mở của ADR-0012 (so sánh biến giải thích giữa các tầng reach) dùng cùng engine + quy tắc họ Holm.
 2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
 3. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
@@ -50,9 +51,9 @@
 
 ## Số liệu nhanh
 
-- 152 root post · 1.398 reply của tác giả (367 self_continuation · 681 author_answer · 350 outbound — ADR-0004) · 9 cluster (nhiễu 41% — lần gom 2026-10-09; số sống: `GET /pipeline/summary`) · 755 test pass
+- 152 root post · 1.398 reply của tác giả (367 self_continuation · 681 author_answer · 350 outbound — ADR-0004) · 9 cluster (nhiễu 41% — lần gom 2026-10-09; số sống: `GET /pipeline/summary`) · 771 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Show topic comparisons as exploratory until they hold across clusterings (ADR-0024)
+- Track per-topic history across distinct clusterings (ADR-0024)

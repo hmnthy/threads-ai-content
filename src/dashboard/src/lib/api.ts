@@ -84,6 +84,28 @@ export interface TopicComparisonRow {
   p_value: number | null;
   p_value_holm: number | null;
   test_method: string | null;
+  // Mirror của PartitionHistoryOut (ADR-0024): "đạt ở k trong m cách chia" — chỉ dòng topic
+  history: PartitionHistory | null;
+}
+
+// Mỗi cách chia cụm khác nhau đếm 1 lần (lần so sánh mới nhất của nó); `clusterings` (m) chỉ gồm
+// cách chia đủ bài để kiểm định, cách chia thiếu bài ở `too_few_posts`; k tách theo hướng
+export interface PartitionHistory {
+  clusterings: number;
+  higher: number;
+  lower: number;
+  too_few_posts: number;
+  // UTC — lần so sánh đại diện (mới nhất) của cách chia đầu tiên có topic này; gộp/tách có thể ra
+  // id mới → bắt đầu lại
+  since: string;
+  // Hướng + k của ô "stood out in" (`display_direction`, backend có pytest): null + 0 khi chưa đạt
+  direction: "higher" | "lower" | null;
+  stood_out: number;
+}
+
+export interface ComparisonHistory {
+  clusterings_compared: number;
+  since: string | null; // UTC
 }
 
 export interface ComparisonMethod {
@@ -105,6 +127,7 @@ export interface TopicComparisons {
   snapshot_as_of: string | null; // UTC — số liệu "tính tới" lúc này
   stale: boolean;
   method: ComparisonMethod | null;
+  history: ComparisonHistory | null;
   rows: TopicComparisonRow[];
 }
 

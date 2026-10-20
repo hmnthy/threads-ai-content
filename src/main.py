@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date as date_cls
 from datetime import datetime
-from typing import Final, get_args
+from typing import Final, Literal, get_args
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
@@ -33,6 +33,14 @@ from src.analysis.engagement import (
     engagement_by_hour,
     engagement_by_weekday,
     top_posts_by_engagement,
+)
+from src.analysis.partition_history import (
+    PartitionHistory,
+    StoredComparison,
+    display_direction,
+    partition_history,
+    partition_run_ids,
+    representatives,
 )
 from src.analysis.popularity import popularity_index
 from src.analysis.reach import (
@@ -68,10 +76,12 @@ from src.db.schema import (
     latest_insight_snapshot,
     latest_snapshot_time,
     latest_topic_comparison_run,
+    list_cluster_run_labels,
     list_content_units,
     list_daily_views,
     list_root_posts,
     list_root_posts_in_range,
+    list_tested_topic_comparisons,
     list_topic_comparisons,
     snapshot_row_to_post_insights,
 )
@@ -396,6 +406,31 @@ class GroupStatsOut(BaseModel):
     insufficient_data: bool
 
 
+class PartitionHistoryOut(BaseModel):
+    """Lịch sử "đạt ở k trong m cách chia" của 1 topic × 1 chỉ số (ADR-0024 quyết định 3; định
+    nghĩa ở `src/analysis/partition_history.py`). Mỗi cách chia cụm khác nhau đếm 1 lần, bằng lần
+    so sánh mới nhất của nó; `clusterings` (m) chỉ gồm cách chia kiểm định được, cách chia thiếu bài
+    đếm riêng ở `too_few_posts`. Không phải luật bền — luật đó chờ RQ-01."""
+
+    clusterings: int
+    higher: int
+    lower: int
+    too_few_posts: int
+    # `run_at` của lần so sánh đại diện (mới nhất) của cách chia đầu tiên có topic này — topic
+    # gộp/tách có thể nhận id mới, lịch sử bắt đầu lại
+    since: str
+    # Hướng + k hiển thị (`display_direction`): None + 0 khi chưa đạt lần nào — k = 0 không có hướng
+    direction: Literal["higher", "lower"] | None
+    stood_out: int
+
+
+class ComparisonHistoryOut(BaseModel):
+    # số cách chia khác nhau có kết quả so sánh đã lưu, và `run_at` lần so sánh đại diện của cách
+    # chia đầu tiên trong số đó
+    clusterings_compared: int
+    since: str | None
+
+
 class TopicComparisonRowOut(BaseModel):
     """1 nhóm × 1 chỉ số. `kind = topic`: so với `rest` (phần còn lại của kênh, gồm nhiễu);
     `noise`/`channel`: chỉ mô tả, `tested = false`. `effect_size` = Cliff's delta, > 0 nghĩa bài
@@ -417,6 +452,9 @@ class TopicComparisonRowOut(BaseModel):
     p_value: float | None
     p_value_holm: float | None
     test_method: str | None
+    # chỉ dòng `kind = topic`; vẫn trả khi `stale` — đếm từ các lần so sánh đã lưu, không phụ thuộc
+    # lần gom cụm mới nhất có kết quả hay chưa
+    history: PartitionHistoryOut | None
 
 
 class ComparisonMethodOut(BaseModel):
@@ -443,6 +481,7 @@ class TopicComparisonsOut(BaseModel):
     # trường kiểm định bị ẩn (null), phần mô tả vẫn trả, ghi rõ của lần gom cụm nào
     stale: bool
     method: ComparisonMethodOut | None
+    history: ComparisonHistoryOut | None
     rows: list[TopicComparisonRowOut]
 
 
@@ -459,12 +498,31 @@ def _group_stats_out(
     )
 
 
+def _history_out(history: PartitionHistory, current_effect: float | None) -> PartitionHistoryOut:
+    direction = display_direction(history, current_effect)
+    return PartitionHistoryOut(
+        clusterings=history.clusterings,
+        higher=history.higher,
+        lower=history.lower,
+        too_few_posts=history.too_few_posts,
+        since=history.since,
+        direction=direction,
+        stood_out=0
+        if direction is None
+        else history.higher
+        if direction == "higher"
+        else history.lower,
+    )
+
+
 @app.get("/topics/comparisons", response_model=TopicComparisonsOut)
 def get_topic_comparisons() -> TopicComparisonsOut:
     """Mỗi topic × engagement / share_rate / conversation so với phần còn lại của kênh, cộng
     dòng nhiễu và dòng kênh — ĐỌC kết quả bước `compare` của job NLP (`compare_topics`), không
     tính theo request (~70 giây cho 27 phép so). Họ Holm = mọi phép so có p xác định; kích thước
-    họ ở `method.holm_family_size` (ADR-0023)."""
+    họ ở `method.holm_family_size` (ADR-0023). `history` của mỗi dòng topic = "đạt ở k trong m
+    cách chia" (ADR-0024), đếm lại mỗi request từ mọi lần so sánh đã lưu (~20 lần gom cụm: vài
+    mili giây)."""
     with _db() as conn:
         run = latest_topic_comparison_run(conn)
         if run is None:
@@ -474,10 +532,27 @@ def get_topic_comparisons() -> TopicComparisonsOut:
                 snapshot_as_of=None,
                 stale=False,
                 method=None,
+                history=None,
                 rows=[],
             )
         latest = latest_cluster_run(conn)
         stale = latest is not None and latest["id"] != run["cluster_run_id"]
+        partitions = partition_run_ids(list_cluster_run_labels(conn))
+        stored = [
+            StoredComparison(
+                cluster_run_id=row["cluster_run_id"],
+                run_at=row["run_at"],
+                group_id=row["group_id"],
+                metric=row["metric"],
+                effect_size=row["effect_size"],
+                p_value_holm=row["p_value_holm"],
+                insufficient_data=bool(row["insufficient_data"]),
+            )
+            for row in list_tested_topic_comparisons(conn)
+        ]
+        history = partition_history(partitions, stored, alpha=CONCLUSION_ALPHA)
+        run_at_of = {row.cluster_run_id: row.run_at for row in stored}
+        compared = representatives(partitions, run_at_of)
         order = {metric: index for index, metric in enumerate(METRICS)}
         kind_order = {"topic": 0, "noise": 1, "channel": 2}
         rows = sorted(
@@ -487,6 +562,7 @@ def get_topic_comparisons() -> TopicComparisonsOut:
         out: list[TopicComparisonRowOut] = []
         for row in rows:
             show_test = bool(row["tested"]) and not stale
+            past = history.get((row["group_id"], row["metric"])) if row["kind"] == "topic" else None
             out.append(
                 TopicComparisonRowOut(
                     group_id=row["group_id"],
@@ -518,6 +594,10 @@ def get_topic_comparisons() -> TopicComparisonsOut:
                     p_value=row["p_value"] if show_test else None,
                     p_value_holm=row["p_value_holm"] if show_test else None,
                     test_method=row["test_method"] if show_test else None,
+                    # δ hiện tại chỉ khi đang hiển thị (không `stale`) — giống trường `effect_size`
+                    history=None
+                    if past is None
+                    else _history_out(past, row["effect_size"] if show_test else None),
                 )
             )
         return TopicComparisonsOut(
@@ -535,6 +615,10 @@ def get_topic_comparisons() -> TopicComparisonsOut:
                 holm_family_size=run["holm_family_size"],
                 conclusion_alpha=CONCLUSION_ALPHA,
                 min_posts_to_compare=MIN_N_PER_BUCKET,
+            ),
+            history=ComparisonHistoryOut(
+                clusterings_compared=len(compared),
+                since=run_at_of[compared[0]] if compared else None,
             ),
             rows=out,
         )
