@@ -244,8 +244,10 @@ def connect(db_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
 def connect_readonly(db_path: Path) -> sqlite3.Connection:
     """Mở bản sao DB ở chế độ chỉ đọc (`mode=ro`) — API trên Vercel (ADR-0025). Không tạo thư mục
     hay file: thiếu file → `sqlite3.OperationalError`; mọi lệnh ghi → "readonly database".
-    Bản sao publish ở `journal_mode = delete` nên không cần file `-wal`/`-shm` ghi được."""
-    conn = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True)
+    Bản sao publish ở `journal_mode = delete` nên không cần file `-wal`/`-shm` ghi được.
+    Bước publish cũng dùng hàm này để đọc DB nguồn trong lúc job khác có thể đang ghi → chờ khoá
+    tới `LOCK_WAIT_S` như `connect()`."""
+    conn = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True, timeout=LOCK_WAIT_S)
     conn.row_factory = sqlite3.Row
     return conn
 

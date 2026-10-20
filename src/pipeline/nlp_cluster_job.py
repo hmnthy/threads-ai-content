@@ -7,6 +7,8 @@
 4. so sánh topic vs phần còn lại của kênh (Windows, ~70 giây, ADR-0023) —
    `src.pipeline.compare_topics`. Bước cuối: lỗi ở đây không làm mất kết quả gom cụm của bước 3;
    API đánh dấu kết quả so sánh cũ là `stale`.
+Sau cùng (kể cả khi 1 bước lỗi): publish bản sao DB lên Blob cho API trên Vercel —
+`src.pipeline.publish` (ADR-0025).
 
 Task Scheduler gọi (không console):
 `.venv\\Scripts\\pythonw.exe -m src.pipeline.nlp_cluster_job --log data\\logs\\nlp_cluster_job.log`
@@ -28,7 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
-from src.pipeline.job_log import run_job
+from src.pipeline.job_log import publish_safely, run_job
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LOG_PATH = REPO_ROOT / "data" / "logs" / "nlp_cluster_job.log"  # log chuẩn (cron + job_health)
@@ -99,8 +101,13 @@ def run_steps(steps: Sequence[Step], runner: Runner = subprocess.run) -> list[st
 
 
 def _run() -> list[str]:
-    # Dựng lệnh TRONG body: lỗi ở đây (VD đường dẫn không phải ổ Windows) cũng vào log + exit 1
-    return run_steps(build_steps(REPO_ROOT, console_python(sys.executable)))
+    try:
+        # Dựng lệnh TRONG body: lỗi ở đây (VD đường dẫn không phải ổ Windows) cũng vào log + exit 1
+        return run_steps(build_steps(REPO_ROOT, console_python(sys.executable)))
+    finally:
+        # cả khi bước compare (cuối) lỗi: kết quả gom cụm của bước import đã commit vẫn được
+        # publish; publish không bao giờ raise (ADR-0025)
+        publish_safely()
 
 
 def main(argv: Sequence[str] | None = None, status_log: Path | None = LOG_PATH) -> int:
