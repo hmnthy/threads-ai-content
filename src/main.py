@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-from collections.abc import Callable, Generator
+from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date as date_cls
@@ -23,8 +23,10 @@ from datetime import datetime
 from typing import Final, Literal, get_args
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.analysis.conversation import conversation_rate
@@ -62,10 +64,12 @@ from src.analysis.stats import (
 )
 from src.analysis.topic_comparison import CONCLUSION_ALPHA, METRICS, GroupKind, Metric
 from src.api.models import PostInsights, ThreadsPost
+from src.db.published import OIDC_HEADER, PublishedDb, PublishedDbUnavailableError
 from src.db.schema import (
     DEFAULT_DB_PATH,
     cluster_run_topic_events,
     connect,
+    connect_readonly,
     count_reply_roles,
     embedding_dim,
     get_content_unit,
@@ -93,6 +97,28 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Chế độ chỉ đọc trên Vercel (ADR-0025): có `DB_BLOB_PATH` → đọc bản sao DB tải từ Blob riêng tư
+# (`src/db/published.py`); không có → `data/threads.db` như cũ.
+_PUBLISHED: PublishedDb | None = PublishedDb.from_env()
+
+
+# Khai báo TRƯỚC CORSMiddleware → CORS là lớp ngoài cùng, phản hồi 503 vẫn có header CORS (không
+# thì trình duyệt báo lỗi CORS thay vì 503).
+@app.middleware("http")
+async def _load_published_db(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    # /health = process còn sống (liveness), không phụ thuộc Blob; lỗi bản sao hiện ở route khác
+    if _PUBLISHED is not None and request.url.path != "/health":
+        try:
+            # tải/hỏi lại Blob là I/O chặn → chạy ngoài event loop
+            await run_in_threadpool(_PUBLISHED.ensure, request.headers.get(OIDC_HEADER))
+        except PublishedDbUnavailableError:
+            # chi tiết (thiếu biến, 403…) ở log của hàm, không trả ra ngoài
+            return JSONResponse({"detail": "Data is temporarily unavailable."}, status_code=503)
+    return await call_next(request)
+
+
 # Dashboard Next.js chạy local trên :3000. Cho phép thêm origin qua env
 # CORS_ALLOW_ORIGINS (phân cách bằng dấu phẩy) — domain dashboard khi deploy (ADR-0025:
 # API chạy trên Vercel), không hardcode domain vào code.
@@ -108,7 +134,9 @@ app.add_middleware(
 
 @contextmanager
 def _db() -> Generator[sqlite3.Connection]:
-    conn = connect(DEFAULT_DB_PATH)
+    conn = (
+        connect(DEFAULT_DB_PATH) if _PUBLISHED is None else connect_readonly(_PUBLISHED.local_path)
+    )
     try:
         yield conn
     finally:

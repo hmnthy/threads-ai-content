@@ -28,7 +28,7 @@
 
 ## Next
 
-0. **PR triển khai deploy** (nhánh `feat/deploy-api`) theo ADR-0025 Hệ quả: ~~gói API tối giản~~ (xong: `[project].dependencies` = gói Vercel, thư viện job ở nhóm `pipeline` mà `dev` gộp vào — Vercel chạy `uv sync --no-dev` từ `uv.lock`; ~203 MiB Linux; `tests/test_api_bundle.py`) → API chỉ đọc (DB từ Blob về thư mục tạm, `mode=ro`) → bước publish sau mỗi job + `job_health` → 2 project Vercel, deploy thử preview (Thy duyệt trước khi public) → việc trước public (ADR-0021, bio, link CTA, privacy) → docs. Ngay sau deploy: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
+0. **PR triển khai deploy** (nhánh `feat/deploy-api`) theo ADR-0025 Hệ quả: ~~gói API tối giản~~ (xong: `[project].dependencies` = gói Vercel, thư viện job ở nhóm `pipeline` mà `dev` gộp vào — Vercel chạy `uv sync --no-dev` từ `uv.lock`; ~203 MiB Linux; `tests/test_api_bundle.py`) → ~~API chỉ đọc~~ (xong: `src/db/published.py` — bật bằng `VERCEL=1` + `DB_BLOB_PATH` + `BLOB_STORE_ID`, tải ở request đầu bằng token OIDC trong header, hỏi lại theo ETag mỗi 5 phút, mở `mode=ro`, lỗi lần đầu → 503; ADR ghi "khi khởi động" — Thy chọn 2026-10-20 ghi lệch này ở `architecture.md` (bước docs) + mô tả PR, không ADR mới) → bước publish sau mỗi job (bản sao phải `journal_mode = DELETE`) + `job_health` → 2 project Vercel, deploy thử preview (Thy duyệt trước khi public) → việc trước public (ADR-0021, bio, link CTA, privacy) → docs. Ngay sau deploy: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
 1. Việc 4: xuất `docs/design/data/topics/` cho Claude Design (kèm `/topics/comparisons`) → mockup Topics → port. Phần còn mở của ADR-0012 (so sánh biến giải thích giữa các tầng reach) dùng cùng engine + quy tắc họ Holm.
 2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
 3. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
@@ -51,9 +51,9 @@
 
 ## Số liệu nhanh
 
-- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 780 test pass
+- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 806 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Split the API bundle from job libraries for the Vercel deploy (ADR-0025)
+- Serve the API read-only from a published DB copy in private Blob (ADR-0025)
