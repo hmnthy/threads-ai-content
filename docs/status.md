@@ -28,8 +28,7 @@
 
 ## Next
 
-0. Merge PR ADR-0025 (nhánh deploy-adr).
-0b. **PR triển khai deploy** theo ADR-0025 Hệ quả: gói API tối giản (gỡ import sẵn ở `src/nlp/__init__.py` + test, danh sách thư viện riêng) → API chỉ đọc (DB từ Blob về thư mục tạm, `mode=ro`) → bước publish sau mỗi job + `job_health` → 2 project Vercel, deploy thử preview (Thy duyệt trước khi public) → việc trước public (ADR-0021, bio, link CTA, privacy) → docs. Ngay sau deploy: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
+0. **PR triển khai deploy** (nhánh `feat/deploy-api`) theo ADR-0025 Hệ quả: ~~gói API tối giản~~ (xong: `[project].dependencies` = gói Vercel, thư viện job ở nhóm `pipeline` mà `dev` gộp vào — Vercel chạy `uv sync --no-dev` từ `uv.lock`; ~203 MiB Linux; `tests/test_api_bundle.py`) → API chỉ đọc (DB từ Blob về thư mục tạm, `mode=ro`) → bước publish sau mỗi job + `job_health` → 2 project Vercel, deploy thử preview (Thy duyệt trước khi public) → việc trước public (ADR-0021, bio, link CTA, privacy) → docs. Ngay sau deploy: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
 1. Việc 4: xuất `docs/design/data/topics/` cho Claude Design (kèm `/topics/comparisons`) → mockup Topics → port. Phần còn mở của ADR-0012 (so sánh biến giải thích giữa các tầng reach) dùng cùng engine + quy tắc họ Holm.
 2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
 3. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
@@ -52,9 +51,9 @@
 
 ## Số liệu nhanh
 
-- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 777 test pass
+- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 780 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Record the Vercel deploy plan: read-only API on a DB copy (ADR-0025)
+- Split the API bundle from job libraries for the Vercel deploy (ADR-0025)

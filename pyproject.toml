@@ -3,23 +3,20 @@ name = "threads-ai-content"
 version = "0.1.0"
 description = "NLP analysis and knowledge base for the 'thydilammuon' Threads channel"
 requires-python = ">=3.12"
+# Chỉ thư viện API chỉ đọc cần (`import src.main`) — đây là gói Vercel cài (ADR-0025). Vercel đọc
+# `uv.lock` trước mọi file khác và chạy `uv sync --no-dev` (kèm `--frozen` khi có `uv.lock`;
+# packages/python/src/uv.ts của vercel/vercel) → `requirements.txt` riêng sẽ bị bỏ qua; thư viện
+# của job nằm ở nhóm `pipeline`
+# (dưới), được `dev` gộp vào nên `uv sync` trên laptop/cron/CI vẫn cài đủ.
+# Test: tests/test_api_bundle.py.
 dependencies = [
-    "anthropic>=1.2.0",
     "fastapi>=0.141.1",
-    "hdbscan>=0.8.44",
     "httpx>=0.28.1",
-    "lingua-language-detector>=2.2.0",
     "numpy>=2.5.2",
     "pydantic>=2.13.5",
     "python-dotenv>=1.2.3",
-    "scikit-learn>=1.9.0",
     "scipy>=1.18.1",
-    "sentence-transformers>=6.0.1",
     "tzdata>=2025.1",
-    "umap-learn>=0.5.12",
-    "underthesea==9.5.0",
-    # engine CRF của word_tokenize — ảnh hưởng thẳng tới từ khoá topic (ADR-0022)
-    "underthesea-core==3.3.2",
     "uvicorn[standard]>=0.52.4",
 ]
 
@@ -62,7 +59,22 @@ markers = [
 ]
 
 [dependency-groups]
+# Thư viện của 2 cron job (snapshot, NLP: embedding/UMAP/HDBSCAN, nhận diện ngôn ngữ, đặt tên cụm,
+# tách từ) — API không dùng. Không thêm "pipeline" vào `default-groups`: `--no-dev` của Vercel
+# chỉ bỏ nhóm `dev`, nhóm mặc định khác vẫn bị cài → vượt 500 MB.
+pipeline = [
+    "anthropic>=1.2.0",
+    "hdbscan>=0.8.44",
+    "lingua-language-detector>=2.2.0",
+    "scikit-learn>=1.9.0",
+    "sentence-transformers>=6.0.1",
+    "umap-learn>=0.5.12",
+    "underthesea==9.5.0",
+    # engine CRF của word_tokenize — ảnh hưởng thẳng tới từ khoá topic (ADR-0022)
+    "underthesea-core==3.3.2",
+]
 dev = [
+    { include-group = "pipeline" },
     "mypy>=2.3.1",
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
