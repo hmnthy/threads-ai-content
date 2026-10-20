@@ -3,6 +3,7 @@
 // median/IQR/n/cờ insufficient_data luôn lấy từ backend (UI-L20260903-small-n-flag).
 import type {
   AnalyticsOverview,
+  ComparisonHistory,
   ComparisonMethod,
   ContentUnit,
   DistributionStats,
@@ -67,7 +68,65 @@ export interface TopicTests {
   snapshotAsOf: string | null;
   stale: boolean;
   method: ComparisonMethod;
+  history: ComparisonHistory | null;
   engagement: Record<string, TopicComparisonRow>; // topic id → dòng engagement
+}
+
+// Câu hover lịch sử "k of m" (ADR-0024; chữ Thy duyệt 2026-10-20 sau copy-reviewer + code-reviewer,
+// `ui-contract-audit.md`). Hướng + k của ô lấy từ backend (`history.direction`/`stood_out`, có pytest);
+// ở đây chỉ dựng câu. N = m + số cách chia thiếu bài = số cách chia ĐÃ KIỂM ĐỊNH topic này ("tested
+// on N clusterings") — không phải số cách chia thật (bước so sánh có thể lỗi suốt 1 cách chia). Mệnh
+// đề "the current one" đọc kết luận lần kiểm định hiện tại — bỏ khi `stale` (δ/p bị ẩn).
+export function historySentence(
+  row: TopicComparisonRow | undefined,
+  method: ComparisonMethod,
+  stale: boolean,
+): string {
+  const history = row?.history;
+  if (!history) return "";
+  const since = parisDate(history.since);
+  const m = history.clusterings;
+  if (m === 0) return `Since ${since}, this topic has never had enough posts to test.`;
+  const total = m + history.too_few_posts;
+  const tested =
+    total === 1
+      ? `Since ${since}, this topic has been tested on one clustering`
+      : `Since ${since}, this topic has been tested on ${total} clusterings`;
+  if (history.higher + history.lower === 0) {
+    if (history.too_few_posts === 0) {
+      return `${tested} and did not stand out in ${total === 1 ? "it" : "any of them"}.`;
+    }
+    return m === 1
+      ? `${tested}; it had enough posts to test in 1 and did not stand out in it.`
+      : `${tested}; it had enough posts to test in ${m} and stood out in none.`;
+  }
+  const both = history.higher > 0 && history.lower > 0;
+  const where = both
+    ? `above the rest of the channel in ${history.higher} and below it in ${history.lower}`
+    : `${history.direction === "lower" ? "below" : "above"} the rest of the channel in ${history.stood_out}`;
+  if (total === 1) return `${tested} and stood out ${history.direction === "lower" ? "below" : "above"} the rest of the channel in it.`;
+  const outOf =
+    history.too_few_posts > 0 ? `of the ${m} with enough of its posts to test` : "of them";
+  const verdict = stale ? null : testVerdict(row, method);
+  if (m === 1) {
+    // 1 cách chia đủ bài (+ ≥ 1 cách chia thiếu bài) và topic đã đạt ở đó — tránh "in 1 of the 1"
+    // (chữ Thy duyệt 2026-10-20). Lần hiện tại kiểm định được thì chính là lần đạt đó.
+    const only = `${tested}: it stood out ${history.direction === "lower" ? "below" : "above"} the rest of the channel in the only one with enough of its posts to test`;
+    return verdict === "higher" || verdict === "lower"
+      ? `${only}, the current one.`
+      : verdict === "too few posts"
+        ? `${only}; the current one had too few of its posts to test.`
+        : `${only}.`;
+  }
+  const current =
+    verdict === null || verdict === "not tested"
+      ? ""
+      : verdict === "higher" || verdict === "lower"
+        ? `, including the current one${both ? ` (${verdict === "higher" ? "above" : "below"})` : ""}`
+        : verdict === "too few posts"
+          ? "; the current one had too few of its posts to test"
+          : ", but not in the current one";
+  return `${tested}: it stood out ${where} ${outOf}${current}.`;
 }
 
 // Đánh dấu theo ADR-0023 (p Holm < ngưỡng VÀ đủ bài); ADR-0024: chỉ là gợi ý, không câu khẳng định
@@ -130,6 +189,11 @@ export function testTimes(computedAt: string, dataAsOf: string | null): string {
   const [dataDate, dataTime] = parisTime(dataAsOf).replace(" Paris time", "").split(" ");
   const upTo = dataDate === ranDate ? dataTime : `${dataDate} ${dataTime}`;
   return `${ranDate} at ${ranTime} on data collected up to ${upTo} (Paris time)`;
+}
+
+// Chỉ ngày theo giờ Paris ("2026-10-12") — mốc bắt đầu lịch sử "k of m" (ADR-0024)
+export function parisDate(iso: string): string {
+  return parisTime(iso).slice(0, 10);
 }
 
 // "A", "A and B", "A, B and C"
@@ -281,6 +345,7 @@ export function buildLandingData(
             snapshotAsOf: comparisons.snapshot_as_of,
             stale: comparisons.stale,
             method: comparisons.method,
+            history: comparisons.history,
             engagement: Object.fromEntries(
               comparisons.rows
                 .filter((row) => row.kind === "topic" && row.metric === "engagement")

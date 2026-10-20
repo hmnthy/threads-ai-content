@@ -2,7 +2,7 @@
 `/topics/comparisons` và sàn views của bảng top (ADR-0023)."""
 
 import sqlite3
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -17,6 +17,7 @@ from src.db.schema import (
     create_schema,
     insert_cluster_run,
     insert_insight_snapshot,
+    replace_topic_comparisons,
     update_reply_roles,
     upsert_content_unit,
     upsert_embedding,
@@ -302,6 +303,117 @@ def test_stale_comparisons_hide_tests_but_keep_descriptives(db_path: Path) -> No
         assert row["effect_size_ci_low"] is None and row["effect_size_ci_high"] is None
         assert row["p_value"] is None and row["p_value_holm"] is None
         assert row["group"]["n"] > 0  # mô tả vẫn trả (Thy chốt D3)
+        # lịch sử đếm từ các lần so sánh đã lưu — không bị ẩn theo `stale`
+        assert row["history"] is not None
+
+
+def stored_comparison_row(
+    group_id: str,
+    *,
+    kind: str = "topic",
+    effect: float | None = None,
+    p_holm: float | None = None,
+    insufficient: bool = False,
+) -> Mapping[str, object]:
+    tested = kind == "topic"
+    return {
+        "group_id": group_id,
+        "kind": kind,
+        "metric": "engagement",
+        "n": 3 if insufficient else 8,
+        "excluded_no_views": 0,
+        "median": 1.0,
+        "iqr_low": 0.5,
+        "iqr_high": 1.5,
+        "rest_n": 10 if tested else None,
+        "rest_excluded_no_views": 0 if tested else None,
+        "rest_median": 1.0 if tested else None,
+        "rest_iqr_low": 0.5 if tested else None,
+        "rest_iqr_high": 1.5 if tested else None,
+        "tested": int(tested),
+        "effect_size": effect,
+        "effect_size_ci_low": None,
+        "effect_size_ci_high": None,
+        "p_value": p_holm,
+        "p_value_holm": p_holm,
+        "p_value_mann_whitney": None,
+        "test_method": "brunner_munzel_permutation" if tested else None,
+        "insufficient_data": int(insufficient),
+    }
+
+
+def test_topic_comparisons_report_history_by_distinct_clustering(db_path: Path) -> None:
+    # Lần 1 và 2 cùng cách chia (nhãn y hệt), lần 3 cách chia mới. topic_1 đạt ở lần 1 nhưng lần
+    # 2 (mới nhất của cách chia 1) không đạt → cách chia 1 không đạt; đạt ở cách chia 2 → 1 of 2.
+    # topic_2 chỉ có ở cách chia 2 và thiếu bài → m = 0, too_few_posts = 1.
+    same = {"a": 0, "b": 0, "c": -1}
+    conn = connect(db_path)
+    for run_at, labels in [
+        ("2026-10-01T10:30:00+00:00", same),
+        ("2026-10-02T10:30:00+00:00", same),
+        ("2026-10-03T10:30:00+00:00", {"a": 0, "b": 1, "c": -1, "d": -1}),
+    ]:
+        insert_cluster_run(
+            conn,
+            run_at=run_at,
+            model_id="BAAI/bge-m3",
+            params={},
+            n_units=len(labels),
+            n_clusters=2,
+            noise_ratio=0.3,
+            dbcv=None,
+            ari_vs_previous=None,
+            labels=labels,
+        )
+    conn.commit()
+    stored = {
+        1: [stored_comparison_row("topic_1", effect=0.6, p_holm=0.01)],
+        2: [stored_comparison_row("topic_1", effect=0.5, p_holm=0.30)],
+        3: [
+            stored_comparison_row("topic_1", effect=0.6, p_holm=0.01),
+            stored_comparison_row("topic_2", effect=0.9, p_holm=1.0, insufficient=True),
+            stored_comparison_row("noise", kind="noise"),
+        ],
+    }
+    for run_id, rows in stored.items():
+        replace_topic_comparisons(
+            conn,
+            cluster_run_id=run_id,
+            computed_at="2026-10-03T11:00:00+00:00",
+            snapshot_as_of=None,
+            n_permutations=100,
+            random_seed=0,
+            holm_family_size=len(rows),
+            rows=rows,
+        )
+    conn.close()
+
+    data = TestClient(main_module.app).get("/topics/comparisons").json()
+
+    assert data["history"] == {
+        "clusterings_compared": 2,
+        "since": "2026-10-02T10:30:00+00:00",
+    }
+    by_group = {row["group_id"]: row for row in data["rows"]}
+    assert by_group["topic_1"]["history"] == {
+        "clusterings": 2,
+        "higher": 1,
+        "lower": 0,
+        "too_few_posts": 0,
+        "since": "2026-10-02T10:30:00+00:00",
+        "direction": "higher",
+        "stood_out": 1,
+    }
+    assert by_group["topic_2"]["history"]["clusterings"] == 0
+    assert by_group["topic_2"]["history"]["too_few_posts"] == 1
+    # chưa đạt lần nào → không có hướng (k = 0 không gắn "above/below")
+    assert by_group["topic_2"]["history"]["direction"] is None
+    assert by_group["topic_2"]["history"]["stood_out"] == 0
+    assert by_group["noise"]["history"] is None
+
+
+def test_topic_comparisons_history_is_null_before_the_compare_step_ran(db_path: Path) -> None:
+    assert TestClient(main_module.app).get("/topics/comparisons").json()["history"] is None
 
 
 # --- sàn views cho bảng top (ADR-0023 1f) -----------------------------------------------------

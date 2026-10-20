@@ -6,15 +6,18 @@ from pathlib import Path
 import pytest
 
 from scripts import topic_stability_report as report
+from src.analysis.partition_history import distinct_partitions
 from src.api.models import PostInsights, ThreadsPost
 from src.db.schema import (
     connect,
     create_schema,
     insert_cluster_run,
     insert_insight_snapshot,
+    replace_topic_comparisons,
     upsert_post,
 )
 from src.models.insight_snapshot import InsightSnapshot
+from tests.test_main_pipeline import stored_comparison_row
 
 
 def _run(run_id: int, ari: float | None, labels: dict[str, int]) -> report.ClusterRun:
@@ -25,29 +28,14 @@ A = {"u1": 0, "u2": 0, "u3": -1}
 B = {"u1": 0, "u2": 1, "u3": -1}
 
 
-def test_runs_with_identical_labels_share_the_previous_partition() -> None:
-    # Cùng dữ liệu + seed cố định → nhãn y hệt → cùng cách chia; thứ tự đầu vào không quan trọng
-    runs = [_run(4, 0.5, B), _run(2, None, A), _run(3, 1.0, A), _run(5, 1.0, B), _run(6, 0.4, A)]
+def test_script_groups_runs_with_the_shared_partition_definition() -> None:
+    # Định nghĩa "cách chia" nằm ở `src/analysis/partition_history.py` (test đầy đủ ở
+    # tests/analysis/test_partition_history.py); script phải dùng đúng định nghĩa đó với ClusterRun
+    runs = [_run(4, 0.5, B), _run(2, None, A), _run(3, 1.0, A)]
 
-    groups = report.distinct_partitions(runs)
+    groups = distinct_partitions(runs)
 
-    assert [[run.id for run in group] for group in groups] == [[2, 3], [4, 5], [6]]
-
-
-def test_ari_one_with_a_new_unit_opens_a_new_partition() -> None:
-    # ARI chỉ tính trên unit chung: thêm 1 bài mới (vào nhiễu) vẫn ra ARI 1.0 — nhưng là dữ liệu
-    # khác, nên phải là cách chia mới (code-reviewer 2026-10-18)
-    grown = {**A, "u4": -1}
-
-    groups = report.distinct_partitions([_run(1, None, A), _run(2, 1.0, grown)])
-
-    assert len(groups) == 2
-
-
-def test_missing_ari_does_not_split_identical_labels() -> None:
-    groups = report.distinct_partitions([_run(1, None, A), _run(2, None, A)])
-
-    assert len(groups) == 1
+    assert [[run.id for run in group] for group in groups] == [[2, 3], [4]]
 
 
 def test_jaccard_and_members() -> None:
@@ -149,6 +137,33 @@ def test_report_counts_partitions_and_tracks_a_past_cluster(
     assert "cụm khớp nhất c0 (3 bài, Jaccard 0.50): c0 engagement: n = 3 vs 10" in out
 
 
+def test_history_only_prints_k_of_m_like_the_api(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Lần 1–2 cùng cách chia: lần 2 (mới nhất) đại diện, không đạt; lần 3 đạt → cao hơn 1 / m = 2
+    db = _db(tmp_path)
+    conn = connect(db)
+    for run_id, p_holm in [(1, 0.01), (2, 0.30), (3, 0.01)]:
+        replace_topic_comparisons(
+            conn,
+            cluster_run_id=run_id,
+            computed_at="2026-10-03T11:00:00+00:00",
+            snapshot_as_of=None,
+            n_permutations=100,
+            random_seed=0,
+            holm_family_size=1,
+            rows=[stored_comparison_row("topic_1", effect=0.6, p_holm=p_holm)],
+        )
+    conn.close()
+
+    report.main(["--db", str(db), "--history-only"])
+
+    out = capsys.readouterr().out
+    assert "1. " not in out  # không chạy các mục chậm
+    assert "2 cách chia có kết quả so sánh (đại diện = lần [2, 3]), từ 2026-10-02" in out
+    assert "topic_1 engagement: cao hơn 1, thấp hơn 0 / m = 2 (+0 thiếu bài), từ 2026-10-02" in out
+
+
 def test_reference_run_without_cluster_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(SystemExit):
         report.main(["--db", str(_db(tmp_path)), "--reference-run", "1"])
@@ -174,3 +189,15 @@ def test_report_without_cluster_runs(tmp_path: Path, capsys: pytest.CaptureFixtu
     report.main(["--db", str(db)])
 
     assert "Chưa có lần gom cụm nào" in capsys.readouterr().out
+
+
+def test_history_only_on_a_database_without_tables(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # DB chưa migrate: in "chưa có", không crash (code-reviewer 2026-10-20)
+    db = tmp_path / "bare.db"
+    connect(db).close()
+
+    report.main(["--db", str(db), "--history-only"])
+
+    assert "Chưa có lần so sánh nào." in capsys.readouterr().out
