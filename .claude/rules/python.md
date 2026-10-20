@@ -8,6 +8,7 @@ paths:
 # Python — quy ước
 
 - Python 3.12, quản lý bằng `uv` (`uv add`, `uv run`) — không `pip install` vào venv.
+- `[project].dependencies` = gói Vercel cài cho API (ADR-0025, ≤ 500 MB): chỉ thứ `import src.main` cần. Thư viện chỉ job dùng → `uv add --group pipeline`. Không chạy `uv sync --no-dev` ở thư mục chính (gỡ nhóm `pipeline` khỏi `.venv` cron dùng) — giả lập gói Vercel trong venv riêng: `UV_PROJECT_ENVIRONMENT=<thư mục tạm> uv sync --frozen --no-dev`.
 - ruff (lint + format, line-length 100) chạy tự động sau mỗi Edit/Write qua hook; mypy **strict** trên `src/` + `tests/` + `scripts/` — không thêm `# type: ignore` nếu chưa thử sửa đúng kiểu.
 - Model dữ liệu: pydantic v2 cho payload API/response; `@dataclass(frozen=True)` cho domain model (`src/models/`).
 - Mọi rate phải guard `views == 0`. Bài `views == 0` là insight thiếu, không phải 0%: mọi phân phối rate (median/IQR/bucket/xếp hạng) đi qua `split_measurable()` (`src/analysis/stats.py`) và trả số bị loại ra ngoài (ADR-0011). Mọi hằng số heuristic: đặt tên HOA + docstring ghi "hypothesis, chưa calibrate" hoặc nguồn bằng chứng.

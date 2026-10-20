@@ -16,6 +16,13 @@ from scripts import job_health
 from scripts.job_health import TaskInfo
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
+
+
+def _job_lines(lines: list[str]) -> list[str]:
+    """Dòng của 2 job + so sánh topic — bỏ dòng bản publish (ADR-0025, test riêng ở cuối file)."""
+    return [line for line in lines if "published copy" not in line]
+
+
 SNAPSHOT, NLP = job_health.JOBS
 
 
@@ -201,19 +208,19 @@ def test_report_warns_on_comparison_lag_unless_the_nlp_job_is_running(
 ) -> None:
     db = _runs_db(tmp_path, 3, [2])
     monkeypatch.setattr(job_health, "task_results", lambda: {})
-    lines = job_health.report(db, NOW, repo=tmp_path)
+    lines = _job_lines(job_health.report(db, NOW, repo=tmp_path))
     assert lines[-1].startswith(
         "WARN topic comparisons: latest cluster run 3; results are for run 2"
     )
     assert "hides δ and p" in lines[-1]
 
     # chưa từng có kết quả → landing hiện `next`, không phải "ẩn"
-    never = job_health.report(_runs_db(tmp_path / "never", 2, None), NOW, repo=tmp_path)
+    never = _job_lines(job_health.report(_runs_db(tmp_path / "never", 2, None), NOW, repo=tmp_path))
     assert "no results yet" in never[-1] and "hides" not in never[-1]
 
     running = {NLP.task: task(job_health.TASK_RUNNING)}
     monkeypatch.setattr(job_health, "task_results", lambda: running)
-    lines = job_health.report(db, NOW, repo=tmp_path)
+    lines = _job_lines(job_health.report(db, NOW, repo=tmp_path))
     assert not any("topic comparisons" in line for line in lines)
 
 
@@ -247,7 +254,7 @@ def test_report_warns_when_comparisons_used_old_metrics(
         as_of="2026-10-12T19:17:26+00:00",
         newest_snapshot="2026-10-17T17:10:37+00:00",
     )
-    lines = job_health.report(db, NOW, repo=tmp_path)
+    lines = _job_lines(job_health.report(db, NOW, repo=tmp_path))
     assert lines[-1] == (
         "WARN topic comparisons: run 16 used metrics as of 2026-10-12 19:17 UTC, 112h before "
         "it was computed; newer snapshots exist now — run "
@@ -288,7 +295,7 @@ def test_report_is_quiet_when_comparisons_used_fresh_metrics(
         as_of="2026-10-09T07:15:00+00:00",
         newest_snapshot="2026-10-09T11:15:00+00:00",
     )
-    lines = job_health.report(db, NOW, repo=tmp_path)
+    lines = _job_lines(job_health.report(db, NOW, repo=tmp_path))
     assert not any("topic comparisons" in line for line in lines)
 
 
@@ -306,7 +313,9 @@ def test_stale_check_is_skipped_when_comparisons_lag_behind_the_cluster_run(
         tmp_path, COMPUTED_17_10, AS_OF_12_10, "2026-10-17T17:10:37+00:00", cluster_runs=17
     )
     comparison_lines = [
-        line for line in job_health.report(db, NOW, repo=tmp_path) if "topic comparisons" in line
+        line
+        for line in _job_lines(job_health.report(db, NOW, repo=tmp_path))
+        if "topic comparisons" in line
     ]
     assert len(comparison_lines) == 1
     assert "latest cluster run 17; results are for run 16" in comparison_lines[0]
@@ -320,7 +329,7 @@ def test_comparison_db_error_is_reported_once(
 
     monkeypatch.setattr(job_health, "task_results", lambda: {})
     monkeypatch.setattr(job_health, "comparison_status", locked)
-    lines = job_health.report(tmp_path / "missing.db", NOW, repo=tmp_path)
+    lines = _job_lines(job_health.report(tmp_path / "missing.db", NOW, repo=tmp_path))
     assert [line for line in lines if "topic comparisons" in line] == [
         "WARN topic comparisons: could not read DB (database is locked) — retry later"
     ]
@@ -333,7 +342,7 @@ def test_stale_comparison_while_the_snapshot_job_runs_says_wait(
     running = {SNAPSHOT.task: task(job_health.TASK_RUNNING)}
     monkeypatch.setattr(job_health, "task_results", lambda: running)
     db = _inputs_db(tmp_path, COMPUTED_17_10, AS_OF_12_10, AS_OF_12_10)
-    lines = job_health.report(db, NOW, repo=tmp_path)
+    lines = _job_lines(job_health.report(db, NOW, repo=tmp_path))
     assert "the snapshot job is running now — wait for it" in lines[-1]
     assert "fix it first" not in lines[-1]
 
@@ -349,7 +358,7 @@ def test_report_survives_db_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(job_health, "task_results", lambda: None)
     monkeypatch.setattr(job_health, "latest_write", locked)
-    lines = job_health.report(tmp_path / "x.db", NOW, repo=tmp_path)
+    lines = _job_lines(job_health.report(tmp_path / "x.db", NOW, repo=tmp_path))
     assert lines == [
         "WARN snapshot: could not read DB (database is locked) — retry later",
         "WARN NLP recluster: could not read DB (database is locked) — retry later",
@@ -360,7 +369,7 @@ def test_report_uses_task_results(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(
         job_health, "task_results", lambda: {"ThreadsAI_SnapshotJob_4h": task(0xC000013A)}
     )
-    lines = job_health.report(tmp_path / "missing.db", NOW, repo=tmp_path)
+    lines = _job_lines(job_health.report(tmp_path / "missing.db", NOW, repo=tmp_path))
     assert lines[0].startswith("WARN snapshot") and "0xC000013A" in lines[0]
     assert lines[1].startswith("WARN NLP recluster") and "LastTaskResult" not in lines[1]
 
@@ -386,3 +395,79 @@ def test_contract_run_logged_lines_are_read_by_last_success(
     snap_rel = scheduled_job.LOG_PATH.relative_to(scheduled_job.REPO_ROOT).as_posix()
     nlp_rel = nlp_cluster_job.LOG_PATH.relative_to(nlp_cluster_job.REPO_ROOT).as_posix()
     assert (snap_rel, nlp_rel) == (SNAPSHOT.log, NLP.log)
+
+
+# --- bản sao DB publish cho trang công khai (ADR-0025) ---
+
+FIVE_H = timedelta(hours=5)
+
+
+def _state(tmp_path: Path, published_at: str) -> Path:
+    path = tmp_path / "publish_state.json"
+    path.write_text(
+        f'{{"published_at": "{published_at}", "latest_snapshot_at": "2026-10-01T09:58:00+00:00"}}',
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_publish_not_set_up_is_not_a_warning(tmp_path: Path) -> None:
+    line = job_health.publish_status(tmp_path / "missing.json", NOW, FIVE_H, False)
+    assert line.startswith("published copy: not set up yet")
+
+
+def test_publish_fresh_is_ok(tmp_path: Path) -> None:
+    line = job_health.publish_status(
+        _state(tmp_path, "2026-10-01T10:00:00+00:00"), NOW, FIVE_H, False
+    )
+    assert line == ("published copy OK (published 2.0h ago, data to 2026-10-01T09:58:00+00:00)")
+
+
+def test_publish_stale_warns(tmp_path: Path) -> None:
+    line = job_health.publish_status(
+        _state(tmp_path, "2026-10-01T06:59:00+00:00"), NOW, FIVE_H, False
+    )
+    assert line.startswith("WARN published copy: stale (published 5.0h ago")
+
+
+def test_publish_unreadable_state_warns(tmp_path: Path) -> None:
+    path = tmp_path / "publish_state.json"
+    path.write_text("{not json", encoding="utf-8")
+    assert job_health.publish_status(path, NOW, FIVE_H, False).startswith(
+        "WARN published copy: could not"
+    )
+    path.write_text("[]", encoding="utf-8")
+    assert job_health.publish_status(path, NOW, FIVE_H, False).startswith(
+        "WARN published copy: could not"
+    )
+
+
+def test_report_includes_publish_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(job_health, "task_results", lambda: {})  # không gọi PowerShell thật
+    lines = job_health.report(tmp_path / "no.db", NOW, repo=tmp_path)
+    assert lines[-1].startswith("published copy: not set up yet")
+
+
+def test_publish_line_without_snapshots_or_with_clock_skew(tmp_path: Path) -> None:
+    path = tmp_path / "publish_state.json"
+    path.write_text(
+        '{"published_at": "2026-10-01T12:18:00+00:00", "latest_snapshot_at": null}',
+        encoding="utf-8",
+    )
+    line = job_health.publish_status(path, NOW, FIVE_H, True)
+    assert line == "published copy OK (published 0.0h ago, data to no snapshots)"
+
+
+def test_publish_configured_but_never_succeeded_warns(tmp_path: Path) -> None:
+    # VD quên `uv sync --frozen` sau merge → mọi lần publish lỗi import, file trạng thái không có
+    line = job_health.publish_status(tmp_path / "missing.json", NOW, FIVE_H, True)
+    assert line.startswith("WARN published copy: configured but never published")
+
+
+def test_publish_configured_reads_only_the_key(tmp_path: Path) -> None:
+    env = tmp_path / ".env"
+    assert job_health.publish_configured(env) is False  # không có file
+    env.write_text("DB_BLOB_PATH=\nOTHER=1\n", encoding="utf-8")
+    assert job_health.publish_configured(env) is False  # khoá rỗng
+    env.write_text("DB_BLOB_PATH=db/threads.db\n", encoding="utf-8")
+    assert job_health.publish_configured(env) is True

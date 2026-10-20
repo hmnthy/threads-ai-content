@@ -79,6 +79,18 @@ def run_logged(name: str, body: Callable[[], object], status_log: Path | None = 
     return 0
 
 
+def publish_safely() -> None:
+    """Bước cuối của cả 2 job: publish bản sao DB cho API trên Vercel (ADR-0025). Import trong
+    hàm + bắt mọi lỗi — kể cả lỗi import của module publish — để publish không bao giờ chặn hay
+    đổi kết quả của job (gọi trong `finally`)."""
+    try:
+        from src.pipeline.publish import publish_after_job
+
+        publish_after_job()
+    except Exception as exc:
+        print(f"publish: FAILED to start ({type(exc).__name__}: {exc})", flush=True)
+
+
 def run_job(
     name: str,
     description: str,
