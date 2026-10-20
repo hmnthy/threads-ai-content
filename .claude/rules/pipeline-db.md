@@ -20,5 +20,5 @@ paths:
 - Batch ≠ serving: pipeline ghi kết quả; `src/main.py` chỉ đọc, không load model. API không gọi `create_schema` → hàm đọc bảng MỚI phải coi "no such table" là "chưa có kết quả" (DB chưa migrate sau merge), kèm test. Helper `src/db/schema.py` để người gọi commit; helper nào tự commit (`with conn:`) phải chặn khi connection đang có transaction mở (`replace_topic_comparisons`).
 - Thêm/đổi thư viện mà job cron import → sau khi merge, **trước** lần chạy job kế tiếp: Windows `uv sync --frozen` ở
   thư mục chính; WSL2 (`~/threads-clustering-env`, ngoài `uv.lock`) `pip install` đúng phiên bản trong `pyproject.toml`
-  (VD `underthesea` cho bước cluster, ADR-0022). Thư viện kéo torch/transformers/sklearn chỉ được import ở bước WSL2 —
+  (nhóm `pipeline` — `uv export --frozen --only-group pipeline`; VD `underthesea` cho bước cluster, ADR-0022). Thư viện kéo torch/transformers/sklearn chỉ được import ở bước WSL2 —
   kiểm import gián tiếp (`python -X importtime -c "import <gói>"`) trước khi đặt vào bước chạy trên Windows.
