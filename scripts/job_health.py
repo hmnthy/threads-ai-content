@@ -68,6 +68,10 @@ JOBS = (
     ),
 )
 
+# File trạng thái của bước publish (`src/pipeline/publish.py`, ADR-0025) — chỉ ghi khi tải lên Blob
+# thành công, nên mốc trong file cũ đi khi publish lỗi hoặc job bị giết
+PUBLISH_STATE = "data/logs/publish_state.json"
+
 # Mã kết quả Task Scheduler hay gặp
 # (learn.microsoft.com: "Task Scheduler Error and Success Constants")
 TASK_RESULT_NAMES = {
@@ -322,6 +326,51 @@ def stale_comparison_warning(
     )
 
 
+def publish_configured(env_file: Path) -> bool:
+    """`.env` có khoá DB_BLOB_PATH không rỗng — chỉ kiểm có mặt, không bao giờ in giá trị.
+    Không bao giờ raise (hook đầu phiên phụ thuộc output này)."""
+    try:
+        from dotenv import dotenv_values
+
+        return bool((dotenv_values(env_file).get("DB_BLOB_PATH") or "").strip())
+    except Exception:
+        return False
+
+
+def publish_status(state_path: Path, now: datetime, max_age: timedelta, configured: bool) -> str:
+    """Bản sao DB mà trang công khai đọc (ADR-0025). Cùng ngưỡng tươi với job snapshot (chu kỳ
+    4h + 1h ân hạn, quy tắc vận hành): publish chạy ở cuối mỗi job snapshot. Chưa có file trạng
+    thái: chưa cấu hình → trung tính; đã cấu hình mà chưa lần nào thành công (VD quên
+    `uv sync --frozen`, token sai) → WARN."""
+    if not state_path.exists():
+        if configured:
+            return (
+                "WARN published copy: configured but never published successfully — see the "
+                "'publish:' lines in data/logs/scheduled_job.log"
+            )
+        return (
+            "published copy: not set up yet (no successful publish; needs DB_BLOB_PATH + "
+            "BLOB_READ_WRITE_TOKEN in .env)"
+        )
+    try:
+        data: Any = json.loads(state_path.read_text(encoding="utf-8"))
+        published = parse_timestamp(data.get("published_at"))
+        data_to = data.get("latest_snapshot_at")
+    except (OSError, ValueError, AttributeError) as exc:
+        return f"WARN published copy: could not read {PUBLISH_STATE} ({exc})"
+    if published is None:
+        return f"WARN published copy: no valid published_at in {PUBLISH_STATE}"
+    age = max(now - published, timedelta(0))  # đồng hồ lệch → không in "-0.3h ago"
+    text = f"published {age.total_seconds() / 3600:.1f}h ago, data to {data_to or 'no snapshots'}"
+    if age > max_age:
+        hours = max_age.total_seconds() / 3600
+        return (
+            f"WARN published copy: stale ({text}; > {hours:.0f}h) — the public site shows old "
+            f"numbers; see the 'publish:' lines in data/logs/scheduled_job.log"
+        )
+    return f"published copy OK ({text})"
+
+
 def report(
     db_path: Path = DB_PATH, now: datetime | None = None, repo: Path = REPO_ROOT
 ) -> list[str]:
@@ -364,6 +413,11 @@ def report(
         warning = stale_comparison_warning(inputs, snapshot.max_age, running)
         if warning:
             lines.append(warning)
+    lines.append(
+        publish_status(
+            repo / PUBLISH_STATE, now, snapshot.max_age, publish_configured(repo / ".env")
+        )
+    )
     return lines
 
 

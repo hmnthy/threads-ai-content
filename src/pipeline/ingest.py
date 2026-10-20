@@ -47,25 +47,29 @@ async def run_ingest(db_path: Path = DEFAULT_DB_PATH, *, use_cache: bool = True)
     creds = load_credentials()
     cache = Cache() if use_cache else None
     conn = connect(db_path)
-    create_schema(conn)
+    # try/finally: lỗi giữa chừng (VD commit `database is locked`) mà không đóng → traceback giữ
+    # frame này, connection còn sống và còn giữ khoá ghi trong lúc `finally` của job publish
+    # (ADR-0025) đọc DB — đóng là rollback phần chưa commit, nhả khoá
+    try:
+        create_schema(conn)
 
-    async with ThreadsClient(access_token=creds.access_token) as client:
-        posts = await get_posts(client, creds.user_id, cache=cache)
-        replies = await get_replies(client, creds.user_id, cache=cache)
-        units = build_content_units(posts, replies)
+        async with ThreadsClient(access_token=creds.access_token) as client:
+            posts = await get_posts(client, creds.user_id, cache=cache)
+            replies = await get_replies(client, creds.user_id, cache=cache)
+            units = build_content_units(posts, replies)
 
-        for post in [*posts, *replies]:
-            upsert_post(conn, post)
-        update_reply_roles(conn, assign_reply_roles(posts, replies))
-        _store_units(conn, units)
-        conn.commit()
+            for post in [*posts, *replies]:
+                upsert_post(conn, post)
+            update_reply_roles(conn, assign_reply_roles(posts, replies))
+            _store_units(conn, units)
+            conn.commit()
 
-        snapshot_count = await fetch_and_store_insights_snapshot(
-            client, conn, [unit.id for unit in units]
-        )
-        daily_views_count = await fetch_and_store_daily_views(client, conn, creds.user_id)
-
-    conn.close()
+            snapshot_count = await fetch_and_store_insights_snapshot(
+                client, conn, [unit.id for unit in units]
+            )
+            daily_views_count = await fetch_and_store_daily_views(client, conn, creds.user_id)
+    finally:
+        conn.close()
     return {
         "posts": len(posts),
         "replies": len(replies),
