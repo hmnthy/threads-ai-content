@@ -72,6 +72,9 @@ pipeline = [
     "underthesea==9.5.0",
     # engine CRF của word_tokenize — ảnh hưởng thẳng tới từ khoá topic (ADR-0022)
     "underthesea-core==3.3.2",
+    # SDK chưa 1.0, tên hàm đã lệch tài liệu (`put` → `put_blob`) và publish dùng 1 helper nội bộ:
+    # ghim đúng bản, test hợp đồng ở tests/pipeline/test_publish.py (ADR-0025)
+    "vercel-blob==0.5.0",
 ]
 dev = [
     { include-group = "pipeline" },

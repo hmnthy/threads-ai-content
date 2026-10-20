@@ -1,7 +1,8 @@
 """Entry point cho job chạy định kỳ (Windows Task Scheduler, mỗi 4h) — bắt post mới
 (nếu có) + lấy snapshot insights fresh cho toàn bộ content unit. Bắt buộc
 `use_cache=False`: tần suất 4h < TTL cache 6h (xem `run_ingest` docstring), dùng cache
-sẽ có nguy cơ bỏ lỡ post đăng giữa 2 lần chạy.
+sẽ có nguy cơ bỏ lỡ post đăng giữa 2 lần chạy. Sau cùng publish bản sao DB lên Blob cho API
+trên Vercel — `src.pipeline.publish` (ADR-0025).
 
 Task Scheduler gọi (không console, ADR-0013):
 `.venv\\Scripts\\pythonw.exe -m src.pipeline.scheduled_job --log data\\logs\\scheduled_job.log`
@@ -18,13 +19,18 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from src.pipeline.job_log import run_job
+from src.pipeline.job_log import publish_safely, run_job
 
 
 def _snapshot() -> object:
     from src.pipeline.ingest import run_ingest
 
-    return asyncio.run(run_ingest(use_cache=False))
+    try:
+        return asyncio.run(run_ingest(use_cache=False))
+    finally:
+        # cả khi ingest lỗi giữa chừng: phần đã commit vẫn nhất quán, đáng publish; publish không
+        # bao giờ raise nên lỗi gốc của job vẫn lên log + mã thoát (ADR-0025)
+        publish_safely()
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

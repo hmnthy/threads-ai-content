@@ -14,6 +14,7 @@ from typing import Any, TextIO
 
 import pytest
 
+import src.pipeline.publish as publish_module
 from src.pipeline import job_log, nlp_cluster_job, scheduled_job
 
 
@@ -107,7 +108,43 @@ def test_scheduled_job_success(
     monkeypatch.setattr(ingest, "run_ingest", fake_ingest)
     log = tmp_path / "scheduled_job.log"
     assert scheduled_job.main(["--log", str(log)]) == 0
-    assert "scheduled_job xong (exit 0): {'posts': 1}" in log.read_text(encoding="utf-8")
+    text = log.read_text(encoding="utf-8")
+    assert "scheduled_job xong (exit 0): {'posts': 1}" in text
+    assert "publish: skipped" in text  # bước publish chạy, chưa cấu hình (conftest xoá biến)
+
+
+def test_scheduled_job_publishes_even_when_ingest_fails(
+    tmp_path: Path, pythonw_streams: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def failing_ingest(*, use_cache: bool) -> dict[str, int]:
+        raise RuntimeError("Meta HTTP 500")
+
+    import src.pipeline.ingest as ingest
+
+    calls: list[str] = []
+    monkeypatch.setattr(ingest, "run_ingest", failing_ingest)
+    monkeypatch.setattr(publish_module, "publish_after_job", lambda: calls.append("publish"))
+    log = tmp_path / "scheduled_job.log"
+
+    assert scheduled_job.main(["--log", str(log)]) == 1  # lỗi gốc vẫn ra mã thoát
+    assert calls == ["publish"]  # phần đã commit vẫn được publish
+    assert "Meta HTTP 500" in log.read_text(encoding="utf-8")
+
+
+def test_nlp_job_publishes_even_when_a_step_fails(
+    tmp_path: Path, pythonw_streams: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def failing_steps(*args: object, **kwargs: object) -> list[str]:
+        raise RuntimeError("bước compare lỗi (exit 1); dừng job")
+
+    calls: list[str] = []
+    monkeypatch.setattr(nlp_cluster_job, "run_steps", failing_steps)
+    monkeypatch.setattr(publish_module, "publish_after_job", lambda: calls.append("publish"))
+    log = tmp_path / "nlp_cluster_job.log"
+
+    assert nlp_cluster_job.main(["--log", str(log)]) == 1
+    assert calls == ["publish"]  # kết quả gom cụm đã import vẫn lên trang công khai
+    assert "bước compare lỗi" in log.read_text(encoding="utf-8")
 
 
 def test_wsl_path() -> None:
