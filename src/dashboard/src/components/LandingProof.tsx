@@ -14,6 +14,8 @@ import {
   axisPct,
   count,
   formatP,
+  historySentence,
+  parisDate,
   parisTime,
   pct,
   rowSwarm,
@@ -35,7 +37,8 @@ import {
 // D3). Panel 2 đọc cluster_runs thật.
 // Chữ Thy duyệt 2026-10-09: phép so là TỈ LỆ engagement so với PHẦN CÒN LẠI của kênh
 const PANEL_QUESTION = "Which topics get a higher engagement rate than the rest of the channel?";
-const TABLE = "grid grid-cols-[minmax(150px,240px)_44px_minmax(0,1fr)_64px_52px_60px] gap-4";
+const TABLE =
+  "grid grid-cols-[minmax(150px,240px)_44px_minmax(0,1fr)_64px_52px_60px_60px] gap-4";
 
 export function LandingProof({ data }: { data: LandingData | null }) {
   return (
@@ -148,13 +151,19 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
       : hovered?.stats.insufficient_data
         ? " Too few posts to draw a conclusion; read as indicative only."
         : "";
+  // ADR-0024: lịch sử "k of m" — vẫn hiện khi `stale` (đếm từ các lần kiểm định đã lưu)
+  const historyText =
+    hovered && tests
+      ? historySentence(tests.engagement[hovered.id], tests.method, tests.stale)
+      : "";
+  const historyNote = historyText ? ` ${historyText}` : "";
   const deltaHint = testsShown
     ? " δ runs from −1 to +1: above 0, the topic's posts tend to have a higher rate than the rest of the channel."
     : "";
   const readNote = hovered
     ? hovered.stats.n === 0
       ? `${hovered.name}: no measured posts (n = 0).`
-      : `${hovered.name}: median ${pct(hovered.stats.median)}, IQR ${hovered.stats.iqr_low.toFixed(2)}–${pct(hovered.stats.iqr_high)}, n = ${hovered.stats.n}.${testNote}`
+      : `${hovered.name}: median ${pct(hovered.stats.median)}, IQR ${hovered.stats.iqr_low.toFixed(2)}–${pct(hovered.stats.iqr_high)}, n = ${hovered.stats.n}.${testNote}${historyNote}`
     : hasChannelMedian
       ? `Dashed line: channel median ${pct(channelMedian)}.${deltaHint} Hover or focus a row to read it.`
       : `${deltaHint.trim()} Hover or focus a row to read it.`.trim();
@@ -190,7 +199,7 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
       </div>
 
       <div className="overflow-x-auto">
-        <div className="flex min-w-[760px] flex-col tabular-nums">
+        <div className="flex min-w-[840px] flex-col tabular-nums">
           <div
             className={`${TABLE} items-end border-b border-rule pb-2 text-[11px] font-semibold text-text-muted`}
           >
@@ -212,6 +221,12 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
               {tests ? "δ" : "δ · next"}
             </span>
             <span className="text-right">{tests ? "Holm p" : "Holm p · next"}</span>
+            <span
+              className="text-right"
+              title="Clusterings in which this topic stood out, out of those with enough of its posts to test. See Method and limits."
+            >
+              {tests ? "stood out in" : "stood out in · next"}
+            </span>
           </div>
           <div className="relative">
             <div className={`${TABLE} pointer-events-none absolute inset-0`} aria-hidden="true">
@@ -236,6 +251,8 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
                 : tests.stale
                   ? "hidden: tests belong to an earlier clustering run"
                   : "not tested";
+              // lịch sử đọc cả khi `stale` (δ/p bị ẩn nhưng các lần kiểm định cũ vẫn đúng)
+              const tally = tests?.engagement[topic.id]?.history ?? null;
               const isHover = hover === topic.id;
               const faded = topic.stats.insufficient_data && !isHover;
               // n = 0: backend trả 0.0 cho tập rỗng — không vẽ median/IQR giả (ADR-0011)
@@ -318,6 +335,31 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
                       formatP(pHolm)
                     )}
                   </span>
+                  <span
+                    className={`text-right font-mono text-[12.5px] ${tally && tally.clusterings > 0 ? (isLead && testsShown ? "text-amber-600" : "text-text-primary") : "text-text-muted"}`}
+                  >
+                    {tally && tally.clusterings > 0 ? (
+                      <>
+                        {/* mũi tên ghi hướng — k = 0 không có hướng (backend `direction` null) */}
+                        <span aria-hidden="true">
+                          {tally.stood_out} of {tally.clusterings}
+                          {tally.direction ? (tally.direction === "higher" ? " ↑" : " ↓") : ""}
+                        </span>
+                        <span className="sr-only">
+                          {tally.direction
+                            ? `stood out ${tally.direction === "higher" ? "above" : "below"} the rest of the channel in ${tally.stood_out} of ${tally.clusterings} clusterings`
+                            : `stood out in 0 of ${tally.clusterings} clusterings`}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span aria-hidden="true">—</span>
+                        <span className="sr-only">
+                          {tally ? "no clustering had enough of its posts to test yet" : missingReason}
+                        </span>
+                      </>
+                    )}
+                  </span>
                 </div>
               );
             })}
@@ -352,7 +394,7 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
                 <span className="text-right font-mono text-[12.5px] font-medium text-text-muted">
                   {pct(data.noise.stats.median)}
                 </span>
-                <span className="col-span-2 text-right text-[11.5px] text-text-muted">not tested</span>
+                <span className="col-span-3 text-right text-[11.5px] text-text-muted">not tested</span>
               </div>
             ) : null}
           </div>
@@ -382,7 +424,7 @@ function TopicEngagementPanel({ data }: { data: LandingData }) {
             }`}
             limits={
               tests
-                ? `A topic is named in the answer above only when its Holm-corrected p is below ${tests.method.conclusion_alpha} and it has at least ${tests.method.min_posts_to_compare} posts with recorded views; smaller topics are faded and read as indicative only. Medians only describe; the test alone decides which topics are named. Every comparison here is exploratory: it depends on where the topic boundaries fall. Topics are re-clustered daily with a fixed random seed, so the same posts give the same topics, but a few new posts or a different seed can redraw them. Re-running the tests on earlier groupings of the same posts has made results appear and disappear. A topic will be reported as a finding only once it passes a stability rule (re-clustering with several random seeds); that rule is not set yet. The CI is unadjusted, so it can exclude 0 while the corrected p stays above ${tests.method.conclusion_alpha}. Holm-corrected p-values are capped at 1. With so few posts per topic only very large differences can be detected, so "not distinguishable" (even at p = 1.000) does not mean "no difference".`
+                ? `A topic is named in the answer above only when its Holm-corrected p is below ${tests.method.conclusion_alpha} and it has at least ${tests.method.min_posts_to_compare} posts with recorded views; smaller topics are faded and read as indicative only. Medians only describe; the test alone decides which topics are named. Every comparison here is exploratory: it depends on where the topic boundaries fall. Topics are re-clustered daily with a fixed random seed, so the same posts give the same topics, but a few new posts or a different seed can redraw them. Re-running the tests on earlier clusterings of the same posts has made results appear and disappear. A topic will be reported as a finding only once it passes a stability rule (re-clustering with several random seeds); that rule is not set yet. The "stood out in" column is a record, not that rule. A clustering is one way of grouping the posts into topics; daily runs that give the same topics count once, using the latest test. The column counts the ${tests.history ? `${tests.history.clusterings_compared} ${tests.history.clusterings_compared === 1 ? "clustering" : "clusterings"}` : "clusterings"}${tests.history?.since ? ` tested since ${parisDate(tests.history.since)}` : ""} and leaves out those that gave a topic too few posts to test; each topic's count starts at its first counted clustering. ↑ means above the rest of the channel, ↓ below; a topic that stood out both ways shows the direction of its current δ, or, while tests are hidden, the direction it stood out in more often. The clusterings share most of their posts, so they are not independent tests. Topics are matched across clusterings by their posts and content; when topics merge or split, the result may count as a new topic, and its count starts again. The CI is unadjusted, so it can exclude 0 while the corrected p stays above ${tests.method.conclusion_alpha}. Holm-corrected p-values are capped at 1. With so few posts per topic only very large differences can be detected, so "not distinguishable" (even at p = 1.000) does not mean "no difference".`
                 : `Topics with fewer than ${data.summary.min_posts_to_compare} posts with recorded views are faded and read as indicative. A higher median is a description, not a tested difference, until the per-topic tests ship.`
             }
           />

@@ -18,6 +18,8 @@ In theo thứ tự đọc của ADR:
 5. Theo dõi nhóm bài tham chiếu (mặc định: topic có p Holm engagement nhỏ nhất ở lần so sánh mới
    nhất; hoặc `--reference-run R --reference-cluster C` = cụm C của lần R) qua mọi cách chia: bài
    nằm ở đâu, cụm khớp nhất (Jaccard), engagement của cụm đó.
+6. Lịch sử "đạt ở k trong m cách chia" của mọi topic × chỉ số — cùng hàm với API/landing
+   (`--history-only` chỉ in mục này, vài giây).
 
 Số ADR-0024 (2026-10-18): `--reference-run 16 --reference-cluster 8` (topic_11 ở lần 16, 18 bài).
 """
@@ -33,6 +35,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+# Định nghĩa "cách chia" dùng chung với API (lịch sử "k trong m cách chia", ADR-0024)
+from src.analysis.partition_history import (
+    StoredComparison,
+    distinct_partitions,
+    partition_history,
+    partition_run_ids,
+    representatives,
+)
 from src.analysis.topic_comparison import (
     CONCLUSION_ALPHA,
     GroupComparison,
@@ -41,7 +51,13 @@ from src.analysis.topic_comparison import (
     compare_topics,
 )
 from src.api.models import PostInsights
-from src.db.schema import DEFAULT_DB_PATH, latest_insight_snapshot, snapshot_row_to_post_insights
+from src.db.schema import (
+    DEFAULT_DB_PATH,
+    latest_insight_snapshot,
+    list_cluster_run_labels,
+    list_tested_topic_comparisons,
+    snapshot_row_to_post_insights,
+)
 
 # Độ phân giải đủ để phân biệt quanh ngưỡng Holm 0.05/30 ≈ 0.0017 (sàn p thô ≈ 1/20.001); job thật
 # dùng 100.000 — đây là báo cáo thăm dò, không phải số hiển thị
@@ -56,17 +72,6 @@ class ClusterRun:
     noise_ratio: float
     ari_vs_previous: float | None
     labels: dict[str, int]
-
-
-def distinct_partitions(runs: Sequence[ClusterRun]) -> list[list[ClusterRun]]:
-    """Gom các lần gom cụm liên tiếp có nhãn giống hệt lần trước (cùng tập unit, cùng nhãn)."""
-    groups: list[list[ClusterRun]] = []
-    for run in sorted(runs, key=lambda r: r.id):
-        if groups and run.labels == groups[-1][-1].labels:
-            groups[-1].append(run)
-        else:
-            groups.append([run])
-    return groups
 
 
 def jaccard(a: set[str], b: set[str]) -> float:
@@ -190,6 +195,11 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
     parser.add_argument("--reference-cluster", type=int, default=None)
     parser.add_argument("--permutations", type=int, default=DEFAULT_PERMUTATIONS)
+    parser.add_argument(
+        "--history-only",
+        action="store_true",
+        help="chỉ in mục 6 (lịch sử k trong m cách chia) — vài giây, không chạy lại phép so",
+    )
     args = parser.parse_args(argv)
     if (args.reference_run is None) != (args.reference_cluster is None):
         parser.error("--reference-run và --reference-cluster phải đi cùng nhau")
@@ -197,9 +207,52 @@ def main(argv: Sequence[str] | None = None) -> None:
     conn = sqlite3.connect(args.db.resolve().as_uri() + "?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     try:
-        report(conn, args, parser)
+        if not args.history_only:
+            report(conn, args, parser)
+        history(conn)
     finally:
         conn.close()
+
+
+def history(conn: sqlite3.Connection) -> None:
+    """Mục 6: lịch sử "đạt ở k trong m cách chia" — đúng hàm `GET /topics/comparisons` dùng
+    (`src/analysis/partition_history.py`), nên số in ra là số landing hiển thị."""
+    print("\n6. Lịch sử k trong m cách chia (như `GET /topics/comparisons`)")
+    # DB chưa migrate (chưa có `cluster_runs` / `topic_comparisons`) đọc là "chưa có kết quả"
+    try:
+        stored = [
+            StoredComparison(
+                cluster_run_id=row["cluster_run_id"],
+                run_at=row["run_at"],
+                group_id=row["group_id"],
+                metric=row["metric"],
+                effect_size=row["effect_size"],
+                p_value_holm=row["p_value_holm"],
+                insufficient_data=bool(row["insufficient_data"]),
+            )
+            for row in list_tested_topic_comparisons(conn)
+        ]
+        partitions = partition_run_ids(list_cluster_run_labels(conn))
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc):
+            raise
+        stored, partitions = [], []
+    compared = representatives(partitions, {row.cluster_run_id for row in stored})
+    if not compared:
+        print("   Chưa có lần so sánh nào.")
+        return
+    print(
+        f"   {len(compared)} cách chia có kết quả so sánh (đại diện = lần {compared}), "
+        f"từ {next(r.run_at for r in stored if r.cluster_run_id == compared[0])[:10]}"
+    )
+    current = {(row.group_id, row.metric) for row in stored if row.cluster_run_id == compared[-1]}
+    tallies = partition_history(partitions, stored, alpha=CONCLUSION_ALPHA)
+    for (topic, metric), tally in sorted(tallies.items()):
+        print(
+            f"   {topic} {metric}: cao hơn {tally.higher}, thấp hơn {tally.lower} / m = "
+            f"{tally.clusterings} (+{tally.too_few_posts} thiếu bài), từ {tally.since[:10]}"
+            f"{'' if (topic, metric) in current else ' — không còn ở cách chia mới nhất'}"
+        )
 
 
 def report(

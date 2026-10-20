@@ -215,8 +215,22 @@ chứng mô phỏng (`scripts/topic_method_report.py` mục 5, ở ngưỡng 0.0
   đạt — giữ cố định cả tập bài (144 unit chung) vẫn vậy. Bài của topic_11 ở lần 16: 9–11 bài luôn chung 1 cụm ở các
   cách chia khác, nhưng chỉ thành kết luận khi ranh giới cụm ôm gọn chúng. Sinh lại bằng `uv run python -m
   scripts.topic_stability_report --reference-run 16 --reference-cluster 8`. Vì vậy kết quả so sánh hiển thị **dạng
-  gợi ý** ("a lead, not a finding": δ + CI + p Holm, câu giới hạn; lịch sử "đạt ở k trong m cách chia" — chưa làm, việc
-  trước deploy) cho tới khi RQ-01 (đa seed) đo được độ nhạy và ADR mới chọn luật bền.
+  gợi ý** ("a lead, not a finding": δ + CI + p Holm, câu giới hạn; lịch sử "đạt ở k trong m cách chia" — mục dưới)
+  cho tới khi RQ-01 (đa seed) đo được độ nhạy và ADR mới chọn luật bền.
+- **Lịch sử "đạt ở k trong m cách chia" (ADR-0024 quyết định 3; Thy chốt cách đếm 2026-10-20):**
+  `src/analysis/partition_history.py`, `GET /topics/comparisons` tính khi đọc từ `cluster_runs.labels_json` +
+  `topic_comparisons` đã lưu (không bảng mới, không sửa job; ~8 ms/request trên 19 lần gom cụm). (1) Mỗi cách chia đếm
+  **1 lần, bằng lần so sánh mới nhất** của nó (số views đầy đủ nhất) — đếm "đạt ở bất kỳ ngày nào" sẽ thổi phồng vì
+  nhìn nhiều lần trên cùng 1 bằng chứng. (2) **m chỉ gồm cách chia kiểm định được** (đủ `MIN_N_PER_BUCKET` bài đo được
+  mỗi phía); cách chia thiếu bài không có kết luận nên không tính là "không đạt", đếm riêng `too_few_posts`. (3) k tách
+  theo hướng (`higher`/`lower`); hướng hiển thị (`display_direction`): chưa đạt → không hướng, 1 hướng → hướng đó,
+  cả 2 → dấu δ hiện tại; landing ghi ↑/↓. (4) Ghép qua id bền `topic_N` (ADR-0018). Chỉ đếm cách chia có kết quả so
+  sánh đã lưu — UI nói "tested on N clusterings", không "clustered N ways". Giới hạn: topic gộp/tách nhận id mới → lịch sử bắt đầu lại (topic_8 lần 9, 12 bài, đạt, gần như chắc cùng tín hiệu với
+  topic_11 — ADR-0024 bằng chứng 4 — nhưng đếm riêng); cùng 1 id vẫn có thể ứng với số bài rất khác nhau (topic_11: 4 →
+  18 → 13 → 10 bài). Lịch sử chỉ có từ lần 9 (2026-10-09, lần đầu bước so sánh chạy). Số 2026-10-20: 19 lần gom cụm = 6
+  cách chia, 5 cách chia có kết quả so sánh; topic_11 engagement **2 of 3** (+1 thiếu bài), mọi topic khác hiện có 0
+  lần đạt engagement. Đây là bản ghi, **không phải luật bền**. Sinh lại bằng `uv run python -m
+  scripts.topic_stability_report --history-only` (mục 6).
 - **Chạy ở đâu (Việc 3, 2026-10-09):** bước cuối `compare` của job NLP (`src/pipeline/compare_topics.py` →
   `src/analysis/topic_comparison.py`) tính mọi topic × engagement / share_rate / conversation + dòng nhiễu và dòng
   kênh (chỉ mô tả) trên lần gom cụm mới nhất, ghi `topic_comparison_runs` + `topic_comparisons` (giữ lịch sử mỗi lần
