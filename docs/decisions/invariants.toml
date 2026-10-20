@@ -909,3 +909,26 @@ why = "Câu khẳng định về topic chỉ khi p Holm < 0.05 VÀ qua luật b�
 fix = "Ghi δ + CI (unadjusted) + p Holm như kết quả khám phá, kèm câu giới hạn 'topics are recomputed when new posts arrive' — không 'posts on X tend to get a higher/lower … rate'"
 paths = ["docs/**", "src/**", "README*.md"]
 allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0025 — deploy: FastAPI chỉ đọc chạy như Vercel Python Function, DB bản sao từ Blob riêng tư
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0025-tunnel-backend"
+adr = "0025"
+# Backend qua tunnel về laptop chỉ là công thức demo tạm (bộ nhớ dự án), không phải cách phục vụ số liệu của sản phẩm
+pattern = '(?i)ngrok|trycloudflare|cloudflared|tunnel (?:về|to the) laptop|(?:qua|via|through) (?:(?:a|an|một) )?tunnel'
+why = "Số liệu công khai do FastAPI chạy như Vercel Python Function phục vụ, đọc bản sao DB từ Vercel Blob riêng tư (ADR-0025) — không qua tunnel về laptop"
+fix = "Ghi 'API chạy trên Vercel (ADR-0025)'; chạy local thì `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`. Câu lịch sử/ghi chú môi trường hợp lệ (VD 'ngrok bị chặn trên máy này') → `consistency: allow ADR0025-tunnel-backend`"
+paths = ["docs/**", "src/**", "scripts/**", "README*.md", ".claude/**"]
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0025-internal-api"
+adr = "0025"
+pattern = '(?i)internal analytics api'
+why = "API được deploy công khai, chỉ đọc (ADR-0025) — không còn là API nội bộ"
+fix = "Ghi 'Read-only analytics API …'"
+paths = ["docs/**", "src/**", "README*.md"]
+allow = ["docs/decisions/**"]

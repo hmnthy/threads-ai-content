@@ -4,7 +4,7 @@
 > Scope đã chốt tại ADR-0001: **NLP sâu → knowledge base → (sau cổng F) chatbot + landing thương hiệu.** Không generation giọng văn, không carousel.
 > Plan gốc có giải thích đầy đủ: phiên 2026-09-30 (plan "LESS IS MORE"). Sprint plan cũ: `docs/archive/sprint-plan-v3-2026-09-02.md`.
 
-Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`. Mỗi phase kết thúc bằng checkpoint commit + cập nhật `docs/status.md`.
+Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) → F` (H trước C: Thy ưu tiên deploy, 2026-10-20). Mỗi phase kết thúc bằng checkpoint commit + cập nhật `docs/status.md`.
 
 ## Đã xong
 
@@ -23,7 +23,15 @@ Thứ tự: `0 → A1 → B → A2–A6 → C → G → D0 → (D ∥ E) → F`.
 - `scripts/jobs/run_job.sh {snapshot|nlp|kb}` bọc `flock`; job NLP gộp thành `src/pipeline/recluster.py` (gồm cả bước `compare_topics` — ADR-0023; thiếu thì `topic_comparisons` ngừng cập nhật và landing thành `stale`). Xoá cầu nối `clustering_export.py`/`cluster_wsl.py`/`clustering_import.py` + `nlp_cluster_job.py` (launcher Windows của ADR-0013). Giữ nguyên hành vi danh tính cụm của ADR-0018 (ghép thành viên + ngữ nghĩa, bản neo, `retired`) — test `tests/pipeline/test_clustering_import.py` chuyển theo.
 - `scripts/jobs/wsl_job.ps1` cho Task Scheduler: retry khi WSL khởi động chậm (`HCS_E_CONNECTION_TIMEOUT`), pop-up khi thất bại hẳn. Mang theo lịch NLP 12:30 + cờ chạy khi dùng pin (ADR-0017, `scripts/configure_jobs.ps1`).
 - 5 entry local của pre-commit (mypy, consistency, review-gate, pytest-fast, dashboard) → đường dẫn Linux (`.venv/bin/python`).
-- **Xong khi**: test xanh trong WSL; 2 job chạy chồng thì job sau chờ; 3 ngày log xanh liên tục.
+- Mang theo bước publish bản sao DB lên Vercel Blob sau mỗi job (ADR-0025) vào `run_job.sh`; `db_path()` không áp cho API trên Vercel (DB tải từ Blob về thư mục tạm, chỉ đọc).
+- **Xong khi**: test xanh trong WSL; 2 job chạy chồng thì job sau chờ; 3 ngày log xanh liên tục; publish chạy sau cả 2 job và lỗi publish không làm hỏng job.
+
+## H — Deploy công khai (ADR-0025)
+
+- FastAPI chỉ đọc chạy như Vercel Python Function, đọc bản sao `threads.db` từ Vercel Blob riêng tư; dashboard và API deploy tự động từ GitHub (2 project Vercel); job vẫn chạy trên laptop.
+- Các bước và điều kiện: mục "Hệ quả" của ADR-0025 (gói API tối giản → chế độ chỉ đọc → publish sau mỗi job → deploy thử preview → việc trước khi public → docs).
+- **Xong khi**: bản công khai chạy trên dữ liệu publish từ laptop; Thy duyệt bản preview; `job_health` cảnh báo khi bản publish cũ. Deploy thử thất bại (gói > 500 MB, không mở được DB, cold start làm trang không tải được) → ADR mới, chuyển sang snapshot tĩnh.
+- Ngay sau H: RQ-01 (ADR-0024). Deploy (trang công khai) khác việc curate repo: repo hiện đang public tạm (ADR-0025, rủi ro chấp nhận) — các bước ở mục "Trước khi public repo" vẫn phải làm.
 
 ## G — CI (GitHub Actions) — ADR-0014
 

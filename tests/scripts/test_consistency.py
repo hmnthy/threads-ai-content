@@ -527,6 +527,44 @@ LEARNED_RULES = [
         "        ? ` Its posts tend to get a ${hoveredVerdict} rate than the rest of the channel`",
         "        ? ` A lead, not a finding: δ ${signed(row.effect_size)} vs the rest`",
     ),
+    # ADR-0025: số liệu công khai do API trên Vercel phục vụ — không qua tunnel về laptop
+    (
+        "ADR0025-tunnel-backend",
+        "src/main.py",
+        "# lên Vercel + backend qua ngrok tunnel, không hardcode domain tạm vào code.",
+        "# CORS_ALLOW_ORIGINS: domain dashboard trên Vercel (ADR-0025), không hardcode vào code.",
+    ),
+    (
+        "ADR0025-tunnel-backend",
+        "README.md",
+        "Numbers are served via a tunnel.",
+        "Numbers are served by the read-only API on Vercel.",
+    ),
+    (
+        "ADR0025-tunnel-backend",
+        "docs/claude/dev-rules.md",
+        "Demo: chạy `cloudflared` rồi mở link tạm.",
+        "Demo: mở link bản preview trên Vercel.",
+    ),
+    (
+        "ADR0025-tunnel-backend",
+        "docs/status.md",
+        "- Backend: tunnel về laptop cho bản demo.",
+        "- Backend là Vercel Python Function (ADR-0025).",
+    ),
+    (
+        "ADR0025-tunnel-backend",
+        "src/dashboard/README.md",
+        "`NEXT_PUBLIC_API_BASE_URL=https://abc.trycloudflare.com`",
+        "`NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`",
+    ),
+    # ADR-0025: API deploy công khai, chỉ đọc — không còn "internal"
+    (
+        "ADR0025-internal-api",
+        "src/main.py",
+        '    description="Internal analytics API for the Threads channel @thydilammuon.",',
+        '    description="Read-only analytics API for the Threads channel @thydilammuon.",',
+    ),
     # ADR-0023 (auditor cuối): câu nói quá về độ đúng mức của bản hoán vị
     (
         "ADR0023-perm-claim-overstated",

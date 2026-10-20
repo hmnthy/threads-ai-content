@@ -89,13 +89,13 @@ from src.nlp.topic_identity import runs_keeping_label
 
 app = FastAPI(
     title="Unthreaded API",
-    description="Internal analytics API for the Threads channel @thydilammuon.",
+    description="Read-only analytics API for the Threads channel @thydilammuon.",
     version="0.1.0",
 )
 
 # Dashboard Next.js chạy local trên :3000. Cho phép thêm origin qua env
-# CORS_ALLOW_ORIGINS (phân cách bằng dấu phẩy) — dùng khi deploy tạm frontend
-# lên Vercel + backend qua ngrok tunnel, không hardcode domain tạm vào code.
+# CORS_ALLOW_ORIGINS (phân cách bằng dấu phẩy) — domain dashboard khi deploy (ADR-0025:
+# API chạy trên Vercel), không hardcode domain vào code.
 _cors_env = os.environ.get("CORS_ALLOW_ORIGINS", "")
 _extra_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
 app.add_middleware(
