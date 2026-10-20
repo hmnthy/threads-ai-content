@@ -1021,3 +1021,22 @@ def list_topic_comparisons(conn: sqlite3.Connection, cluster_run_id: int) -> lis
     return conn.execute(
         "SELECT * FROM topic_comparisons WHERE cluster_run_id = ?", (cluster_run_id,)
     ).fetchall()
+
+
+def list_tested_topic_comparisons(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Mọi dòng topic đã kiểm định của MỌI lần so sánh + `run_at` của lần gom cụm — đầu vào lịch sử
+    "k trong m cách chia" (ADR-0024, `src/analysis/partition_history.py`). Chỉ gọi sau khi
+    `latest_topic_comparison_run` thấy bảng đã có."""
+    return conn.execute(
+        "SELECT c.cluster_run_id, r.run_at, c.group_id, c.metric, c.effect_size, "
+        "c.p_value_holm, c.insufficient_data FROM topic_comparisons c "
+        "JOIN cluster_runs r ON r.id = c.cluster_run_id WHERE c.kind = 'topic' AND c.tested = 1"
+    ).fetchall()
+
+
+def list_cluster_run_labels(conn: sqlite3.Connection) -> list[tuple[int, dict[str, int]]]:
+    """(id, nhãn từng unit) của mọi lần gom cụm, cũ → mới — để nhận ra cách chia khác nhau."""
+    return [
+        (row["id"], {unit: int(label) for unit, label in json.loads(row["labels_json"]).items()})
+        for row in conn.execute("SELECT id, labels_json FROM cluster_runs ORDER BY id")
+    ]
