@@ -138,6 +138,8 @@ def test_nlp_job_publishes_even_when_a_step_fails(
         raise RuntimeError("bước compare lỗi (exit 1); dừng job")
 
     calls: list[str] = []
+    # build_steps cần đường dẫn ổ đĩa Windows (cầu nối WSL) → trên CI Linux nó lỗi trước run_steps
+    monkeypatch.setattr(nlp_cluster_job, "build_steps", lambda *args, **kwargs: [])
     monkeypatch.setattr(nlp_cluster_job, "run_steps", failing_steps)
     monkeypatch.setattr(publish_module, "publish_after_job", lambda: calls.append("publish"))
     log = tmp_path / "nlp_cluster_job.log"
