@@ -1,12 +1,12 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-28 (deploy live)
+> Cập nhật: 2026-10-28 (cảnh sát lời hứa landing ↔ trang app)
 
 ## Now
 
 - `main` (2026-10-05, PR #1 merge commit `e8d645e`, CI xanh lần đầu) gồm: tái cấu trúc "LESS IS MORE" (ADR-0001, 0003); cưỡng chế nhất quán (ADR-0008) + tên **Unthreaded** (ADR-0009); P0 dashboard trung thực — median + n + IQR, heatmap giờ đăng (ADR-0010 SQLite là CSDL duy nhất, ADR-0011 bài views = 0 là dữ liệu thiếu); P1 Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, 9 cụm; `/conversation` trả được bình luận follower); các mục dưới đến ADR-0018.
-- CI lần đầu (PR #1): job `web` đỏ vì `LayoutProps` (kiểu Next sinh vào `.next/`, máy sạch chưa có) → `npm run typecheck` = `next typegen && tsc --noEmit` (`67c3bf8`).
+- Cảnh sát lời hứa (2026-10-28, Thy yêu cầu sau khi thấy landing hứa nhiều hơn dashboard): `@agent-promise-auditor` + `/promise-audit` kiểm kê lời hứa của landing so với nội dung thật của các trang app, chấm mức lệch 0–4 + độ phủ + gói việc; báo cáo riêng tư `data/audits/promise-gap/` (gitignored). Lần đầu (148dc37): **mức 4 "bìa hứa sai"**, độ phủ 11/36 — `/topics` chưa hiện kiểm định/δ/Holm/lịch sử/từ khoá dù `/topics/comparisons` đã trả đủ; 2 S1: câu CTA "the method behind each number" và mẫu số "161 posts with text".
 - Lịch sử "k of m" (PR #17 `f5d1890`, ADR-0024 quyết định 3; Thy chốt cách đếm + chữ 2026-10-20): `GET /topics/comparisons` trả `history` mỗi topic × chỉ số, tính khi đọc từ kết quả đã lưu (không bảng mới, không sửa job) — mỗi cách chia đếm 1 lần bằng lần so sánh mới nhất, m chỉ gồm cách chia đủ bài, k tách hướng (`src/analysis/partition_history.py`); landing panel 1 thêm cột "stood out in" ("2 of 3 ↑") + hover + Limits. Số 2026-10-20: topic_11 engagement 2 of 3 (+1 thiếu bài). Sinh lại: `scripts.topic_stability_report --history-only`.
 - **Live từ 2026-10-28 (ADR-0025, phase H):** https://unthreaded-analytics.vercel.app (API https://unthreaded-api.vercel.app). PR #19 (gói API ~203 MiB nhờ nhóm thư viện `pipeline`; API chỉ đọc bản sao DB từ Vercel Blob riêng tư, OIDC trong header — đã kiểm log; publish cuối mỗi job + dòng `job_health` "published copy") + PR #20 (test CI Linux). Cấu hình, biến môi trường, 2 chỗ lệch so với ADR (tải ở request đầu; Thy chọn công khai ngay, bỏ bước duyệt preview): `docs/claude/architecture.md` mục "Deploy". Token Threads hết hạn 27/10 17:15 UTC → snapshot hở ~1 ngày (không hồi cứu được), Thy tạo mã mới 28/10.
 - Vá lỗ hổng cảnh sát (Thy duyệt 2026-10-01): ADR-0014 (pre-commit quét toàn repo `--commit`, CI GitHub Actions) + ADR-0013 (job snapshot hỏng do cửa sổ console → chạy bằng pythonw, hook đo độ tươi từ DB). ADR-0015 (Thy chọn A + B): bắt buộc review tầng 2 — git hook pre-commit (chỉ commit do Claude chạy) chặn commit chạm logic/ADR khi chưa có dấu review khớp nội dung; dấu do hook SubagentStart/Stop ghi.
@@ -30,7 +30,7 @@
 
 0. **Sau merge PR token:** pull + `uv sync --frozen` ở thư mục chính; lần job snapshot đầu tiên khi token ≥ 24h tuổi sẽ đổi token thật — kiểm dòng `token refresh: OK` trong `data/logs/scheduled_job.log` và dòng "Threads token OK" của `job_health` (verify live, `data-model.md` mục token).
 0b. **Trước khi chia sẻ link rộng (ADR-0025 bước 5):** Thy duyệt bio `LandingAuthor.tsx`, link CTA thật thay `#`, rate limit `/analytics/window` (Vercel Firewall), theo dõi Usage (Blob + Functions); tên miền riêng (Thy muốn `unthreaded.app`; `unthreaded.vercel.app` thuộc sản phẩm khác cùng tên) → thêm origin vào `CORS_ALLOW_ORIGINS` của API. Privacy: bản sao publish là CẢ DB — khi ADR-0007 thêm bình luận follower phải lọc bảng trước khi publish. Ngay sau: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
-1. Việc 4: xuất `docs/design/data/topics/` cho Claude Design (kèm `/topics/comparisons`) → mockup Topics → port. Phần còn mở của ADR-0012 (so sánh biến giải thích giữa các tầng reach) dùng cùng engine + quy tắc họ Holm.
+1. Theo báo cáo `/promise-audit` (Thy chọn thứ tự): gói 1 sửa chữ landing gỡ 2 S1 (copy-reviewer + Thy duyệt) → gói 2 = Việc 4: xuất `docs/design/data/topics/` cho Claude Design (kèm `/topics/comparisons`) → mockup Topics → port. Phần còn mở của ADR-0012 (so sánh biến giải thích giữa các tầng reach) dùng cùng engine + quy tắc họ Holm.
 2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
 3. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
 4. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
@@ -57,4 +57,4 @@
 
 ## Last checkpoint
 
-- Refresh the Threads token automatically in the snapshot job
+- Add a promise auditor that checks landing claims against the app pages
