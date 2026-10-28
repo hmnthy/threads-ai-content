@@ -24,7 +24,10 @@ from src.pipeline.job_log import publish_safely, run_job
 
 def _snapshot() -> object:
     from src.pipeline.ingest import run_ingest
+    from src.pipeline.token_refresh import refresh_token_if_due
 
+    # trước ingest: token mới (nếu đổi) vào os.environ để load_credentials dùng ngay; không raise
+    refresh_token_if_due()
     try:
         return asyncio.run(run_ingest(use_cache=False))
     finally:

@@ -235,12 +235,11 @@ def test_after_job_never_raises_and_does_not_repeat_the_job_traceback(
     assert not publish_module.STATE_PATH.exists()
 
 
-def test_conftest_refuses_real_uploads(
-    source_db: Path, env_file: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    # chốt chặn chung: test nào lỡ bật publish cũng không tải gì lên Vercel
-    assert publish_after_job(source_db) is None
-    assert "a test tried to upload" in capsys.readouterr().err
+def test_conftest_refuses_real_uploads(source_db: Path, env_file: Path) -> None:
+    # chốt chặn chung: test nào lỡ bật publish cũng không tải gì lên Vercel — và lỗi xuyên qua
+    # `except Exception` của publish_after_job (pytest.fail là BaseException) thay vì bị nuốt
+    with pytest.raises(pytest.fail.Exception, match="a test tried to upload"):
+        publish_after_job(source_db)
 
 
 def test_vercel_upload_pins_read_write_credentials(monkeypatch: pytest.MonkeyPatch) -> None:

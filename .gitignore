@@ -1,6 +1,8 @@
 .env
 .env.*
 !.env.example
+# file tạm của python-dotenv `set_key` (chứa toàn bộ .env) nếu job đổi token bị ngắt giữa chừng
+/.tmp_*
 
 # Asset cá nhân của tác giả (ảnh, rate card) — thư mục thật tên `content/` (chữ thường).
 # Ghi cả 2 dạng: Windows không phân biệt hoa/thường, WSL/Linux thì có.
