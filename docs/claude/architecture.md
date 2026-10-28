@@ -12,8 +12,8 @@ threads-ai-content/
 │   ├── settings.json          # hooks, attribution tắt, deny .env
 │   ├── hooks/                 # session_status / guard_commit / ruff_on_edit / adr_written / tests_only / notify+toast; SubagentStart/Stop (settings.json) → scripts/review_gate.py ghi dấu review vào `<git-common-dir>/claude-review/` (chung mọi worktree)
 │   ├── rules/                 # quy tắc theo đường dẫn (paths:) — chỉ nạp khi chạm đúng mảng code
-│   ├── agents/                # code-reviewer, qa-tester, researcher, consistency-auditor
-│   └── skills/                # /prime /checkpoint /record-decision /decision-sweep /new-rq /recluster /wt /git-flow ui-lookup
+│   ├── agents/                # code-reviewer, qa-tester, researcher, consistency-auditor, copy-reviewer, promise-auditor
+│   └── skills/                # /prime /checkpoint /record-decision /decision-sweep /new-rq /recluster /wt /git-flow /promise-audit ui-lookup
 ├── .mcp.json                  # context7 + huggingface
 ├── docs/
 │   ├── status.md              # trạng thái hiện tại (≤60 dòng)

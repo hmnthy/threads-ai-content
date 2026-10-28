@@ -13,6 +13,8 @@ data/cache/
 data/processed/
 data/nlp_exchange/
 data/logs/
+# báo cáo /promise-audit (landing so với các trang app) — riêng tư; /wt clean gom về checkout chính
+data/audits/
 data/experiments/
 data/raw/*
 !data/raw/.gitkeep
