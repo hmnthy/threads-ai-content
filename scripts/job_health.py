@@ -72,6 +72,16 @@ JOBS = (
 # thành công, nên mốc trong file cũ đi khi publish lỗi hoặc job bị giết
 PUBLISH_STATE = "data/logs/publish_state.json"
 
+# Mốc đổi token Threads (ghi bởi `src/api/auth.record_token_refreshed`, không chứa token). Cảnh
+# báo khi còn ≤ 7 ngày (cùng ngưỡng `EXPIRY_WARNING_THRESHOLD` của auth.py) hoặc khi job snapshot
+# đã quá hạn đổi 1 ngày mà chưa đổi được (`REFRESH_EVERY` + 1 ngày ân hạn — quy tắc vận hành).
+TOKEN_META = "data/cache/.token_meta.json"
+TOKEN_WARN_DAYS = 7
+# Đổi token lỗi liên tục lâu hơn mức này → WARN, kể cả khi chưa từng đổi thành công. Quy tắc vận
+# hành: > 24h (Meta chỉ cho đổi token ≥ 24h tuổi → token mới tạo lỗi "hợp lệ" suốt ngày đầu)
+# + 4h chu kỳ job + ân hạn → 48h không báo nhầm ở ngày đầu mà vẫn ≪ 60 ngày sống của token.
+TOKEN_FAILING_FOR = timedelta(hours=48)
+
 # Mã kết quả Task Scheduler hay gặp
 # (learn.microsoft.com: "Task Scheduler Error and Success Constants")
 TASK_RESULT_NAMES = {
@@ -326,6 +336,72 @@ def stale_comparison_warning(
     )
 
 
+def token_status(meta_path: Path, now: datetime) -> str:
+    """Hạn token Threads long-lived (job snapshot tự đổi mỗi `REFRESH_EVERY`,
+    `src/pipeline/token_refresh.py`). Đọc thẳng file mốc (không import `src.api` — nạp `.env` +
+    httpx, chậm hook đầu phiên). Không bao giờ raise; không bao giờ đọc/in token."""
+    try:  # lỗi ở module job (VD đang merge dở) không được làm mất cả báo cáo sức khoẻ
+        from src.pipeline import token_refresh
+
+        refresh_every = token_refresh.REFRESH_EVERY
+    except Exception:
+        refresh_every = timedelta(days=7)
+    if not meta_path.exists():
+        return (
+            "Threads token: expiry unknown — not refreshed by the snapshot job yet (needs a token "
+            "at least 24h old)"
+        )
+    try:
+        raw: Any = json.loads(meta_path.read_text(encoding="utf-8"))
+        issued = parse_timestamp(raw.get("issued_at"))
+        expires = parse_timestamp(raw.get("expires_at"))
+        first_failed = parse_timestamp(raw.get("first_failed_at"))
+        last_error = raw.get("last_error")
+    except (OSError, ValueError, AttributeError) as exc:
+        return f"WARN Threads token: could not read {TOKEN_META} ({exc})"
+    # Đổi lỗi kéo dài — kể cả khi CHƯA từng đổi thành công (không có issued_at)
+    failing = None
+    if first_failed is not None and now - first_failed > TOKEN_FAILING_FOR:
+        hours = (now - first_failed).total_seconds() / 3600
+        failing = f"auto-refresh failing for {hours:.0f}h (last error: {last_error})"
+    if issued is None:
+        if failing:
+            return (
+                f"WARN Threads token: {failing} — see the 'token refresh:' lines in "
+                "data/logs/scheduled_job.log"
+            )
+        return (
+            "Threads token: expiry unknown — not refreshed by the snapshot job yet (needs a token "
+            "at least 24h old)"
+        )
+    expires = expires or issued + timedelta(days=60)  # file cũ chỉ có issued_at
+    days_left = (expires - now).total_seconds() / 86400
+    expiry = (
+        f"expires in {days_left:.0f} days"
+        if days_left >= 0
+        else f"EXPIRED {-days_left:.0f} days ago"
+    )
+    text = f"{expiry}, refreshed {(now - issued).days} days ago"
+    # hạn gần hết là điều gấp nhất → kiểm trước, kèm chi tiết lỗi đổi nếu có
+    if days_left <= TOKEN_WARN_DAYS:
+        detail = f"; {failing}" if failing else ""
+        return (
+            f"WARN Threads token: {text}{detail} — create a new one in the Meta dashboard "
+            "(docs/claude/data-model.md, token section) if the job cannot refresh it"
+        )
+    if failing:
+        return (
+            f"WARN Threads token: {failing}; {text} — see the 'token refresh:' lines in "
+            "data/logs/scheduled_job.log"
+        )
+    if now - issued > refresh_every + timedelta(days=1):
+        return (
+            f"WARN Threads token: auto-refresh is failing ({text}) — see the 'token refresh:' "
+            "lines in data/logs/scheduled_job.log"
+        )
+    return f"Threads token OK ({text})"
+
+
 def publish_configured(env_file: Path) -> bool:
     """`.env` có khoá DB_BLOB_PATH không rỗng — chỉ kiểm có mặt, không bao giờ in giá trị.
     Không bao giờ raise (hook đầu phiên phụ thuộc output này)."""
@@ -418,6 +494,7 @@ def report(
             repo / PUBLISH_STATE, now, snapshot.max_age, publish_configured(repo / ".env")
         )
     )
+    lines.append(token_status(repo / TOKEN_META, now))
     return lines
 
 

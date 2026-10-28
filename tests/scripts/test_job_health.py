@@ -6,6 +6,7 @@ Kịch bản thật 2026-10-01: snapshot mới nhất 17:15 ngày 30/09, task tr
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -19,8 +20,9 @@ NOW = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 
 
 def _job_lines(lines: list[str]) -> list[str]:
-    """Dòng của 2 job + so sánh topic — bỏ dòng bản publish (ADR-0025, test riêng ở cuối file)."""
-    return [line for line in lines if "published copy" not in line]
+    """Dòng của 2 job + so sánh topic — bỏ dòng bản publish (ADR-0025) và dòng token Threads (test
+    riêng ở cuối file)."""
+    return [line for line in lines if "published copy" not in line and "Threads token" not in line]
 
 
 SNAPSHOT, NLP = job_health.JOBS
@@ -445,7 +447,49 @@ def test_publish_unreadable_state_warns(tmp_path: Path) -> None:
 def test_report_includes_publish_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(job_health, "task_results", lambda: {})  # không gọi PowerShell thật
     lines = job_health.report(tmp_path / "no.db", NOW, repo=tmp_path)
-    assert lines[-1].startswith("published copy: not set up yet")
+    assert lines[-2].startswith("published copy: not set up yet")
+    assert lines[-1].startswith("Threads token: expiry unknown")
+
+
+# --- hạn token Threads (job snapshot tự đổi, src/pipeline/token_refresh.py) ---
+
+
+def _token_meta(tmp_path: Path, issued: datetime, expires: datetime | None) -> Path:
+    path = tmp_path / ".token_meta.json"
+    body = {"issued_at": issued.isoformat()}
+    if expires is not None:
+        body["expires_at"] = expires.isoformat()
+    path.write_text(json.dumps(body), encoding="utf-8")
+    return path
+
+
+def test_token_unknown_is_neutral(tmp_path: Path) -> None:
+    line = job_health.token_status(tmp_path / "missing.json", NOW)
+    assert line.startswith("Threads token: expiry unknown")
+
+
+def test_token_fresh_is_ok(tmp_path: Path) -> None:
+    meta = _token_meta(tmp_path, NOW - timedelta(days=2), NOW + timedelta(days=58))
+    assert job_health.token_status(meta, NOW) == (
+        "Threads token OK (expires in 58 days, refreshed 2 days ago)"
+    )
+
+
+def test_token_close_to_expiry_warns(tmp_path: Path) -> None:
+    # file cũ chỉ có issued_at → hạn = issued_at + 60 ngày
+    meta = _token_meta(tmp_path, NOW - timedelta(days=55), None)
+    assert job_health.token_status(meta, NOW).startswith("WARN Threads token: expires in 5 days")
+
+
+def test_token_refresh_failing_warns(tmp_path: Path) -> None:
+    meta = _token_meta(tmp_path, NOW - timedelta(days=9), NOW + timedelta(days=51))
+    assert "auto-refresh is failing" in job_health.token_status(meta, NOW)
+
+
+def test_token_unreadable_warns(tmp_path: Path) -> None:
+    path = tmp_path / ".token_meta.json"
+    path.write_text("[]", encoding="utf-8")
+    assert job_health.token_status(path, NOW).startswith("WARN Threads token: could not read")
 
 
 def test_publish_line_without_snapshots_or_with_clock_skew(tmp_path: Path) -> None:
@@ -471,3 +515,47 @@ def test_publish_configured_reads_only_the_key(tmp_path: Path) -> None:
     assert job_health.publish_configured(env) is False  # khoá rỗng
     env.write_text("DB_BLOB_PATH=db/threads.db\n", encoding="utf-8")
     assert job_health.publish_configured(env) is True
+
+
+def _failing_meta(tmp_path: Path, first_failed: datetime) -> Path:
+    path = tmp_path / ".token_meta.json"
+    body = {
+        "first_failed_at": first_failed.isoformat(),
+        "last_failed_at": NOW.isoformat(),
+        "last_error": "ThreadsAPIError: Session has expired",
+    }
+    path.write_text(json.dumps(body), encoding="utf-8")
+    return path
+
+
+def test_token_never_refreshed_and_failing_for_long_warns(tmp_path: Path) -> None:
+    # bài học 2026-10-27: chưa từng đổi thành công không được mặc định là trung tính
+    meta = _failing_meta(tmp_path, NOW - timedelta(hours=49))
+    line = job_health.token_status(meta, NOW)
+    assert line.startswith("WARN Threads token: auto-refresh failing for 49h")
+    assert "Session has expired" in line
+
+
+def test_token_close_to_expiry_while_failing_keeps_the_urgent_hint(tmp_path: Path) -> None:
+    path = tmp_path / ".token_meta.json"
+    body = {
+        "issued_at": (NOW - timedelta(days=56)).isoformat(),
+        "expires_at": (NOW + timedelta(days=4)).isoformat(),
+        "first_failed_at": (NOW - timedelta(days=49)).isoformat(),
+        "last_error": "ThreadsAPIError: boom",
+    }
+    path.write_text(json.dumps(body), encoding="utf-8")
+    line = job_health.token_status(path, NOW)
+    assert line.startswith("WARN Threads token: expires in 4 days")
+    assert "auto-refresh failing" in line and "create a new one" in line
+
+
+def test_token_already_expired_says_so(tmp_path: Path) -> None:
+    meta = _token_meta(tmp_path, NOW - timedelta(days=63), NOW - timedelta(days=3))
+    assert job_health.token_status(meta, NOW).startswith("WARN Threads token: EXPIRED 3 days ago")
+
+
+def test_token_failing_on_first_day_is_not_a_warning(tmp_path: Path) -> None:
+    # token mới < 24h tuổi: Meta từ chối đổi là bình thường → chưa cảnh báo
+    meta = _failing_meta(tmp_path, NOW - timedelta(hours=10))
+    assert job_health.token_status(meta, NOW).startswith("Threads token: expiry unknown")
