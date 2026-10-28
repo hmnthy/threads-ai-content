@@ -28,7 +28,7 @@
 
 ## Next
 
-0. **PR nhỏ:** job snapshot tự làm mới token Threads + `job_health` báo hạn token (cảnh báo < 7 ngày chưa từng bật vì `data/cache/.token_meta.json` chỉ tạo khi làm mới qua code).
+0. **Sau merge PR token:** pull + `uv sync --frozen` ở thư mục chính; lần job snapshot đầu tiên khi token ≥ 24h tuổi sẽ đổi token thật — kiểm dòng `token refresh: OK` trong `data/logs/scheduled_job.log` và dòng "Threads token OK" của `job_health` (verify live, `data-model.md` mục token).
 0b. **Trước khi chia sẻ link rộng (ADR-0025 bước 5):** Thy duyệt bio `LandingAuthor.tsx`, link CTA thật thay `#`, rate limit `/analytics/window` (Vercel Firewall), theo dõi Usage (Blob + Functions); tên miền riêng (Thy muốn `unthreaded.app`; `unthreaded.vercel.app` thuộc sản phẩm khác cùng tên) → thêm origin vào `CORS_ALLOW_ORIGINS` của API. Privacy: bản sao publish là CẢ DB — khi ADR-0007 thêm bình luận follower phải lọc bảng trước khi publish. Ngay sau: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
 1. Việc 4: xuất `docs/design/data/topics/` cho Claude Design (kèm `/topics/comparisons`) → mockup Topics → port. Phần còn mở của ADR-0012 (so sánh biến giải thích giữa các tầng reach) dùng cùng engine + quy tắc họ Holm.
 2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
@@ -52,9 +52,9 @@
 
 ## Số liệu nhanh
 
-- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 830 test pass
+- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 855 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Document the live deploy (ADR-0025)
+- Refresh the Threads token automatically in the snapshot job
