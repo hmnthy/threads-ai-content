@@ -25,7 +25,12 @@ Lệnh: **$ARGUMENTS**
 
 ## clean <branch>
 
-1. Kiểm tra trước khi xoá: thay đổi chưa commit → lưu patch (`git -C <path> add -N .` rồi `git -C <path> diff HEAD --binary --output=<scratchpad>/<branch>.patch` — không dùng `>`: PowerShell 5.1 ghi UTF-16) và báo Thy.
+1. Kiểm tra trước khi xoá: thay đổi chưa commit → lưu patch (`git -C <path> add -N .` rồi `git -C <path> diff HEAD --binary --output=<scratchpad>/<branch>.patch` — không dùng `>`: PowerShell 5.1 ghi UTF-16) và báo Thy. Worktree có `data/audits/promise-gap/*.md` (báo cáo `/promise-audit`, bị gitignore nên `git status` không thấy) → copy sang `data/audits/promise-gap/` của checkout chính trước khi xoá.
+   - Trước khi copy, kiểm `git -C <checkout chính> check-ignore -q data/audits/promise-gap/x.md`. Mã khác 0 nghĩa là
+     checkout chính chưa pull dòng gitignore đó: dừng, nhắc Thy pull trước.
+   - File đích đã có và nội dung giống hệt thì bỏ qua (chạy lại `clean` không sinh bản trùng).
+   - File đích đã có nhưng nội dung khác thì đổi `NN` của bản copy thành NN lớn nhất cùng ngày cộng 1. Tên vẫn đúng khuôn
+     `<YYYY-MM-DD>-<NN>-<sha>.md`, không thêm hậu tố.
 2. `git fetch --prune` → nhánh phải nằm trong `git branch --merged origin/main` (`git branch -d` chỉ so với upstream của nhánh hoặc HEAD — nhánh đã push mà PR đóng không merge vẫn xoá được). Không có trong danh sách → hỏi Thy.
 3. `git worktree remove <path>` → `git branch -d <branch>` (chỉ `-D` khi Thy đồng ý bỏ commit) → `git worktree prune`.
 4. **Windows**: worktree có `node_modules` hay lỗi "Filename too long" khi xoá — git sẽ gỡ đăng ký nhưng để lại thư mục. Xoá phần còn lại bằng PowerShell: `Remove-Item -LiteralPath "\\?\<đường dẫn tuyệt đối>" -Recurse -Force`.
