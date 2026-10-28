@@ -9,6 +9,10 @@
 > The algorithm, read back to you.
 > (L'algorithme, relu à voix haute.)
 
+**Site en ligne :** [unthreaded-analytics.vercel.app](https://unthreaded-analytics.vercel.app) — mis à
+jour toutes les 4 heures quand l'ordinateur portable de l'autrice est allumé ; sinon, il garde la
+dernière mise à jour, datée sur la page.
+
 L'algorithme de classement de Threads est une boîte noire — les créateurs n'ont aucun moyen de
 comprendre pourquoi une publication décolle et la suivante non. Ce projet prend un vrai compte
 Threads, **[@thydilammuon](https://www.threads.net/@thydilammuon)** (une créatrice vietnamienne
@@ -204,8 +208,10 @@ npm install
 npm run dev                        # http://localhost:3000
 ```
 
-Le dashboard lit des données réelles depuis le backend FastAPI ci-dessus — les deux doivent
-tourner en même temps pour voir de vrais chiffres.
+En local, le dashboard lit des données réelles depuis le backend FastAPI ci-dessus : les deux
+doivent tourner en même temps. Le site public fait tourner la même API (en lecture seule) sur
+Vercel, en lisant une copie de la base que l'ordinateur portable de l'autrice téléverse après chaque
+tâche planifiée (collecte toutes les 4 heures, NLP quotidien).
 
 ## À propos du compte
 

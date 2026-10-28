@@ -1,14 +1,14 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-20 (ADR-0025)
+> Cập nhật: 2026-10-28 (deploy live)
 
 ## Now
 
 - `main` (2026-10-05, PR #1 merge commit `e8d645e`, CI xanh lần đầu) gồm: tái cấu trúc "LESS IS MORE" (ADR-0001, 0003); cưỡng chế nhất quán (ADR-0008) + tên **Unthreaded** (ADR-0009); P0 dashboard trung thực — median + n + IQR, heatmap giờ đăng (ADR-0010 SQLite là CSDL duy nhất, ADR-0011 bài views = 0 là dữ liệu thiếu); P1 Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, 9 cụm; `/conversation` trả được bình luận follower); các mục dưới đến ADR-0018.
 - CI lần đầu (PR #1): job `web` đỏ vì `LayoutProps` (kiểu Next sinh vào `.next/`, máy sạch chưa có) → `npm run typecheck` = `next typegen && tsc --noEmit` (`67c3bf8`).
 - Lịch sử "k of m" (PR #17 `f5d1890`, ADR-0024 quyết định 3; Thy chốt cách đếm + chữ 2026-10-20): `GET /topics/comparisons` trả `history` mỗi topic × chỉ số, tính khi đọc từ kết quả đã lưu (không bảng mới, không sửa job) — mỗi cách chia đếm 1 lần bằng lần so sánh mới nhất, m chỉ gồm cách chia đủ bài, k tách hướng (`src/analysis/partition_history.py`); landing panel 1 thêm cột "stood out in" ("2 of 3 ↑") + hover + Limits. Số 2026-10-20: topic_11 engagement 2 of 3 (+1 thiếu bài). Sinh lại: `scripts.topic_stability_report --history-only`.
-- ADR-0025 (Thy chọn 2026-10-20, nhánh deploy-adr): deploy = FastAPI chỉ đọc chạy như Vercel Python Function, đọc bản sao DB từ Vercel Blob riêng tư mà laptop publish sau mỗi job; code deploy tự động từ GitHub (2 project); job snapshot giữ trên laptop. Đo: gói API hiện 474,8 MB (giới hạn 500) vì `src/nlp/__init__.py` kéo `lingua` 292 MB → bỏ chuỗi import còn 177,6 MB. Deploy thử thất bại → snapshot tĩnh.
+- **Live từ 2026-10-28 (ADR-0025, phase H):** https://unthreaded-analytics.vercel.app (API https://unthreaded-api.vercel.app). PR #19 (gói API ~203 MiB nhờ nhóm thư viện `pipeline`; API chỉ đọc bản sao DB từ Vercel Blob riêng tư, OIDC trong header — đã kiểm log; publish cuối mỗi job + dòng `job_health` "published copy") + PR #20 (test CI Linux). Cấu hình, biến môi trường, 2 chỗ lệch so với ADR (tải ở request đầu; Thy chọn công khai ngay, bỏ bước duyệt preview): `docs/claude/architecture.md` mục "Deploy". Token Threads hết hạn 27/10 17:15 UTC → snapshot hở ~1 ngày (không hồi cứu được), Thy tạo mã mới 28/10.
 - Vá lỗ hổng cảnh sát (Thy duyệt 2026-10-01): ADR-0014 (pre-commit quét toàn repo `--commit`, CI GitHub Actions) + ADR-0013 (job snapshot hỏng do cửa sổ console → chạy bằng pythonw, hook đo độ tươi từ DB). ADR-0015 (Thy chọn A + B): bắt buộc review tầng 2 — git hook pre-commit (chỉ commit do Claude chạy) chặn commit chạm logic/ADR khi chưa có dấu review khớp nội dung; dấu do hook SubagentStart/Stop ghi.
 - 2026-10-04: key Claude được thay; ADR-0016 — đặt tên cụm bằng `claude-sonnet-5-5` (thay Opus), bỏ lời hứa prompt caching. ADR-0017 — Modern Standby đóng băng tiến trình khi máy ngủ → job NLP chạy 12:30, cả 2 cron chạy khi dùng pin (`scripts/configure_jobs.ps1`); snapshot hở ban đêm (trung vị khoảng trống ~16h) được chấp nhận và ghi trong data-model.md.
 - ADR-0018 (Thy chọn phương án B + 4 lựa chọn sau thí nghiệm 10 seed + kiểm tài liệu MONIC/Greene/Palla/BERTopic): danh tính cụm bền `topic_N` — ghép theo thành viên (bỏ nhiễu ở phép thử giữ, lõi giữ tên) rồi ngữ nghĩa (trừ cụm nhập), đặt lại tên khi trôi khỏi bản neo; prompt đặt tên v2. Đổi tên khi data không đổi: 30,6% [21,0; 40,3] → 15,2% [10,7; 19,9] (828 cụm, 90 cặp seed). DB thật đã migrate một phần (id `topic_N`) do job snapshot 21:15 chạy code đang sửa; lần job NLP kế tiếp thêm cột bản neo và đặt lại tên 9 cụm 1 lần.
@@ -28,7 +28,8 @@
 
 ## Next
 
-0. **Deploy theo ADR-0025 Hệ quả** — bước 1–3 đã merge (PR #19, `dd31386`, 2026-10-21; CI đỏ vì một test chỉ chạy được trên Windows → sửa ở `fix/ci-nlp-job-test`): ~~gói API tối giản~~ (xong: `[project].dependencies` = gói Vercel, thư viện job ở nhóm `pipeline` mà `dev` gộp vào — Vercel chạy `uv sync --no-dev` từ `uv.lock`; ~203 MiB Linux; `tests/test_api_bundle.py`) → ~~API chỉ đọc~~ (xong: `src/db/published.py` — bật bằng `VERCEL=1` + `DB_BLOB_PATH` + `BLOB_STORE_ID`, tải ở request đầu bằng token OIDC trong header, hỏi lại theo ETag mỗi 5 phút, mở `mode=ro`, lỗi lần đầu → 503; ADR ghi "khi khởi động" — Thy chọn 2026-10-20 ghi lệch này ở `architecture.md` (bước docs) + mô tả PR, không ADR mới) → ~~bước publish sau mỗi job + `job_health`~~ (xong: `src/pipeline/publish.py` cuối cả 2 job, kể cả khi job lỗi; SDK `vercel-blob` ở nhóm `pipeline`; Thy chọn 2026-10-20 file trạng thái `data/logs/publish_state.json` thay bảng DB — publish chỉ đọc DB; chưa cấu hình `.env` → bỏ qua; chỉ thư mục chính publish, worktree luôn bỏ qua; **sau merge, trước cron kế tiếp: `uv sync --frozen` ở thư mục chính** — thư viện mới `vercel-blob`, WSL2 không cần; privacy: bản sao là CẢ DB (raw_json, reply outbound, embeddings) — khi ADR-0007 thêm bình luận follower phải lọc bảng trước khi publish) → 2 project Vercel, deploy thử preview (Thy duyệt trước khi public) → việc trước public (ADR-0021, bio, link CTA, privacy) → docs. Ngay sau deploy: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
+0. **PR nhỏ:** job snapshot tự làm mới token Threads + `job_health` báo hạn token (cảnh báo < 7 ngày chưa từng bật vì `data/cache/.token_meta.json` chỉ tạo khi làm mới qua code).
+0b. **Trước khi chia sẻ link rộng (ADR-0025 bước 5):** Thy duyệt bio `LandingAuthor.tsx`, link CTA thật thay `#`, rate limit `/analytics/window` (Vercel Firewall), theo dõi Usage (Blob + Functions); tên miền riêng (Thy muốn `unthreaded.app`; `unthreaded.vercel.app` thuộc sản phẩm khác cùng tên) → thêm origin vào `CORS_ALLOW_ORIGINS` của API. Privacy: bản sao publish là CẢ DB — khi ADR-0007 thêm bình luận follower phải lọc bảng trước khi publish. Ngay sau: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
 1. Việc 4: xuất `docs/design/data/topics/` cho Claude Design (kèm `/topics/comparisons`) → mockup Topics → port. Phần còn mở của ADR-0012 (so sánh biến giải thích giữa các tầng reach) dùng cùng engine + quy tắc họ Holm.
 2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
 3. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
@@ -56,4 +57,4 @@
 
 ## Last checkpoint
 
-- Make the NLP job publish test run on Linux CI
+- Document the live deploy (ADR-0025)
