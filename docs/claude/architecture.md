@@ -57,7 +57,8 @@ threads-ai-content/
 | Topic discovery | UMAP (3D) + HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8` — calibrate lại 2026-10-01, ADR-0004) | Live, re-cluster hằng ngày |
 | LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — CHỈ đặt tên cluster (tiếng Anh) | Live |
 | Thống kê | median/IQR, Brunner-Munzel hoán vị + Cliff's δ kèm CI + Holm (numpy/scipy, ADR-0023) — so sánh topic vs phần còn lại tính trong job NLP, landing live (`GET /topics/comparisons`); trang Topics: next (Việc 4) | Live |
-| Dashboard | Next.js 16 + Tailwind v4 + chart SVG tự dựng + Plotly (bản đồ topic) + Phosphor icons | Live (chưa deploy cố định) |
+| Dashboard | Next.js 16 + Tailwind v4 + chart SVG tự dựng + Plotly (bản đồ topic) + Phosphor icons | Live — công khai tại https://unthreaded-analytics.vercel.app (mục "Deploy") |
+| Hosting | Vercel (Hobby): 2 project từ cùng repo + Vercel Blob riêng tư cho bản sao DB (ADR-0025) | Live từ 2026-10-28 |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
 | Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán (toàn repo, `--commit`), cổng review tầng 2 (chỉ commit của Claude, ADR-0015), pytest nhanh, eslint+tsc, commit-msg | Live |
@@ -71,11 +72,48 @@ Threads Graph API ──(Task Scheduler, 4h, pythonw)──► src/pipeline/sche
         ▼
 SQLite data/threads.db ◄──(hằng ngày 12:30: src/pipeline/nlp_cluster_job)── export → WSL2 embed+cluster → import+Claude label → compare (topic vs phần còn lại, ADR-0023)
         │
-        ▼
-FastAPI src/main.py  ──►  Next.js dashboard (landing + 3 tab)
+        ├──► local: FastAPI src/main.py (uvicorn :8000) ──► Next.js dashboard (:3000)
+        │
+        └──(cuối MỖI job: src/pipeline/publish.py — backup → journal_mode=DELETE)──► Vercel Blob riêng tư `threads.db`
+                                                                                      │ (đọc ở request đầu, OIDC; hỏi lại ETag mỗi 5 phút)
+                                                                                      ▼
+                    Vercel project `unthreaded-api` (FastAPI chỉ đọc, `mode=ro`) ──► Vercel project `unthreaded` (Next.js, landing + 3 tab)
 
 Đã có (ADR-0004): reply_role + embeddings lưu trong SQLite + hồ sơ cụm (cluster_runs). Roadmap: toàn bộ Python chạy trong WSL2 (C) → knowledge base + /kb/search (E)
 ```
+
+## Deploy (ADR-0025, live từ 2026-10-28)
+
+| Phần | Ở đâu | Vai trò |
+|---|---|---|
+| Trang công khai | Vercel project `unthreaded`, root `src/dashboard` → **https://unthreaded-analytics.vercel.app** (`unthreaded-psi.vercel.app` chuyển 301 về đây) | Next.js; landing fetch phía server, 3 tab fetch trong trình duyệt |
+| API công khai | Vercel project `unthreaded-api`, root repo, preset FastAPI → https://unthreaded-api.vercel.app | `src/main.py` chỉ đọc; gói = `[project].dependencies` (Vercel chạy `uv sync --no-dev` từ `uv.lock`), ~203 MiB / 500 MB — `tests/test_api_bundle.py` |
+| Bản sao DB | Vercel Blob `unthreaded-db` (Private, Paris `cdg1`), pathname `threads.db` | Laptop ghi sau mỗi job; API tải về thư mục tạm, mở `mode=ro` (`src/db/published.py`) |
+| Job | Laptop (Task Scheduler, ADR-0013/0017) | Snapshot 4h + NLP 12:30; bước cuối `publish_after_job()`; `job_health` có dòng "published copy" |
+
+Code deploy tự động: mỗi commit vào `main` → Vercel build lại cả 2 project (Git integration). Số liệu đi đường riêng
+(publish từ laptop) → trang công khai mới bằng lần publish gần nhất; laptop ngủ/tắt → số đứng yên (rủi ro chấp nhận,
+ADR-0025). Landing ghi mốc "Data as of …" (`UI-0025-published-snapshot`).
+
+**Biến môi trường**
+
+| Nơi | Biến | Ghi chú |
+|---|---|---|
+| Laptop `.env` (thư mục chính) | `DB_BLOB_PATH=threads.db`, `BLOB_READ_WRITE_TOKEN` | Thiếu → publish bỏ qua. Chỉ đọc từ `.env` của chính checkout; worktree không bao giờ publish |
+| Vercel `unthreaded-api` | `DB_BLOB_PATH`, `CORS_ALLOW_ORIGINS` (Config, các origin trang công khai, phân cách dấu phẩy) | `VERCEL=1` do Vercel tự đặt (cổng bật chế độ Blob) |
+| Vercel `unthreaded-api` (do "Connect store" tạo, prefix `BLOB`) | `BLOB_STORE_ID`, `BLOB_READ_WRITE_TOKEN`, `BLOB_WEBHOOK_PUBLIC_KEY` | API đọc bằng token OIDC trong header request (đã kiểm log: "credential from header"); token RW chỉ là dự phòng. **Không "Revoke Token"** — laptop dùng nó để publish |
+| Vercel `unthreaded` | `NEXT_PUBLIC_API_BASE_URL=https://unthreaded-api.vercel.app` | Gắn vào bản build → đổi phải redeploy |
+
+Thêm tên miền cho trang (VD tên miền riêng) → thêm origin đó vào `CORS_ALLOW_ORIGINS` của API rồi redeploy API, nếu
+không 3 tab trống (landing vẫn chạy vì fetch phía server).
+
+**Lệch so với ADR-0025 (Thy chọn ghi ở đây, không ADR mới):**
+1. ADR viết API lấy bản sao "khi khởi động"; code lấy ở **request đầu tiên** — trên Vercel token OIDC chỉ có trong
+   header `x-vercel-oidc-token` của request, lúc khởi động chưa có credential. Quyết định gốc (Blob riêng tư → thư mục
+   tạm → chỉ đọc) không đổi (Thy, 2026-10-20).
+2. ADR viết deploy thử preview, Thy duyệt rồi mới public; Thy chọn **công khai ngay, không che deployment nào**
+   (2026-10-28). Việc trước khi chia sẻ link rộng (bio, link CTA, rate limit `/analytics/window`, theo dõi Usage) làm
+   sau trên bản đang chạy.
 
 ## Nguyên tắc kiến trúc (chi tiết + lý do trong ADR / legacy-log)
 

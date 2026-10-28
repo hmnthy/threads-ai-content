@@ -31,6 +31,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) �
 - FastAPI chỉ đọc chạy như Vercel Python Function, đọc bản sao `threads.db` từ Vercel Blob riêng tư; dashboard và API deploy tự động từ GitHub (2 project Vercel); job vẫn chạy trên laptop.
 - Các bước và điều kiện: mục "Hệ quả" của ADR-0025 (gói API tối giản → chế độ chỉ đọc → publish sau mỗi job → deploy thử preview → việc trước khi public → docs).
 - **Xong khi**: bản công khai chạy trên dữ liệu publish từ laptop; Thy duyệt bản preview; `job_health` cảnh báo khi bản publish cũ. Deploy thử thất bại (gói > 500 MB, không mở được DB, cold start làm trang không tải được) → ADR mới, chuyển sang snapshot tĩnh.
+- **Trạng thái (2026-10-28): live** — https://unthreaded-analytics.vercel.app, API https://unthreaded-api.vercel.app (PR #19, #20; cấu hình + 2 chỗ lệch so với ADR: `docs/claude/architecture.md` mục "Deploy"). Thy chọn công khai ngay thay cho bước duyệt preview. Còn: việc trước khi chia sẻ link rộng (bio, link CTA, rate limit `/analytics/window`, theo dõi Usage).
 - Ngay sau H: RQ-01 (ADR-0024). Deploy (trang công khai) khác việc curate repo: repo hiện đang public tạm (ADR-0025, rủi ro chấp nhận) — các bước ở mục "Trước khi public repo" vẫn phải làm.
 
 ## G — CI (GitHub Actions) — ADR-0014
