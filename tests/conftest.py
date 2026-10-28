@@ -18,7 +18,9 @@ from pathlib import Path
 
 import pytest
 
+import src.api.auth as auth_module
 import src.pipeline.publish as publish_module
+import src.pipeline.token_refresh as token_refresh_module
 
 _KEEP = ("GIT_CONFIG_", "GIT_EXEC_PATH", "GIT_SSH", "GIT_ASKPASS", "GIT_TERMINAL_PROMPT")
 _BLOB_ENV = (
@@ -39,8 +41,10 @@ def _isolate_from_git_hook_env(monkeypatch: pytest.MonkeyPatch) -> None:
             monkeypatch.delenv(name)
 
 
+# `pytest.fail` (BaseException) chứ không AssertionError: code cron bắt `except Exception` — một
+# AssertionError sẽ bị nuốt thành dòng "FAILED" và test lỡ chạm tác dụng phụ thật vẫn xanh.
 def _refuse_real_upload(pathname: str, body: bytes, token: str) -> None:
-    raise AssertionError(f"a test tried to upload {len(body)} bytes to Vercel Blob ({pathname})")
+    pytest.fail(f"a test tried to upload {len(body)} bytes to Vercel Blob ({pathname})")
 
 
 @pytest.fixture(autouse=True)
@@ -52,3 +56,17 @@ def _never_publish_for_real(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     monkeypatch.setattr(publish_module, "ENV_FILE", tmp_path / "no-such.env")
     monkeypatch.setattr(publish_module, "vercel_upload", _refuse_real_upload)
     monkeypatch.setattr(publish_module, "STATE_PATH", tmp_path / "publish_state.json")
+
+
+async def _refuse_real_token_refresh(current_token: str) -> object:
+    pytest.fail("a test tried to refresh the real Threads token")
+
+
+@pytest.fixture(autouse=True)
+def _never_refresh_the_real_token(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Job snapshot đổi token Threads ở đầu mỗi lần chạy và GHI ĐÈ `.env` (token_refresh.py) —
+    không test nào được gọi Meta thật hay sửa `.env` / mốc token thật."""
+    monkeypatch.setattr(token_refresh_module, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(token_refresh_module, "ENV_FILE", tmp_path / "no-such.env")
+    monkeypatch.setattr(auth_module, "TOKEN_META_PATH", tmp_path / ".token_meta.json")
+    monkeypatch.setattr(auth_module, "refresh_long_lived_token", _refuse_real_token_refresh)

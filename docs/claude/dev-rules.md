@@ -53,7 +53,13 @@ THREADS_APP_SECRET=
 THREADS_ACCESS_TOKEN=
 THREADS_USER_ID=
 ANTHROPIC_API_KEY=
+# Publish bản sao DB lên Vercel Blob sau mỗi job (ADR-0025) — để trống thì job bỏ qua bước publish
+DB_BLOB_PATH=
+BLOB_READ_WRITE_TOKEN=
 ```
+
+Biến của 2 project Vercel và cách các phần nối với nhau: `docs/claude/architecture.md` mục "Deploy".
+`THREADS_ACCESS_TOKEN` (long-lived) hết hạn sau ~60 ngày — tạo lại qua Meta Dashboard (`data-model.md`, mục token).
 
 ---
 

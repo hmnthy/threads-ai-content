@@ -3,11 +3,15 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-830%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-855%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
 > (Thuật toán, được đọc ngược lại cho bạn.)
+
+**Trang chạy thật:** [unthreaded-analytics.vercel.app](https://unthreaded-analytics.vercel.app) — cập
+nhật 4 giờ một lần khi laptop của tác giả đang mở; lúc laptop tắt, trang giữ lần cập nhật cuối, có ghi
+ngày trên trang.
 
 Thuật toán xếp hạng của Threads là một hộp đen — creator không có cách nào truy vấn tại sao bài này
 "nổ" còn bài kia thì không. Dự án này chọn đúng 1 kênh Threads thật, **[@thydilammuon](https://www.threads.net/@thydilammuon)**
@@ -195,7 +199,9 @@ npm install
 npm run dev                        # http://localhost:3000
 ```
 
-Dashboard đọc data thật từ backend FastAPI ở trên — cần chạy cả 2 cùng lúc mới thấy số liệu thật.
+Khi chạy local, dashboard đọc data thật từ backend FastAPI ở trên, nên cần chạy cả 2 cùng lúc. Bản
+công khai chạy cùng API (chỉ đọc) trên Vercel, đọc từ bản sao cơ sở dữ liệu mà laptop của tác giả tải
+lên sau mỗi job định kỳ (thu thập 4 giờ một lần, NLP hằng ngày).
 
 ## Về kênh
 

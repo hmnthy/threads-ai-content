@@ -12,5 +12,7 @@ npm run build
 npm run screenshots    # chụp lại docs/screenshots/*.png (Playwright + Edge có sẵn)
 ```
 
-`.env.local`: `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` khi chạy local; khi deploy theo ADR-0025, biến này đặt trong cấu hình project Vercel (trỏ tới API trên Vercel), không sửa `.env.local`.
+`.env.local`: `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` khi chạy local. Bản công khai (Vercel project
+`unthreaded`, https://unthreaded-analytics.vercel.app) đặt biến này trong cấu hình project Vercel, trỏ tới
+`https://unthreaded-api.vercel.app` — không sửa `.env.local`; chi tiết: `docs/claude/architecture.md` mục "Deploy".
 Next.js 16 có breaking changes — xem `AGENTS.md` cùng thư mục.

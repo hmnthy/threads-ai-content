@@ -96,6 +96,28 @@ def test_scheduled_job_import_error_lands_in_log(
     assert "ImportError" in text or "ModuleNotFoundError" in text
 
 
+def test_snapshot_refreshes_the_token_before_ingest(
+    tmp_path: Path, pythonw_streams: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # bước nối vào entry point của cron phải có test giữ cả việc gọi lẫn thứ tự (bài học
+    # 2026-10-27: gỡ khỏi entry point thì mọi test riêng vẫn xanh, cron lặng lẽ mất chức năng)
+    import src.pipeline.ingest as ingest
+    import src.pipeline.token_refresh as token_refresh
+
+    order: list[str] = []
+
+    async def fake_ingest(*, use_cache: bool) -> dict[str, int]:
+        order.append("ingest")
+        return {"posts": 0}
+
+    monkeypatch.setattr(token_refresh, "refresh_token_if_due", lambda: order.append("refresh"))
+    monkeypatch.setattr(ingest, "run_ingest", fake_ingest)
+    monkeypatch.setattr(publish_module, "publish_after_job", lambda: order.append("publish"))
+
+    assert scheduled_job.main(["--log", str(tmp_path / "scheduled_job.log")]) == 0
+    assert order == ["refresh", "ingest", "publish"]
+
+
 def test_scheduled_job_success(
     tmp_path: Path, pythonw_streams: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:

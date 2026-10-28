@@ -3,10 +3,13 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-830%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-855%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
+
+**Live site:** [unthreaded-analytics.vercel.app](https://unthreaded-analytics.vercel.app) — updated
+every 4 hours while the author's laptop is on; otherwise it keeps the last update, dated on the page.
 
 Threads' ranking algorithm is a black box — creators can't query why one post takes off and the
 next one doesn't. This project treats one real Threads channel, **[@thydilammuon](https://www.threads.net/@thydilammuon)**
@@ -192,8 +195,9 @@ npm install
 npm run dev                        # http://localhost:3000
 ```
 
-The dashboard reads live data from the FastAPI backend above — both need to be running locally to
-see real numbers.
+Locally, the dashboard reads real data from the FastAPI backend above, so both must be running. The
+public site runs the same read-only API on Vercel, reading a copy of the database that the author's
+laptop uploads after each scheduled job (4-hourly collection, daily NLP run).
 
 ## About the channel
 
