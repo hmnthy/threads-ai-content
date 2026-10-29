@@ -19,13 +19,13 @@ export function Nav() {
 
   return (
     <div className="border-b border-border-hairline">
-      <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center justify-between gap-4 px-6 py-3">
-        <Link href="/" className="flex flex-col items-start gap-1 leading-tight">
-          {/* Lockup tĩnh đã chứa chữ "Unthreaded"; tagline giữ dạng chữ HTML (ADR-0021) */}
-          <BrandLogo variant="lockup" height={28} />
-          <span className="text-xs font-medium text-text-muted">
-            The algorithm, read back to you.
-          </span>
+      <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center justify-between gap-4 px-6 py-4">
+        <Link href="/" className="flex items-center gap-4 leading-tight">
+          {/* Lockup đã chứa chữ "Unthreaded"; tagline giữ dạng chữ HTML (ADR-0021). Topbar 36px + tagline 15px
+              cạnh logo, ngăn bằng vạch dọc, ẩn tagline dưới 640px; hoạt cảnh phát lại mỗi 15 giây (ADR-0026) */}
+          <BrandLogo variant="lockup-replay" height={36} />
+          <span aria-hidden="true" className="hidden h-7 w-px bg-border-hairline sm:block" />
+          <span className="hidden text-[15px] font-medium text-text-secondary sm:inline">The algorithm, read back to you.</span>
         </Link>
 
         <div className="flex items-center gap-2.5">
@@ -50,14 +50,14 @@ export function Nav() {
         </div>
       </div>
 
-      <div className="mx-auto flex w-full max-w-[1280px] items-center gap-1 overflow-x-auto px-6 pb-3">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-1 px-6 pb-3">
         {TABS.map(({ href, label, Icon }) => {
           const active = pathname === href;
           return (
             <Link
               key={href}
               href={href}
-              className={`flex h-10 flex-none items-center gap-2 rounded-full px-4 text-sm transition-colors ${
+              className={`flex min-h-[44px] flex-none items-center gap-2 rounded-full px-3 text-[15px] transition-colors sm:px-4 ${
                 active
                   ? "bg-bg-surface font-semibold text-text-primary"
                   : "font-medium text-text-secondary hover:bg-bg-surface hover:text-text-primary"

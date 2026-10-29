@@ -118,6 +118,38 @@ formula       12.5px mono lh 1.7
 label         12px  w500
 ```
 
+**Thang chữ trang app tầng A** (Thy chốt 2026-10-29, sau 2 lần bác bản /topics) — **tiêu đề luôn lớn hơn nội dung
+nó dẫn**, để người đọc nhanh quét theo tiêu đề mà không sót khối. Mỗi cỡ một vai, không cỡ nào khác; hằng số
+`TYPE` trong `src/dashboard/src/components/AppBlock.tsx`:
+
+```
+h1 page title    40px w700  -0.025em    tiêu đề trang, đầu trang căn giữa (Thy 2026-10-29) — trên nó nhãn 12px amber, dưới
+                                        câu hỏi trang 18px, chip mốc dữ liệu, dải mục lục khối 15px
+h2 block title   26px w700  -0.02em     tiêu đề khối: trên nó số mono + tên ngắn (cùng chữ với mục lục); dưới nó câu mục đích 15px + kẻ đậm 2px
+h3 section       20px w600              mục trong khối (kẻ mảnh phía trên), chữ trơn — link định nghĩa đặt ở dòng ghi chú dưới
+answer           18px w600              câu trả lời của khối, trong khung nhấn viền trái amber + nhãn "ANSWER"
+h4 box title     17px w600              tiêu đề hộp con (Key numbers, What to know, How it is computed, Limits)
+body             15px  lh 1.6           thân bài, gạch đầu dòng, nhãn hàng của bảng số; số chính 15px w700 (nhấn bằng độ đậm, không bằng cỡ — tiêu đề hộp luôn lớn nhất)
+cell / note      13px                   chữ trong ô bảng, ghi chú phụ dưới tiêu đề
+formula / number 12.5px mono            công thức, số trong bảng — chỉ mono
+label / th       12px w500–600          header cột bảng, nhãn nhỏ
+formula script   0.8em (≈10px)          chỉ số dưới/trên trong `Formula` — không dùng ngoài công thức
+```
+
+Khoảng cách: khối cách nhau 40px; trong khối, mục h3 cách nhau 28px có kẻ mảnh. Chữ chạy hết bề rộng khung chứa —
+không chừa khoảng trắng bên phải (Thy 2026-10-29, thay quy tắc 72ch). Không hộp viền lồng trong hộp.
+
+**Ba lớp màu nền trên trang app** (Thy 2026-10-29) — mỗi lớp một vai, người đọc biết đang ở lớp nào:
+- **Kết quả** — khung ANSWER, Key numbers, "This topic in numbers": `--warm-surface` `#FFFAF0` + viền `--warm-border`
+  `#F3DFB5` (ANSWER thêm viền trái amber 4px). Hộp số kéo dài bằng cột bên cạnh, không để trống bên dưới.
+- **Kỹ thuật** — nội dung "Method and limits", chú giải bảng: `--bg-sunken` + viền hairline. Cách tính rồi giới hạn,
+  xếp dọc (không 2 cột song song).
+- **Bằng chứng** — biểu đồ, bảng: nền trắng của card.
+
+**Nhấn chữ**: nhãn trong hộp số in đậm (w600); trong gạch đầu dòng, in đậm tối đa 1 cụm then chốt mỗi ý bằng `**…**`
+(hàm `rich` trong `AppBlock.tsx`) — không in đậm cả câu, không tô màu chữ để nhấn. Trang phân tích dài có dải mục lục
+khối (số + tên) dưới tiêu đề trang.
+
 Mọi con số dùng `font-variant-numeric: tabular-nums`, định dạng **en** (`18,420`) — thay cho `toLocaleString('vi-VN')` từng dùng ở v3 (xem §13, quyết định 2026-09-02: UI hướng ra ngoài dùng tiếng Anh, nội dung post giữ tiếng Việt). Không uppercase tiếng Việt.
 
 ---
@@ -240,7 +272,9 @@ Khi yêu cầu chỉ nói "làm UI" → mặc định tầng A.
 - Loading: **skeleton shimmer**, không spinner. Chờ < 300ms thì không hiện gì.
 - Toast: góc trên phải, 3s, `aria-live="polite"`, không cướp focus.
 - Không dùng modal cho action nhỏ — inline expand.
-- `prefers-reduced-motion: reduce` → tắt toàn bộ animation, hiện thẳng trạng thái cuối.
+- Logo `lockup-replay` (ADR-0026, §10b): hoạt cảnh SVG tháo nút phát lúc mở trang rồi mỗi 15 giây, đứng yên ở
+  logo hoàn chỉnh giữa hai lần; không phát khi tab ẩn.
+- `prefers-reduced-motion: reduce` → tắt toàn bộ animation, hiện thẳng trạng thái cuối (logo: bản tĩnh, kể cả khi bật giữa phiên).
 
 ---
 
@@ -252,7 +286,7 @@ Khi yêu cầu chỉ nói "làm UI" → mặc định tầng A.
 | Top posts / topics | Ranked horizontal bar | Không dùng vertical bar — nhãn tiếng Việt dài |
 | Giờ/thứ đăng hiệu quả | Heatmap | Thang tuần tự 1 hue (amber), không dùng thang cầu vồng. Mỗi ô ghi n; ô `insufficient_data` gạch chéo, không tô theo giá trị |
 | Phân bổ topic | Horizontal bar | **Không dùng pie khi > 5 nhóm** |
-| Bản đồ topic (scatter UMAP) | Scatter xám + 1 topic tô `--amber-600` | Không tô mỗi cluster 1 màu: trên scatter không bảng màu nào giữ > 3 màu phân biệt được với người mù màu. Chọn topic từ danh sách horizontal bar để làm nổi |
+| Bản đồ topic (scatter UMAP) | Mỗi topic 1 màu + hình (đa sắc, Thy chốt 2026-10-29) | 8 màu `--cat-1..8` theo thứ tự cố định (bảng chuẩn skill dataviz, validate PASS); topic thứ 9+ dùng lại màu với hình thoi (mã hoá kép); topic đang chọn điểm to hơn, topic khác nhạt hơn; nhiễu vòng rỗng xám. Danh sách topic có ô màu cạnh bản đồ là chú giải bằng chữ — trên scatter > 3 màu không tách được với mọi người mù màu nên màu không bao giờ mang thông tin một mình. Thay quyết định 1 màu nhấn 2026-09-30 |
 | Share rate distribution | Histogram | |
 
 Bắt buộc mọi chart:
@@ -276,12 +310,13 @@ File: `docs/design/photo_author.JPG` (4000×4000).
 
 Đây là chỗ duy nhất ảnh cá nhân xuất hiện ở cỡ lớn.
 
-### 10b. Logo (ADR-0021)
+### 10b. Logo (ADR-0021, ADR-0026)
 
 File gốc và quy tắc: `docs/design/brand-assets.md` (file trong `src/dashboard/public/brand/`, không sửa tay). Luôn dùng component `BrandLogo` (`src/dashboard/src/components/BrandLogo.tsx`):
 
-- Navbar landing, topbar dashboard: `lockup` tĩnh 28px (topbar kèm tagline chữ HTML).
-- Hero landing: `lockup-animated` (lặp) 64px — chỗ duy nhất logo chuyển động; `prefers-reduced-motion` → bản tĩnh (§8).
+- Topbar dashboard: `lockup-replay` 36px + tagline chữ HTML 15px cạnh logo, ngăn bằng vạch dọc (ẩn tagline dưới 640px).
+- Navbar landing: `lockup-replay` 28px. Hero landing: `lockup-replay` 64px.
+- `lockup-replay` = bản "chạy 1 lần" phát lúc mở trang rồi mỗi 15 giây (ADR-0026); `prefers-reduced-motion` → bản tĩnh (§8).
 - Khối CTA landing: `mark` 52px. Footer landing: `lockup` 24px. Favicon: `app/icon.svg` (bản sao của mark).
 
 ---
@@ -358,6 +393,12 @@ Kết quả trả về là **khuyến nghị**, không phải lệnh. Nếu mâu
 ---
 
 ## 13. Decision log
+
+### 2026-10-29 — Trang app: tiêu đề lớn hơn nội dung; bản đồ topic đa sắc
+
+Thy bác 2 lần bản /topics: tiêu đề khối 13px nhỏ hơn câu trả lời 20px và thân bài 15px làm mất mạch đọc nhanh. Thang
+mới (§3 "Thang chữ trang app"): h1 40 > h2 26 > h3 20 > answer 18 > h4 17 > body 15; mỗi khối có số thứ tự, câu
+mục đích, kẻ đậm; câu trả lời trong khung nhấn. Bản đồ topic chuyển sang đa sắc (§9) và nằm bên trái danh sách topic.
 
 ### 2026-10-01 — Giữ amber; landing tầng B chốt; thêm dải tối
 
