@@ -39,7 +39,9 @@ danh sách id của lần sau so sai.
      lịch sử khác nhau.
    - Glob vào một worktree bị chặn thì bỏ qua worktree đó, và báo Thy là phần so sánh có thể thiếu.
 4. **Danh sách id lần trước**: từ bảng đầy đủ (mục 4) của báo cáo lần trước, chép **chỉ** 3 cột id · loại · lời hứa.
-   Không chép kết luận, mức hay chi phí.
+   - Lấy **mọi** dòng, kể cả các dòng `WITHDRAWN` và `REPLACED` ở cuối bảng. Lý do: không đặt lại các id đó, và với
+     `WITHDRAWN` còn để mang phần phạt sang lần sau.
+   - Không chép kết luận, mức hay chi phí. Agent tự đọc phần đó ở Bước 5, sau khi đã kiểm kê xong.
 5. Nhánh khác `main`, hoặc detached HEAD, nghĩa là đang kiểm code chưa phải bản live. Phải nói rõ khi báo lại cho Thy.
 
 ## Bước 2 — Gọi agent độc lập
@@ -62,7 +64,8 @@ Agent phải tự tìm ra chỗ lệch. Đưa gợi ý vào thì kết quả ch�
 ## Bước 3 — Lưu báo cáo
 
 1. **Kiểm header.** Dòng đầu báo cáo phải khớp khuôn
-   `Promise gap: level <0-4> (<tên mức>) · coverage … · commit … (…) · YYYY-MM-DD`.
+   `Promise gap: level <0-4> (<tên mức>) · coverage … · withdrawn <w> (replaced <r>) · commit … (…) · YYYY-MM-DD`.
+   Khi `w` > 0 thì header có thêm đoạn `coverage incl. withdrawn …` ngay sau `withdrawn`.
    - Không khớp thì gửi lại cho agent (SendMessage) để nó sửa đúng khuôn.
    - Không gửi được thì gọi lại agent, dùng cùng prompt và thêm yêu cầu đúng khuôn header.
    - Không tự sửa nội dung.
@@ -72,20 +75,38 @@ Agent phải tự tìm ra chỗ lệch. Đưa gợi ý vào thì kết quả ch�
 3. **Ghi nguyên văn** báo cáo vào file đó bằng Write.
    - Cần thêm ghi chú (ví dụ hai bản khác dòng lịch sử, hoặc một worktree bị chặn) thì đặt **một** khối
      `> Ghi chú của phiên chính: …` ngay dưới dòng header.
+   - **Thy cho rút một lời hứa** chỉ được ghi vào khối này khi trích **nguyên văn** lời Thy, kèm ngày và lý do. Ví dụ:
+     `Thy cho rút PG-… (2026-11-02): "<lời Thy>"`. Thy quyết định giữa hai lần quét thì ghi vào khối ghi chú của báo cáo
+     **kế tiếp**, hoặc vào một ADR. Phiên chính không tự cho rút lời hứa nào.
    - Không sửa phần nào của agent.
 
 ## Bước 4 — Báo lại cho Thy (ngắn)
 
 Theo quy tắc CLAUDE.md: mọi thuật ngữ kỹ thuật có giải thích trong ngoặc ở lần đầu xuất hiện.
 
-1. **Mức và xu hướng**: mức lệch (0–4, kèm tên mức; 4 là nặng nhất), độ phủ k/m, và so với lần trước: mức trước →
-   sau, độ phủ trước → sau, số lời hứa đã khép / mới / nặng lên. Báo cáo trước có khối "Ghi chú của phiên chính" tính
-   lại độ phủ thì lấy số đó làm mốc "trước", không lấy số ở dòng header.
-2. **Ba gói việc đầu** theo thứ tự agent đề xuất. Mỗi gói ghi: khép được id nào, chi phí, vì sao đứng trước.
-3. **Đường dẫn tuyệt đối** của file báo cáo.
-4. **Ghi chú của Thy** (`$ARGUMENTS`), nếu có: đối chiếu với kết quả. Ví dụ Thy ghi đã làm X, agent có thấy X đã khép
+1. **Mức và xu hướng**, gồm cả cảnh báo ăn gian:
+   - mức lệch (0–4, kèm tên mức; 4 là nặng nhất);
+   - độ phủ k/m;
+   - so với lần trước: mức trước → sau, độ phủ trước → sau, số lời hứa đã khép / mới / nặng lên.
+
+   Có `WITHDRAWN` **mới phát hiện** thì **câu đầu tiên** của tóm tắt là cảnh báo: id nào, theo đường nào. Các đường
+   là: rút, bỏ chi tiết, chuyển xuống phần phụ, đổi loại `explicit`, hạ ra ngoài mẫu số, gộp hoặc thay bằng id kém
+   hơn. `WITHDRAWN` mang sang từ trước thì chỉ nhắc số lượng. Có `w` > 0 thì xu hướng độ phủ báo bằng **độ phủ tính cả
+   lời hứa đã rút**, đặt cạnh độ phủ thô.
+
+   Báo cáo trước có khối "Ghi chú của phiên chính" tính lại độ phủ thì lấy số đó làm mốc "trước", không lấy số ở dòng
+   header.
+2. **Ba gói "Nâng ruột" đầu tiên** (mục 2a của báo cáo), theo thứ tự giá trị chuyên môn mà agent xếp. Mỗi gói ghi:
+   khép được id nào, người đọc chuyên môn sẽ thấy thêm gì, chi phí (chỉ để biết, không phải lý do xếp hạng).
+3. **Sửa bìa cho chính xác** (mục 2b): liệt kê đủ, vì Thy duyệt từng trường hợp. Không có thì nói "không có".
+4. **Cần Thy quyết** (mục 2c), nếu có.
+5. **Đường dẫn tuyệt đối** của file báo cáo.
+6. **Ghi chú của Thy** (`$ARGUMENTS`), nếu có: đối chiếu với kết quả. Ví dụ Thy ghi đã làm X, agent có thấy X đã khép
    không.
-5. **Điểm bạn không đồng ý** với agent (nếu có): nêu riêng, kèm bằng chứng `file:line`. Không lặng lẽ bỏ hay sửa kết
+7. **Điểm bạn không đồng ý** với agent (nếu có): nêu riêng, kèm bằng chứng `file:line`. Không lặng lẽ bỏ hay sửa kết
    luận của agent.
+
+Không bao giờ tự đề xuất hạ hay bỏ một lời hứa trên landing, kể cả khi việc nâng ruột tốn nhiều công (nguyên tắc hướng
+sửa trong file agent).
 
 **Không** bắt tay sửa gì. Thy chọn gói việc rồi mới làm, theo quy trình nhánh, worktree, PR của `/git-flow`.
