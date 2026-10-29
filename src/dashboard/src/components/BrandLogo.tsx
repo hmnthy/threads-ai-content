@@ -1,14 +1,17 @@
 // Logo Unknot (ADR-0021). File gốc duy nhất ở `public/brand/` — không sửa tay hình học hay màu
-// (docs/design/brand-assets.md). Vị trí dùng chốt trong ADR-0021: navbar landing và topbar dashboard
-// dùng `lockup` tĩnh; `lockup-animated` (lặp) chỉ ở hero landing; `mark` ở khối CTA.
+// (docs/design/brand-assets.md). Vị trí theo ADR-0021, cập nhật Thy 2026-10-29: topbar app, navbar
+// landing và hero landing dùng `lockup-replay` (bản "chạy 1 lần" phát lại mỗi 15 giây, BrandLogoReplay);
+// `mark` ở khối CTA; `lockup` tĩnh ở footer. `lockup-animated` (lặp liên tục) không còn chỗ dùng.
 //
 // Dùng <img> thay next/image: next/image không tối ưu được SVG, và SVG động chạy bằng CSS keyframes
 // bên trong file nên cần phục vụ nguyên bản; <picture> đổi sang bản tĩnh khi người xem bật
 // `prefers-reduced-motion`.
 
-type BrandLogoVariant = "lockup" | "lockup-animated" | "mark";
+import { BrandLogoReplay } from "@/components/BrandLogoReplay";
 
-const ASSETS: Record<BrandLogoVariant, { src: string; aspect: number }> = {
+type BrandLogoVariant = "lockup" | "lockup-animated" | "lockup-replay" | "mark";
+
+const ASSETS: Record<Exclude<BrandLogoVariant, "lockup-replay">, { src: string; aspect: number }> = {
   // aspect = rộng / cao theo viewBox của file SVG
   lockup: { src: "/brand/unthreaded-lockup.svg", aspect: 179.43 / 48 },
   "lockup-animated": { src: "/brand/unthreaded-lockup-animated.svg", aspect: 179.4 / 48 },
@@ -32,6 +35,7 @@ export function BrandLogo({
   alt = "Unthreaded",
   className,
 }: BrandLogoProps) {
+  if (variant === "lockup-replay") return <BrandLogoReplay height={height} alt={alt} className={className} />;
   const { src, aspect } = ASSETS[variant];
   const width = Math.round(height * aspect);
   // Rộng cố định (không `auto`): trong flex cột, ảnh `width: auto` bị kéo giãn theo phần tử anh em

@@ -16,7 +16,7 @@
 - PR #3 (2026-10-06): gói Claude Design 2026-10-05 (landing mockup chốt, design-system v3.2, brief Topics v2) + logo Unknot.
 - ADR-0012 (Thy chốt 2026-10-06, PR #5 đã merge): chỉ số (reposts + quotes) / views đổi tên thành `share_rate` (UI "Share rate"); "bài lan rộng" = tầng reach tương đối — "Top 20% reach" (P80) / "Above median reach" (P50) của views ÷ median 20 bài trước, chỉ bài đã chín (P90 thời gian đạt 90% views, đo từ snapshot); `GET /analytics/reach`, số liệu sinh lại bằng `scripts/reach_report.py`. Chưa có giao diện tầng (chờ mockup); ảnh chụp đã làm lại. Hạn chế cửa sổ 20 bài (Thy giữ, 2026-10-07): ghi ở `data-model.md`.
 - Gói Claude Design 2026-10-06 (nhánh `design/2026-10-06`): landing mockup sửa theo audit, `landing-handoff.md` §0.5 (quyết định → id `UI-…`); hợp đồng UI chốt 4 câu hỏi mở (1: một ngưỡng mẫu nhỏ = 5, UI đọc cờ backend; 2: giữ hai bộ nhãn trạng thái; 3: id `topic_N` chỉ ở metadata; 4: mốc clustered theo giờ Paris) + 7 đề xuất cột E.
-- ADR-0021 (Thy duyệt logo 2026-10-01, chốt vị trí 2026-10-07): logo Unknot qua `BrandLogo.tsx`, hai navbar dùng lockup tĩnh thay chữ "@" giữ chỗ, favicon `app/icon.svg`; chuyển động chỉ ở hero landing.
+- ADR-0021 (Thy duyệt logo 2026-10-01, chốt vị trí 2026-10-07): logo Unknot qua `BrandLogo.tsx`, favicon `app/icon.svg`; ADR-0026 (2026-10-29): topbar 36px + tagline 15px cạnh logo, topbar / navbar landing / hero phát lại hoạt cảnh mỗi 15 giây (`lockup-replay`), footer lockup tĩnh.
 - PR 10 (nhánh `feat/landing-port`, Thy chọn hướng A + thêm API đọc 2026-10-07): landing port từ mockup đã chốt, mọi số đọc từ API thật. API mới chỉ đọc: `GET /pipeline/summary` (vai reply, unit không chữ, snapshot mới nhất, lần gom cụm mới nhất, phân phối bài nhiễu), `/topics` thêm từ khoá, 3 bài gần tâm, phân phối engagement mô tả + cờ `insufficient_data`; `/content-units` trả `metrics` null khi views = 0 (ADR-0011). δ + p Holm theo topic lên landing ở Việc 3 (dưới), CMI `research` (RQ-04). Navbar pill luôn 1 hàng (sửa lỗi mockup, ghi audit). Chữ landing viết lại theo 2 lượt agent mới `copy-reviewer` (Thy duyệt 2026-10-08): dải thống kê kênh ở hero, câu hỏi "do better than the channel's usual post", thứ hạng so với các bài khác; `/pipeline/summary` trả thêm ngưỡng `min_posts_to_compare`.
 - ADR-0022 (PR #11, merge `96986a6`): từ khoá topic tách theo từ bằng underthesea 9.5.0 trong WSL2 + stopword có nhãn; lần gom cụm 2026-10-09 là lần đầu dùng (`params.keyword_segmenter` có ghi), cụm giữ nguyên (ARI 1.0). Lọc theo từ loại = RQ-10.
 - ADR-0024 (worktree `topic-conclusion-stability`, Thy chọn phương án E 2026-10-18): kết luận so sánh topic hiển thị **dạng khám phá** (giới hạn trong "cách chia hiện tại", không câu "tend to get…") tới khi RQ-01 (đa seed) có số đo và ADR mới chọn luật bền — bằng chứng: 16 lần gom cụm = 5 cách chia, cố định số liệu thì 0/2/0/1/1 kết luận đạt (`scripts/topic_stability_report.py`).
@@ -28,9 +28,8 @@
 
 ## Next
 
-0. **Sau merge PR token:** pull + `uv sync --frozen` ở thư mục chính; lần job snapshot đầu tiên khi token ≥ 24h tuổi sẽ đổi token thật — kiểm dòng `token refresh: OK` trong `data/logs/scheduled_job.log` và dòng "Threads token OK" của `job_health` (verify live, `data-model.md` mục token).
 0b. **Trước khi chia sẻ link rộng (ADR-0025 bước 5):** Thy duyệt bio `LandingAuthor.tsx`, link CTA thật thay `#`, rate limit `/analytics/window` (Vercel Firewall), theo dõi Usage (Blob + Functions); tên miền riêng (Thy muốn `unthreaded.app`; `unthreaded.vercel.app` thuộc sản phẩm khác cùng tên) → thêm origin vào `CORS_ALLOW_ORIGINS` của API. Privacy: bản sao publish là CẢ DB — khi ADR-0007 thêm bình luận follower phải lọc bảng trước khi publish. Ngay sau: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
-1. Nâng ruột theo `/promise-audit` (Thy chốt 2026-10-29: chiều mặc định nâng các trang app lên đủ chi tiết kỹ thuật như landing; landing chỉ sửa khi sai kỹ thuật, Thy duyệt từng trường hợp): Việc 4 trước — xuất `docs/design/data/topics/` cho Claude Design (kèm `/topics/comparisons`) → mockup Topics → port (khép 16 lời hứa). Song song: header `/analytics` gọi bảng xếp hạng chưa kiểm định là "stand out" (sửa ruột); 2 câu landing sai so với code, Thy duyệt từng câu: mẫu số "161 posts with text", "Charts are hand-built SVG" (báo cáo `2026-10-28-02-a2b87f6`: mức 4, độ phủ 8/34). Phần còn mở của ADR-0012 (so sánh biến giải thích giữa các tầng reach) dùng cùng engine + quy tắc họ Holm.
+1. Nâng ruột theo `/promise-audit` (Thy chốt 2026-10-29: nâng các trang app lên đủ chi tiết kỹ thuật như landing; landing chỉ sửa khi sai kỹ thuật, Thy duyệt từng trường hợp). Việc 4 `/topics` XONG (nhánh `feat/topics-proof-panels`, Thy duyệt bố cục + chữ 2026-10-29). Tiếp: ADR tóm tắt tiếng Anh từng bài + nghĩa từ khoá (phương án A, PR riêng); đầu trang căn giữa cho Overview/Analytics (Thy chưa chốt); header `/analytics` gọi bảng chưa kiểm định là "stand out"; 2 câu landing sai so với code (mẫu số "161 posts with text", "Charts are hand-built SVG") + landing chưa nói rate đo trên bài mở đầu — Thy duyệt từng câu; `landing.dc.html` theo ADR-0026 (Claude Design). Phần còn mở của ADR-0012 dùng cùng engine + họ Holm.
 2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
 3. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
 4. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
@@ -52,9 +51,9 @@
 
 ## Số liệu nhanh
 
-- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 855 test pass
+- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 861 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Add a promise auditor that checks landing claims against the app pages
+- Rebuild /topics as a research-grade page; replay logo every 15s

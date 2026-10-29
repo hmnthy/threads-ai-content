@@ -21,7 +21,7 @@ ADR-0023). 8 cảnh báo ADR-0012 của vòng 2 đã hết.
 | `src/dashboard/mockups/landing.dc.html` | 150 | `ADR0023-topic-tests-next` | lớp 01 Measure "Comparing groups with an effect size is next." | Theo câu Approach lớp 1 ở mục "Việc 3" |
 | `src/dashboard/mockups/landing.dc.html` | 210 | `ADR0023-more-engagement-question` | câu hỏi panel 1 "…more engagement than the channel?" | "Which topics get a higher engagement rate than the rest of the channel?" |
 | `docs/design/layout-tiers.dc.html` | 172 | `ADR0023-more-engagement-question` | như trên (minh hoạ khối tầng A) | như trên |
-| `src/dashboard/mockups/overview-amber.dc.html` | 30 | `ADR0021-placeholder-logo` | logo giữ chỗ bằng icon "at" trong vòng tròn amber | `../public/brand/unthreaded-lockup.svg` cao 28px, tagline chữ HTML bên dưới (`UI-0021-logo-placement`) |
+| `src/dashboard/mockups/overview-amber.dc.html` | 30 | `ADR0021-placeholder-logo` | logo giữ chỗ bằng icon "at" trong vòng tròn amber | Logo `../public/brand/unthreaded-lockup.svg` cao 36px, tagline chữ HTML 15px cạnh logo ngăn bằng vạch dọc (`UI-0021-logo-placement`, `UI-0026-logo-replay`; trên web logo phát lại hoạt cảnh mỗi 15 giây) |
 | `src/dashboard/mockups/overview-cyan.dc.html` | 30 | `ADR0021-placeholder-logo` | như trên | như trên (hoặc bỏ file — hướng không chọn) |
 
 ## 2. Landing so với hợp đồng
@@ -212,6 +212,71 @@ told apart"; "stood out" dùng lại đúng từ của dòng trả lời. Mockup
   posts, so they are not independent tests. Topics are matched across clusterings by their posts and content; when
   topics merge or split, the result may count as a new topic, and its count starts again." (không ghi "id" — chữ nội
   bộ, và sai một nửa với ADR-0018: phần giữ quá nửa bài khi tách vẫn giữ id)
+
+### Việc 4 — trang /topics dựng lại (Thy duyệt bố cục + chữ 2026-10-29; `ux-reviewer` 7 lượt, `copy-reviewer` 2 lượt)
+
+Thy bác 3 lần trước khi duyệt:
+1. Lần 1: số trần, Method đóng, thiếu công thức.
+2. Lần 2: tiêu đề nhỏ hơn nội dung.
+3. Lần 3: khoảng trắng bên phải.
+
+Luật trình bày đã chốt nằm ở `docs/claude/design-system.md` §3 (thang chữ trang app, ba lớp màu nền, nhấn chữ) và §9 (bản đồ đa sắc). Mockup Topics phải theo đúng các câu dưới. Số liệu lấy từ API; nguyên văn từng câu nằm trong `src/dashboard/src/components/TopicsView.tsx`, `TopicComparisonTable.tsx`, `TopicMethods.tsx` và `AppEngagementPanel` trong `LandingProof.tsx`.
+
+**Khung trang**
+- Đầu trang căn giữa, theo thứ tự:
+  - nhãn "TOPIC ANALYSIS";
+  - h1 "Topic Explorer";
+  - câu hỏi "What does the channel write about, and does any topic's engagement differ from the rest of the channel?";
+  - 2 chip "clustered …" và "data as of …";
+  - dải mục lục 6 khối.
+- Mỗi khối gồm:
+  - nhãn "NN · TÊN NGẮN" (cùng chữ với mục lục, `lib/topicSections.ts`);
+  - h2;
+  - 1 câu mục đích;
+  - khung "ANSWER";
+  - "What to know" + "Key numbers";
+  - các mục h3;
+  - "Method and limits" mở sẵn: "How it is computed" rồi "Limits", xếp dọc.
+
+**Tên 6 khối** (tên ngắn → tiêu đề h2)
+| # | Tên ngắn | Tiêu đề |
+|---|---|---|
+| 01 | How to read this page | How to read this page |
+| 02 | Topics and map | What does the channel write about? |
+| 03 | Engagement by topic | Does any topic's engagement rate differ from the rest of the channel? |
+| 04 | All three rates | Does any topic differ from the rest of the channel in engagement, share or conversation rate? |
+| 05 | Stability | How stable are these topics? |
+| 06 | How it is computed | How every number on this page is computed |
+
+**Nhãn kết quả** (`components/Verdict.tsx`, Thy chốt 2026-10-29)
+- "▲ Stood out above" / "▼ Stood out below"
+- "● Not significant after correction"
+- "◌ Too few content units (n < 5): not concluded", đặt trong pill xám
+- "— Not tested"
+
+Bảng có chú giải "How to read the result column" ngay bên trên.
+
+**Câu trả lời** (mẫu, số từ API)
+- Khối 02: "11 topics cover 84 of the 162 content units in the latest clustering run (52%)."
+- Khối 03: "For now, no topic large enough to conclude on has an engagement rate significantly different from the rest of the channel (corrected for all 33 tests)."
+  - Câu này tách khỏi landing; landing giữ "can be told apart".
+- Khối 04: "For now, no: none of the 27 tests on topics large enough to conclude (of 33 in all) has a corrected p below 0.05."
+- Khối 05: "No stability rule is set yet, so a topic that stands out on this page is at most a lead, not a finding."
+
+**Song ngữ**
+- Bảng dùng cột "Topic (English)".
+- Mỗi bài đại diện có dòng "Original language · topic: …".
+- Từ khoá ghi "Shown in the original language … The keywords are not translated; …".
+- Tóm tắt tiếng Anh từng bài chờ ADR riêng (phương án A, Thy chốt 2026-10-29).
+
+**Bản đồ topic**
+- Đa sắc: 8 màu `--cat-1..8`, topic thứ 9 trở đi dùng hình thoi.
+- Đặt bên trái, danh sách topic bên phải làm chú giải (`UI-L20261029-topic-categorical`).
+- Landing vẫn một màu nhấn.
+
+**ADR-0026 (logo):** `src/dashboard/mockups/landing.dc.html` dòng 24, 40-41 còn navbar logo tĩnh 28px và hero
+bản động lặp (`picture` + công tắc `animatedLogo`) — đổi sang logo phát lại mỗi 15 giây ở navbar và hero (Claude
+Design sửa mockup; code đã theo `UI-0026-logo-replay`).
 
 ### Ghi chú cho vòng thiết kế kế tiếp
 

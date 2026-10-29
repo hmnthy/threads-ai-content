@@ -16,11 +16,13 @@ const OUT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.
 const VIEWPORT = { width: 1160, height: 900 };
 const DEVICE_SCALE_FACTOR = 1.5;
 
+// `maxHeight` (px CSS) chỉ đặt cho từng trang cụ thể — không áp chung (ảnh landing cần đủ trang). /topics
+// dài ~15 000 px → ảnh 5,6 MB; chỉ chụp phần đầu đại diện (đầu trang, khối 01–02).
 const PAGES = {
-  landing: "/",
-  overview: "/overview",
-  analytics: "/analytics",
-  topics: "/topics",
+  landing: { route: "/" },
+  overview: { route: "/overview" },
+  analytics: { route: "/analytics" },
+  topics: { route: "/topics", maxHeight: 3600 },
 };
 
 const only = process.argv.slice(2);
@@ -40,7 +42,7 @@ const context = await browser.newContext({
 const page = await context.newPage();
 const failures = [];
 
-for (const [name, route] of targets) {
+for (const [name, { route }] of targets) {
   const url = BASE_URL + route;
   const apiErrors = [];
   page.removeAllListeners("response");
@@ -71,7 +73,13 @@ for (const [name, route] of targets) {
   });
   await page.waitForLoadState("networkidle");
   const file = path.join(OUT_DIR, `${name}.png`);
-  await page.screenshot({ path: file, fullPage: true });
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  const maxHeight = PAGES[name].maxHeight;
+  await page.screenshot(
+    maxHeight && height > maxHeight
+      ? { path: file, fullPage: true, clip: { x: 0, y: 0, width: VIEWPORT.width, height: maxHeight } }
+      : { path: file, fullPage: true },
+  );
   console.log(`✓ ${name} → ${path.relative(process.cwd(), file)}`);
 }
 

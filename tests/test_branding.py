@@ -41,10 +41,12 @@ def test_favicon_is_the_unknot_mark_byte_for_byte() -> None:
     assert not (DASHBOARD / "src" / "app" / "favicon.ico").exists()
 
 
-@pytest.mark.parametrize("component", ["Nav.tsx", "LandingNav.tsx"])
+# ADR-0026 (thay phần "navbar tĩnh" của ADR-0021): hai navbar và hero dùng logo phát lại mỗi 15 giây
+# qua BrandLogo — vẫn một component, không <img> logo rời
+@pytest.mark.parametrize("component", ["Nav.tsx", "LandingNav.tsx", "LandingHero.tsx"])
 def test_navbars_render_the_brand_logo(component: str) -> None:
     text = (DASHBOARD / "src" / "components" / component).read_text(encoding="utf-8")
-    assert '<BrandLogo variant="lockup"' in text
+    assert '<BrandLogo variant="lockup-replay"' in text
 
 
 # ADR-0021: file logo không sửa tay — đổi thương hiệu thì quay lại vòng thiết kế, sinh lại file và

@@ -78,3 +78,7 @@ export const SECTION = "mx-auto box-border w-full max-w-[1200px] scroll-mt-[72px
 
 export const PANEL =
   "flex flex-col rounded-[20px] border border-border-hairline bg-bg-card px-5 pb-5 pt-7 sm:px-8";
+
+// Card tầng A (trang app, design-system §4 + §7): 12px, viền hairline — dùng cho panel trên /topics
+export const APP_CARD =
+  "flex flex-col rounded-xl border border-border-hairline bg-bg-card px-5 pb-5 pt-6 sm:px-6";

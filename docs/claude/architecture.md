@@ -12,7 +12,7 @@ threads-ai-content/
 │   ├── settings.json          # hooks, attribution tắt, deny .env
 │   ├── hooks/                 # session_status / guard_commit / ruff_on_edit / adr_written / tests_only / notify+toast; SubagentStart/Stop (settings.json) → scripts/review_gate.py ghi dấu review vào `<git-common-dir>/claude-review/` (chung mọi worktree)
 │   ├── rules/                 # quy tắc theo đường dẫn (paths:) — chỉ nạp khi chạm đúng mảng code
-│   ├── agents/                # code-reviewer, qa-tester, researcher, consistency-auditor, copy-reviewer, promise-auditor
+│   ├── agents/                # code-reviewer, qa-tester, researcher, consistency-auditor, copy-reviewer, promise-auditor, ux-reviewer
 │   └── skills/                # /prime /checkpoint /record-decision /decision-sweep /new-rq /recluster /wt /git-flow /promise-audit ui-lookup
 ├── .mcp.json                  # context7 + huggingface
 ├── docs/
@@ -56,7 +56,7 @@ threads-ai-content/
 | Embedding | sentence-transformers `BAAI/bge-m3` (1024D, 8.192 token, MIT) | Live, chạy trong WSL2 |
 | Topic discovery | UMAP (3D) + HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8` — calibrate lại 2026-10-01, ADR-0004) | Live, re-cluster hằng ngày |
 | LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — CHỈ đặt tên cluster (tiếng Anh) | Live |
-| Thống kê | median/IQR, Brunner-Munzel hoán vị + Cliff's δ kèm CI + Holm (numpy/scipy, ADR-0023) — so sánh topic vs phần còn lại tính trong job NLP, landing live (`GET /topics/comparisons`); trang Topics: next (Việc 4) | Live |
+| Thống kê | median/IQR, Brunner-Munzel hoán vị + Cliff's δ kèm CI + Holm (numpy/scipy, ADR-0023) — so sánh topic vs phần còn lại tính trong job NLP, landing live (`GET /topics/comparisons`); trang Topics hiện đủ họ Holm (mọi topic × 3 chỉ số) + bảng thuật ngữ (Việc 4, 2026-10-29) | Live |
 | Dashboard | Next.js 16 + Tailwind v4 + chart SVG tự dựng + Plotly (bản đồ topic) + Phosphor icons | Live — công khai tại https://unthreaded-analytics.vercel.app (mục "Deploy") |
 | Hosting | Vercel (Hobby): 2 project từ cùng repo + Vercel Blob riêng tư cho bản sao DB (ADR-0025) | Live từ 2026-10-28 |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |

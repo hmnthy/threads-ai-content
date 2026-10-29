@@ -18,15 +18,29 @@ export const HERO_POST_ID = "17939285085325700";
 export const HERO_QUESTION =
   'Did "8 kinh nghiệm sau 8 năm ở Pháp" (8 lessons from 8 years in France) do better than the channel\'s usual post?';
 
+// Danh từ gọi đơn vị phân tích: landing gọi "post" (định nghĩa 1 lần ở "How it solves"), trang
+// /topics hiện đúng thuật ngữ "content unit" kèm định nghĩa (Thy chốt 2026-10-29)
+export interface Noun {
+  one: string;
+  many: string;
+}
+export const POST_NOUN: Noun = { one: "post", many: "posts" };
+export const UNIT_NOUN: Noun = { one: "content unit", many: "content units" };
+
 export interface TopicView {
   id: string;
   name: string;
+  description: string | null;
   postCount: number;
   keywords: string[];
   representatives: { id: string; text: string; similarity: number | null }[];
   stats: DistributionStats;
   excluded: number;
   rates: number[]; // engagement % của các bài đo được trong topic (chấm trên strip)
+  // ADR-0018 + ADR-0023 1e: ngày đặt tên (UTC) + số lần gom cụm liền gần nhất giữ tên
+  labeledAt: string | null;
+  labelModel: string | null;
+  runsKeepingLabel: number;
 }
 
 export interface HeroPost {
@@ -61,6 +75,9 @@ export interface LandingData {
   // hoặc không tải được. Mô tả (median/IQR/chấm) ở trên vẫn đọc dữ liệu mới nhất; kiểm định mang
   // mốc giờ riêng (`computedAt`, `snapshotAsOf`). `stale` → API đã ẩn δ/p (Thy chốt D3).
   topicTests: TopicTests | null;
+  // Tách 2 lý do `topicTests` null: endpoint lỗi ("unavailable") hay API chạy tốt nhưng chưa có lần
+  // kiểm định nào ("not-run", `method` null) — UI nói đúng lý do, không bảo "reload" khi chưa chạy
+  topicTestsStatus: "loaded" | "not-run" | "unavailable";
 }
 
 export interface TopicTests {
@@ -70,6 +87,104 @@ export interface TopicTests {
   method: ComparisonMethod;
   history: ComparisonHistory | null;
   engagement: Record<string, TopicComparisonRow>; // topic id → dòng engagement
+  rows: TopicComparisonRow[]; // mọi dòng (topic × 3 chỉ số + nhiễu + kênh) — bảng đủ họ Holm ở /topics
+}
+
+// Phần ngoặc "(11 topics × 3 rates)" chỉ khi họ Holm đúng bằng số topic × 3 chỉ số: topic không có
+// p nào (n đo được = 0) đứng ngoài họ (ADR-0023 1c) — 1 helper cho mọi câu nêu số phép so
+export function familyBreakdown(tests: TopicTests, topicCount: number): string {
+  return tests.method.holm_family_size === topicCount * 3 ? `${topicCount} topics × 3 rates` : "";
+}
+
+// Câu "vì sao không topic nào được nêu tên" (Thy 2026-10-29: không đạt thì phải giải thích, không
+// ẩn). Chỉ đọc số từ API: p trước/sau hiệu chỉnh của dòng engagement có p thô nhỏ nhất (trong các
+// topic đủ bài), kích thước họ Holm, cỡ topic nhỏ nhất/lớn nhất. Không tự tính p hay power.
+// Trả từng câu (UI vẽ thành khối "Why no topic is named yet" riêng, không chìm trong dòng phụ).
+export function noneStandOutReason(
+  tests: TopicTests,
+  topics: TopicView[],
+  noun: Noun,
+  smallLook = "faded", // landing làm mờ dòng ít bài; /topics tô chữ xám ("shown in grey")
+  split = false, // /topics: mỗi ý 1 bullet, không dồn 5 số vào 1 câu (copy-reviewer 2026-10-29)
+): string[] {
+  const alpha = tests.method.conclusion_alpha;
+  const family = tests.method.holm_family_size;
+  const nameOf = new Map(topics.map((t) => [t.id, t.name]));
+  const tested = topics
+    .map((t) => tests.engagement[t.id])
+    .filter(
+      (row): row is TopicComparisonRow =>
+        row !== undefined && row.p_value !== null && row.p_value_holm !== null && row.effect_size !== null,
+    );
+  const comparable = tested.filter((row) => !row.insufficient_data);
+  const strongest = comparable.reduce<TopicComparisonRow | null>(
+    (best, row) => (best === null || row.p_value! < best.p_value! ? row : best),
+    null,
+  );
+  const sizes = comparable.map((row) => row.group.n);
+  const small = tested.length - comparable.length;
+  const breakdown = familyBreakdown(tests, topics.length);
+  // `split` (/topics): in đậm cụm then chốt bằng `**…**` (AppBlock `rich`); landing giữ chữ trơn
+  const b = (text: string) => (split ? `**${text}**` : text);
+  const parts = [
+    `A topic stands out only if it has at least ${tests.method.min_posts_to_compare} ${noun.many} with recorded views and its p-value is ${b(`still below ${alpha} after correcting`)} for all ${family} tests${breakdown ? ` (${breakdown})` : ""}.`,
+  ];
+  if (comparable.length === 0) {
+    // Mọi topic quá nhỏ: nói thẳng lý do, không để khối trống "large enough" (vacuous)
+    parts.push(
+      `Every topic has fewer than ${tests.method.min_posts_to_compare} ${noun.many} with recorded views, so none can stand out yet; their p-values still count in the correction.`,
+    );
+  }
+  // "closest call" = p thô nhỏ nhất trong các topic đủ bài (không phải |δ| lớn nhất)
+  if (strongest && split) {
+    parts.push(
+      `The **closest call** (smallest p before correction) is ${nameOf.get(strongest.group_id) ?? strongest.group_id}: its ${noun.many} beat the rest of the channel in about ${winShare(strongest.effect_size!)}% of pairs (Cliff's δ ${signed(strongest.effect_size!)}).`,
+      `Its p is ${formatP(strongest.p_value!)} before correction and **${formatP(strongest.p_value_holm!)} after**${strongest.p_value_holm! > alpha ? `, above ${alpha}` : strongest.p_value_holm! === alpha ? `, equal to ${alpha}` : ""}.`,
+    );
+  }
+  if (sizes.length > 0 && split) {
+    const lo = Math.min(...sizes);
+    const hi = Math.max(...sizes);
+    parts.push(
+      `Topics large enough to conclude on have ${lo === hi ? lo : `${lo} to ${hi}`} ${noun.many} with recorded views each${
+        small > 0 ? `; ${small} smaller ${small === 1 ? "one is" : "ones are"} ${smallLook} and never stand out` : ""
+      }.`,
+      `With ${family} tests to correct for, groups this small can only show very large gaps.`,
+    );
+  }
+  if (strongest && !split) {
+    parts.push(
+      `The closest call is ${nameOf.get(strongest.group_id) ?? strongest.group_id}: its ${noun.many} beat the rest of the channel in about ${winShare(strongest.effect_size!)}% of pairs (Cliff's δ ${signed(strongest.effect_size!)}). Its p is ${formatP(strongest.p_value!)} before correction, but ${formatP(strongest.p_value_holm!)} after${strongest.p_value_holm! > alpha ? `, above ${alpha}` : strongest.p_value_holm! === alpha ? `, equal to ${alpha}` : ""}.`,
+    );
+  }
+  if (sizes.length > 0 && !split) {
+    const lo = Math.min(...sizes);
+    const hi = Math.max(...sizes);
+    parts.push(
+      // Không quy nguyên nhân cho cỡ mẫu bằng số power tự suy: câu trung tính, đúng theo ADR-0023
+      // mục "Sức mạnh thống kê" (cỡ topic hiện tại chỉ phát hiện được chênh lệch rất lớn)
+      `The topics large enough to conclude on have ${lo === hi ? lo : `${lo} to ${hi}`} ${noun.many} with recorded views each${
+        small > 0 ? `; ${small} smaller ${small === 1 ? "topic is" : "topics are"} ${smallLook} and never stand out` : ""
+      }. After a correction for this many tests, groups this small can only show very large gaps.`,
+    );
+  }
+  parts.push(
+    split
+      ? "So **the data cannot show a difference yet**; that is not the same as showing there is none."
+      : "So the data cannot show a difference yet; that is not the same as showing there is none.",
+  );
+  return parts;
+}
+
+// Số phép so có p thô < ngưỡng trong cả họ, đặt cạnh số kỳ vọng nếu không topic nào khác thật
+// (α × m — định nghĩa của mức ý nghĩa, không phải hằng số tự đặt; đúng cả khi các phép so phụ thuộc
+// nhau nhờ tính tuyến tính của kỳ vọng; với p hoán vị mẫu nhỏ — bảo thủ — chỉ là CẬN TRÊN nên UI
+// ghi "at most about"): giải thích vì sao phải hiệu chỉnh
+export function rawSignificantCount(tests: TopicTests): { below: number; expected: number } {
+  const below = tests.rows.filter(
+    (row) => row.kind === "topic" && row.p_value !== null && row.p_value < tests.method.conclusion_alpha,
+  ).length;
+  return { below, expected: tests.method.conclusion_alpha * tests.method.holm_family_size };
 }
 
 // Câu hover lịch sử "k of m" (ADR-0024; chữ Thy duyệt 2026-10-20 sau copy-reviewer + code-reviewer,
@@ -81,12 +196,14 @@ export function historySentence(
   row: TopicComparisonRow | undefined,
   method: ComparisonMethod,
   stale: boolean,
+  noun: Noun = POST_NOUN,
 ): string {
   const history = row?.history;
   if (!history) return "";
   const since = parisDate(history.since);
   const m = history.clusterings;
-  if (m === 0) return `Since ${since}, this topic has never had enough posts to test.`;
+  const its = `of its ${noun.many}`;
+  if (m === 0) return `Since ${since}, this topic has never had enough ${noun.many} to test.`;
   const total = m + history.too_few_posts;
   const tested =
     total === 1
@@ -97,8 +214,8 @@ export function historySentence(
       return `${tested} and did not stand out in ${total === 1 ? "it" : "any of them"}.`;
     }
     return m === 1
-      ? `${tested}; it had enough posts to test in 1 and did not stand out in it.`
-      : `${tested}; it had enough posts to test in ${m} and stood out in none.`;
+      ? `${tested}; it had enough ${noun.many} to test in 1 and did not stand out in it.`
+      : `${tested}; it had enough ${noun.many} to test in ${m} and stood out in none.`;
   }
   const both = history.higher > 0 && history.lower > 0;
   const where = both
@@ -106,16 +223,16 @@ export function historySentence(
     : `${history.direction === "lower" ? "below" : "above"} the rest of the channel in ${history.stood_out}`;
   if (total === 1) return `${tested} and stood out ${history.direction === "lower" ? "below" : "above"} the rest of the channel in it.`;
   const outOf =
-    history.too_few_posts > 0 ? `of the ${m} with enough of its posts to test` : "of them";
+    history.too_few_posts > 0 ? `of the ${m} with enough ${its} to test` : "of them";
   const verdict = stale ? null : testVerdict(row, method);
   if (m === 1) {
     // 1 cách chia đủ bài (+ ≥ 1 cách chia thiếu bài) và topic đã đạt ở đó — tránh "in 1 of the 1"
     // (chữ Thy duyệt 2026-10-20). Lần hiện tại kiểm định được thì chính là lần đạt đó.
-    const only = `${tested}: it stood out ${history.direction === "lower" ? "below" : "above"} the rest of the channel in the only one with enough of its posts to test`;
+    const only = `${tested}: it stood out ${history.direction === "lower" ? "below" : "above"} the rest of the channel in the only one with enough ${its} to test`;
     return verdict === "higher" || verdict === "lower"
       ? `${only}, the current one.`
       : verdict === "too few posts"
-        ? `${only}; the current one had too few of its posts to test.`
+        ? `${only}; the current one had too few ${its} to test.`
         : `${only}.`;
   }
   const current =
@@ -124,7 +241,7 @@ export function historySentence(
       : verdict === "higher" || verdict === "lower"
         ? `, including the current one${both ? ` (${verdict === "higher" ? "above" : "below"})` : ""}`
         : verdict === "too few posts"
-          ? "; the current one had too few of its posts to test"
+          ? `; the current one had too few ${its} to test`
           : ", but not in the current one";
   return `${tested}: it stood out ${where} ${outOf}${current}.`;
 }
@@ -256,6 +373,10 @@ export function buildLandingData(
     .map((topic) => ({
       id: topic.id,
       name: topic.label_en,
+      description: topic.description_en,
+      labeledAt: topic.labeled_at,
+      labelModel: topic.label_model,
+      runsKeepingLabel: topic.runs_keeping_label,
       postCount: topic.post_count,
       keywords: topic.keywords,
       representatives: topic.representatives.map((rep) => ({
@@ -351,8 +472,10 @@ export function buildLandingData(
                 .filter((row) => row.kind === "topic" && row.metric === "engagement")
                 .map((row) => [row.group_id, row]),
             ),
+            rows: comparisons.rows,
           }
         : null,
+    topicTestsStatus: !comparisons ? "unavailable" : comparisons.method ? "loaded" : "not-run",
   };
 }
 
