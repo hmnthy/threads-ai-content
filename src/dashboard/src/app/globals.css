@@ -14,6 +14,10 @@
   --text-muted: #6b7280; /* 4.8:1 */
 
   --amber-soft: #fef3c7;
+  /* Lớp "kết quả" của trang app (khung ANSWER, Key numbers): nền ấm rất nhạt + viền ấm (Thy 2026-10-29) —
+     chữ trên nền này vẫn dùng token chữ thường (text-primary 16:1, text-secondary ≥ 7:1) */
+  --warm-surface: #fffaf0;
+  --warm-border: #f3dfb5;
   --amber-fill: rgba(245, 158, 11, 0.42);
   --amber-600: #b45309; /* 5.9:1 — tương tác: nút chính, link, focus ring */
   --amber-700: #92400e; /* 8.2:1 — link hover */
@@ -24,6 +28,19 @@
   /* Chấm biểu đồ trung tính của landing (mockup landing.dc.html) — không dùng cho chữ */
   --chart-dot: #9aa3ae;
   --chart-dot-faint: #cbd2da;
+
+  /* Màu định danh topic trên bản đồ /topics (Thy 2026-10-29: chấp nhận đa sắc). Bảng 8 màu chuẩn của
+     skill dataviz, đúng thứ tự (thứ tự là cơ chế an toàn mù màu, không đổi); validate_palette.js --mode
+     light: PASS, CVD cặp kề ΔE ≥ 9.1, normal ΔE ≥ 19.6; slot 3/4/5 < 3:1 → luôn có nhãn chữ đi kèm.
+     Không dùng cho chữ. Topic thứ 9+ dùng lại màu với hình khác (mã hoá kép), lib/topicColors.ts */
+  --cat-1: #2a78d6;
+  --cat-2: #eb6834;
+  --cat-3: #1baf7a;
+  --cat-4: #eda100;
+  --cat-5: #e87ba4;
+  --cat-6: #008300;
+  --cat-7: #6250d6;
+  --cat-8: #e34948;
 
   /* §2.6 Dải tối — chỉ tầng B landing (sơ đồ "How it works" + khối CTA) */
   --dark-bg: #111827;
@@ -48,6 +65,8 @@
   --color-amber-soft: var(--amber-soft);
   --color-amber-fill: var(--amber-fill);
   --color-amber-600: var(--amber-600);
+  --color-warm-surface: var(--warm-surface);
+  --color-warm-border: var(--warm-border);
   --color-amber-700: var(--amber-700);
   --color-positive: var(--positive);
   --color-negative: var(--negative);

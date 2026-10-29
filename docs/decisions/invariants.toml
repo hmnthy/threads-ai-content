@@ -721,7 +721,7 @@ mockups = true
 # (`ph-at` trong mockup, `<At />` trong React) — logo thật qua BrandLogo (ADR-0021)
 pattern = '>\s*@\s*</(span|div|i|p)>|\bph-at\b|<At\b'
 why = "Logo là Unknot từ src/dashboard/public/brand/ qua BrandLogo.tsx; chữ \"@\" chỉ là giữ chỗ (ADR-0021)"
-fix = "Dùng <BrandLogo variant=\"lockup\" height={28} /> (navbar) hoặc biến thể theo vị trí trong ADR-0021"
+fix = "Dùng <BrandLogo variant=\"lockup-replay\" height={36} /> (topbar dashboard, ADR-0026) hoặc biến thể theo vị trí trong ADR-0021/0026"
 paths = ["src/dashboard/src/**", "src/dashboard/mockups/*.dc.html", "docs/design/*.dc.html"]
 
 [[stale_asset]]
@@ -745,6 +745,54 @@ regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong 
 [[stale_asset]]
 id = "ADR0021-topics-screenshot"
 adr = "0021"
+path = "docs/screenshots/topics.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[forbid]]
+id = "ADR0026-loop-logo"
+adr = "0026"
+# Bản lặp liên tục không còn chỗ dùng: topbar, navbar landing, hero đều phát lại bản "chạy 1 lần" mỗi 15 giây
+pattern = "variant=\\{?[\"']lockup-animated[\"']"
+why = "Logo động phát lại mỗi 15 giây qua variant lockup-replay (ADR-0026); bản lặp liên tục đã bỏ"
+fix = "Dùng <BrandLogo variant=\"lockup-replay\" height={…} />"
+paths = ["src/dashboard/src/**", "docs/**", ".claude/**"]
+allow = ["docs/decisions/**", "docs/archive/**"]
+
+[[forbid]]
+id = "ADR0026-static-topbar-claim"
+adr = "0026"
+# Câu cũ của ADR-0021: chỉ hero có chuyển động, topbar tĩnh 28px
+pattern = 'chỗ duy nhất (logo )?(có )?chuyển động|[Tt]opbar dashboard[^\n]{0,40}tĩnh 28px|[Tt]opbar dùng `lockup` tĩnh'
+why = "Từ ADR-0026: topbar 36px, và topbar + navbar landing + hero đều phát lại hoạt cảnh mỗi 15 giây"
+fix = "Ghi theo ADR-0026: topbar lockup-replay 36px + tagline 15px; navbar landing 28px và hero 64px cũng lockup-replay"
+paths = ["docs/**", "src/**", ".claude/**"]
+allow = ["docs/decisions/**", "docs/archive/**"]
+
+[[forbid]]
+id = "ADR0026-hero-only-motion"
+adr = "0026"
+# Diễn đạt khác của "chỉ hero chuyển động" / danh sách biến thể thiếu lockup-replay / hero dùng bản lặp
+pattern = 'chuyển động chỉ ở hero|`lockup` / `lockup-animated` / `mark`|hero \(bản động lặp\)|unthreaded-lockup-animated\.svg` cao 64'
+why = "Từ ADR-0026: topbar, navbar landing và hero đều phát lại bản \"chạy 1 lần\" mỗi 15 giây (lockup-replay); bản lặp không còn dùng"
+fix = "Ghi theo ADR-0026: lockup-replay ở topbar 36px, navbar landing 28px, hero 64px; footer lockup tĩnh 24px"
+paths = ["docs/**", "src/**", ".claude/**"]
+allow = ["docs/decisions/**", "docs/archive/**"]
+
+[[stale_asset]]
+id = "ADR0026-overview-screenshot"
+adr = "0026"
+path = "docs/screenshots/overview.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0026-analytics-screenshot"
+adr = "0026"
+path = "docs/screenshots/analytics.png"
+regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
+
+[[stale_asset]]
+id = "ADR0026-topics-screenshot"
+adr = "0026"
 path = "docs/screenshots/topics.png"
 regenerate = "Chạy backend + `npm run dev`, rồi `npm run screenshots` trong src/dashboard"
 

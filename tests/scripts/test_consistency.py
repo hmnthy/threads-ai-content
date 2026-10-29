@@ -619,6 +619,38 @@ LEARNED_RULES = [
         "- Từ khoá cụm: **c-TF-IDF** (`src/nlp/topic_profile.py`) trên âm tiết + bigram, chỉ term",
         "- Từ khoá cụm: **c-TF-IDF** (`src/nlp/topic_profile.py`) trên từ (underthesea) + bigram",
     ),
+    # ADR-0026: bản logo lặp liên tục đã bỏ — bắt chỗ dùng, không bắt khai báo kiểu ở BrandLogo
+    (
+        "ADR0026-loop-logo",
+        "src/dashboard/src/components/LandingHero.tsx",
+        '        <BrandLogo variant="lockup-animated" height={64} />',
+        '        <BrandLogo variant="lockup-replay" height={64} />',
+    ),
+    # ADR-0026: câu cũ "chỉ hero chuyển động / topbar tĩnh 28px"
+    (
+        "ADR0026-static-topbar-claim",
+        "docs/claude/design-system.md",
+        "- Hero landing: `lockup-animated` (lặp) 64px — chỗ duy nhất logo chuyển động",
+        "- Hero landing: `lockup-replay` 64px — phát lại mỗi 15 giây (ADR-0026)",
+    ),
+    (
+        "ADR0026-static-topbar-claim",
+        "docs/design/brand-assets.md",
+        "Topbar dashboard: lockup tĩnh 28px kèm tagline",
+        "Topbar dashboard: `lockup-replay` 36px kèm tagline 15px",
+    ),
+    (
+        "ADR0026-hero-only-motion",
+        "docs/status.md",
+        "favicon `app/icon.svg`; chuyển động chỉ ở hero landing.",
+        "favicon `app/icon.svg`; footer landing lockup tĩnh 24px.",
+    ),
+    (
+        "ADR0026-hero-only-motion",
+        "docs/design/brand-assets.md",
+        "- `BrandLogo.tsx` (`lockup` / `lockup-animated` / `mark`; bản động bọc `<picture>`)",
+        "- `BrandLogo.tsx` (`lockup` / `lockup-replay` / `mark`)",
+    ),
     # ADR-0021: chữ "@" giữ chỗ trước logo Unknot (không bắt import alias "@/components")
     (
         "ADR0021-placeholder-logo",

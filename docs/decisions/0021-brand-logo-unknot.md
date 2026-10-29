@@ -1,6 +1,6 @@
 # ADR-0021: Dùng logo Unknot từ một nguồn file duy nhất, ở vị trí cố định cho từng chỗ hiển thị
 
-- **Trạng thái**: Accepted
+- **Trạng thái**: Accepted — mục 3 (cỡ topbar, chỗ có chuyển động) thay bởi ADR-0026
 - **Ngày**: 2026-10-07
 - **Người quyết**: Thy (duyệt logo + animation 2026-10-01; chốt vị trí và hướng "logo + port landing" 2026-10-07); vị trí theo mockup landing của Claude Design
 

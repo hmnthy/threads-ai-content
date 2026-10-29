@@ -20,8 +20,8 @@ export function LandingNav() {
         className="pointer-events-auto flex max-w-full flex-nowrap items-center gap-7 rounded-full border border-border-hairline bg-bg-card py-1.5 pl-[18px] pr-1.5"
       >
         <a href="#top" className="flex flex-none" aria-label="Unthreaded, back to top">
-          {/* Lockup tĩnh 28px (ADR-0021); bản động chỉ dùng ở hero */}
-          <BrandLogo variant="lockup" height={28} />
+          {/* Lockup 28px, hoạt cảnh chạy 1 lần mỗi 15 giây (Thy 2026-10-29, BrandLogoReplay) */}
+          <BrandLogo variant="lockup-replay" height={28} />
         </a>
         <div className="hidden gap-[22px] whitespace-nowrap text-sm lg:flex">
           {LINKS.map((link) => (

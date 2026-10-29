@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-855%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-861%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -26,7 +26,7 @@ multi-tenant, not trying to be.
 
 ## Screenshots
 
-The product in four steps — from the pitch to the raw discovered topics.
+The product in four steps — from the pitch to the discovered topics and how each compares with the rest of the channel.
 
 <p align="center">
   <img src="docs/screenshots/landing.png" alt="Landing page: one post placed against its channel, the three layers, two dashboard panels, the pipeline diagram" width="820"><br>
@@ -44,8 +44,8 @@ The product in four steps — from the pitch to the raw discovered topics.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/topics.png" alt="Topic Explorer: 3D UMAP scatter of discovered topics" width="820"><br>
-  <sub><b>4. Topic Explorer</b> — unsupervised topic clusters (UMAP 3D + HDBSCAN) discovered from the channel's own post history.</sub>
+  <img src="docs/screenshots/topics.png" alt="Topic Explorer: topics found from the text alone on a colour-coded 3D map, with each topic's keywords and most typical posts" width="820"><br>
+  <sub><b>4. Topic Explorer</b> — topics discovered from the text alone (UMAP 3D + HDBSCAN), each compared with the rest of the channel on three rates, with every test, its effect size and its Holm-corrected p shown.</sub>
 </p>
 
 ---
@@ -83,7 +83,7 @@ Three layers, built in that order — each grounded in cited methodology, not in
 
 | Layer | Status | What it does |
 |---|---|---|
-| **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, share rate, conversation, velocity, longevity — never blended into one score. Every group of posts (a topic, an hour, a time window) shows its median, its IQR (interquartile range: the range the middle 50% of posts fall in) and its number of posts (n), flagged when n is too small to interpret. Reach tiers (via the API) are measured against the channel's recent level (median of up to 20 prior posts), not an arbitrary fixed threshold. Group comparisons use a Brunner-Munzel permutation test (a rank test that does not assume both groups are equally spread) and report Cliff's delta, P(A > B) − P(A < B), with a 95% confidence interval; p-values are Holm-corrected across each family of comparisons (for topics: every topic × engagement, share rate and conversation), the intervals are not. Each topic is compared with the rest of the channel by the daily job after every clustering run, and the landing page shows the results; the Topics page is next. Top-post tables rank only posts with at least the channel's 25th-percentile views, because a rate measured on few views swings too much to compare. |
+| **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, share rate, conversation, velocity, longevity — never blended into one score. Every group of posts (a topic, an hour, a time window) shows its median, its IQR (interquartile range: the range the middle 50% of posts fall in) and its number of posts (n), flagged when n is too small to interpret. Reach tiers (via the API) are measured against the channel's recent level (median of up to 20 prior posts), not an arbitrary fixed threshold. Group comparisons use a Brunner-Munzel permutation test (a rank test that does not assume both groups are equally spread) and report Cliff's delta, P(A > B) − P(A < B), with a 95% confidence interval; p-values are Holm-corrected across each family of comparisons (for topics: every topic × engagement, share rate and conversation), the intervals are not. Each topic is compared with the rest of the channel by the daily job after every clustering run; the landing page shows the engagement results, and the Topics page shows every test with its effect size, interval and corrected p, plus a glossary of every term it uses. Top-post tables rank only posts with at least the channel's 25th-percentile views, because a rate measured on few views swings too much to compare. |
 | **NLP layer** | Live | Multilingual sentence embeddings (content mixes Vietnamese, French and English naturally, so no per-language tokenizer before embedding; topic keywords use a Vietnamese word segmenter) feed UMAP + HDBSCAN for unsupervised topic discovery, then Claude labels each discovered cluster in English. A Code-Mixing Index — a continuous score, not a boolean flag — measures how much a post actually switches languages. |
 | **Knowledge base** | Next | The channel's own posts and the author's answers to follower questions, turned into a searchable knowledge base: hybrid keyword (BM25) + semantic retrieval with a reranker, evaluated against real follower questions (recall@k, MRR, nDCG) before anything — such as a Q&A assistant — is built on top of it. |
 

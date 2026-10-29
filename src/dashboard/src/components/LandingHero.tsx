@@ -35,8 +35,8 @@ export function LandingHero({ data }: { data: LandingData | null }) {
       className="mx-auto box-border flex w-full max-w-[1200px] flex-col px-4 pb-24 pt-14 sm:px-8"
     >
       <div className="flex flex-col items-center gap-6 text-center">
-        {/* Chỗ DUY NHẤT logo chuyển động; reduced-motion → bản tĩnh qua <picture> (ADR-0021) */}
-        <BrandLogo variant="lockup-animated" height={64} />
+        {/* Hoạt cảnh chạy 1 lần mỗi 15 giây (Thy 2026-10-29); reduced-motion → bản tĩnh (BrandLogoReplay) */}
+        <BrandLogo variant="lockup-replay" height={64} />
         <h1 className="m-0 text-[clamp(44px,6.4vw,76px)] font-extrabold leading-none tracking-[-0.04em] [text-wrap:balance]">
           The algorithm, read back to you.
         </h1>

@@ -95,7 +95,7 @@ Tên file mới phải thêm vào `planned_paths` trong `docs/decisions/invarian
 ## 3. Từng section
 
 ### 3.1 Hero
-- Logo động `brand/unthreaded-lockup-animated.svg` cao 64 (chỉ dùng ở đây). `prefers-reduced-motion` → `unthreaded-lockup.svg`.
+- Logo `BrandLogo variant="lockup-replay"` cao 64: bản `brand/unthreaded-lockup-animated-once.svg` phát lúc mở trang rồi mỗi 15 giây (ADR-0026, thay bản lặp). `prefers-reduced-motion` → `unthreaded-lockup.svg`.
 - H1 `clamp(44px, 6.4vw, 76px)` w800 −0.04em lh 1.
 - Panel: câu hỏi `Is "8 kinh nghiệm sau 8 năm ở Pháp" a strong post?` (post `17939285085325700`).
 - Beeswarm cao 250: trục x 0–5.6%, vạch 0…5%. Mỗi chấm 8px `--text-muted` = 1 root post đo được. Xếp chấm: lần lượt theo giá trị tăng dần, thử y = tâm, tâm±9, tâm±18… lấy vị trí đầu tiên không chạm chấm đã đặt (khoảng cách ≥ 9px). Band IQR nền `--bg-surface` radius 6; vạch median 2px `--text-primary` + nhãn mono `median 1.99%`; nhãn `IQR 1.42–2.54%` đặt **bên phải** vạch median.
