@@ -7,44 +7,15 @@ import { LandingProblem } from "@/components/LandingProblem";
 import { LandingProof } from "@/components/LandingProof";
 import { LandingSolution } from "@/components/LandingSolution";
 import { LandingTechStack } from "@/components/LandingTechStack";
-import {
-  getAnalyticsOverview,
-  getContentUnits,
-  getPipelineSummary,
-  getTopicComparisons,
-  getTopics,
-  type TopicComparisons,
-} from "@/lib/api";
-import { buildLandingData, dayMonthYear, type LandingData } from "@/lib/landing";
+import { dayMonthYear } from "@/lib/landing";
+import { loadTopicPageData } from "@/lib/load";
 
 // Landing / story page (Tầng B — docs/design/landing-handoff.md, design-system §7). Trang duy
 // nhất KHÔNG dùng Nav.tsx (tab pill): có LandingNav riêng, mọi CTA vào /overview.
-// Server component: lấy số thật từ API mỗi request; API lỗi → mỗi khối hiện trạng thái rỗng
-// rõ ràng thay vì khung trục trống (design-system §9).
-async function loadLandingData(): Promise<LandingData | null> {
-  try {
-    const [units, topics, overview, summary, comparisons] = await Promise.all([
-      getContentUnits(),
-      getTopics(),
-      getAnalyticsOverview(),
-      getPipelineSummary(),
-      // Kiểm định theo topic (ADR-0023) là lớp thêm: lỗi riêng nó không được làm mất cả landing —
-      // panel vẫn hiện phần mô tả, ô kiểm định "—"
-      getTopicComparisons().catch((error: unknown): TopicComparisons | null => {
-        console.error("landing: could not load topic comparisons", error);
-        return null;
-      }),
-    ]);
-    return buildLandingData(units, topics, overview, summary, comparisons);
-  } catch (error) {
-    // in ra log server để lỗi lập trình không bị nhầm thành "API không chạy"
-    console.error("landing: could not load data", error);
-    return null;
-  }
-}
-
+// Server component: lấy số thật từ API mỗi request (`lib/load.ts`, chung với /topics); API lỗi →
+// mỗi khối hiện trạng thái rỗng rõ ràng thay vì khung trục trống (design-system §9).
 export default async function LandingPage() {
-  const data = await loadLandingData();
+  const data = (await loadTopicPageData("landing"))?.data ?? null;
   return (
     <div className="landing flex flex-1 flex-col">
       <LandingNav />

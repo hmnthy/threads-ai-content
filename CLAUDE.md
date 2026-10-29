@@ -59,7 +59,9 @@ Quy tắc theo mảng code nằm ở `.claude/rules/` và **tự nạp** khi đ�
   `@agent-copy-reviewer` đọc chữ tiếng Anh hiển thị như tech lead NLP + người đọc mới, đề xuất câu viết lại (Thy duyệt câu cuối) ·
   `@agent-consistency-auditor` kiểm toán độc lập 1 ADR (dùng trong `/decision-sweep`; **bắt buộc** trước commit ADR — git hook pre-commit chặn, ADR-0015) ·
   `@agent-promise-auditor` kiểm kê lời hứa của landing so với nội dung thật của các trang app, chấm mức lệch 0–4 + thứ tự
-  việc nên làm (gọi bằng `/promise-audit`, thường cuối phiên; báo cáo riêng tư ở `data/audits/promise-gap/`, `/wt clean` gom về checkout chính).
+  việc nên làm (gọi bằng `/promise-audit`, thường cuối phiên; báo cáo riêng tư ở `data/audits/promise-gap/`, `/wt clean` gom về checkout chính) ·
+  `@agent-ux-reviewer` cảnh sát trình bày UI (ảnh chụp thật nhiều khổ: bố cục, thang chữ, số có giải thích + công thức,
+  gạch đầu dòng dọc, song ngữ) — **bắt buộc** trước khi báo xong / commit UI.
 - **Cổng pre-commit** (chặn commit): ruff, mypy, sổ luật nhất quán (quét TOÀN repo, ~6s), pytest nhanh, eslint + tsc khi chạm dashboard, cổng review tầng 2 (chỉ commit của Claude), commit-msg.
   CI (`.github/workflows/ci.yml`) chạy lại các cổng trên máy sạch khi mở PR hoặc push vào `main`.
   Hook đầu phiên báo số vi phạm ≠ 0 → chạy `/decision-sweep` trước việc mới.

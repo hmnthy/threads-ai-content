@@ -3,7 +3,7 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-855%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-861%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
 > The algorithm, read back to you.
@@ -29,7 +29,7 @@ multi-tenant, et ça n'a pas vocation à le devenir.
 
 ## Captures d'écran
 
-Le produit en quatre étapes — du pitch jusqu'aux sujets bruts découverts par clustering.
+Le produit en quatre étapes — du pitch jusqu'aux sujets découverts et à la façon dont chacun se compare au reste du compte.
 
 <p align="center">
   <img src="docs/screenshots/landing.png" alt="Landing page: one post placed against its channel, the three layers, two dashboard panels, the pipeline diagram" width="820"><br>
@@ -47,8 +47,8 @@ Le produit en quatre étapes — du pitch jusqu'aux sujets bruts découverts par
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/topics.png" alt="Topic Explorer: 3D UMAP scatter of discovered topics" width="820"><br>
-  <sub><b>4. Topic Explorer</b> — clusters de sujets découverts de façon non supervisée (UMAP 3D + HDBSCAN) à partir de l'historique réel des publications du compte.</sub>
+  <img src="docs/screenshots/topics.png" alt="Topic Explorer: topics found from the text alone on a colour-coded 3D map, with each topic's keywords and most typical posts" width="820"><br>
+  <sub><b>4. Topic Explorer</b> — sujets découverts à partir du seul texte (UMAP 3D + HDBSCAN), chacun comparé au reste du compte sur trois taux, avec chaque test, sa taille d'effet et sa p-valeur corrigée par Holm.</sub>
 </p>
 
 ---
@@ -89,7 +89,7 @@ citée, jamais dans l'intuition.
 
 | Couche | Statut | Ce qu'elle fait |
 |---|---|---|
-| **Couche statistique** | En ligne | Six indices intrinsèques gardés séparés — popularité, engagement, taux de partage, conversation, vélocité, longévité — jamais fusionnés en un seul score. Chaque groupe de publications (un sujet, une heure, une fenêtre temporelle) affiche sa médiane, son IQR (écart interquartile : l'intervalle où se situent les 50 % de publications du milieu) et son nombre de publications (n), avec une alerte quand n est trop petit pour être interprété. Les paliers de portée (via l'API) se mesurent par rapport au niveau récent du compte (médiane d'au plus 20 publications précédentes), pas avec un seuil fixe arbitraire. Les comparaisons de groupes utilisent un test de Brunner-Munzel par permutation (un test sur les rangs qui ne suppose pas que les deux groupes ont la même dispersion) et rapportent le delta de Cliff, P(A > B) − P(A < B), avec un intervalle de confiance à 95 % ; les p-valeurs sont corrigées par Holm sur chaque famille de comparaisons (pour les sujets : chaque sujet × engagement, taux de partage et conversation), pas les intervalles. Le job quotidien compare chaque sujet au reste du compte après chaque clustering, et la page d'accueil affiche les résultats ; la page Topics est la prochaine étape. Les tableaux de meilleures publications ne classent que les publications ayant au moins les vues du 25e centile du compte, car un taux mesuré sur peu de vues varie trop pour être comparé. |
+| **Couche statistique** | En ligne | Six indices intrinsèques gardés séparés — popularité, engagement, taux de partage, conversation, vélocité, longévité — jamais fusionnés en un seul score. Chaque groupe de publications (un sujet, une heure, une fenêtre temporelle) affiche sa médiane, son IQR (écart interquartile : l'intervalle où se situent les 50 % de publications du milieu) et son nombre de publications (n), avec une alerte quand n est trop petit pour être interprété. Les paliers de portée (via l'API) se mesurent par rapport au niveau récent du compte (médiane d'au plus 20 publications précédentes), pas avec un seuil fixe arbitraire. Les comparaisons de groupes utilisent un test de Brunner-Munzel par permutation (un test sur les rangs qui ne suppose pas que les deux groupes ont la même dispersion) et rapportent le delta de Cliff, P(A > B) − P(A < B), avec un intervalle de confiance à 95 % ; les p-valeurs sont corrigées par Holm sur chaque famille de comparaisons (pour les sujets : chaque sujet × engagement, taux de partage et conversation), pas les intervalles. Le job quotidien compare chaque sujet au reste du compte après chaque clustering ; la page d'accueil affiche les résultats d'engagement, et la page Topics montre chaque test avec sa taille d'effet, son intervalle et sa p-valeur corrigée, ainsi qu'un glossaire de chaque terme employé. Les tableaux de meilleures publications ne classent que les publications ayant au moins les vues du 25e centile du compte, car un taux mesuré sur peu de vues varie trop pour être comparé. |
 | **Couche NLP** | En ligne | Des embeddings de phrases multilingues (le contenu mélange naturellement vietnamien, français et anglais, donc aucun tokenizer propre à une langue avant l'embedding ; les mots-clés des sujets utilisent un segmenteur de mots vietnamien) alimentent UMAP + HDBSCAN pour une découverte de sujets non supervisée, puis Claude nomme chaque cluster découvert en anglais. Un Code-Mixing Index — un score continu, pas un simple booléen — mesure à quel point une publication mélange réellement les langues. |
 | **Base de connaissances** | Prochaine étape | Les publications du compte et les réponses de l'autrice aux questions des abonnés, transformées en base de connaissances interrogeable : recherche hybride (mots-clés BM25 + sémantique) avec reranker, évaluée sur de vraies questions d'abonnés (recall@k, MRR, nDCG) avant de construire quoi que ce soit — comme un assistant de questions-réponses — par-dessus. |
 
