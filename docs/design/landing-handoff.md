@@ -87,9 +87,10 @@ Tên file mới phải thêm vào `planned_paths` trong `docs/decisions/invarian
 
 - Nền trang `--bg-page`. Nội dung `max-width 1200px`, padding ngang 32px. Section padding dọc 104px, ngăn bằng `border-top 1px --rule`.
 - Navbar: pill trắng, viền hairline, sticky `top 16px`, căn giữa.
-- Eyebrow: IBM Plex Mono 13px w500 `--amber-600`, dạng `01 · Problem`.
-- H2 section: `clamp(32px, 3.6vw, 46px)` w800, `letter-spacing -0.035em`, `line-height 1.08`, `text-wrap: balance`.
-- Panel bằng chứng: nền `--bg-card`, hairline, radius 20, padding `28px 32px 20px`. Thứ tự bắt buộc: **câu hỏi** (13px w600 amber) → **câu trả lời 1 dòng** (24px w700 −0.02em) → biểu đồ → hàng chân (ghi chú + nút "Method and limits") → khối phương pháp mở ra (`--bg-sunken`, radius 12, công thức mono 12.5px).
+- **Cỡ chữ theo thang chung `docs/claude/design-system.md` §3 + sổ luật §3b** (Thy chốt 2026-10-30) — landing không có thang riêng; các cỡ dưới đây là vai trong thang đó. Bản port 2026-10-01 còn cỡ cũ (câu hỏi panel 13px, câu trả lời 24px, eyebrow 13px): sửa ở PR riêng sau PR sổ luật.
+- Eyebrow: IBM Plex Mono 12.5px w600 `--amber-600` (vai mono · eyebrow số, như số khối của `AppBlock.tsx`), dạng `01 · Problem`.
+- H2 section: display-2 `clamp(32px, 3.6vw, 46px)` w800, `letter-spacing -0.035em`, `line-height 1.08`, `text-wrap: balance` — mọi section, kể cả About và CTA.
+- Panel bằng chứng: nền `--bg-card`, hairline, radius 20, padding `28px 32px 20px`. Thứ tự bắt buộc (luật C1): eyebrow → **tiêu đề panel** (`h3`, vai block title 26px w700) → **câu trả lời 1 dòng** (vai answer 18px w600, khung nhấn) → biểu đồ → hàng chân (ghi chú + nút "Method and limits", kiểu nút chung C3) → khối phương pháp mở ra (`--bg-sunken`, radius 12, công thức mono 12.5px).
 - Nút chính: pill `--amber-600`, chữ trắng 15px w600, cao 48. Nút phụ: pill trắng, hairline.
 
 ## 3. Từng section
@@ -133,7 +134,7 @@ Lưới 2 cột (`minmax(min(100%,420px),1fr)`, gap 56). Trái: eyebrow, H2, đo
 Flex wrap, gap 48: ảnh 200px cố định, chữ `flex 1 1 320px` (màn hẹp xuống 1 cột). Ảnh `photo_author` 200×240 radius 16 `object-position 50% 30%`. Bio **vẫn là nháp chờ Thy duyệt** (status.md). Chip 9 cụm kèm n.
 
 ### 3.7 CTA + footer
-Khối `--dark-bg` radius 20, padding 80/32, mark 52px, H2 52px. Nút chính `--amber-on-dark` chữ `#111827`; 2 nút viền trắng 28%. Link dashboard/methodology/repo **chưa có URL thật** — giữ `#` tới khi deploy. Footer: lockup + tagline; câu miễn trừ Meta (ADR-0009) + `snapshot YYYY-MM-DD`.
+Khối `--dark-bg` radius 20, padding 80/32, mark 52px, H2 display-2 (thang chung §3; code còn `clamp(32px,4vw,52px)` ở `LandingCta.tsx`, và H2 About còn `clamp(28px,3vw,38px)` ở `LandingAuthor.tsx` — sửa ở PR sau PR sổ luật). Nút chính `--amber-on-dark` chữ `#111827`; 2 nút viền trắng 28%. Link dashboard/methodology/repo **chưa có URL thật** — giữ `#` tới khi deploy. Footer: lockup + tagline; câu miễn trừ Meta (ADR-0009) + `snapshot YYYY-MM-DD`.
 
 ## 4. Dữ liệu — không hardcode số
 

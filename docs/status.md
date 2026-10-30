@@ -1,10 +1,11 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-30 (lịch sử repo public đã viết lại — ADR-0028)
+> Cập nhật: 2026-10-30 (sổ luật UI/UX chung cho mọi trang — nhánh `ui-rulebook` (loại docs))
 
 ## Now
 
+- Sổ luật UI/UX chung (Thy chốt 2026-10-30, nhánh `ui-rulebook` (loại docs), PR 1/2): một thang chữ cho landing + mọi trang app (`design-system.md` §3, landing chỉ thêm display-1/2), luật có mã T/L/C/N/B/A/X (§3b), cưỡng chế 2 lớp — `@agent-ux-reviewer` (luôn chấm mọi trang) + máy đo `src/dashboard/scripts/ux-shots.mjs` (axe-core), **không** chặn commit. Baseline trên bản live: 63 vi phạm máy (landing 27, overview 15, analytics 14, topics 4). Còn: Thy chạy `/record-decision` ghi ADR; PR 2 sửa các trang tới `UX gate (máy): PASS`.
 - ADR-0027 (PR #25, Thy chọn 2026-10-30): repo public chính thức, `LICENSE` giữ mọi quyền (bên thứ ba giữ giấy phép gốc: `tools/ui-ux-pro-max/` MIT); `.claude/` gitignored, có kho riêng, worktree nhận bản sao chỉ đọc; `check --all` vẫn quét harness trên máy, mọi chế độ (cả `--all` ở CI) chặn `.claude/` bị track. ADR-0028 (PR #26): soát nội dung nhạy cảm (không có secret thật) → bỏ `docs/archive/` khỏi repo, quy tắc làm việc riêng sang `CLAUDE.local.md`, sửa câu chữ ADR. **Lịch sử đã viết lại** (2026-10-30, Thy force push `691ab6e`): bỏ `.claude/`, `docs/research/`, `docs/archive/`, chuỗi riêng tư, metadata ảnh, trailer khỏi mọi commit; mọi cổng an toàn đạt (cây `main` giống hệt trước). Đã gửi ticket GitHub Support xoá ref 26 PR cũ + cache (chờ trả lời). **Mọi mã commit cũ đã đổi** — các mã trong file này và vài ADR (VD `e8d645e`, `f5d1890`) là mã cũ: PR riêng đổi theo bảng đổi mã (lưu ngoài repo).
 - `main` (2026-10-05, PR #1 merge commit `e8d645e`, CI xanh lần đầu) gồm: tái cấu trúc "LESS IS MORE" (ADR-0001, 0003); cưỡng chế nhất quán (ADR-0008) + tên **Unthreaded** (ADR-0009); P0 dashboard trung thực — median + n + IQR, heatmap giờ đăng (ADR-0010 SQLite là CSDL duy nhất, ADR-0011 bài views = 0 là dữ liệu thiếu); P1 Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, 9 cụm; `/conversation` trả được bình luận follower); các mục dưới đến ADR-0018.
 - Cảnh sát lời hứa (2026-10-28, Thy yêu cầu sau khi thấy landing hứa nhiều hơn dashboard): `@agent-promise-auditor` + `/promise-audit` kiểm kê lời hứa của landing so với nội dung thật của các trang app, chấm mức lệch 0–4 + độ phủ + gói việc; báo cáo riêng tư `data/audits/promise-gap/` (gitignored). Lần đầu (148dc37): **mức 4 "bìa hứa sai"**, độ phủ 11/36 — `/topics` chưa hiện kiểm định/δ/Holm/lịch sử/từ khoá dù `/topics/comparisons` đã trả đủ; 2 S1: câu CTA "the method behind each number" và mẫu số "161 posts with text".
@@ -14,7 +15,6 @@
 - 2026-10-04: key Claude được thay; ADR-0016 — đặt tên cụm bằng `claude-sonnet-5-5` (thay Opus), bỏ lời hứa prompt caching. ADR-0017 — Modern Standby đóng băng tiến trình khi máy ngủ → job NLP chạy 12:30, cả 2 cron chạy khi dùng pin (`scripts/configure_jobs.ps1`); snapshot hở ban đêm (trung vị khoảng trống ~16h) được chấp nhận và ghi trong data-model.md.
 - ADR-0018 (Thy chọn phương án B + 4 lựa chọn sau thí nghiệm 10 seed + kiểm tài liệu MONIC/Greene/Palla/BERTopic): danh tính cụm bền `topic_N` — ghép theo thành viên (bỏ nhiễu ở phép thử giữ, lõi giữ tên) rồi ngữ nghĩa (trừ cụm nhập), đặt lại tên khi trôi khỏi bản neo; prompt đặt tên v2. Đổi tên khi data không đổi: 30,6% [21,0; 40,3] → 15,2% [10,7; 19,9] (828 cụm, 90 cặp seed). DB thật đã migrate một phần (id `topic_N`) do job snapshot 21:15 chạy code đang sửa; lần job NLP kế tiếp thêm cột bản neo và đặt lại tên 9 cụm 1 lần.
 - ADR-0019 (Thy chọn): quy trình git — thư mục chính luôn ở `main`, mọi thay đổi trong worktree trên nhánh riêng → PR → CI → merge commit; hook đầu phiên nhắc (`scripts/git_hygiene.py`), skill `/git-flow`, tài liệu `docs/claude/git-workflow.md`. Đã merge (PR #2).
-- PR #3 (2026-10-06): gói Claude Design 2026-10-05 (landing mockup chốt, design-system v3.2, brief Topics v2) + logo Unknot.
 - ADR-0012 (Thy chốt 2026-10-06, PR #5 đã merge): chỉ số (reposts + quotes) / views đổi tên thành `share_rate` (UI "Share rate"); "bài lan rộng" = tầng reach tương đối — "Top 20% reach" (P80) / "Above median reach" (P50) của views ÷ median 20 bài trước, chỉ bài đã chín (P90 thời gian đạt 90% views, đo từ snapshot); `GET /analytics/reach`, số liệu sinh lại bằng `scripts/reach_report.py`. Chưa có giao diện tầng (chờ mockup); ảnh chụp đã làm lại. Hạn chế cửa sổ 20 bài (Thy giữ, 2026-10-07): ghi ở `data-model.md`.
 - Gói Claude Design 2026-10-06 (nhánh `design/2026-10-06`): landing mockup sửa theo audit, `landing-handoff.md` §0.5 (quyết định → id `UI-…`); hợp đồng UI chốt 4 câu hỏi mở (1: một ngưỡng mẫu nhỏ = 5, UI đọc cờ backend; 2: giữ hai bộ nhãn trạng thái; 3: id `topic_N` chỉ ở metadata; 4: mốc clustered theo giờ Paris) + 7 đề xuất cột E.
 - ADR-0021 (Thy duyệt logo 2026-10-01, chốt vị trí 2026-10-07): logo Unknot qua `BrandLogo.tsx`, favicon `app/icon.svg`; ADR-0026 (2026-10-29): topbar 36px + tagline 15px cạnh logo, topbar / navbar landing / hero phát lại hoạt cảnh mỗi 15 giây (`lockup-replay`), footer lockup tĩnh.
@@ -57,4 +57,4 @@
 
 ## Last checkpoint
 
-- Record that the public history was rewritten (ADR-0028)
+- Add a product-wide UI rule book and machine checks for UX review

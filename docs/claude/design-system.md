@@ -108,33 +108,46 @@ Dùng cho đúng 2 dải trên landing: sơ đồ "How it works" và khối CTA 
 
 Inter cho UI. **IBM Plex Mono cho công thức, ID, timestamp** — đây là dấu ấn typographic của sản phẩm, không phải trang trí.
 
-```
-hero metric   56px  w700  -0.03em   tabular
-h2 section    20px  w700  -0.02em
-card title    15px  w600
-body          15px  w400  lh 1.6
-metric KPI    28px  w700  -0.02em   tabular
-formula       12.5px mono lh 1.7
-label         12px  w500
-```
-
-**Thang chữ trang app tầng A** (Thy chốt 2026-10-29, sau 2 lần bác bản /topics) — **tiêu đề luôn lớn hơn nội dung
-nó dẫn**, để người đọc nhanh quét theo tiêu đề mà không sót khối. Mỗi cỡ một vai, không cỡ nào khác; hằng số
-`TYPE` trong `src/dashboard/src/components/AppBlock.tsx`:
+**Một thang chữ cho toàn sản phẩm** — landing và mọi trang app (Thy chốt 2026-10-30, sau khi thấy landing và
+/topics ra 2 "giọng" vì thang cũ chỉ viết cho tầng A: tiêu đề khối landing 13px bằng thân bài). Mở rộng thang tầng A
+Thy chốt 2026-10-29 sau 2 lần bác bản /topics: **tiêu đề luôn lớn hơn nội dung nó dẫn**, để người đọc nhanh quét
+theo tiêu đề mà không sót khối. Mỗi cỡ một vai, không cỡ nào khác (luật T1–T4 ở §3b); hằng số `TYPE` trong
+`src/dashboard/src/components/AppBlock.tsx`. Landing chỉ thêm 2 bậc trưng bày ở đỉnh thang (display-1, display-2 —
+danh sách trắng X1), không thêm bậc giữa.
 
 ```
-h1 page title    40px w700  -0.025em    tiêu đề trang, đầu trang căn giữa (Thy 2026-10-29) — trên nó nhãn 12px amber, dưới
-                                        câu hỏi trang 18px, chip mốc dữ liệu, dải mục lục khối 15px
-h2 block title   26px w700  -0.02em     tiêu đề khối: trên nó số mono + tên ngắn (cùng chữ với mục lục); dưới nó câu mục đích 15px + kẻ đậm 2px
-h3 section       20px w600              mục trong khối (kẻ mảnh phía trên), chữ trơn — link định nghĩa đặt ở dòng ghi chú dưới
-answer           18px w600              câu trả lời của khối, trong khung nhấn viền trái amber + nhãn "ANSWER"
-h4 box title     17px w600              tiêu đề hộp con (Key numbers, What to know, How it is computed, Limits)
-body             15px  lh 1.6           thân bài, gạch đầu dòng, nhãn hàng của bảng số; số chính 15px w700 (nhấn bằng độ đậm, không bằng cỡ — tiêu đề hộp luôn lớn nhất)
-cell / note      13px                   chữ trong ô bảng, ghi chú phụ dưới tiêu đề
-formula / number 12.5px mono            công thức, số trong bảng — chỉ mono
-label / th       12px w500–600          header cột bảng, nhãn nhỏ
-formula script   0.8em (≈10px)          chỉ số dưới/trên trong `Formula` — không dùng ngoài công thức
+vai               cỡ                          độ đậm         tag app / landing   dùng
+display-1         clamp(44px, 6.4vw, 76px)    w800 -0.04em   — / h1              H1 hero landing (duy nhất)
+display-2         clamp(32px, 3.6vw, 46px)    w800 -0.035em  — / h2              tiêu đề section landing, kể cả About + CTA
+metric-hero       56px tabular                w700 -0.03em   không phải heading  số trong dải hero gradient Overview
+h1 page title     40px                        w700 -0.025em  h1 / —              tiêu đề trang app, đầu trang căn giữa (Thy 2026-10-29) —
+                                                                                 trên nó eyebrow trang (label 12px w600 amber), dưới câu hỏi
+                                                                                 trang 18px, chip mốc dữ liệu, dải mục lục khối 15px
+metric            28px tabular                w700 -0.02em   không phải heading  số KPI (strip Overview, hàng số hero landing)
+h2 block title    26px                        w700 -0.02em   h2 / h3             tiêu đề khối (app) = tiêu đề panel/khối của landing: trên nó
+                                                                                 eyebrow khối = số mono 12.5px + tên ngắn label 12px (cùng chữ với
+                                                                                 mục lục); dưới câu mục đích 15px + kẻ đậm 2px
+h3 section        20px                        w600           h3 / h4             mục trong khối (kẻ mảnh phía trên), chữ trơn — link định nghĩa
+                                                                                 đặt ở dòng ghi chú dưới
+answer · lead     18px                        w600 · w400    —                   câu trả lời (khung nhấn viền trái amber + nhãn "ANSWER") · câu
+                                                                                 dẫn dưới h1 / display-2
+h4 box title      17px                        w600           h4 / h5             tiêu đề hộp con (Key numbers, What to know, How it is computed,
+                                                                                 Limits)
+body              15px  lh 1.6                w400           —                   thân bài, gạch đầu dòng, nhãn hàng của bảng số; số chính 15px
+                                                                                 w700 (nhấn bằng độ đậm, không bằng cỡ — tiêu đề hộp luôn lớn nhất)
+note · cell · control 13px                    w400 · w600    —                   ô bảng, ghi chú phụ, chú giải · chữ trên nút/tab/pill bấm được
+                                                                                 (như nút "Method and limits" của `AppBlock.tsx`)
+mono · eyebrow số 12.5px mono lh 1.7          w400 · w600    —                   công thức, ID, số trong bảng · eyebrow có số, amber: số khối,
+                                                                                 `01 · Problem` của section landing — chỉ mono
+label · th        12px                        w500–600       —                   header cột bảng, nhãn nhỏ, pill trạng thái, nhãn trục biểu đồ,
+                                                                                 eyebrow chữ (eyebrow trang "TOPIC ANALYSIS", tên ngắn của khối)
+formula script    0.8em (≈10px)               —              `sub`/`sup`         chỉ số dưới/trên trong `Formula` — không dùng ngoài công thức
 ```
+
+Tập cỡ hợp lệ (px): **12 · 12.5 · 13 · 15 · 17 · 18 · 20 · 26 · 28 · 40 · 56**, cộng 2 khoảng display trên h1/h2 của
+landing. Tag landing lệch 1 cấp so với app vì landing có thêm tầng section (display-2 là `h2`): cùng **vai** thì cùng
+cỡ, độ đậm, màu, dù tag khác. Chữ trong SVG biểu đồ cũng thuộc thang (nhãn trục 12px). Cỡ fluid (`clamp`) chỉ dành
+cho display-1/2 — mọi vai khác cố định, kể cả trên 375px (body 15px ≥ 14px tối thiểu của §12).
 
 Khoảng cách: khối cách nhau 40px; trong khối, mục h3 cách nhau 28px có kẻ mảnh. Chữ chạy hết bề rộng khung chứa —
 không chừa khoảng trắng bên phải (Thy 2026-10-29, thay quy tắc 72ch). Không hộp viền lồng trong hộp.
@@ -151,6 +164,108 @@ không chừa khoảng trắng bên phải (Thy 2026-10-29, thay quy tắc 72ch)
 khối (số + tên) dưới tiêu đề trang.
 
 Mọi con số dùng `font-variant-numeric: tabular-nums`, định dạng **en** (`18,420`) — thay cho `toLocaleString('vi-VN')` từng dùng ở v3 (xem §13, quyết định 2026-09-02: UI hướng ra ngoài dùng tiếng Anh, nội dung post giữ tiếng Việt). Không uppercase tiếng Việt.
+
+---
+
+## 3b. Sổ luật UI/UX — áp cho MỌI trang
+
+Thy chốt 2026-10-30: một bộ luật cho landing và mọi trang app, để chất lượng trình bày không phụ thuộc phiên làm việc
+nào dựng trang. Mỗi luật có mã — `@agent-ux-reviewer` trích mã ở mọi lỗi; mã không đổi nghĩa khi sửa file này (thêm
+luật = mã mới). Cách kiểm:
+
+- **[máy]**: `src/dashboard/scripts/ux-shots.mjs` đo trên trang đã render, ghi vào `violations` (từng trang,
+  từng khổ) và `crossRoute` (T3 giữa các trang) của `report.json`; mỗi mục có `key` ổn định (luật + vị trí) để gộp
+  giữa các khổ. Còn ≥ 1 vi phạm [máy] thì UX gate FAIL — reviewer không được hạ.
+- **[máy·gợi ý]**: script ghi vào `warnings`. Đây là phép đo gần đúng; reviewer nhìn ảnh rồi xác nhận hoặc bác.
+- **[mắt]**: reviewer chấm trên ảnh chụp và code.
+
+Cổng chặn commit cho các luật này **chưa** bật (Thy 2026-10-30: 2 lớp — reviewer + máy đo trong script chụp ảnh).
+
+### T — Chữ
+
+- **T1 [máy]** Chỉ dùng cỡ trong thang §3. Cỡ fluid chỉ cho `h1`/`h2` của landing, nằm trong khoảng display-1/2.
+- **T2 [máy]** Không chữ < 12px. Ngoại lệ duy nhất: `sub`/`sup` trong công thức.
+- **T3 [máy]** Heading đúng cỡ của vai (bảng §3): app `h1` 40 · `h2` 26 · `h3` 20 · `h4` 17; landing `h1` display-1 ·
+  `h2` display-2 · `h3` 26 · `h4` 20 · `h5` 17. Cùng vai ⇒ cùng cỡ, độ đậm và màu trên mọi trang.
+- **T4 [máy]** Tiêu đề lớn hơn mọi chữ nó dẫn. Cỡ của heading phải lớn hơn cỡ lớn nhất của chữ thường đứng sau nó,
+  cho tới heading cùng cấp hoặc cao hơn kế tiếp. Không tính số metric (tabular, 28/56px): số KPI là dữ liệu, nhãn
+  dưới nó là chú thích, không phải tiêu đề.
+- **T5 [máy]** Tiêu đề là thẻ heading thật: mỗi trang đúng 1 `h1`, không nhảy cấp (`h2` → `h4`). Đây cũng là WCAG
+  1.3.1 / 2.4.6: trình đọc màn hình đi theo heading. Tag lệch vai mặc định thì khai `data-ux-role="<vai>"` (VD hộp
+  "What to know" ngay dưới `h2` là `h3` mang vai box-title). Giá trị hợp lệ chỉ có 6 vai heading: `display-1`,
+  `display-2`, `page-title`, `block-title`, `section`, `box-title`. Không dùng thuộc tính này để che heading sai cấp:
+  cha của mỗi heading (heading gần nhất phía trên có tag nông hơn) phải mang vai cha hợp lệ:
+  - display-2 dưới display-1;
+  - block-title dưới page-title hoặc display-2;
+  - section dưới block-title;
+  - box-title dưới block-title hoặc section.
+
+  VD `h2` block-title ngay sau `h2` display-2 có cha là `h1` display-1 → vi phạm.
+- **T6 [máy·gợi ý]** Card/panel có > 200 ký tự mà không chứa heading → nghi có "tiêu đề giả". **[mắt]** Một dòng chữ
+  đậm hoặc màu đứng đầu khối mà không phải heading là tiêu đề giả → **chặn**: đổi thành heading đúng vai.
+- **T7 [mắt]** In đậm tối đa 1 cụm mỗi ý. Không in đậm cả câu, không tô màu chữ để nhấn (§3 "Nhấn chữ").
+
+### L — Bố cục và nhịp
+
+- **L1 [máy]** Không cuộn ngang toàn trang ở 375 / 1024 / 1440px.
+- **L2 [máy·gợi ý]** Không có thanh cuộn lồng trong khối chỉ vì tràn vài px. Chữ cách mép card ≥ 12px.
+- **L3 [mắt]** Khoảng trắng phía trên tiêu đề ≥ 1.5 lần khoảng phía dưới, để tiêu đề "dính" vào phần nó dẫn (luật gần
+  nhau). Khoảng cách là bội của 4px (§4).
+- **L4 [mắt]** Mỗi tầng một khung lề: app 1280px, landing 1200px. Header và thân thẳng với Nav.
+- **L5 [mắt]** Không khoảng trắng lớn vô cớ: khối trải đủ bề rộng, hoặc cột bên kia có nội dung. Không đặt 2 khối
+  chữ dày cạnh nhau. Chữ chạy hết bề rộng khung chứa.
+
+### C — Khối và mạch đọc
+
+- **C1 [mắt]** Mọi khối nội dung, kể cả panel của landing, đi theo thứ tự: eyebrow → tiêu đề → câu mục đích → câu
+  trả lời → bằng chứng (biểu đồ/bảng) → "Method and limits".
+- **C2 [mắt]** Một vai, một component dùng chung. Section, mục, khung câu trả lời, hộp số, Method and limits và chú
+  giải lấy từ `AppBlock.tsx`. Không định nghĩa lại cỡ chữ hay kiểu nút tại chỗ cho một vai đã có component; vai mới
+  thì thêm vào `AppBlock.tsx` trước, rồi mới dùng. Component có heading nhận prop cấp tiêu đề, để landing render cùng
+  vai ở tag sâu hơn 1 cấp (X1) mà không phải viết lại component.
+- **C3 [mắt]** Thứ bấm được trông bấm được: viền hoặc nền, chevron, hover, `aria-expanded` cho biết trạng thái. Nút
+  "Method and limits" có cùng một kiểu trên mọi trang.
+- **C4 [máy]** Vùng chạm ≥ 44×44px cho nút, tab, toggle, slider. Vùng chạm là khung của chính phần tử bấm được (phần
+  nhìn thấy có thể nhỏ hơn, như tay cầm timeline §5). Vùng nới bằng `::before` hay padding của phần tử cha không tính.
+- **C5 [mắt]** Khối có dữ liệu thì có đủ loading / empty / error (§6, §9).
+
+### N — Số và công thức
+
+Áp cho landing như trang app. Luật chi tiết ở `.claude/rules/dashboard.md`, mục "Trình bày như nhà nghiên cứu NLP".
+
+- **N1 [mắt]** Không số trần: mỗi số trả lời được 3 câu: là gì, tính thế nào, vì sao quan trọng.
+- **N2 [mắt]** Mỗi phương pháp được nêu tên phải có công thức kèm nghĩa của từng ký hiệu. Dòng mono chỉ có tham số
+  chỉ được là lớp phụ, đặt dưới phần giải thích.
+- **N3 [mắt]** Nhãn phân loại (kết quả, trạng thái) có chú giải ngay cạnh, và khác nhau thấy được bằng chữ kèm ký
+  hiệu hoặc màu, không cần hover.
+- **N4 [mắt]** Số chính là median + IQR + n, không mean (§7).
+
+### B — Người đọc và ngôn ngữ
+
+- **B1 [mắt]** Ba người đọc: Thy, người không chuyên (thường không đọc tiếng Việt), người chuyên môn DS/MLE. Đọc lại
+  trang 3 lượt, mỗi lượt một vai.
+- **B2 [mắt]** Chữ gốc tiếng Việt hoặc tiếng Pháp luôn có ngữ cảnh tiếng Anh trên cùng dòng.
+- **B3 [mắt]** Thuật ngữ được định nghĩa trước khi dùng. Không để mã nội bộ trần (`topic_N`, `RQ-01`).
+
+### A — Tiếp cận (WCAG 2.2 AA)
+
+- **A1 [máy]** axe-core (bộ kiểm tra tiếp cận tự động, chuẩn ngành) báo 0 lỗi mức `serious`/`critical` trong các luật
+  WCAG 2.x A/AA: tương phản 4.5:1 cho chữ và 3:1 cho chữ lớn, tên của nút, ARIA, kích thước vùng chạm tối thiểu
+  24px. Thứ tự heading là luật `best-practice` của axe, không nằm trong A1 — T5 kiểm thay.
+- **A2 [mắt]** Focus ring 2px `--amber-600` thấy được. Màu không bao giờ là tín hiệu duy nhất.
+  Tôn trọng `prefers-reduced-motion` (§8).
+
+### X — Khác biệt được phép của landing (danh sách trắng)
+
+Landing chỉ được khác trang app ở các điểm dưới đây. Điểm nào không có trong danh sách thì dùng luật chung.
+
+- **X1** display-1 cho H1 hero, display-2 cho tiêu đề section. Tag lệch 1 cấp: `h3` landing = vai "tiêu đề khối" 26px.
+- **X2** 2 dải tối (§2.6).
+- **X3** Panel bo 20px, bento card (§7).
+- **X4** Khoảng cách giữa các section rộng hơn tầng A (vẫn là bội của 4px).
+- **X5** "Method and limits" có thể thu gọn mặc định, vì landing là trang giới thiệu. Nút vẫn theo C3, và bên trong
+  vẫn theo N1–N2.
+- **X6** Khung nội dung 1200px; Nav riêng (`LandingNav`).
 
 ---
 
@@ -195,8 +310,8 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 
 - **KPI strip** — hàng ngang phẳng, không bọc card. Nhãn 12px + chấm màu nếu có series trên chart, số 28px tabular, **dòng công thức mono bên dưới** thay cho delta khi cần lộ phương pháp.
 - **Metric card** — 6 index trong lưới 3 cột. Tên 15px, badge trạng thái, công thức mono, một dòng giải thích. Card deferred dùng `--bg-sunken` và tên màu muted.
-- **Content unit row** — số thứ tự 2 chữ số, tiêu đề 14px hiển thị đầy đủ (không cắt bằng ba chấm), dòng metadata, bar 220px, số bên phải 15px.
-- **Bảng** — header 11px w600, không uppercase, không zebra striping, hover đổi nền.
+- **Content unit row** — số thứ tự 2 chữ số, tiêu đề 15px (body) hiển thị đầy đủ (không cắt bằng ba chấm), dòng metadata, bar 220px, số bên phải 15px.
+- **Bảng** — header 12px w600 (vai label · th, §3), không uppercase, không zebra striping, hover đổi nền.
 - **Trạng thái chart** — bắt buộc có loading (skeleton, không spinner), empty (nói rõ lệnh cần chạy), error (message + retry).
 - **Icon** — Phosphor regular 18–20px. Không emoji.
 
@@ -219,7 +334,10 @@ hạn); không đạt thì mô tả ("not distinguishable"). Số chính là med
 
 Thứ tự: navbar pill sticky → **Hero** (H1 tagline + panel bằng chứng: beeswarm 144 bài, bài hero amber, toggle Channel/Topic) → **Problem** (3 câu hỏi của người làm kênh, mỗi câu "Threads shows / Missing") → **How it solves** (3 tầng Measure · Group · Search nối bằng mũi tên, theo 1 bài thật) → **Product proof** (2 panel dashboard: chủ đề so với kênh; kết quả NLP) → **How it works** (sơ đồ trên dải tối §2.6, bấm node xem stack) → **About the channel** → **CTA** (dải tối) → footer có câu miễn trừ Meta.
 
-Mỗi panel bằng chứng theo thứ tự: câu hỏi (13px w600 amber) → câu trả lời 1 dòng (24px w700) → biểu đồ → nút "Method and limits" mở công thức + giới hạn. Tiêu đề section landing: 46px w800 −0.035em; eyebrow mono 13px amber dạng `01 · Problem`.
+Mỗi panel bằng chứng theo thứ tự đọc chung C1 (§3b): eyebrow → tiêu đề panel (`h3`, vai h2 block title 26px) →
+câu trả lời 1 dòng (answer 18px, khung nhấn) → biểu đồ → nút "Method and limits" mở công thức + giới hạn (X5). Tiêu
+đề section landing: display-2 `h2`; eyebrow mono 12.5px amber dạng `01 · Problem`. Cỡ chữ theo thang chung §3 —
+landing không có thang riêng (Thy 2026-10-30).
 
 <details><summary>Thứ tự section đo từ reference PNG (lịch sử, không còn dùng)</summary>
 
@@ -365,6 +483,12 @@ Kết quả trả về là **khuyến nghị**, không phải lệnh. Nếu mâu
 
 ## 12. Checklist trước khi merge UI
 
+Checklist này là bản rút gọn; nguồn chấm là sổ luật §3b (mã luật T/L/C/N/B/A/X) và `@agent-ux-reviewer`.
+
+**Sổ luật §3b**
+- [ ] `node scripts/ux-shots.mjs` (mọi route): `violations` + `crossRoute` = 0 (dòng cuối in `UX gate (máy): PASS`); mỗi `warnings` đã được reviewer xác nhận hoặc bác.
+- [ ] Bảng "vai × trang" của reviewer: cùng vai cùng cỡ/độ đậm/màu trên mọi trang (T3).
+
 **Bám nguồn sự thật**
 - [ ] Không có hex rời — mọi màu là token ở §2.
 - [ ] Mọi cặp chữ/nền đạt ≥4.5:1.
@@ -393,6 +517,14 @@ Kết quả trả về là **khuyến nghị**, không phải lệnh. Nếu mâu
 ---
 
 ## 13. Decision log
+
+### 2026-10-30 — Một thang chữ + một sổ luật cho mọi trang
+
+Landing và /topics do 2 phiên khác nhau dựng nên ra 2 "giọng": thang chặt của §3 chỉ ghi cho tầng A, landing chỉ có
+1 dòng ở §7 (câu hỏi panel 13px), nên tiêu đề khối landing bằng cỡ thân bài, chỉ là `<span>`. Đo toàn dashboard có
+khoảng 21 cỡ chữ khác nhau (10 → 76px); tiêu đề khối Overview 20px (một khối 15px) so với Topics 26px. Thy chốt:
+một thang chung (§3, landing chỉ thêm display-1/2), sổ luật có mã (§3b), cưỡng chế 2 lớp — `@agent-ux-reviewer` +
+máy đo trong `ux-shots.mjs` (axe-core cho WCAG), chưa chặn commit. Sửa các trang cho đạt là PR riêng, sau PR luật.
 
 ### 2026-10-29 — Trang app: tiêu đề lớn hơn nội dung; bản đồ topic đa sắc
 

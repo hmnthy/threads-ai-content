@@ -220,7 +220,7 @@ Thy bác 3 lần trước khi duyệt:
 2. Lần 2: tiêu đề nhỏ hơn nội dung.
 3. Lần 3: khoảng trắng bên phải.
 
-Luật trình bày đã chốt nằm ở `docs/claude/design-system.md` §3 (thang chữ trang app, ba lớp màu nền, nhấn chữ) và §9 (bản đồ đa sắc). Mockup Topics phải theo đúng các câu dưới. Số liệu lấy từ API; nguyên văn từng câu nằm trong `src/dashboard/src/components/TopicsView.tsx`, `TopicComparisonTable.tsx`, `TopicMethods.tsx` và `AppEngagementPanel` trong `LandingProof.tsx`.
+Luật trình bày đã chốt nằm ở `docs/claude/design-system.md` §3 (thang chữ chung cho mọi trang, ba lớp màu nền, nhấn chữ), §3b (sổ luật UI/UX) và §9 (bản đồ đa sắc). Mockup Topics phải theo đúng các câu dưới. Số liệu lấy từ API; nguyên văn từng câu nằm trong `src/dashboard/src/components/TopicsView.tsx`, `TopicComparisonTable.tsx`, `TopicMethods.tsx` và `AppEngagementPanel` trong `LandingProof.tsx`.
 
 **Khung trang**
 - Đầu trang căn giữa, theo thứ tự:
