@@ -43,6 +43,8 @@ uv run uvicorn src.main:app --reload --port 8000
 ```
 Rồi **đóng hẳn cửa sổ VS Code** (không chỉ tab terminal) và mở lại — VS Code cache biến môi trường lúc khởi động. Verify bằng `uv --version`.
 
+**Dashboard — `next build` / `next dev` dừng kèm lời nhắc nâng cấp** (Next 16.4+, `experimental.agentUpgrade` mặc định `'security'`): khi chạy dưới agent (Claude Code, cả Cowork) và bản Next đang cài có cảnh báo bảo mật mới, lần chạy đầu thoát với `SecurityFatalError`; chạy lại **cùng lệnh trong vòng 5 phút** thì tiếp tục (`next dev` và `next build` mỗi lệnh bị chặn 1 lần riêng; quá 5 phút thì bị chặn lại). Thy tự chạy trong terminal của mình thì không thoát mà hiện menu nâng cấp. Đây là chuông báo lỗ hổng, không phải code hỏng → chạy lại để làm việc tiếp, rồi mở PR riêng nâng Next (`npm install next@<bản vá> eslint-config-next@<bản vá> --save-exact` trong `src/dashboard`). CI và Vercel không bị ảnh hưởng (không có agent). Không tắt `agentUpgrade`. Nâng Next xong: chạy `next dev` một lần **từ trong Claude Code** (Next chỉ sinh lại khối của nó trong `src/dashboard/AGENTS.md` khi phát hiện agent), commit khối đó cùng PR; kiểm từ `src/dashboard`: `node -e "console.log(require('./node_modules/next/dist/server/lib/generate-agent-files.js').hasCurrentAgentRules('.'))"` in `true`.
+
 ---
 
 ## Environment Variables (.env)
