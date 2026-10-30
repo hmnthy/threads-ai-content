@@ -267,6 +267,87 @@ def test_commit_mode_dead_path_requires_tracked_file(tmp_path: Path) -> None:
     assert check.run(root, "commit", with_pytest=False) == []
 
 
+def test_all_mode_scans_private_harness_on_disk_only(tmp_path: Path) -> None:
+    # ADR-0027: `.claude/` gitignored (kho git riêng) — --all vẫn quét harness trên đĩa để
+    # /decision-sweep phủ skill/agent; bỏ worktree, kho git riêng, file cục bộ; --commit không thấy
+    files = {
+        ".gitignore": ".claude/\n",
+        ".claude/skills/x/SKILL.md": "Status: Phase 1\n",
+        ".claude/worktrees/w/README.md": "Status: Phase 1\n",
+        ".claude/.git/description": "Status: Phase 1\n",
+        ".claude/skills/x/.git/config": "Status: Phase 1\n",
+        ".claude/settings.local.json": '{"note": "Phase 1"}\n',
+        ".claude/agent-memory-local/notes.md": "Status: Phase 1\n",
+        ".claude/agent-memory/researcher/notes.md": "Status: Phase 1\n",
+    }
+    root = make_repo(tmp_path, files, PHASE_RULE)
+    assert check.tracked_files(root) == [".gitignore", check.INVARIANTS_PATH]
+    assert [(v.path, v.rule) for v in check.run(root, "all", with_pytest=False)] == [
+        (".claude/skills/x/SKILL.md", "R-phase")
+    ]
+    assert check.run(root, "commit", with_pytest=False) == []
+
+
+def test_all_mode_does_not_scan_a_still_tracked_harness_twice(tmp_path: Path) -> None:
+    # Checkout cũ chưa gitignore `.claude/` (còn track) → file vừa ở ls-files vừa trên đĩa
+    root = make_repo(tmp_path, {".claude/skills/x/SKILL.md": "Status: Phase 1\n"}, PHASE_RULE)
+    _git(root, "add", "-f", ".claude")  # -f: gitignore toàn cục của máy có thể ẩn `.claude/`
+    assert ".claude/skills/x/SKILL.md" in check.tracked_files(root)
+    got = [(v.path, v.rule) for v in check.run(root, "all", with_pytest=False)]
+    # --all cũng chặn harness bị track (CI chỉ chạy --all) — 1 lần mỗi luật, không lặp
+    assert sorted(got) == [
+        (".claude/skills/x/SKILL.md", "ADR0027-harness-not-tracked"),
+        (".claude/skills/x/SKILL.md", "R-phase"),
+    ]
+
+
+def test_harness_files_empty_without_claude_dir(tmp_path: Path) -> None:
+    # CI / clone mới / worktree chưa copy harness: không có `.claude/` → không lỗi, không file
+    assert check.harness_files(make_repo(tmp_path, {"README.md": "ok\n"})) == []
+
+
+def test_harness_paths_checked_on_disk_when_harness_present(tmp_path: Path) -> None:
+    # `.claude/**` trong known_untracked chỉ cho qua khi máy không có harness; có harness thì
+    # đường dẫn gõ sai phải bị bắt ở cả --all lẫn --commit (ADR-0027)
+    files = {
+        ".gitignore": ".claude/\n",
+        "docs/a.md": "Hook `.claude/hooks/sesion_status.py`, `.claude/worktrees/x`\n",
+        ".claude/hooks/session_status.py": "x = 1\n",
+        ".claude/settings.json": "{}\n",
+    }
+    root = make_repo(tmp_path, files)
+    toml = BASE_TOML.replace('["data/**"]', '["data/**", ".claude", ".claude/**"]')
+    (root / check.INVARIANTS_PATH).write_text(toml, encoding="utf-8")
+    for mode in ("all", "commit"):
+        got = [v.message for v in check.run(root, mode, with_pytest=False)]
+        assert len(got) == 1 and ".claude/hooks/sesion_status.py" in got[0], mode
+    (root / "docs/a.md").write_text("Hook `.claude/hooks/session_status.py`\n", encoding="utf-8")
+    assert check.run(root, "all", with_pytest=False) == []
+    # Máy không có harness (CI/clone): known_untracked cho qua, kể cả đường dẫn sai
+    (root / "docs/a.md").write_text("Hook `.claude/hooks/sesion_status.py`\n", encoding="utf-8")
+    (root / ".claude/hooks/session_status.py").unlink()
+    (root / ".claude/hooks").rmdir()
+    (root / ".claude/settings.json").unlink()
+    # `.claude/` chỉ còn phần cục bộ (worktree chưa copy harness) → vẫn coi là không có harness
+    (root / ".claude/settings.local.json").write_text("{}\n", encoding="utf-8")
+    assert check.run(root, "commit", with_pytest=False) == []
+    (root / ".claude/settings.local.json").unlink()
+    (root / ".claude").rmdir()
+    assert check.run(root, "commit", with_pytest=False) == []
+
+
+def test_every_mode_blocks_force_added_harness(tmp_path: Path) -> None:
+    # `git add -f` vượt `.gitignore` → harness riêng tư lọt vào repo public (ADR-0027);
+    # --all = CI, lưới thứ hai khi commit lọt pre-commit
+    files = {".gitignore": ".claude/\n", ".claude/hooks/x.py": "x = 1\n"}
+    root = make_repo(tmp_path, files)
+    assert check.run(root, "commit", with_pytest=False) == []
+    _git(root, "add", "-f", ".claude/hooks/x.py")
+    for mode in ("commit", "staged", "all"):
+        got = [(v.rule, v.path) for v in check.run(root, mode, with_pytest=False)]
+        assert got == [("ADR0027-harness-not-tracked", ".claude/hooks/x.py")], mode
+
+
 # --- doc_limits + chỉ mục ADR ---------------------------------------------------------
 
 
@@ -950,6 +1031,43 @@ LEARNED_RULES = [
         ".claude/skills/checkpoint/SKILL.md",
         "Thay đổi có logic → đề xuất gọi `@agent-code-reviewer` trước.",
         "Diff có file logic → `@agent-code-reviewer` bắt buộc (ADR-0015).",
+    ),
+    # ADR-0027: repo public giữ mọi quyền — không còn "repo private" / badge license-private
+    (
+        "ADR0027-private-repo-wording",
+        "CLAUDE.md",
+        "Portfolio NLP/MLE — repo private, sẽ curate sang repo public riêng.",
+        "Portfolio NLP/MLE — repo public, giữ mọi quyền (`LICENSE`, ADR-0027).",
+    ),
+    (
+        "ADR0027-private-repo-wording",
+        "README.md",
+        "![License](https://img.shields.io/badge/license-private-lightgrey)",
+        "![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)",
+    ),
+    (
+        "ADR0027-private-repo-wording",
+        "README.fr.md",
+        "Projet personnel, privé. Tous droits réservés — ce n'est pas un logiciel open source",
+        "Projet personnel, publié pour consultation uniquement. Tous droits réservés",
+    ),
+    (
+        "ADR0027-private-repo-wording",
+        ".gitignore",
+        "# Data xuất cho Claude Design — chứa full_text bài thật, repo sẽ curate sang public",
+        "# Data xuất cho Claude Design — chứa full_text bài thật; repo public (ADR-0027)",
+    ),
+    (
+        "ADR0027-private-repo-wording",
+        "docs/status.md",
+        "- Repo private, chỉ tác giả xem.",
+        "- Sao lưu harness: đẩy kho riêng `.claude/` lên repo private trên GitHub.",
+    ),
+    (
+        "ADR0027-open-source-claim",
+        "README.md",
+        "built and open-sourced-in-spirit as an NLP/ML engineering portfolio piece.",
+        "This is not open-source software, and external contributions are not accepted.",
     ),
 ]
 

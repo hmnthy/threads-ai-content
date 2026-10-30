@@ -20,6 +20,10 @@ vi phạm ở đó là CẢNH BÁO (severity "warn"): in ra, ghi audit, nhưng k
 Ngoại lệ có dấu vết: chú thích `consistency: allow <rule-id>` trên cùng dòng hoặc dòng
 ngay trước. Dùng:  uv run python -m scripts.consistency.check --all [--json]
 
+Harness Claude Code (`.claude/`) gitignored, có kho git riêng (ADR-0027): --all quét thêm bản
+trên đĩa (nếu có) để /decision-sweep vẫn phủ skill/agent/rule; --commit, --staged và CI không quét
+nội dung harness — chỉ kiểm đường dẫn `.claude/...` có thật trên đĩa khi máy có harness.
+
 Chế độ: --all (toàn repo; hook đầu phiên, sweep, CI) · --commit (pre-commit: toàn repo +
 luật "3 README sửa cùng nhau" theo file đang stage — ~6 giây) · --staged (chỉ file stage).
 Pre-commit quét toàn repo vì luật đếm số / ảnh lỗi thời / đường dẫn chết hỏng do file KHÁC
@@ -31,6 +35,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import posixpath
 import re
 import subprocess
@@ -44,6 +49,15 @@ from typing import Any, Literal
 INVARIANTS_PATH = "docs/decisions/invariants.toml"
 README_FILES = ("README.md", "README.vi.md", "README.fr.md")
 ALLOW_MARK = "consistency: allow"
+# Harness riêng tư (ADR-0027): thư mục con không phải harness — worktree (cả repo lồng
+# trong đó), `.git` lạc (kho riêng đúng chuẩn là bare NGOÀI `.claude/`), bộ nhớ agent cục bộ
+HARNESS_DIR = ".claude"
+# "Máy có harness" = có file này; thư mục `.claude/` trần có thể chỉ chứa phần cục bộ
+# (settings.local.json, agent-memory/) ở worktree chưa copy harness
+HARNESS_SENTINEL = ".claude/settings.json"
+# agent-memory/: ghi chú subagent (`memory: project`) — dữ liệu của máy, không phải harness
+HARNESS_SKIP_DIRS = frozenset({"worktrees", ".git", "agent-memory", "agent-memory-local"})
+HARNESS_SKIP_FILES = frozenset({"settings.local.json"})
 
 # Backtick span hoặc đích link markdown `](...)`
 _BACKTICK = re.compile(r"`([^`\n]+)`")
@@ -126,6 +140,25 @@ def untracked_files(root: Path) -> list[str]:
     xong chưa stage vẫn phải được kiểm trước khi tới pre-commit (lỗ hổng 2026-10-01)."""
     out = _git(root, "ls-files", "--others", "--exclude-standard")
     return [p for p in out.splitlines() if p]
+
+
+def harness_files(root: Path) -> list[str]:
+    """File harness `.claude/` trên đĩa — gitignored nên `ls-files` không thấy (ADR-0027).
+    Cắt nhánh `os.walk` ở thư mục bỏ qua: `worktrees/` chứa nguyên repo + node_modules."""
+    base = root / HARNESS_DIR
+    out: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(base):
+        skip = HARNESS_SKIP_DIRS if Path(dirpath) == base else {".git"}
+        # os.walk không theo symlink nhưng VẪN theo junction Windows (islink = False)
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if d not in skip and not os.path.isjunction(os.path.join(dirpath, d))
+        ]
+        for name in filenames:
+            if name not in HARNESS_SKIP_FILES:
+                out.append((Path(dirpath) / name).relative_to(root).as_posix())
+    return sorted(out)
 
 
 def staged_files(root: Path) -> list[str]:
@@ -264,9 +297,26 @@ def _path_ok(root: Path, rel_path: str, cfg: Config, tracked: frozenset[str] | N
         return True
     # Tham chiếu kiểu module Python: src/api/endpoints.get_x → src/api/endpoints.py
     head, _, last = norm.rpartition("/")
-    if "." in last and present(f"{head}/{last.split('.', 1)[0]}.py"):
+    module = f"{head}/{last.split('.', 1)[0]}.py" if "." in last else None
+    if module and present(module):
         return True
-    return _matches(norm, cfg.planned_paths) or _matches(norm, cfg.known_untracked)
+    if _matches(norm, cfg.planned_paths):
+        return True
+    # Harness có trên máy → kiểm thật trên đĩa, kể cả chế độ commit (không có trong git);
+    # `known_untracked` chỉ cho qua khi máy không có harness (CI, clone, worktree) — ADR-0027
+    if _is_harness_path(norm) and (root / HARNESS_SENTINEL).is_file():
+        return (root / norm).exists() or bool(module and (root / module).exists())
+    return _matches(norm, cfg.known_untracked)
+
+
+def _is_harness_path(norm: str) -> bool:
+    """File/thư mục của harness — trừ phần cục bộ của máy (worktree, kho git riêng, …)."""
+    parts = norm.split("/")
+    return (
+        len(parts) > 1
+        and parts[0] == HARNESS_DIR
+        and parts[1] not in HARNESS_SKIP_DIRS | HARNESS_SKIP_FILES
+    )
 
 
 def check_dead_paths(
@@ -692,6 +742,23 @@ def check_ui_contract(root: Path, cfg: Config, tracked: list[str]) -> list[Viola
 # --- Chạy -----------------------------------------------------------------------------
 
 
+def check_harness_not_tracked(paths: list[str]) -> list[Violation]:
+    """Harness riêng tư không được vào repo public — `git add -f` vượt `.gitignore` (ADR-0027)."""
+    return [
+        Violation(
+            check="harness",
+            rule="ADR0027-harness-not-tracked",
+            path=p,
+            line=0,
+            message="harness .claude/ riêng tư bị track/stage trong repo public",
+            fix=f"git rm --cached {p} — sửa harness trong kho riêng (docs/claude/git-workflow.md)",
+            adr="0027",
+        )
+        for p in paths
+        if p.startswith(HARNESS_DIR + "/")
+    ]
+
+
 def run(root: Path, mode: str, with_pytest: bool = True) -> list[Violation]:
     cfg = load_config(root)
     tracked = tracked_files(root)
@@ -700,9 +767,14 @@ def run(root: Path, mode: str, with_pytest: bool = True) -> list[Violation]:
         files = staged
     elif mode == "all":
         files = tracked + untracked_files(root)
+        listed = set(files)  # checkout cũ còn track/chưa ignore `.claude/` → không quét 2 lần
+        files += [f for f in harness_files(root) if f not in listed]
     else:  # commit: file chưa track không thuộc commit (pre-commit không cất chúng đi)
         files = tracked
     violations = check_forbid(root, files, cfg)
+    # Cả --all: CI chỉ chạy --all — lưới thứ hai khi commit lọt pre-commit
+    # (--no-verify, clone chưa cài hook)
+    violations += check_harness_not_tracked((staged or []) if mode == "staged" else tracked)
     violations += check_dead_paths(root, files, tracked, cfg, strict=mode == "commit")
     violations += check_readme_sync(root, staged)
     violations += check_stale_assets(root, cfg)

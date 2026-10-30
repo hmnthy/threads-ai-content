@@ -36,10 +36,9 @@ node_modules/
 .pytest_cache/
 *.egg-info/
 
-# Claude Code — trạng thái cục bộ, không chia sẻ
-.claude/worktrees/
-.claude/settings.local.json
-.claude/agent-memory-local/
+# Claude Code — harness (agents, skills, hooks, rules, settings) riêng tư; lịch sử ở kho bare
+# riêng NGOÀI thư mục (ADR-0027); worktrees/ + settings.local.json nằm luôn trong .claude/
+.claude/
 CLAUDE.local.md
 
 # Ghi chú cá nhân — không commit
@@ -50,5 +49,5 @@ docs/take note.docx
 # Nghiên cứu thị trường & methodology — nội bộ, không commit (quyết định 2026-09-03)
 docs/research/
 
-# Data xuất cho Claude Design (brief Topics Việc 4) — chứa full_text bài thật, repo sẽ curate sang public
+# Data xuất cho Claude Design (brief Topics Việc 4) — chứa full_text bài thật; repo public (ADR-0027) → không bao giờ commit
 docs/design/data/

@@ -8,7 +8,8 @@
 ```
 threads-ai-content/
 ├── CLAUDE.md                  # ≤80 dòng: mission, quy tắc tuyệt đối, bản đồ tài liệu
-├── .claude/
+├── LICENSE                    # giữ mọi quyền; thành phần bên thứ ba giữ giấy phép gốc (ADR-0027)
+├── .claude/                   # RIÊNG TƯ, gitignored — kho git riêng của harness (ADR-0027); không có ở clone/CI; worktree nhận bản sao chỉ đọc (git-workflow bước 2, `.worktreeinclude`)
 │   ├── settings.json          # hooks, attribution tắt, deny .env
 │   ├── hooks/                 # session_status / guard_commit / ruff_on_edit / adr_written / tests_only / notify+toast; SubagentStart/Stop (settings.json) → scripts/review_gate.py ghi dấu review vào `<git-common-dir>/claude-review/` (chung mọi worktree)
 │   ├── rules/                 # quy tắc theo đường dẫn (paths:) — chỉ nạp khi chạm đúng mảng code
@@ -35,7 +36,7 @@ threads-ai-content/
 │   ├── main.py                # FastAPI — chỉ đọc SQLite, không load model trong request
 │   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
 │                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)
-├── tools/ui-ux-pro-max/       # CLI tra cứu UI (vendored) — gọi qua skill ui-lookup
+├── tools/ui-ux-pro-max/       # CLI tra cứu UI (vendored, MIT của Next Level Builder — giữ LICENSE gốc) — gọi qua skill ui-lookup
 ├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard), job_health.py (sức khoẻ cron), configure_jobs.ps1 (cấu hình Task Scheduler: Action, lịch, cờ pin), snapshot_coverage.py (độ phủ chuỗi snapshot — nguồn số liệu giới hạn lấy mẫu, ADR-0017), topic_identity_eval.py (thí nghiệm quy tắc danh tính cụm, ADR-0018), git_hygiene.py (nhắc quy ước git ở hook đầu phiên, ADR-0019), review_gate.py (cổng review tầng 2 ADR-0015: ghi dấu + kiểm ở git hook pre-commit)
 ├── tests/                     # pytest (marker slow/live), respx mock HTTP
 ├── .github/workflows/ci.yml   # CI: chạy lại các cổng trên máy sạch (ADR-0014)
