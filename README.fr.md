@@ -3,8 +3,8 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-861%20passing-brightgreen)
-![License](https://img.shields.io/badge/license-private-lightgrey)
+![Tests](https://img.shields.io/badge/tests-872%20passing-brightgreen)
+![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
 > (L'algorithme, relu à voix haute.)
@@ -224,9 +224,14 @@ statistiques et NLP décrit ci-dessus.
 
 ## Licence
 
-Projet personnel, privé. Tous droits réservés — ce n'est pas un logiciel open source, les
-contributions externes ne sont pas acceptées. Construit comme pièce de portfolio, pour démontrer
-une ingénierie NLP/ML appliquée sur des données de production réelles.
+Dépôt public, publié pour consultation uniquement. Tous droits réservés : aucune partie ne peut
+être utilisée, copiée, modifiée, redistribuée ou vendue sans l'accord écrit préalable de l'autrice.
+Les conditions complètes, ainsi que les composants tiers qui conservent leur propre licence,
+figurent dans [LICENSE](LICENSE). Ce n'est pas un logiciel open source et les contributions
+externes ne sont pas acceptées. Pour toute demande de licence : thydilammuon@gmail.com.
+
+Construit comme pièce de portfolio, pour démontrer une ingénierie NLP/ML appliquée sur des données
+de production réelles.
 
 Sans lien avec Meta. Threads est une marque de Meta Platforms, Inc. Le dépôt conserve son nom
 technique `threads-ai-content`.

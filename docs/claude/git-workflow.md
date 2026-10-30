@@ -14,11 +14,22 @@
 
 Branch là *lịch sử*, worktree là *chỗ làm*. Nhiều worktree dùng chung 1 lịch sử (`.git`): commit ở thư mục nào thì thư mục kia thấy ngay — nhưng file đang mở, file chưa commit, `.env`, `.venv`, `node_modules`, `data/` là của riêng từng thư mục. `origin/main` là bản `main` trên GitHub *theo lần `git fetch` gần nhất*; `main` (không có `origin/`) là bản trên máy — chỉ đổi khi `git pull` ở thư mục chính.
 
+**Harness `.claude/` không thuộc repo này** (ADR-0027): gitignored; lịch sử nằm ở kho git riêng dạng *bare* **ngoài**
+thư mục — `<CHÍNH>\..\threads-harness.git`, thư mục làm việc là `<CHÍNH>\.claude\` (lệnh: `git --git-dir=<CHÍNH>\..\threads-harness.git
+--work-tree=<CHÍNH>\.claude <lệnh>`; bỏ qua `worktrees/`, `settings.local.json`, `agent-memory/`, `agent-memory-local/` ghi ở `info/exclude`
+của kho đó). **Không** đặt `.git` (thư mục hay file) trong `.claude/`: git coi đó là repo lồng, không liệt kê file bên trong
+→ `.worktreeinclude` âm thầm không copy harness. Git không đưa `.claude/` vào worktree → bước 2 copy một bản **chỉ đọc**
+(agent, hook, dấu review, rule tự nạp vẫn chạy trong worktree); sửa trên bản sao đó sẽ mất khi dọn worktree, và bản sao
+là ảnh chụp lúc tạo — `/decision-sweep` trong worktree phải copy lại harness trước. Sửa agent / skill / hook / rule: sửa
+thẳng ở `<CHÍNH>\.claude\` → gọi `@agent-code-reviewer` nếu chạm hook/agent/settings → commit vào kho riêng; không qua
+nhánh/PR/CI của repo này, `review-gate` không kiểm. `git add -f .claude/...` vào repo này bị checker chặn
+(`ADR0027-harness-not-tracked`).
+
 ## 2. Ba quy tắc bất biến
 
-1. **Thư mục chính luôn ở `main`.** 2 cron (snapshot mỗi 4h lúc xx:15, NLP 12:30 — ADR-0013/0017) chạy code đang nằm trong thư mục này, *kể cả file chưa commit*, bằng `.venv` của nó (không tự `uv sync`), và mỗi lần chạy đều migrate DB thật (`create_schema()`). Vì vậy thư mục chính chỉ dùng để: cron chạy, xem dashboard/API trên data thật, `git pull` + `uv sync` sau khi merge. Không sửa code ở đây.
+1. **Thư mục chính luôn ở `main`.** 2 cron (snapshot mỗi 4h lúc xx:15, NLP 12:30 — ADR-0013/0017) chạy code đang nằm trong thư mục này, *kể cả file chưa commit*, bằng `.venv` của nó (không tự `uv sync`), và mỗi lần chạy đều migrate DB thật (`create_schema()`). Vì vậy thư mục chính chỉ dùng để: cron chạy, xem dashboard/API trên data thật, `git pull` + `uv sync` sau khi merge. Không sửa code ở đây (ngoại lệ duy nhất: harness `.claude/` — kho riêng, mục 1, ADR-0027; cron không đọc harness).
    - Bài học 2026-10-04: đang sửa ADR-0018 trong thư mục chính → job snapshot 21:15 chạy bản nháp và migrate DB thật trước khi Thy duyệt.
-2. **Không commit thẳng lên `main`.** Mọi thay đổi đi qua nhánh → PR → CI xanh → merge commit. `main` = bản đã qua cổng trên máy sạch.
+2. **Không commit thẳng lên `main`.** Mọi thay đổi của repo này đi qua nhánh → PR → CI xanh → merge commit (harness `.claude/` không thuộc repo này — ADR-0027). `main` = bản đã qua cổng trên máy sạch.
 3. **Merge kiểu "Create a merge commit"** (không squash, không rebase) — giữ từng commit ADR trong lịch sử `main` và các mã commit (VD `f908d8a`) mà docs/memory nhắc tới vẫn còn đúng.
 
 ## 3. Cây quyết định — bắt đầu 1 việc
@@ -48,7 +59,7 @@ Vì sao *luôn* worktree, kể cả việc nhỏ: chuyển nhánh ngay trong th�
 | Bước | Ai | Lệnh / thao tác |
 |---|---|---|
 | 1. Bắt đầu | Claude (`/git-flow start`) | `git fetch origin` → `git -C <CHÍNH> worktree add --no-track -b <nhánh> .claude/worktrees/<tên> origin/main` (luôn `-C <CHÍNH>`: chạy từ trong 1 worktree khác cũng không tạo worktree lồng nhau; `--no-track`: không để nhánh mới "theo dõi" `origin/main` — nếu không, `git status -sb` hiện `[origin/main: ahead N]` dù nhánh CHƯA push lần nào) → mở phiên Claude Code trong worktree đó (công cụ worktree của Claude Code) |
-| 2. Chuẩn bị | Claude | copy `<CHÍNH>\.env` sang worktree (cách thủ công không tự copy); `uv sync --frozen`; dashboard: `npm install` trong `src/dashboard`; cần data → **copy** `data/threads.db` (bản nháp, không copy ngược lại — `/wt`) |
+| 2. Chuẩn bị | Claude | copy `<CHÍNH>\.env` + bản sao chỉ đọc của harness (`<CHÍNH>\.claude\` → `agents/ hooks/ rules/ skills/ settings.json`, ADR-0027) sang worktree (cách thủ công không tự copy; công cụ worktree của Claude Code copy theo `.worktreeinclude`); `uv sync --frozen`; dashboard: `npm install` trong `src/dashboard`; cần data → **copy** `data/threads.db` (bản nháp, không copy ngược lại — `/wt`) |
 | 3. Làm + commit nhỏ | Claude, Thy duyệt | `/checkpoint` sau mỗi bước xanh; review tầng 2 trước commit logic/ADR (ADR-0015) |
 | 4. Đẩy lên GitHub | **Thy** (lệnh push của Claude bị chặn) | `git push -u origin <nhánh>` (chạy được từ bất kỳ thư mục nào của repo) |
 | 5. Mở PR | Thy | GitHub → `Compare & pull request`, hoặc `https://github.com/hmnthy/threads-ai-content/compare/main...<nhánh>` |

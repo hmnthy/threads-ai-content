@@ -45,6 +45,8 @@ LOG_KEEP = 500  # số dòng log.txt giữ lại
 
 # File "logic" — đổi hành vi / số liệu / luật / chính cổng này → phải qua code-reviewer.
 # Không gồm: tests/ (qa-tester), docs, skills/rules (chỉ dẫn văn bản), ảnh/svg, lockfile (máy sinh).
+# Không gồm harness `.claude/` (hooks, settings, agents): gitignored, commit vào kho riêng mà
+# cổng này không thấy — code-reviewer ở đó theo thói quen (ADR-0027).
 REVIEW_SCOPE = (
     "src/*.py",
     "src/dashboard/src/*.ts",
@@ -57,9 +59,6 @@ REVIEW_SCOPE = (
     "src/dashboard/*.config.*",
     "src/dashboard/tsconfig.json",
     "scripts/*",
-    ".claude/hooks/*",
-    ".claude/settings.json",
-    ".claude/agents/*",
     ".github/workflows/*",
     ".pre-commit-config.yaml",
     "pyproject.toml",

@@ -1,6 +1,6 @@
 # Hợp đồng UI — Unthreaded
 
-> Cập nhật tới: ADR-0026 · 2026-10-29 (logo topbar 36px + tagline 15px; hoạt cảnh logo phát lại mỗi 15 giây)
+> Cập nhật tới: ADR-0027 · 2026-10-30 (giấy phép + harness riêng tư — không có hệ quả UI)
 >
 > **Đọc khi:** trước mọi phiên thiết kế (Claude Design) và trước khi port mockup sang code (Claude Code).
 > **Vì sao có file này:** ADR-0020. Chiều thay đổi chỉ có một: **ADR → hợp đồng này → mockup → code.** Mockup cần thứ
@@ -149,6 +149,12 @@ liệu (đường dẫn chết bị chặn).
 | UI-0023-holm-family | 0023 | `TopicComparisonRowOut.p_value_holm`, `ComparisonMethodOut.holm_family_size`, `conclusion_alpha` | Họ Holm = mọi phép so có p xác định trong lần so (mọi topic × 3 chỉ số, hôm nay 9 × 3), kể cả topic n < `MIN_N_PER_BUCKET`; p None/NaN đứng ngoài họ; kích thước họ lưu cùng kết quả và trả qua API (`src/analysis/topic_comparison.py:179-196`, `src/analysis/significance.py:168-184`) | topics, landing | test: `test_holm_family_counts_small_topics_and_matches_holm_adjust` | Landing dùng ĐÚNG p Holm của họ này dù panel chỉ hiện engagement (1 topic = 1 con số ở mọi nơi); câu khẳng định chỉ khi p Holm < `conclusion_alpha`, không mang cờ n nhỏ VÀ qua luật bền (ADR-0024 — hiện chưa có luật nên chưa có câu khẳng định nào), còn lại "not distinguishable … after correction", không bao giờ "no difference"; số phép so đọc từ `holm_family_size`, không tự nhân: "corrected for all N tests (T topics × engagement, share rate and conversation)" — phần "T topics ×" chỉ khi N = T × 3; "on the Topics page" chỉ thêm khi trang Topics hiện kiểm định (Thy chốt 2026-10-09); Limits giải thích CI chưa hiệu chỉnh có thể loại 0 và p Holm chặn ở 1 |
 | UI-0023-stale-tests | 0023 | `TopicComparisonsOut.stale`, `computed_at`, `snapshot_as_of` | Kết quả so sánh gắn với 1 lần gom cụm; khi lần gom cụm mới nhất chưa có kết quả (bước `compare` lỗi), API trả `stale = true` và để null mọi trường kiểm định, giữ phần mô tả (`src/main.py:538-601`); `scripts/job_health.py` cảnh báo (`scripts/job_health.py:229-254`, `:271-291`); DB chưa có bảng (chưa migrate) đọc là "chưa có kết quả" (`src/db/schema.py:995-1007`) | topics, landing | test: `test_stale_comparisons_hide_tests_but_keep_descriptives`, `test_latest_comparison_run_on_a_database_before_migration` | Ô δ/p hiện "—" kèm lý do cho trình đọc màn hình; câu dưới tiêu đề nói kết quả thuộc lần gom cụm cũ và sẽ quay lại khi chạy lại; mốc "Tests ran <ngày> at <giờ> on data collected up to <giờ> (Paris time)" — 1 nhãn múi giờ cho cả câu, bỏ ngày của mốc dữ liệu khi trùng ngày (Thy chốt D3, 2026-10-09) |
 | UI-0023-views-floor | 0023 | `AnalyticsOverviewOut.views_floor`, `views_floor_rule`, `below_views_floor`; `top_by_engagement`, `top_by_share_rate`, `top_by_conversation` | 3 bảng top theo tỉ lệ chỉ xếp bài có views ≥ sàn = P25 views của bài gốc đo được (`statistics.quantiles`, method "inclusive"), tính lại mỗi request; < 2 bài → không có sàn, không lọc; phân phối và bucket giờ/thứ vẫn dùng mọi bài đo được (`src/analysis/stats.py:92-102`, `src/main.py:733-770`) | analytics | test: `test_overview_top_tables_rank_only_posts_at_or_above_the_p25_views_floor`, `test_overview_keeps_a_post_exactly_on_the_floor` | Câu dưới bảng: "Only posts with at least N views are ranked … The cut-off is the 25th percentile of views among posts with recorded views, recomputed as new views come in; M of P posts fall below it." — N = sàn làm tròn lên (views là số nguyên), không ghi "N views is the 25th percentile" |
+
+## ADR-0027 — giấy phép, harness riêng tư
+
+| id | ADR | Khái niệm / trường (A) | Ràng buộc kỹ thuật (B) | Trang (C) | Kiểm bằng (D) | Trình bày (E) |
+|---|---|---|---|---|---|---|
+| UI-0027-no-ui-impact | 0027 | — | không có hệ quả UI | — | — | — |
 
 ## Quyết định trước ADR-0001 còn hiệu lực (legacy-log, design-system)
 

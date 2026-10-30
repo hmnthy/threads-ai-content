@@ -1,10 +1,11 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-28 (cảnh sát lời hứa landing ↔ trang app)
+> Cập nhật: 2026-10-30 (repo public giữ mọi quyền, harness riêng tư — ADR-0027)
 
 ## Now
 
+- ADR-0027 (Thy chọn 2026-10-30, nhánh `chore/private-harness-license`): repo public chính thức, `LICENSE` giữ mọi quyền (bên thứ ba giữ giấy phép gốc: `tools/ui-ux-pro-max/` MIT); `.claude/` gitignored, lịch sử ở kho bare riêng ngoài thư mục (`..\threads-harness.git`), worktree nhận bản sao chỉ đọc; `check --all` vẫn quét harness trên máy, mọi chế độ (cả `--all` ở CI) chặn `.claude/` bị track; không viết lại lịch sử. Quét 104 commit: không có secret thật.
 - `main` (2026-10-05, PR #1 merge commit `e8d645e`, CI xanh lần đầu) gồm: tái cấu trúc "LESS IS MORE" (ADR-0001, 0003); cưỡng chế nhất quán (ADR-0008) + tên **Unthreaded** (ADR-0009); P0 dashboard trung thực — median + n + IQR, heatmap giờ đăng (ADR-0010 SQLite là CSDL duy nhất, ADR-0011 bài views = 0 là dữ liệu thiếu); P1 Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, 9 cụm; `/conversation` trả được bình luận follower); các mục dưới đến ADR-0018.
 - Cảnh sát lời hứa (2026-10-28, Thy yêu cầu sau khi thấy landing hứa nhiều hơn dashboard): `@agent-promise-auditor` + `/promise-audit` kiểm kê lời hứa của landing so với nội dung thật của các trang app, chấm mức lệch 0–4 + độ phủ + gói việc; báo cáo riêng tư `data/audits/promise-gap/` (gitignored). Lần đầu (148dc37): **mức 4 "bìa hứa sai"**, độ phủ 11/36 — `/topics` chưa hiện kiểm định/δ/Holm/lịch sử/từ khoá dù `/topics/comparisons` đã trả đủ; 2 S1: câu CTA "the method behind each number" và mẫu số "161 posts with text".
 - Lịch sử "k of m" (PR #17 `f5d1890`, ADR-0024 quyết định 3; Thy chốt cách đếm + chữ 2026-10-20): `GET /topics/comparisons` trả `history` mỗi topic × chỉ số, tính khi đọc từ kết quả đã lưu (không bảng mới, không sửa job) — mỗi cách chia đếm 1 lần bằng lần so sánh mới nhất, m chỉ gồm cách chia đủ bài, k tách hướng (`src/analysis/partition_history.py`); landing panel 1 thêm cột "stood out in" ("2 of 3 ↑") + hover + Limits. Số 2026-10-20: topic_11 engagement 2 of 3 (+1 thiếu bài). Sinh lại: `scripts.topic_stability_report --history-only`.
@@ -21,7 +22,7 @@
 - ADR-0022 (PR #11, merge `96986a6`): từ khoá topic tách theo từ bằng underthesea 9.5.0 trong WSL2 + stopword có nhãn; lần gom cụm 2026-10-09 là lần đầu dùng (`params.keyword_segmenter` có ghi), cụm giữ nguyên (ARI 1.0). Lọc theo từ loại = RQ-10.
 - ADR-0024 (worktree `topic-conclusion-stability`, Thy chọn phương án E 2026-10-18): kết luận so sánh topic hiển thị **dạng khám phá** (giới hạn trong "cách chia hiện tại", không câu "tend to get…") tới khi RQ-01 (đa seed) có số đo và ADR mới chọn luật bền — bằng chứng: 16 lần gom cụm = 5 cách chia, cố định số liệu thì 0/2/0/1/1 kết luận đạt (`scripts/topic_stability_report.py`).
 - Khoá DB + độ tươi số liệu so sánh (PR #15, merge `4f51363`, 2026-10-17): job snapshot gọi API xong mới ghi (trước giữ khoá ghi ~1–2 phút → job NLP `database is locked` 10–11/10); `connect()` chờ khoá 2 phút; `job_health` cảnh báo khi lần so sánh topic dùng số liệu cũ hơn 5h so với lúc tính (job snapshot hỏng, hoặc chạy chồng sau một lần ngủ dài — như 13→17/10).
-- Sửa job snapshot (PR #14, merge `9c8d145`; chạy lại OK 17/10 17:10 UTC): lỗi 16/17 lần 13→17/10 do Meta trả HTTP 500 code 1 khi phân trang `/threads` + `/replies`, và 1 ảnh con hỏng phía Meta của bài `CAROUSEL_ALBUM` 2025-06-08. `_paginate` thu nhỏ `limit` khi 5xx/timeout và thử lại cùng cursor; trang 1 bài vẫn lỗi → lấy bài không kèm `children` rồi gọi riêng; guard cursor lặp + tham số `next` lạ. Kiểm live: đủ mọi bài + reply, không trùng. Chi tiết + hạn chế (`children` của bài hỏng dao động trong `raw_json`): `data-model.md`. Repo đang public — Thy tạm chấp nhận (2026-10-17).
+- Sửa job snapshot (PR #14, merge `9c8d145`; chạy lại OK 17/10 17:10 UTC): lỗi 16/17 lần 13→17/10 do Meta trả HTTP 500 code 1 khi phân trang `/threads` + `/replies`, và 1 ảnh con hỏng phía Meta của bài `CAROUSEL_ALBUM` 2025-06-08. `_paginate` thu nhỏ `limit` khi 5xx/timeout và thử lại cùng cursor; trang 1 bài vẫn lỗi → lấy bài không kèm `children` rồi gọi riêng; guard cursor lặp + tham số `next` lạ. Kiểm live: đủ mọi bài + reply, không trùng. Chi tiết + hạn chế (`children` của bài hỏng dao động trong `raw_json`): `data-model.md`.
 - Việc 3 (PR #13, merge `c1abbb1`; Thy duyệt plan D1–D4 + chữ 2026-10-09): bước `compare` cuối job NLP ghi `topic_comparison_runs` + `topic_comparisons` (mọi topic × 3 chỉ số, giữ lịch sử mỗi lần gom cụm, ~70 giây); `GET /topics/comparisons` (họ Holm từ API, `stale` → ẩn δ/p); `/topics` thêm ngày đặt tên + số lần giữ tên; sàn views P25 cho 3 bảng top `/analytics/overview`; landing panel 1 `live`; `job_health` cảnh báo khi kết quả so sánh lỗi thời; engine hoán vị sắp xếp đầu vào (job và `topic_method_report.py` giờ ra cùng số). Audit dữ liệu Topics: `docs/design/topics-data-audit.md`. Trang Topics chờ mockup (Việc 4).
 - ADR-0023 (PR #12, merge `dd16d16`, Thy chốt 2026-10-09): vai trò 3 trang + khối câu hỏi → câu trả lời → bằng chứng → Method and limits; so topic với phần còn lại của kênh (gồm nhiễu) bằng **Brunner-Munzel hoán vị** (thay Mann-Whitney + bootstrap: báo động giả 13–14% khi độ phân tán lệch; thay bản xấp xỉ t: sai gấp 2–10 lần ở ngưỡng Holm) + Cliff's δ kèm CI từ cùng phân phối hoán vị; họ Holm 27 dùng chung trang Topics và landing; UI không hiện mean (`DistributionCaption`, IQR có tooltip); sàn views P25 cho bảng top (code ở Việc 3). Trên dữ liệu 2026-10-09: 3/27 phép so đạt p Holm < 0.05 (kết luận chưa bền qua các cách chia — ADR-0024). Số sinh lại bằng `scripts/topic_method_report.py`.
 - ADR-0020 (Thy chọn: Claude Code = nguồn sự thật kỹ thuật, Claude Design làm UI/UX trên nền đó; mockup chỉ cảnh báo): hợp đồng UI `docs/design/ui-contract.md` (ADR-0001 → 0020, mỗi ràng buộc kèm `file:line`, máy kiểm đường dẫn/luật/test); ADR mới có mục "Hệ quả UI"; mockup bị sổ luật quét ở mức cảnh báo; audit landing ở `docs/design/ui-contract-audit.md`.
@@ -38,7 +39,7 @@
 
 - Vòng 3 Claude Design (gói 2026-10-07) xong; cảnh báo mockup nay 9 (1 báo nhầm, 2 ADR-0021, 6 ADR-0023). Lần gửi tới kèm `ui-contract-audit.md` mới (mục "Việc 3": chữ panel 1, Approach, How it works, bảng top) và đổi `RUN_AT_UTC` của landing thành giờ thật `2026-10-01T11:35:06Z`.
 - Lần mở phiên tới: duyệt 2 MCP server trong `/mcp` (`context7`, `huggingface` — HF đăng nhập OAuth) và thử pop-up khi Claude xong việc.
-- Duyệt bio ở `LandingAuthor.tsx` (copy của mockup, vẫn là nháp). Nút "View the repo" đã bỏ khỏi khối CTA tới khi có repo công khai.
+- Duyệt bio ở `LandingAuthor.tsx` (copy của mockup, vẫn là nháp). Repo đã public (ADR-0027) → Thy quyết có thêm lại nút "View the repo" ở khối CTA không. Sao lưu harness: tạo 1 repo GitHub **private** rồi đẩy kho riêng `.claude/` lên.
 - Phase C cần Thy mở VS Code Remote-WSL (Claude Code chạy trong Linux) — không tự làm được từ phiên Windows.
 - RQ-08 cần Thy gán nhãn tay 150 bài (6 nhãn cố định) + gán lại 30 bài sau 2 tuần.
 
@@ -51,9 +52,9 @@
 
 ## Số liệu nhanh
 
-- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 861 test pass
+- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 872 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Rebuild /topics as a research-grade page; replay logo every 15s
+- Keep the repo all-rights-reserved and the Claude Code harness private (ADR-0027)

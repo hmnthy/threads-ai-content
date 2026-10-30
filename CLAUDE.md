@@ -3,11 +3,13 @@
 Dự án NLP trên data thật của kênh Threads **@thydilammuon** (người Việt tại Pháp: alternance, xin việc, đời sống).
 Scope (ADR-0001): **phân tích NLP sâu → knowledge base (cơ sở tri thức) cập nhật liên tục → chỉ sau cổng chất lượng: chatbot + landing thương hiệu.**
 <!-- consistency: allow ADR0001-generation ADR0001-carousel ADR0001-kol -->
-Không generation giọng văn, không carousel, không KOL engine. Portfolio NLP/MLE — repo private, sẽ curate sang repo public riêng.
+Không generation giọng văn, không carousel, không KOL engine. Portfolio NLP/MLE — repo public, giữ mọi quyền (`LICENSE`, ADR-0027).
 
 ## Quy tắc tuyệt đối
 
 - Không đăng gì lên Threads. Không commit `.env`, token, data cá nhân (`content/`, `data/`, `docs/research/`).
+- `.claude/` (harness: agents, skills, hooks, rules) **riêng tư, gitignored** — lịch sử ở kho bare riêng ngoài thư mục
+  (`..\threads-harness.git`); sửa ở `.claude/` của thư mục chính, commit vào kho đó, không qua repo này (ADR-0027).
 - Commit message **tiếng Anh**, **không** trailer `Co-Authored-By` (hook + `attribution` đã cưỡng chế — đừng tìm cách vượt).
 - Product copy (dashboard, README, label do LLM sinh) **tiếng Anh**; docs + code comment **tiếng Việt**.
 - Khi trao đổi với Thy: **mọi thuật ngữ kỹ thuật phải có ngoặc giải thích** ở lần đầu xuất hiện **trong mỗi câu trả lời**
@@ -44,7 +46,8 @@ ML (embedding/UMAP/HDBSCAN) **chỉ chạy trong WSL2** — Smart App Control ch
 | Setup môi trường, phối hợp Claude Design/Cowork | `docs/claude/dev-rules.md` |
 | Câu hỏi nghiên cứu | `docs/rq/RQ-xx.md` (tạo bằng `/new-rq`) |
 
-Quy tắc theo mảng code nằm ở `.claude/rules/` và **tự nạp** khi đọc file khớp đường dẫn — không cần đọc trước.
+Quy tắc theo mảng code nằm ở `.claude/rules/` và **tự nạp** khi đọc file khớp đường dẫn — không cần đọc trước
+(harness chỉ có ở thư mục chính trên máy tác giả, không có ở clone công khai — ADR-0027).
 
 ## Cách làm việc
 
@@ -54,7 +57,7 @@ Quy tắc theo mảng code nằm ở `.claude/rules/` và **tự nạp** khi đ�
 - **Git** (ADR-0019, `docs/claude/git-workflow.md`, `/git-flow`): thư mục chính **luôn ở `main`** (cron chạy code ở đó, kể cả
   file chưa commit) — mọi thay đổi làm trên nhánh mới trong worktree → PR → CI xanh → merge commit. Trước Phase C,
   `data/` của worktree là bản riêng, có thể cũ. Hook đầu phiên in `Git:` khi lệch quy ước.
-- **Subagents**: `@agent-code-reviewer` **bắt buộc** trước commit chạm logic (git hook pre-commit chặn nếu thiếu, ADR-0015) · `@agent-qa-tester` viết/chạy test (chỉ sửa `tests/`) ·
+- **Subagents**: `@agent-code-reviewer` **bắt buộc** trước commit chạm logic (git hook pre-commit chặn nếu thiếu, ADR-0015; riêng harness `.claude/`: theo thói quen, không còn máy chặn — ADR-0027) · `@agent-qa-tester` viết/chạy test (chỉ sửa `tests/`) ·
   `@agent-researcher` tìm paper/model/docs có trích nguồn (web + MCP `huggingface`, `context7`) ·
   `@agent-copy-reviewer` đọc chữ tiếng Anh hiển thị như tech lead NLP + người đọc mới, đề xuất câu viết lại (Thy duyệt câu cuối) ·
   `@agent-consistency-auditor` kiểm toán độc lập 1 ADR (dùng trong `/decision-sweep`; **bắt buộc** trước commit ADR — git hook pre-commit chặn, ADR-0015) ·

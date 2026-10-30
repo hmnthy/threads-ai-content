@@ -51,8 +51,8 @@ known_untracked = [
   "output", "output/**",
   "src/dashboard/.env.local",
   "src/dashboard/node_modules", "src/dashboard/node_modules/**",
-  ".claude/worktrees", ".claude/worktrees/**",
-  ".claude/settings.local.json", "CLAUDE.local.md",
+  # harness Claude Code riêng tư, có kho git riêng (ADR-0027) — gồm cả worktrees/, settings.local.json
+  ".claude", ".claude/**", "CLAUDE.local.md",
 ]
 
 # ---------------------------------------------------------------------------------------
@@ -979,4 +979,29 @@ pattern = '(?i)internal analytics api'
 why = "API được deploy công khai, chỉ đọc (ADR-0025) — không còn là API nội bộ"
 fix = "Ghi 'Read-only analytics API …'"
 paths = ["docs/**", "src/**", "README*.md"]
+allow = ["docs/decisions/**"]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0027 — repo public giữ mọi quyền (LICENSE); harness `.claude/` riêng tư, kho git riêng
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0027-private-repo-wording"
+adr = "0027"
+# Bắt: "repo private", "curate sang repo public riêng", badge `license-private`, câu giấy phép cũ 3 README.
+# Không bắt kho sao lưu harness: "đẩy lên (một) repo private"
+pattern = '(?i)(?<!lên )(?<!một )\brepo private\b|curate sang (?:repo )?public|license-private|private personal project|dự án cá nhân, private|projet personnel, privé'
+why = "Repo đã public, giữ mọi quyền qua file LICENSE (ADR-0027) — không còn là repo private chờ curate sang repo public riêng"
+fix = "Ghi 'repo public, giữ mọi quyền (LICENSE, ADR-0027)'; badge `license-all%20rights%20reserved`"
+paths = ["README*.md", "CLAUDE.md", "docs/claude/**", "docs/status.md", "docs/roadmap.md", ".gitignore", ".claude/**"]
+allow = ["docs/decisions/**"]
+
+[[forbid]]
+id = "ADR0027-open-source-claim"
+adr = "0027"
+# Repo giữ mọi quyền — không được tự gọi là open source "về tinh thần"; câu phủ định ("not open-source software") hợp lệ
+pattern = '(?i)open[- ]sourced?[- ]in[- ]spirit|open[- ]source (?:project|portfolio|repo)'
+why = "Repo public chỉ để xem, giữ mọi quyền (LICENSE, ADR-0027) — không phải phần mềm mã nguồn mở"
+fix = "Ghi 'portfolio piece (public for viewing, all rights reserved)'"
+paths = ["README*.md", "CLAUDE.md", "docs/claude/**", "src/dashboard/src/**"]
 allow = ["docs/decisions/**"]

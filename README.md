@@ -3,8 +3,8 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-861%20passing-brightgreen)
-![License](https://img.shields.io/badge/license-private-lightgrey)
+![Tests](https://img.shields.io/badge/tests-872%20passing-brightgreen)
+![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
 
@@ -19,7 +19,7 @@ never a black-box score.
 
 It is a working **analytics + NLP research project** for that one channel, heading toward a
 continuously updated **knowledge base** of what the channel has already taught its followers —
-built and open-sourced-in-spirit as an NLP/ML engineering portfolio piece. Not a SaaS, not
+built as an NLP/ML engineering portfolio piece. Not a SaaS, not
 multi-tenant, not trying to be.
 
 ---
@@ -209,9 +209,13 @@ described above.
 
 ## License
 
-Private personal project. All rights reserved — not open source, not accepting external
-contributions. Built as a portfolio piece demonstrating applied NLP/ML engineering on real
-production data.
+This repository is public for viewing only. All rights are reserved: no part of it may be used,
+copied, modified, redistributed or sold without the author's prior written permission. The full
+terms, and the third-party components that keep their own licenses, are in [LICENSE](LICENSE).
+This is not open-source software, and external contributions are not accepted. For licensing
+enquiries: thydilammuon@gmail.com.
+
+Built as a portfolio piece demonstrating applied NLP/ML engineering on real production data.
 
 Not affiliated with Meta. Threads is a trademark of Meta Platforms, Inc. The repository keeps its
 working slug `threads-ai-content`.

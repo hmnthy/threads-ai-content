@@ -32,7 +32,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) �
 - Các bước và điều kiện: mục "Hệ quả" của ADR-0025 (gói API tối giản → chế độ chỉ đọc → publish sau mỗi job → deploy thử preview → việc trước khi public → docs).
 - **Xong khi**: bản công khai chạy trên dữ liệu publish từ laptop; Thy duyệt bản preview; `job_health` cảnh báo khi bản publish cũ. Deploy thử thất bại (gói > 500 MB, không mở được DB, cold start làm trang không tải được) → ADR mới, chuyển sang snapshot tĩnh.
 - **Trạng thái (2026-10-28): live** — https://unthreaded-analytics.vercel.app, API https://unthreaded-api.vercel.app (PR #19, #20; cấu hình + 2 chỗ lệch so với ADR: `docs/claude/architecture.md` mục "Deploy"). Thy chọn công khai ngay thay cho bước duyệt preview. Còn: việc trước khi chia sẻ link rộng (bio, link CTA, rate limit `/analytics/window`, theo dõi Usage).
-- Ngay sau H: RQ-01 (ADR-0024). Deploy (trang công khai) khác việc curate repo: repo hiện đang public tạm (ADR-0025, rủi ro chấp nhận) — các bước ở mục "Trước khi public repo" vẫn phải làm.
+- Ngay sau H: RQ-01 (ADR-0024). Repo public chính thức, giữ mọi quyền, harness `.claude/` riêng tư (ADR-0027) — mục "Repo public" bên dưới.
 
 ## G — CI (GitHub Actions) — ADR-0014
 
@@ -84,6 +84,9 @@ Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) �
 5. KB explorer chạy thật; có data card + model card; RQ-01/03/09 đã viết.
 6. Có bản nháp plan đánh giá answer faithfulness (câu trả lời chatbot trung thực với nguồn).
 
-## Trước khi public repo
+## Repo public (ADR-0027)
 
-Không copy history. `git filter-repo` trên bản clone mới: loại `docs/research/`, `src/carousel/` <!-- consistency: allow dead-path -->, trailer ở `31adcbc`/`3eceabe`. Kiểm tra license skill vendored (`tools/`) và mọi asset.
+Thy public repo hiện tại thay cho kế hoạch curate sang repo mới (2026-10-30). Đã làm: `LICENSE` giữ mọi quyền,
+`tools/ui-ux-pro-max/LICENSE` (MIT gốc), `.claude/` gitignored + kho git riêng. **Không** viết lại lịch sử: `docs/research/`
+(2 file ở `8af3f30`) và harness cũ vẫn đọc được trong lịch sử — chấp nhận, bảo vệ bằng quyền tác giả.
+Còn: đẩy kho riêng `.claude/` lên 1 repo GitHub **private** để sao lưu; kiểm license asset khác (font, ảnh) khi thêm mới.

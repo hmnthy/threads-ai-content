@@ -1,0 +1,20 @@
+Copyright (c) 2026 Thy (@thydilammuon) ("the Author"). All rights reserved.
+
+This repository is published for viewing only. This covers all code, documentation,
+images and other material in it, including earlier versions in its commit history.
+No part of it may be used, copied, modified, merged, published, distributed,
+sublicensed or sold without the Author's prior written permission.
+
+The GitHub Terms of Service let GitHub users view this repository and fork it on
+GitHub. Those actions grant no other right.
+
+Third-party components keep their own licenses and are excluded from the above:
+
+- tools/ui-ux-pro-max/ — MIT License, Copyright (c) 2024 Next Level Builder
+  (see tools/ui-ux-pro-max/LICENSE)
+
+Dependencies installed by package managers (listed in pyproject.toml, uv.lock and
+src/dashboard/package.json) are not part of this repository and keep their own
+licenses.
+
+For licensing enquiries, contact the Author at thydilammuon@gmail.com.
