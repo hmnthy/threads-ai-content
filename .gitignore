@@ -48,6 +48,8 @@ docs/take note.docx
 
 # Nghiên cứu thị trường & methodology — nội bộ, không commit (quyết định 2026-09-03)
 docs/research/
+# Kế hoạch cũ (lưu trữ nguyên văn) — riêng tư, không public (ADR-0028)
+docs/archive/
 
 # Data xuất cho Claude Design (brief Topics Việc 4) — chứa full_text bài thật; repo public (ADR-0027) → không bao giờ commit
 docs/design/data/

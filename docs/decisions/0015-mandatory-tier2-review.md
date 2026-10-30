@@ -2,7 +2,7 @@
 
 - **Trạng thái**: Accepted
 - **Ngày**: 2026-10-01
-- **Người quyết**: Thy chọn phương án A + B (2026-10-01, "cách đảm bảo hơn cho code-reviewer"); Claude thiết kế
+- **Người quyết**: Thy chọn phương án A + B (2026-10-01, "cách đảm bảo hơn cho code-reviewer"); Claude Code đề xuất thiết kế
 
 ## Bối cảnh
 

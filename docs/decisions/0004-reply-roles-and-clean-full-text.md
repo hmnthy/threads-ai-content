@@ -2,7 +2,7 @@
 
 - **Trạng thái**: Accepted
 - **Ngày**: 2026-10-01
-- **Người quyết**: Thy (phạm vi "D0 lõi + gom cụm lại", quy tắc phân vai, tham số gom cụm mới), Claude (thiết kế, đo đạc)
+- **Người quyết**: Thy (phạm vi "D0 lõi + gom cụm lại", quy tắc phân vai, tham số gom cụm mới), Claude Code (đề xuất thiết kế, chạy đo đạc)
 
 ## Bối cảnh
 

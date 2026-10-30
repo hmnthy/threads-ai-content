@@ -23,7 +23,7 @@ threads-ai-content/
 │   ├── claude/                # tài liệu tham chiếu: architecture, data-model, design-system, dev-rules
 │   ├── rq/                    # câu hỏi nghiên cứu RQ-xx (roadmap D, chưa tạo)
 │   ├── research/              # PRIVATE, gitignored — market scan, methodology
-│   ├── archive/               # plan/sprint cũ, giữ nguyên văn
+│   ├── archive/               # PRIVATE, gitignored — plan/sprint cũ, lưu trữ riêng (ADR-0028)
 │   ├── design/ (handoff, brief, ui-contract — ADR-0020) · screenshots/
 ├── src/
 │   ├── api/                   # Threads Graph API client (httpx async, pydantic, cache TTL 6h, pagination)
@@ -102,7 +102,7 @@ ADR-0025). Landing ghi mốc "Data as of …" (`UI-0025-published-snapshot`).
 |---|---|---|
 | Laptop `.env` (thư mục chính) | `DB_BLOB_PATH=threads.db`, `BLOB_READ_WRITE_TOKEN` | Thiếu → publish bỏ qua. Chỉ đọc từ `.env` của chính checkout; worktree không bao giờ publish |
 | Vercel `unthreaded-api` | `DB_BLOB_PATH`, `CORS_ALLOW_ORIGINS` (Config, các origin trang công khai, phân cách dấu phẩy) | `VERCEL=1` do Vercel tự đặt (cổng bật chế độ Blob) |
-| Vercel `unthreaded-api` (do "Connect store" tạo, prefix `BLOB`) | `BLOB_STORE_ID`, `BLOB_READ_WRITE_TOKEN`, `BLOB_WEBHOOK_PUBLIC_KEY` | API đọc bằng token OIDC trong header request (đã kiểm log: "credential from header"); token RW chỉ là dự phòng. **Không "Revoke Token"** — laptop dùng nó để publish |
+| Vercel `unthreaded-api` (do "Connect store" tạo, prefix `BLOB`) | `BLOB_STORE_ID`, `BLOB_READ_WRITE_TOKEN`, `BLOB_WEBHOOK_PUBLIC_KEY` | API đọc bằng token OIDC trong header request (đã kiểm log: "credential from header"); token RW chỉ là dự phòng |
 | Vercel `unthreaded` | `NEXT_PUBLIC_API_BASE_URL=https://unthreaded-api.vercel.app` | Gắn vào bản build → đổi phải redeploy |
 
 Thêm tên miền cho trang (VD tên miền riêng) → thêm origin đó vào `CORS_ALLOW_ORIGINS` của API rồi redeploy API, nếu
@@ -113,7 +113,7 @@ không 3 tab trống (landing vẫn chạy vì fetch phía server).
    header `x-vercel-oidc-token` của request, lúc khởi động chưa có credential. Quyết định gốc (Blob riêng tư → thư mục
    tạm → chỉ đọc) không đổi (Thy, 2026-10-20).
 2. ADR viết deploy thử preview, Thy duyệt rồi mới public; Thy chọn **công khai ngay, không che deployment nào**
-   (2026-10-28). Việc trước khi chia sẻ link rộng (bio, link CTA, rate limit `/analytics/window`, theo dõi Usage) làm
+   (2026-10-28). Việc trước khi chia sẻ link rộng (bio, link CTA, giới hạn tần suất gọi API, theo dõi Usage) làm
    sau trên bản đang chạy.
 
 ## Nguyên tắc kiến trúc (chi tiết + lý do trong ADR / legacy-log)
