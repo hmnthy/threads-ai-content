@@ -14,7 +14,7 @@
     nên lọt qua.
   - **Từ chức năng tiếng Pháp**: "de" (6/9 cụm).
   - **Mảnh âm tiết của từ ghép**: "dụng" (của "áp dụng"), "chất", "nguyên", "miễn" — vì 1 token = 1 âm tiết.
-- copy-reviewer và code-reviewer cùng chỉ ra đây là lỗi phương pháp một tech lead NLP sẽ thấy ngay; Thy chọn sửa trước khi
+- copy-reviewer và code-reviewer cùng chỉ ra từ khoá lẫn từ chức năng / teencode; Thy chọn sửa trước khi
   công khai landing (2026-10-08).
 - Tài liệu: BERTopic khuyên lọc stopword ở vectorizer, **sau** embed + gom cụm, nên không ảnh hưởng chất lượng cụm
   ([Vectorizers](https://maartengr.github.io/BERTopic/getting_started/vectorizers/vectorizers.html)). Không tìm thấy hướng

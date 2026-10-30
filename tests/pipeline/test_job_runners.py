@@ -172,8 +172,8 @@ def test_nlp_job_publishes_even_when_a_step_fails(
 
 
 def test_wsl_path() -> None:
-    repo = PureWindowsPath(r"C:\Users\hmnth\Desktop\repo")
-    assert nlp_cluster_job.wsl_path(repo) == "/mnt/c/Users/hmnth/Desktop/repo"
+    repo = PureWindowsPath(r"C:\Users\me\Desktop\repo")
+    assert nlp_cluster_job.wsl_path(repo) == "/mnt/c/Users/me/Desktop/repo"
     with pytest.raises(ValueError):
         nlp_cluster_job.wsl_path(PureWindowsPath("relative\\path"))
 

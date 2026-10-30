@@ -2,7 +2,7 @@
 
 > Nguồn "làm gì, theo thứ tự nào". Trạng thái hiện tại xem `docs/status.md`; lý do của từng quyết định xem `docs/decisions/`.
 > Scope đã chốt tại ADR-0001: **NLP sâu → knowledge base → (sau cổng F) chatbot + landing thương hiệu.** Không generation giọng văn, không carousel.
-> Plan gốc có giải thích đầy đủ: phiên 2026-09-30 (plan "LESS IS MORE"). Sprint plan cũ: `docs/archive/sprint-plan-v3-2026-09-02.md`.
+> Plan gốc có giải thích đầy đủ: phiên 2026-09-30 (plan "LESS IS MORE"). Kế hoạch cũ hơn: lưu trữ riêng, không public (ADR-0028).
 
 Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) → F` (H trước C: Thy ưu tiên deploy, 2026-10-20). Mỗi phase kết thúc bằng checkpoint commit + cập nhật `docs/status.md`.
 
@@ -31,7 +31,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) �
 - FastAPI chỉ đọc chạy như Vercel Python Function, đọc bản sao `threads.db` từ Vercel Blob riêng tư; dashboard và API deploy tự động từ GitHub (2 project Vercel); job vẫn chạy trên laptop.
 - Các bước và điều kiện: mục "Hệ quả" của ADR-0025 (gói API tối giản → chế độ chỉ đọc → publish sau mỗi job → deploy thử preview → việc trước khi public → docs).
 - **Xong khi**: bản công khai chạy trên dữ liệu publish từ laptop; Thy duyệt bản preview; `job_health` cảnh báo khi bản publish cũ. Deploy thử thất bại (gói > 500 MB, không mở được DB, cold start làm trang không tải được) → ADR mới, chuyển sang snapshot tĩnh.
-- **Trạng thái (2026-10-28): live** — https://unthreaded-analytics.vercel.app, API https://unthreaded-api.vercel.app (PR #19, #20; cấu hình + 2 chỗ lệch so với ADR: `docs/claude/architecture.md` mục "Deploy"). Thy chọn công khai ngay thay cho bước duyệt preview. Còn: việc trước khi chia sẻ link rộng (bio, link CTA, rate limit `/analytics/window`, theo dõi Usage).
+- **Trạng thái (2026-10-28): live** — https://unthreaded-analytics.vercel.app, API https://unthreaded-api.vercel.app (PR #19, #20; cấu hình + 2 chỗ lệch so với ADR: `docs/claude/architecture.md` mục "Deploy"). Thy chọn công khai ngay thay cho bước duyệt preview. Còn: việc trước khi chia sẻ link rộng (bio, link CTA, giới hạn tần suất gọi API, theo dõi Usage).
 - Ngay sau H: RQ-01 (ADR-0024). Repo public chính thức, giữ mọi quyền, harness `.claude/` riêng tư (ADR-0027) — mục "Repo public" bên dưới.
 
 ## G — CI (GitHub Actions) — ADR-0014
@@ -84,9 +84,9 @@ Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) �
 5. KB explorer chạy thật; có data card + model card; RQ-01/03/09 đã viết.
 6. Có bản nháp plan đánh giá answer faithfulness (câu trả lời chatbot trung thực với nguồn).
 
-## Repo public (ADR-0027)
+## Repo public (ADR-0027, ADR-0028)
 
 Thy public repo hiện tại thay cho kế hoạch curate sang repo mới (2026-10-30). Đã làm: `LICENSE` giữ mọi quyền,
-`tools/ui-ux-pro-max/LICENSE` (MIT gốc), `.claude/` gitignored + kho git riêng. **Không** viết lại lịch sử: `docs/research/`
-(2 file ở `8af3f30`) và harness cũ vẫn đọc được trong lịch sử — chấp nhận, bảo vệ bằng quyền tác giả.
-Còn: đẩy kho riêng `.claude/` lên 1 repo GitHub **private** để sao lưu; kiểm license asset khác (font, ảnh) khi thêm mới.
+`tools/ui-ux-pro-max/LICENSE` (MIT gốc), `.claude/` gitignored + kho riêng; soát nội dung nhạy cảm, bỏ `docs/archive/`,
+quy tắc làm việc riêng sang `CLAUDE.local.md`. Còn: viết lại lịch sử (bỏ `.claude/`, `docs/research/`, `docs/archive/`
+khỏi mọi commit) + cập nhật mã commit trong docs theo bảng đổi mã (ADR-0028); kiểm license asset khác khi thêm mới.

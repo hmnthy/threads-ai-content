@@ -1,6 +1,6 @@
 # Quy trình git của Unthreaded (ADR-0019)
 
-> Viết cho người mới dùng git chuyên sâu. Ngắn gọn: **thư mục chính luôn ở `main`; mọi thay đổi làm trong worktree trên nhánh riêng; xong thì PR → CI xanh → merge commit → dọn.** Hỏi nhanh bất cứ lúc nào: `/git-flow status`.
+> Ngắn gọn: **thư mục chính luôn ở `main`; mọi thay đổi làm trong worktree trên nhánh riêng; xong thì PR → CI xanh → merge commit → dọn.** Hỏi nhanh bất cứ lúc nào: `/git-flow status`.
 
 ## 1. Năm khái niệm
 
@@ -14,23 +14,20 @@
 
 Branch là *lịch sử*, worktree là *chỗ làm*. Nhiều worktree dùng chung 1 lịch sử (`.git`): commit ở thư mục nào thì thư mục kia thấy ngay — nhưng file đang mở, file chưa commit, `.env`, `.venv`, `node_modules`, `data/` là của riêng từng thư mục. `origin/main` là bản `main` trên GitHub *theo lần `git fetch` gần nhất*; `main` (không có `origin/`) là bản trên máy — chỉ đổi khi `git pull` ở thư mục chính.
 
-**Harness `.claude/` không thuộc repo này** (ADR-0027): gitignored; lịch sử nằm ở kho git riêng dạng *bare* **ngoài**
-thư mục — `<CHÍNH>\..\threads-harness.git`, thư mục làm việc là `<CHÍNH>\.claude\` (lệnh: `git --git-dir=<CHÍNH>\..\threads-harness.git
---work-tree=<CHÍNH>\.claude <lệnh>`; bỏ qua `worktrees/`, `settings.local.json`, `agent-memory/`, `agent-memory-local/` ghi ở `info/exclude`
-của kho đó). **Không** đặt `.git` (thư mục hay file) trong `.claude/`: git coi đó là repo lồng, không liệt kê file bên trong
-→ `.worktreeinclude` âm thầm không copy harness. Git không đưa `.claude/` vào worktree → bước 2 copy một bản **chỉ đọc**
-(agent, hook, dấu review, rule tự nạp vẫn chạy trong worktree); sửa trên bản sao đó sẽ mất khi dọn worktree, và bản sao
-là ảnh chụp lúc tạo — `/decision-sweep` trong worktree phải copy lại harness trước. Sửa agent / skill / hook / rule: sửa
-thẳng ở `<CHÍNH>\.claude\` → gọi `@agent-code-reviewer` nếu chạm hook/agent/settings → commit vào kho riêng; không qua
-nhánh/PR/CI của repo này, `review-gate` không kiểm. `git add -f .claude/...` vào repo này bị checker chặn
-(`ADR0027-harness-not-tracked`).
+**Harness `.claude/` không thuộc repo này** (ADR-0027): gitignored, có kho git riêng đặt **ngoài** thư mục (không có
+`.git` nào trong `.claude/` — git coi đó là repo lồng và `.worktreeinclude` âm thầm không copy harness). Git không đưa
+`.claude/` vào worktree → bước 2 copy một bản **chỉ đọc** (agent, hook, dấu review, rule tự nạp vẫn chạy trong worktree);
+sửa trên bản sao đó sẽ mất khi dọn worktree, và bản sao là ảnh chụp lúc tạo — `/decision-sweep` trong worktree phải copy
+lại harness trước. Sửa harness: ở `<CHÍNH>\.claude\`, commit vào kho riêng — không qua nhánh/PR/CI của repo này,
+`review-gate` không kiểm (cách làm cụ thể: tài liệu riêng của tác giả). `git add -f .claude/...` vào repo này bị checker
+chặn (`ADR0027-harness-not-tracked`).
 
 ## 2. Ba quy tắc bất biến
 
 1. **Thư mục chính luôn ở `main`.** 2 cron (snapshot mỗi 4h lúc xx:15, NLP 12:30 — ADR-0013/0017) chạy code đang nằm trong thư mục này, *kể cả file chưa commit*, bằng `.venv` của nó (không tự `uv sync`), và mỗi lần chạy đều migrate DB thật (`create_schema()`). Vì vậy thư mục chính chỉ dùng để: cron chạy, xem dashboard/API trên data thật, `git pull` + `uv sync` sau khi merge. Không sửa code ở đây (ngoại lệ duy nhất: harness `.claude/` — kho riêng, mục 1, ADR-0027; cron không đọc harness).
    - Bài học 2026-10-04: đang sửa ADR-0018 trong thư mục chính → job snapshot 21:15 chạy bản nháp và migrate DB thật trước khi Thy duyệt.
 2. **Không commit thẳng lên `main`.** Mọi thay đổi của repo này đi qua nhánh → PR → CI xanh → merge commit (harness `.claude/` không thuộc repo này — ADR-0027). `main` = bản đã qua cổng trên máy sạch.
-3. **Merge kiểu "Create a merge commit"** (không squash, không rebase) — giữ từng commit ADR trong lịch sử `main` và các mã commit (VD `f908d8a`) mà docs/memory nhắc tới vẫn còn đúng.
+3. **Merge kiểu "Create a merge commit"** (không squash, không rebase) — giữ từng commit ADR trong lịch sử `main` và các mã commit (VD `f908d8a`) mà docs/memory nhắc tới vẫn còn đúng (ngoại lệ: lần viết lại lịch sử 2026-10-30 đổi mọi mã — ADR-0028).
 
 ## 3. Cây quyết định — bắt đầu 1 việc
 
@@ -54,7 +51,7 @@ Vì sao *luôn* worktree, kể cả việc nhỏ: chuyển nhánh ngay trong th�
 
 ## 4. Vòng đời 1 nhánh
 
-Đường dẫn thư mục chính dưới đây viết tắt là `<CHÍNH>` = `C:\Users\hmnth\Desktop\Portfolio\project_AI\threads-ai-content`.
+Đường dẫn thư mục chính dưới đây viết tắt là `<CHÍNH>` = thư mục clone gốc của repo (mục đầu tiên của `git worktree list`).
 
 | Bước | Ai | Lệnh / thao tác |
 |---|---|---|
@@ -71,8 +68,8 @@ Vì sao *luôn* worktree, kể cả việc nhỏ: chuyển nhánh ngay trong th�
 ## 5. Tình huống thường gặp
 
 - **Lỡ sửa code ở thư mục chính** → đừng commit ở đó; chuyển sang worktree bằng patch (đường dẫn tuyệt đối, ghi file bằng `--output` — PowerShell 5.1 ghi `>` thành UTF-16 làm hỏng patch):
-  1. Ở `<CHÍNH>`: file mới chưa track → `git add -N <file mới>`; rồi `git diff HEAD --binary --output=C:\Users\hmnth\fix.patch`.
-  2. Tạo worktree (mục 4 bước 1), trong worktree: `git apply --3way C:\Users\hmnth\fix.patch`; kiểm `git status` thấy đủ file (`--3way` đưa thay đổi vào trạng thái *staged* — đã đánh dấu chờ commit — là bình thường).
+  1. Ở `<CHÍNH>`: file mới chưa track → `git add -N <file mới>`; rồi `git diff HEAD --binary --output=$env:USERPROFILE\fix.patch` (PowerShell bung `$env:USERPROFILE` thành đường dẫn tuyệt đối; `%USERPROFILE%` chỉ cmd.exe hiểu).
+  2. Tạo worktree (mục 4 bước 1), trong worktree: `git apply --3way $env:USERPROFILE\fix.patch`; kiểm `git status` thấy đủ file (`--3way` đưa thay đổi vào trạng thái *staged* — đã đánh dấu chờ commit — là bình thường).
   3. Chỉ khi bước 2 đúng, ở `<CHÍNH>`: file sửa → `git restore --staged --worktree <file>`; file mới → `git rm --cached <file mới>` rồi xoá file; cuối cùng xoá `fix.patch`.
   Hook đầu phiên cảnh báo khi thư mục chính có code cron chưa commit.
 - **Hook đầu phiên báo "thư mục chính đang ở `<nhánh>`"** → còn việc chưa merge. Merge PR rồi làm bước 8 ở thư mục chính.

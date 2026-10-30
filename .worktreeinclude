@@ -1,4 +1,6 @@
 .env
+# Quy tắc làm việc riêng của tác giả (gitignored — ADR-0028)
+CLAUDE.local.md
 # Harness riêng tư (ADR-0027) — bản sao CHỈ ĐỌC cho worktree tạo bằng công cụ của Claude Code;
 # không ghi `.claude/` trần (sẽ kéo cả worktrees/). Chỉ chạy được khi `.claude/` KHÔNG chứa `.git`
 # (repo lồng → git không liệt kê file bên trong) — kho riêng của harness là bare đặt ngoài

@@ -10,8 +10,8 @@ Sau ADR-0013 (pythonw, không console), job `ThreadsAI_NLPClusterJob_Daily` lỗ
 
 Bằng chứng (log `data/logs/*.log` + nhật ký System, Kernel-Power 507 = thoát chế độ chờ, 506 = vào lại):
 - `powercfg /a`: máy chỉ có **Standby (S0 Low Power Idle)** — Modern Standby đóng băng tiến trình desktop khi ngủ; task có `WakeToRun` = False, chỉ chạy được trong các lần thức bảo trì ngắn.
-- 2026-10-04: 507 và 506 **cùng giây** 03:08:54, job bắt đầu ngay sau đó; log có kết quả bước export nhưng **không có** `-- bước cluster_wsl` → tiến trình đứng sau bước 1. Còn 1 lần thức bảo trì 05:39:53, rồi lần thức của người dùng 12:05:21 — task bị cắt (giờ sửa cuối của file log lúc đó là 12:05; nay đã đổi do lần chạy tay).
-- 2026-10-02: cùng mẫu — 507/506 lúc 03:11:57, job bắt đầu 03:11:59, chỉ có bước export; người dùng thức lúc 09:10:54.
+- 2026-10-04: 507 và 506 **cùng giây** 03:08:54, job bắt đầu ngay sau đó; log có kết quả bước export nhưng **không có** `-- bước cluster_wsl` → tiến trình đứng sau bước 1. Còn 1 lần thức bảo trì 05:39:53, rồi tới lần máy được mở lại (buổi trưa) — task bị cắt (giờ sửa cuối của file log trùng lần mở máy; nay đã đổi do lần chạy tay).
+- 2026-10-02: cùng mẫu — 507/506 lúc 03:11:57, job bắt đầu 03:11:59, chỉ có bước export; task bị cắt ở lần máy được mở lại (buổi sáng).
 - 2026-10-03: job tiến được qua 2 lần thức ngắn (03:40:48, 03:55:27), ~16 phút mới tới bước import → bằng chứng rõ nhất "job chỉ chạy được trong lúc máy thức".
 - Khi máy thức: chạy qua Task Scheduler 2026-10-04 18:15 hết **68 giây**, exit 0.
 - **Snapshot cũng bị** (code-reviewer phát hiện): `ThreadsAI_SnapshotJob_4h` chạy ~1,5–2 phút; các lượt ban đêm (VD 2026-10-03 21:39, 2026-10-04 01:39 và 05:39 giờ Paris) chỉ có dòng "bắt đầu", không có dòng kết thúc. `python -m scripts.snapshot_coverage` (2026-09-10 → 2026-10-04): 60 lượt snapshot = 2,4 lượt/ngày (lịch là 6); lượt theo giờ Paris dồn vào 13h (16), 17h (14), 21h (9), 9h (6); 1h–3h chỉ 4 lượt (1 lượt chỉ ghi 2 dòng — bị đóng băng giữa chừng), 4h–8h không có; khoảng trống > 5h: n = 29, trung vị 15,7h (thường từ tối hôm trước tới trưa hôm sau); số snapshot trong 24h đầu của 1 root post: n = 6 bài, trung vị 2 (từ 2026-08-31: n = 11, trung vị 2) → chuỗi thời gian **đã luôn hở ban đêm** theo giờ máy ngủ (không phải lỗi mới).
@@ -41,7 +41,7 @@ Bằng chứng (log `data/logs/*.log` + nhật ký System, Kernel-Power 507 = th
 - Rủi ro chấp nhận:
   - Máy ngủ lúc 12:30 → `StartWhenAvailable` khởi động job ở lần thức bảo trì kế tiếp → job lại bị đóng băng và bị cắt (đúng cơ chế đêm 2026-10-04). `job_health` bắt được qua ngưỡng 26h.
   - Máy ngủ giữa lúc job đang chạy → lượt đó bị cắt.
-  - Job NLP (~1 phút, tải model bge-m3 trong WSL) chạy lúc Thy đang dùng máy.
+  - Job NLP (~1 phút, tải model bge-m3 trong WSL) chạy lúc máy đang được dùng.
   - Velocity/longevity: khoảng trống đêm trung vị ~16h; slope qua khoảng đó là nội suy, không phải quan sát; `window_velocity` 24h (cần ≥ 3 điểm) thường không tính được (trung vị 2 điểm/24h đầu).
   - Máy ngủ qua cả 12:30 lẫn lượt snapshot kế tiếp (13:15) → khi thức, `StartWhenAvailable` chạy bù cả 2 cùng lúc → có thể gặp lại `database is locked` (lỗi đã biết, Phase C sửa bằng WAL + `busy_timeout` + `flock`). Lịch 3h cũ có cùng rủi ro.
   - `job_health` sẽ WARN snapshot ở hầu hết phiên buổi sáng (khoảng trống ~16h > ngưỡng 5h) → WARN snapshot buổi sáng mất giá trị báo động; WARN đáng xem là khi `LastTaskResult` ≠ 0 lúc máy đang thức.

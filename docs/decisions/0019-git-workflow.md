@@ -6,11 +6,11 @@
 
 ## Bối cảnh
 
-- Quy ước cũ (CLAUDE.md) chỉ có 1 câu: "không làm trực tiếp trên `main` cho việc nhiều bước — branch hoặc worktree". Không nói khi nào chọn cái nào, không có vòng đời nhánh, không có gì nhắc. Thy là người mới với git chuyên sâu và hỏi lại chính điều này (2026-10-05).
+- Quy ước cũ (CLAUDE.md) chỉ có 1 câu: "không làm trực tiếp trên `main` cho việc nhiều bước — branch hoặc worktree". Không nói khi nào chọn cái nào, không có vòng đời nhánh, không có gì nhắc. Câu hỏi được đặt lại ngày 2026-10-05.
 - Hệ quả thực tế:
   - Thư mục chính đứng ở nhánh `feat/dashboard-p1` từ 2026-10-01 → 2 cron (ADR-0013/0017) chạy code chưa qua PR/CI; `main` tụt 11 commit; CI (ADR-0014) chưa chạy lần nào vì chỉ chạy khi push `main` hoặc mở PR.
   - 2026-10-04: đang sửa ADR-0018 ngay trong thư mục chính → job snapshot 21:15 chạy bản nháp và migrate DB thật (id `cluster_N` → `topic_N`) trước khi Thy duyệt — cron chạy *mọi* file trên đĩa, kể cả chưa commit, và mọi job gọi `create_schema()`.
-  - Thy tưởng Claude Design có thể đã tạo nhánh — thật ra nhánh do Claude tạo theo plan P1 (reflog: `branch: Created from HEAD` 2026-10-01 12:29:21); Claude Design không kết nối git (`dev-rules.md`). Thiếu một chỗ để tra "đang ở đâu, nhánh nào, vì sao".
+  - Nhánh do Claude Code tạo theo plan P1 (reflog: `branch: Created from HEAD` 2026-10-01 12:29:21); Claude Design không kết nối git (`dev-rules.md`). Thiếu một chỗ để tra "đang ở đâu, nhánh nào, vì sao".
 
 ## Quyết định
 
@@ -27,7 +27,7 @@
 | Nhánh ngắn ngay trong thư mục chính cho việc nhỏ | Không cần worktree | Một lần quên quay về `main` = cron chạy nhánh dở; 2 quy tắc khó nhớ hơn 1 | "Luôn worktree" đơn giản, an toàn |
 | Squash merge | `main` gọn | Mất từng commit ADR trong lịch sử `main` | Thy chọn merge commit |
 | Rebase merge | Lịch sử thẳng, đủ chi tiết | Đổi mã commit — docs/memory nhắc `f908d8a`… sẽ sai | Như trên |
-| Chặn cứng (hook từ chối) thay vì nhắc | Không thể quên | Chặn cả thao tác hợp lệ khi khẩn cấp; Thy đang học | Nhắc + skill trước; xem lại nếu vẫn tái diễn |
+| Chặn cứng (hook từ chối) thay vì nhắc | Không thể quên | Chặn cả thao tác hợp lệ khi khẩn cấp; quy trình còn mới | Nhắc + skill trước; xem lại nếu vẫn tái diễn |
 
 ## Hệ quả
 

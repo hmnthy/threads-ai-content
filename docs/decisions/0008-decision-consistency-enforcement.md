@@ -2,7 +2,7 @@
 
 - **Trạng thái**: Accepted
 - **Ngày**: 2026-09-30
-- **Người quyết**: Thy (yêu cầu + duyệt plan), Claude (thiết kế)
+- **Người quyết**: Thy (yêu cầu + duyệt plan), Claude Code (đề xuất thiết kế)
 
 ## Bối cảnh
 

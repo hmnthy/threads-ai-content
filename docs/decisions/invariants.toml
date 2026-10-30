@@ -47,6 +47,7 @@ known_untracked = [
   "data", "data/**",
   "content", "content/**", "Content", "Content/**",
   "docs/research", "docs/research/**",
+  "docs/archive", "docs/archive/**",  # kế hoạch cũ, riêng tư (ADR-0028)
   "docs/design/data", "docs/design/data/**",
   "output", "output/**",
   "src/dashboard/.env.local",
@@ -127,7 +128,7 @@ allow = ["docs/decisions/**"]
 id = "ADR0003-old-docs"
 adr = "0003"
 pattern = '(?<![\w/-])(next-steps\.md|sprint-plan\.md|project-summary\.md)|decisions log|Tech Stack đã chốt|Quyết định quan trọng đã chốt'
-why = "3 file kế hoạch cũ đã vào docs/archive/; decisions log trong architecture.md đã tách thành ADR (ADR-0003)"
+why = "3 file kế hoạch cũ đã lưu trữ ngoài repo (ADR-0028); decisions log trong architecture.md đã tách thành ADR (ADR-0003)"
 fix = "Trỏ tới docs/status.md, docs/roadmap.md, docs/decisions/ (ADR) hoặc docs/decisions/legacy-log.md"
 allow = ["docs/decisions/**"]
 
@@ -1005,3 +1006,20 @@ why = "Repo public chỉ để xem, giữ mọi quyền (LICENSE, ADR-0027) — 
 fix = "Ghi 'portfolio piece (public for viewing, all rights reserved)'"
 paths = ["README*.md", "CLAUDE.md", "docs/claude/**", "src/dashboard/src/**"]
 allow = ["docs/decisions/**"]
+
+# ---------------------------------------------------------------------------------------
+# ADR-0028 — viết lại lịch sử repo public; dọn tài liệu trước người đọc ngoài
+# ---------------------------------------------------------------------------------------
+
+[[forbid]]
+id = "ADR0028-private-detail-in-public"
+adr = "0028"
+# Chi tiết riêng tư không thuộc tài liệu public: đường dẫn lộ tên user (Windows/WSL), đường dẫn file nghiên cứu riêng
+# (thư mục `docs/research/` trần vẫn được nhắc), số dư tài khoản, câu tự hạ thấp kiểu "người mới với git", quy tắc giải
+# thích thuật ngữ cho Thy và vị trí kho harness (→ CLAUDE.local.md)
+pattern = '(?i)Users[\\/]+hmnth\b|/home/hmnth\b|docs/research/[\w./-]+\.(?:html|md)|credit trả trước còn|người mới\s+(?:với|dùng)\s+git|mọi thuật ngữ kỹ thuật phải có ngoặc giải thích|threads-harness\.git'
+why = "Repo public: chi tiết cá nhân / riêng tư / quy tắc làm việc riêng chuyển ra khỏi tài liệu public (ADR-0028)"
+fix = "Dùng `<CHÍNH>` / `$env:USERPROFILE` (PowerShell); cite kết luận thay vì đường dẫn file nghiên cứu riêng; quy tắc làm việc riêng vào `CLAUDE.local.md`"
+paths = ["docs/**", "README*.md", "CLAUDE.md", "tests/**", "src/**", "scripts/**", ".gitignore", ".worktreeinclude"]
+# ADR-0027 ghi quyết định đặt kho harness (lịch sử bất biến); ADR-0028 tự mô tả luật
+allow = ["docs/decisions/0027-*.md", "docs/decisions/0028-*.md"]

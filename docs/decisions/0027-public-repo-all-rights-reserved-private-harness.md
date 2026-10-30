@@ -1,6 +1,6 @@
 # ADR-0027: Repo public giữ mọi quyền; harness Claude Code `.claude/` riêng tư
 
-- **Trạng thái**: Accepted
+- **Trạng thái**: Accepted — phần "không viết lại lịch sử" (mục Quyết định 2) thay bởi ADR-0028
 - **Ngày**: 2026-10-30
 - **Người quyết**: Thy (tác giả) — đề xuất bởi Claude, Thy chọn 2026-10-30
 
@@ -8,17 +8,16 @@
 
 - Repo `threads-ai-content` đã chuyển sang **public** trên GitHub. Trước đó, kế hoạch là giữ repo private và curate
   sang một repo public riêng (CLAUDE.md, mục "Trước khi public repo" của `docs/roadmap.md`). Thy quyết định public luôn
-  repo hiện tại vì không có thời gian duy trì 2 repo.
-- Kiểm tra ngày 2026-10-30, trên bản hiện tại và cả 104 commit lịch sử: không có token/secret thật (3 chỗ khớp mẫu đều
-  là token giả trong test), không có `.env`, `data/`, `content/` hay file DB. Có 2 file `docs/research/*.html` từng
-  được commit ở `8af3f30` rồi gỡ ở `74d144c` — vẫn đọc được trong lịch sử. Đó là báo cáo nghiên cứu, không có dữ liệu
-  cá nhân.
+  repo hiện tại để không phải duy trì 2 repo song song.
+- Kiểm tra ngày 2026-10-30, trên bản hiện tại và cả lịch sử commit: không có token/secret thật (3 chỗ khớp mẫu đều
+  là token giả trong test), không có `.env`, `data/`, `content/` hay file DB. Lịch sử còn 2 báo cáo nghiên cứu riêng
+  tư (không có dữ liệu cá nhân) — xử lý ở ADR-0028.
 - `.claude/` (32 file: 7 agent, 10 skill, 7 hook, 6 rule, `settings.json`) là bộ harness điều khiển Claude Code của dự
   án — tài sản riêng của tác giả, có thể được cấp phép riêng. Repo không có file `LICENSE`, nên về pháp lý đang ở chế độ
   mặc định "giữ mọi quyền", nhưng README ghi "Private personal project" và badge `license-private` — sai với repo public.
 - `tools/ui-ux-pro-max/` là công cụ của bên thứ ba (Next Level Builder, giấy phép MIT —
-  https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) được copy vào repo **không kèm** thông báo giấy phép, trái với
-  điều kiện duy nhất của MIT.
+  https://github.com/nextlevelbuilder/ui-ux-pro-max-skill); bản copy trong repo cần kèm file LICENSE gốc theo điều kiện
+  của MIT.
 
 ## Quyết định
 
@@ -30,8 +29,8 @@
    git riêng dạng *bare* đặt **ngoài** `.claude/` (`<thư mục chính>\..\threads-harness.git`, thư mục làm việc =
    `.claude/` của thư mục chính; khởi tạo từ `git subtree split --prefix=.claude`, giữ đủ lịch sử cũ), có thể đẩy lên một
    repo **private** để sao lưu. Không đặt `.git` trong `.claude/`: git coi đó là repo lồng và không liệt kê file bên
-   trong, nên `.worktreeinclude` sẽ âm thầm không copy harness sang worktree. Lịch sử cũ của repo public **không viết lại** — bản harness đã public
-   được bảo vệ bằng quyền tác giả, không bằng kỹ thuật.
+   trong, nên `.worktreeinclude` sẽ âm thầm không copy harness sang worktree. Lịch sử cũ của repo public lúc đó **không viết lại** (đã đổi
+   ở ADR-0028).
 3. **Công cụ kiểm vẫn phủ harness trên máy**: sổ luật coi `.claude/**` là "có trên máy, không có ở clone mới/CI"
    (`known_untracked`); `check --all` (dùng trong `/decision-sweep`) quét thêm file harness trên đĩa nếu có;
    `--commit` (pre-commit) và CI không quét nội dung harness — chỉ kiểm đường dẫn `.claude/...` có thật trên đĩa khi
@@ -44,8 +43,8 @@
 |---|---|---|---|
 | Giấy phép MIT cho cả repo | Người khác dùng lại dễ | Cho phép bất kỳ ai dùng và bán lại code + harness miễn phí | Đi ngược mục tiêu giữ quyền với harness |
 | Giữ `.claude/` trong repo public | Không phải đổi quy trình; người đọc thấy harness | Harness lộ ở mọi bản mới | Thy muốn harness riêng tư |
-| Repo public mới sạch (1 commit, không `.claude/`), repo cũ chuyển private | Sạch nhất, không lịch sử | Đồng bộ 2 repo mỗi lần cập nhật; mất dấu 104 commit / 24 PR | Tốn công duy trì khi Thy đang bận |
-| Viết lại lịch sử (`git filter-repo` + force push) | Xoá harness + `docs/research/` khỏi lịch sử | Không hoàn tác được; GitHub vẫn giữ bản cũ qua ref của 24 PR tới khi GitHub Support xoá; bản clone đã có vẫn còn | Rủi ro và công sức lớn hơn lợi ích |
+| Repo public mới sạch (1 commit, không `.claude/`), repo cũ chuyển private | Sạch nhất, không lịch sử | Đồng bộ 2 repo mỗi lần cập nhật; mất dấu 104 commit / 24 PR | Không muốn duy trì 2 repo song song |
+| Viết lại lịch sử (`git filter-repo` + force push) | Xoá harness + `docs/research/` khỏi lịch sử | Không hoàn tác được; GitHub vẫn giữ bản cũ qua ref của 24 PR tới khi GitHub Support xoá; bản clone đã có vẫn còn | Rủi ro và công sức lớn hơn lợi ích (lúc đó — chọn lại ở ADR-0028) |
 
 ## Hệ quả
 
@@ -83,7 +82,7 @@
   repo public riêng"; badge không còn `license-private`), `ADR0027-open-source-claim` (không tự gọi là open source), `ADR0027-harness-not-tracked` (trong
   `check.py`, không phải regex). `known_untracked` thêm `.claude`, `.claude/**`. Badge số test đếm cả 45 test cần harness
   (CI / clone công khai bỏ qua chúng) — chấp nhận.
-- Xem lại khi: ký hợp đồng cấp phép harness (có thể cần điều khoản riêng trong `LICENSE`), hoặc khi chuyển sang mô hình
+- Xem lại khi: có thoả thuận cấp phép harness (có thể cần điều khoản riêng trong `LICENSE`), hoặc khi chuyển sang mô hình
   2 repo (public curate + private làm việc).
 
 ### Hệ quả UI

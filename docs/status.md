@@ -1,17 +1,17 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-30 (repo public giữ mọi quyền, harness riêng tư — ADR-0027)
+> Cập nhật: 2026-10-30 (dọn repo public + kế hoạch viết lại lịch sử — ADR-0028)
 
 ## Now
 
-- ADR-0027 (Thy chọn 2026-10-30, nhánh `chore/private-harness-license`): repo public chính thức, `LICENSE` giữ mọi quyền (bên thứ ba giữ giấy phép gốc: `tools/ui-ux-pro-max/` MIT); `.claude/` gitignored, lịch sử ở kho bare riêng ngoài thư mục (`..\threads-harness.git`), worktree nhận bản sao chỉ đọc; `check --all` vẫn quét harness trên máy, mọi chế độ (cả `--all` ở CI) chặn `.claude/` bị track; không viết lại lịch sử. Quét 104 commit: không có secret thật.
+- ADR-0027 (PR #25, Thy chọn 2026-10-30): repo public chính thức, `LICENSE` giữ mọi quyền (bên thứ ba giữ giấy phép gốc: `tools/ui-ux-pro-max/` MIT); `.claude/` gitignored, có kho riêng, worktree nhận bản sao chỉ đọc; `check --all` vẫn quét harness trên máy, mọi chế độ (cả `--all` ở CI) chặn `.claude/` bị track. ADR-0028 (nhánh `chore/public-readiness`): soát nội dung nhạy cảm (không có secret thật) → bỏ `docs/archive/` khỏi repo, quy tắc làm việc riêng sang `CLAUDE.local.md`, sửa câu chữ ADR; sau merge viết lại lịch sử (bỏ `.claude/`, `docs/research/`, `docs/archive/` khỏi mọi commit).
 - `main` (2026-10-05, PR #1 merge commit `e8d645e`, CI xanh lần đầu) gồm: tái cấu trúc "LESS IS MORE" (ADR-0001, 0003); cưỡng chế nhất quán (ADR-0008) + tên **Unthreaded** (ADR-0009); P0 dashboard trung thực — median + n + IQR, heatmap giờ đăng (ADR-0010 SQLite là CSDL duy nhất, ADR-0011 bài views = 0 là dữ liệu thiếu); P1 Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, 9 cụm; `/conversation` trả được bình luận follower); các mục dưới đến ADR-0018.
 - Cảnh sát lời hứa (2026-10-28, Thy yêu cầu sau khi thấy landing hứa nhiều hơn dashboard): `@agent-promise-auditor` + `/promise-audit` kiểm kê lời hứa của landing so với nội dung thật của các trang app, chấm mức lệch 0–4 + độ phủ + gói việc; báo cáo riêng tư `data/audits/promise-gap/` (gitignored). Lần đầu (148dc37): **mức 4 "bìa hứa sai"**, độ phủ 11/36 — `/topics` chưa hiện kiểm định/δ/Holm/lịch sử/từ khoá dù `/topics/comparisons` đã trả đủ; 2 S1: câu CTA "the method behind each number" và mẫu số "161 posts with text".
 - Lịch sử "k of m" (PR #17 `f5d1890`, ADR-0024 quyết định 3; Thy chốt cách đếm + chữ 2026-10-20): `GET /topics/comparisons` trả `history` mỗi topic × chỉ số, tính khi đọc từ kết quả đã lưu (không bảng mới, không sửa job) — mỗi cách chia đếm 1 lần bằng lần so sánh mới nhất, m chỉ gồm cách chia đủ bài, k tách hướng (`src/analysis/partition_history.py`); landing panel 1 thêm cột "stood out in" ("2 of 3 ↑") + hover + Limits. Số 2026-10-20: topic_11 engagement 2 of 3 (+1 thiếu bài). Sinh lại: `scripts.topic_stability_report --history-only`.
-- **Live từ 2026-10-28 (ADR-0025, phase H):** https://unthreaded-analytics.vercel.app (API https://unthreaded-api.vercel.app). PR #19 (gói API ~203 MiB nhờ nhóm thư viện `pipeline`; API chỉ đọc bản sao DB từ Vercel Blob riêng tư, OIDC trong header — đã kiểm log; publish cuối mỗi job + dòng `job_health` "published copy") + PR #20 (test CI Linux). Cấu hình, biến môi trường, 2 chỗ lệch so với ADR (tải ở request đầu; Thy chọn công khai ngay, bỏ bước duyệt preview): `docs/claude/architecture.md` mục "Deploy". Token Threads hết hạn 27/10 17:15 UTC → snapshot hở ~1 ngày (không hồi cứu được), Thy tạo mã mới 28/10.
+- **Live từ 2026-10-28 (ADR-0025, phase H):** https://unthreaded-analytics.vercel.app (API https://unthreaded-api.vercel.app). PR #19 (gói API ~203 MiB nhờ nhóm thư viện `pipeline`; API chỉ đọc bản sao DB từ Vercel Blob riêng tư, OIDC trong header — đã kiểm log; publish cuối mỗi job + dòng `job_health` "published copy") + PR #20 (test CI Linux). Cấu hình, biến môi trường, 2 chỗ lệch so với ADR (tải ở request đầu; Thy chọn công khai ngay, bỏ bước duyệt preview): `docs/claude/architecture.md` mục "Deploy". Token Threads hết hạn 27/10 → snapshot hở ~1 ngày (không hồi cứu được), Thy tạo mã mới 28/10.
 - Vá lỗ hổng cảnh sát (Thy duyệt 2026-10-01): ADR-0014 (pre-commit quét toàn repo `--commit`, CI GitHub Actions) + ADR-0013 (job snapshot hỏng do cửa sổ console → chạy bằng pythonw, hook đo độ tươi từ DB). ADR-0015 (Thy chọn A + B): bắt buộc review tầng 2 — git hook pre-commit (chỉ commit do Claude chạy) chặn commit chạm logic/ADR khi chưa có dấu review khớp nội dung; dấu do hook SubagentStart/Stop ghi.
-- 2026-10-04: key Claude cũ hết hạn 02/10 → key mới (hết hạn 2026-12-04); ADR-0016 — đặt tên cụm bằng `claude-sonnet-5-5` (thay Opus), bỏ lời hứa prompt caching. ADR-0017 — Modern Standby đóng băng tiến trình khi máy ngủ → job NLP chạy 12:30, cả 2 cron chạy khi dùng pin (`scripts/configure_jobs.ps1`); snapshot hở ban đêm (trung vị khoảng trống ~16h) được chấp nhận và ghi trong data-model.md.
+- 2026-10-04: key Claude được thay; ADR-0016 — đặt tên cụm bằng `claude-sonnet-5-5` (thay Opus), bỏ lời hứa prompt caching. ADR-0017 — Modern Standby đóng băng tiến trình khi máy ngủ → job NLP chạy 12:30, cả 2 cron chạy khi dùng pin (`scripts/configure_jobs.ps1`); snapshot hở ban đêm (trung vị khoảng trống ~16h) được chấp nhận và ghi trong data-model.md.
 - ADR-0018 (Thy chọn phương án B + 4 lựa chọn sau thí nghiệm 10 seed + kiểm tài liệu MONIC/Greene/Palla/BERTopic): danh tính cụm bền `topic_N` — ghép theo thành viên (bỏ nhiễu ở phép thử giữ, lõi giữ tên) rồi ngữ nghĩa (trừ cụm nhập), đặt lại tên khi trôi khỏi bản neo; prompt đặt tên v2. Đổi tên khi data không đổi: 30,6% [21,0; 40,3] → 15,2% [10,7; 19,9] (828 cụm, 90 cặp seed). DB thật đã migrate một phần (id `topic_N`) do job snapshot 21:15 chạy code đang sửa; lần job NLP kế tiếp thêm cột bản neo và đặt lại tên 9 cụm 1 lần.
 - ADR-0019 (Thy chọn): quy trình git — thư mục chính luôn ở `main`, mọi thay đổi trong worktree trên nhánh riêng → PR → CI → merge commit; hook đầu phiên nhắc (`scripts/git_hygiene.py`), skill `/git-flow`, tài liệu `docs/claude/git-workflow.md`. Đã merge (PR #2).
 - PR #3 (2026-10-06): gói Claude Design 2026-10-05 (landing mockup chốt, design-system v3.2, brief Topics v2) + logo Unknot.
@@ -29,7 +29,7 @@
 
 ## Next
 
-0b. **Trước khi chia sẻ link rộng (ADR-0025 bước 5):** Thy duyệt bio `LandingAuthor.tsx`, link CTA thật thay `#`, rate limit `/analytics/window` (Vercel Firewall), theo dõi Usage (Blob + Functions); tên miền riêng (Thy muốn `unthreaded.app`; `unthreaded.vercel.app` thuộc sản phẩm khác cùng tên) → thêm origin vào `CORS_ALLOW_ORIGINS` của API. Privacy: bản sao publish là CẢ DB — khi ADR-0007 thêm bình luận follower phải lọc bảng trước khi publish. Ngay sau: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
+0b. **Trước khi chia sẻ link rộng (ADR-0025 bước 5):** Thy duyệt bio `LandingAuthor.tsx`, link CTA thật thay `#`, giới hạn tần suất gọi API, theo dõi Usage (Blob + Functions); tên miền riêng (Thy muốn `unthreaded.app`; `unthreaded.vercel.app` thuộc sản phẩm khác cùng tên) → thêm origin vào `CORS_ALLOW_ORIGINS` của API. Privacy: bản sao publish là CẢ DB — khi ADR-0007 thêm bình luận follower phải lọc bảng trước khi publish. Ngay sau: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
 1. Nâng ruột theo `/promise-audit` (Thy chốt 2026-10-29: nâng các trang app lên đủ chi tiết kỹ thuật như landing; landing chỉ sửa khi sai kỹ thuật, Thy duyệt từng trường hợp). Việc 4 `/topics` XONG (nhánh `feat/topics-proof-panels`, Thy duyệt bố cục + chữ 2026-10-29). Tiếp: ADR tóm tắt tiếng Anh từng bài + nghĩa từ khoá (phương án A, PR riêng); đầu trang căn giữa cho Overview/Analytics (Thy chưa chốt); header `/analytics` gọi bảng chưa kiểm định là "stand out"; 2 câu landing sai so với code (mẫu số "161 posts with text", "Charts are hand-built SVG") + landing chưa nói rate đo trên bài mở đầu — Thy duyệt từng câu; `landing.dc.html` theo ADR-0026 (Claude Design). Phần còn mở của ADR-0012 dùng cùng engine + họ Holm.
 2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
 3. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
@@ -39,7 +39,7 @@
 
 - Vòng 3 Claude Design (gói 2026-10-07) xong; cảnh báo mockup nay 9 (1 báo nhầm, 2 ADR-0021, 6 ADR-0023). Lần gửi tới kèm `ui-contract-audit.md` mới (mục "Việc 3": chữ panel 1, Approach, How it works, bảng top) và đổi `RUN_AT_UTC` của landing thành giờ thật `2026-10-01T11:35:06Z`.
 - Lần mở phiên tới: duyệt 2 MCP server trong `/mcp` (`context7`, `huggingface` — HF đăng nhập OAuth) và thử pop-up khi Claude xong việc.
-- Duyệt bio ở `LandingAuthor.tsx` (copy của mockup, vẫn là nháp). Repo đã public (ADR-0027) → Thy quyết có thêm lại nút "View the repo" ở khối CTA không. Sao lưu harness: tạo 1 repo GitHub **private** rồi đẩy kho riêng `.claude/` lên.
+- Duyệt bio ở `LandingAuthor.tsx` (copy của mockup, vẫn là nháp). Repo đã public (ADR-0027) → Thy quyết có thêm lại nút "View the repo" ở khối CTA không.
 - Phase C cần Thy mở VS Code Remote-WSL (Claude Code chạy trong Linux) — không tự làm được từ phiên Windows.
 - RQ-08 cần Thy gán nhãn tay 150 bài (6 nhãn cố định) + gán lại 30 bài sau 2 tuần.
 
@@ -52,9 +52,9 @@
 
 ## Số liệu nhanh
 
-- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 872 test pass
+- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 879 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Keep the repo all-rights-reserved and the Claude Code harness private (ADR-0027)
+- Prepare the public repo: private details out, archive untracked (ADR-0028)

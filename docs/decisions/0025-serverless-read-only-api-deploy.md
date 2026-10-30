@@ -33,7 +33,7 @@ số liệu cho bản công khai.
    `pyproject.toml` / `requirements.txt` → cài nguyên `pyproject.toml` hiện tại chắc chắn vượt 500 MB. Gói API phải có
    danh sách thư viện riêng.
 4. **DB:** `data/threads.db` 8,5 MB, `journal_mode = delete` (mở chỉ-đọc được, không cần file `-wal`/`-shm`). Không
-   chứa token (token ở `data/cache/.token_meta.json`, `src/api/auth.py:18`). `connect()` hiện mở đọc-ghi và tạo thư mục cha
+   chứa token (token lưu riêng, gitignored). `connect()` hiện mở đọc-ghi và tạo thư mục cha
    (`src/db/schema.py:233-241`) — trên Vercel chỉ ghi được thư mục tạm.
 5. **Phép tính theo khoảng ngày tuỳ chọn:** `GET /analytics/window?start&end` (`src/main.py`, `get_analytics_window`)
    tính lại cho khoảng bất kỳ do thanh thời gian chọn; `account_daily_views` có 775 ngày (2024-09-02 → 2026-10-18) →
@@ -92,8 +92,7 @@ số liệu cho bản công khai.
 - **Ngay sau deploy:** RQ-01 (ADR-0024).
 - **Rủi ro chấp nhận:** laptop ngủ/tắt → trang công khai đứng ở lần publish cuối (khoảng hở đêm như ADR-0017); API
   công khai không xác thực: chỉ đọc, nhưng `GET /analytics/window` tính lại theo mỗi yêu cầu → bị gọi dồn dập có thể tiêu
-  hết hạn mức gói Hobby; PR triển khai kiểm cơ chế chặn của Vercel (rate limit / firewall) trước khi public; cold start kéo lại 8,5 MB từ Blob; repo đang public (GitHub API
-  2026-10-20; Thy tạm chấp nhận 2026-10-17 — CLAUDE.md, badge README, roadmap vẫn ghi private: xử lý riêng, ngoài ADR này). ADR-0010 giữ nguyên: Blob chỉ chứa **bản sao** file SQLite, không phải CSDL thứ hai.
+  hết hạn mức gói Hobby; PR triển khai kiểm cơ chế chặn của Vercel (rate limit / firewall) trước khi public; cold start kéo lại 8,5 MB từ Blob; repo public: xem ADR-0027. ADR-0010 giữ nguyên: Blob chỉ chứa **bản sao** file SQLite, không phải CSDL thứ hai.
 - **Luật (`invariants.toml`):** `ADR0025-tunnel-backend` (backend qua ngrok/cloudflared/tunnel không còn là cách phục vụ
   số liệu), `ADR0025-internal-api` (API không còn "internal"). Không cấm "chưa deploy cố định" — đúng tới khi PR triển
   khai xong; PR đó cập nhật `architecture.md`.
