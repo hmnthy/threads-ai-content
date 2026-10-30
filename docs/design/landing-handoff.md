@@ -90,7 +90,7 @@ Tên file mới phải thêm vào `planned_paths` trong `docs/decisions/invarian
 - **Cỡ chữ theo thang chung `docs/claude/design-system.md` §3 + sổ luật §3b** (Thy chốt 2026-10-30) — landing không có thang riêng; các cỡ dưới đây là vai trong thang đó. Bản port 2026-10-01 còn cỡ cũ (câu hỏi panel 13px, câu trả lời 24px, eyebrow 13px): sửa ở PR riêng sau PR sổ luật.
 - Eyebrow: IBM Plex Mono 12.5px w600 `--amber-600` (vai mono · eyebrow số, như số khối của `AppBlock.tsx`), dạng `01 · Problem`.
 - H2 section: display-2 `clamp(32px, 3.6vw, 46px)` w800, `letter-spacing -0.035em`, `line-height 1.08`, `text-wrap: balance` — mọi section, kể cả About và CTA.
-- Panel bằng chứng: nền `--bg-card`, hairline, radius 20, padding `28px 32px 20px`. Thứ tự bắt buộc (luật C1): eyebrow → **tiêu đề panel** (`h3`, vai block title 26px w700) → **câu trả lời 1 dòng** (vai answer 18px w600, khung nhấn) → biểu đồ → hàng chân (ghi chú + nút "Method and limits", kiểu nút chung C3) → khối phương pháp mở ra (`--bg-sunken`, radius 12, công thức mono 12.5px).
+- Panel bằng chứng: nền `--bg-card`, hairline, radius 20, padding `28px 32px 20px`. Thứ tự bắt buộc (luật C1): eyebrow → **tiêu đề panel** (`h3`, vai block title 26px w700) → câu mục đích 15px → **câu trả lời 1 dòng** (vai answer 18px w600, khung nhấn) → biểu đồ → hàng chân (ghi chú + nút "Method and limits", kiểu nút chung C3) → khối phương pháp mở ra (`--bg-sunken`, radius 12, công thức mono 12.5px).
 - Nút chính: pill `--amber-600`, chữ trắng 15px w600, cao 48. Nút phụ: pill trắng, hairline.
 
 ## 3. Từng section

@@ -1023,3 +1023,13 @@ fix = "Dùng `<CHÍNH>` / `$env:USERPROFILE` (PowerShell); cite kết luận tha
 paths = ["docs/**", "README*.md", "CLAUDE.md", "tests/**", "src/**", "scripts/**", ".gitignore", ".worktreeinclude"]
 # ADR-0027 ghi quyết định đặt kho harness (lịch sử bất biến); ADR-0028 tự mô tả luật
 allow = ["docs/decisions/0027-*.md", "docs/decisions/0028-*.md"]
+
+[[forbid]]
+id = "ADR0029-landing-own-scale"
+adr = "0029"
+# Câu cũ cho landing một thang chữ riêng (handoff / design-system §7 trước ADR-0029) và cỡ cũ ngoài thang ở §6
+pattern = 'câu hỏi\*?\*? \(13px w600 amber\)|câu trả lời 1 dòng\*?\*? \(24px|Plex Mono 13px w500|eyebrow mono 13px|H2 52px|header 11px w600|tiêu đề 14px hiển thị'
+why = "Từ ADR-0029: landing và mọi trang app dùng một thang chữ (design-system §3); landing chỉ thêm display-1/2"
+fix = "Ghi theo vai của thang §3: tiêu đề panel h3 26px, câu trả lời 18px, eyebrow mono 12.5px, H2 section display-2, header bảng 12px, tiêu đề hàng 15px"
+paths = ["docs/**", ".claude/**", "src/**"]
+allow = ["docs/decisions/0029-*.md", "docs/decisions/legacy-log.md"]

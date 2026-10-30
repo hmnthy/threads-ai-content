@@ -5,7 +5,7 @@
 
 ## Now
 
-- Sổ luật UI/UX chung (Thy chốt 2026-10-30, nhánh `ui-rulebook` (loại docs), PR 1/2): một thang chữ cho landing + mọi trang app (`design-system.md` §3, landing chỉ thêm display-1/2), luật có mã T/L/C/N/B/A/X (§3b), cưỡng chế 2 lớp — `@agent-ux-reviewer` (luôn chấm mọi trang) + máy đo `src/dashboard/scripts/ux-shots.mjs` (axe-core), **không** chặn commit. Baseline trên bản live: 63 vi phạm máy (landing 27, overview 15, analytics 14, topics 4). Còn: Thy chạy `/record-decision` ghi ADR; PR 2 sửa các trang tới `UX gate (máy): PASS`.
+- ADR-0029 — sổ luật UI/UX chung (Thy chốt 2026-10-30, nhánh `ui-rulebook` (loại docs), PR 1/2): một thang chữ cho landing + mọi trang app (`design-system.md` §3, landing chỉ thêm display-1/2), luật có mã T/L/C/N/B/A/X (§3b), cưỡng chế 2 lớp — `@agent-ux-reviewer` (luôn chấm mọi trang) + máy đo `src/dashboard/scripts/ux-shots.mjs` (axe-core), **không** chặn commit. Baseline trên bản live: 63 vi phạm máy (landing 27, overview 15, analytics 14, topics 4, + 3 T3 giữa các trang). Còn: PR 2 sửa các trang tới `UX gate (máy): PASS`.
 - ADR-0027 (PR #25, Thy chọn 2026-10-30): repo public chính thức, `LICENSE` giữ mọi quyền (bên thứ ba giữ giấy phép gốc: `tools/ui-ux-pro-max/` MIT); `.claude/` gitignored, có kho riêng, worktree nhận bản sao chỉ đọc; `check --all` vẫn quét harness trên máy, mọi chế độ (cả `--all` ở CI) chặn `.claude/` bị track. ADR-0028 (PR #26): soát nội dung nhạy cảm (không có secret thật) → bỏ `docs/archive/` khỏi repo, quy tắc làm việc riêng sang `CLAUDE.local.md`, sửa câu chữ ADR. **Lịch sử đã viết lại** (2026-10-30, Thy force push `691ab6e`): bỏ `.claude/`, `docs/research/`, `docs/archive/`, chuỗi riêng tư, metadata ảnh, trailer khỏi mọi commit; mọi cổng an toàn đạt (cây `main` giống hệt trước). Đã gửi ticket GitHub Support xoá ref 26 PR cũ + cache (chờ trả lời). **Mọi mã commit cũ đã đổi** — các mã trong file này và vài ADR (VD `e8d645e`, `f5d1890`) là mã cũ: PR riêng đổi theo bảng đổi mã (lưu ngoài repo).
 - `main` (2026-10-05, PR #1 merge commit `e8d645e`, CI xanh lần đầu) gồm: tái cấu trúc "LESS IS MORE" (ADR-0001, 0003); cưỡng chế nhất quán (ADR-0008) + tên **Unthreaded** (ADR-0009); P0 dashboard trung thực — median + n + IQR, heatmap giờ đăng (ADR-0010 SQLite là CSDL duy nhất, ADR-0011 bài views = 0 là dữ liệu thiếu); P1 Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, 9 cụm; `/conversation` trả được bình luận follower); các mục dưới đến ADR-0018.
 - Cảnh sát lời hứa (2026-10-28, Thy yêu cầu sau khi thấy landing hứa nhiều hơn dashboard): `@agent-promise-auditor` + `/promise-audit` kiểm kê lời hứa của landing so với nội dung thật của các trang app, chấm mức lệch 0–4 + độ phủ + gói việc; báo cáo riêng tư `data/audits/promise-gap/` (gitignored). Lần đầu (148dc37): **mức 4 "bìa hứa sai"**, độ phủ 11/36 — `/topics` chưa hiện kiểm định/δ/Holm/lịch sử/từ khoá dù `/topics/comparisons` đã trả đủ; 2 S1: câu CTA "the method behind each number" và mẫu số "161 posts with text".
@@ -52,9 +52,9 @@
 
 ## Số liệu nhanh
 
-- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 879 test pass
+- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 887 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Add a product-wide UI rule book and machine checks for UX review
+- Record ADR-0029: one UI rule book for every page

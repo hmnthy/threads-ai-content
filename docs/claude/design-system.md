@@ -109,7 +109,7 @@ Dùng cho đúng 2 dải trên landing: sơ đồ "How it works" và khối CTA 
 Inter cho UI. **IBM Plex Mono cho công thức, ID, timestamp** — đây là dấu ấn typographic của sản phẩm, không phải trang trí.
 
 **Một thang chữ cho toàn sản phẩm** — landing và mọi trang app (Thy chốt 2026-10-30, sau khi thấy landing và
-/topics ra 2 "giọng" vì thang cũ chỉ viết cho tầng A: tiêu đề khối landing 13px bằng thân bài). Mở rộng thang tầng A
+/topics ra 2 "giọng" vì thang cũ chỉ viết cho tầng A: tiêu đề khối landing 13px, nhỏ hơn câu trả lời 24px nó dẫn). Mở rộng thang tầng A
 Thy chốt 2026-10-29 sau 2 lần bác bản /topics: **tiêu đề luôn lớn hơn nội dung nó dẫn**, để người đọc nhanh quét
 theo tiêu đề mà không sót khối. Mỗi cỡ một vai, không cỡ nào khác (luật T1–T4 ở §3b); hằng số `TYPE` trong
 `src/dashboard/src/components/AppBlock.tsx`. Landing chỉ thêm 2 bậc trưng bày ở đỉnh thang (display-1, display-2 —
@@ -325,7 +325,7 @@ Mỗi trang app trả lời đúng 1 câu hỏi chính (ADR-0023): `/overview` �
 `/analytics` — bài nào, giờ nào hiệu quả? · `/topics` — kênh viết về gì, và chủ đề có liên quan tới engagement không?
 Mỗi khối nội dung tầng A đi theo thứ tự đọc của landing: **câu hỏi → câu trả lời 1 dòng → bằng chứng (chart/bảng) →
 "Method and limits"** (công thức, phương pháp, n, giới hạn) — nhưng **giữ hình khối tầng A**: card 12px có viền
-hairline trên nền sáng, không dải tối, không tiêu đề cỡ landing. Câu trả lời chỉ khẳng định khi phép so có ý nghĩa
+hairline trên nền sáng, không dải tối, không dùng display-1/2 của landing. Câu trả lời chỉ khẳng định khi phép so có ý nghĩa
 sau hiệu chỉnh Holm **và** qua luật bền qua các cách chia cụm (ADR-0024 — chưa có luật nên hiện chưa có câu khẳng định);
 tới lúc đó phép so hiện dạng khám phá (giới hạn trong "cách chia hiện tại", δ + CI unadjusted + p Holm, câu giới
 hạn); không đạt thì mô tả ("not distinguishable"). Số chính là median + IQR + n, không hiện mean.
@@ -334,7 +334,7 @@ hạn); không đạt thì mô tả ("not distinguishable"). Số chính là med
 
 Thứ tự: navbar pill sticky → **Hero** (H1 tagline + panel bằng chứng: beeswarm 144 bài, bài hero amber, toggle Channel/Topic) → **Problem** (3 câu hỏi của người làm kênh, mỗi câu "Threads shows / Missing") → **How it solves** (3 tầng Measure · Group · Search nối bằng mũi tên, theo 1 bài thật) → **Product proof** (2 panel dashboard: chủ đề so với kênh; kết quả NLP) → **How it works** (sơ đồ trên dải tối §2.6, bấm node xem stack) → **About the channel** → **CTA** (dải tối) → footer có câu miễn trừ Meta.
 
-Mỗi panel bằng chứng theo thứ tự đọc chung C1 (§3b): eyebrow → tiêu đề panel (`h3`, vai h2 block title 26px) →
+Mỗi panel bằng chứng theo thứ tự đọc chung C1 (§3b): eyebrow → tiêu đề panel (`h3`, vai h2 block title 26px) → câu mục đích 15px →
 câu trả lời 1 dòng (answer 18px, khung nhấn) → biểu đồ → nút "Method and limits" mở công thức + giới hạn (X5). Tiêu
 đề section landing: display-2 `h2`; eyebrow mono 12.5px amber dạng `01 · Problem`. Cỡ chữ theo thang chung §3 —
 landing không có thang riêng (Thy 2026-10-30).
@@ -366,7 +366,7 @@ landing không có thang riêng (Thy 2026-10-30).
 │ Nhãn tính năng      ← accent AA-safe, weight 600
 │ Câu mô tả đậm, 2–3 dòng ← --text-primary, weight 700
 │                                │
-│ ✓ gạch đầu dòng 1   ← icon nhỏ accent + text 13px
+│ ✓ gạch đầu dòng 1   ← icon nhỏ accent + text 15px (vai body, §3)
 │ ✓ gạch đầu dòng 2              │
 │ ✓ gạch đầu dòng 3              │
 │                                │
@@ -521,7 +521,7 @@ Checklist này là bản rút gọn; nguồn chấm là sổ luật §3b (mã lu
 ### 2026-10-30 — Một thang chữ + một sổ luật cho mọi trang
 
 Landing và /topics do 2 phiên khác nhau dựng nên ra 2 "giọng": thang chặt của §3 chỉ ghi cho tầng A, landing chỉ có
-1 dòng ở §7 (câu hỏi panel 13px), nên tiêu đề khối landing bằng cỡ thân bài, chỉ là `<span>`. Đo toàn dashboard có
+1 dòng ở §7 (câu hỏi panel 13px), nên tiêu đề khối landing 13px, nhỏ hơn câu trả lời 24px nó dẫn, chỉ là `<span>`. Đo toàn dashboard có
 khoảng 21 cỡ chữ khác nhau (10 → 76px); tiêu đề khối Overview 20px (một khối 15px) so với Topics 26px. Thy chốt:
 một thang chung (§3, landing chỉ thêm display-1/2), sổ luật có mã (§3b), cưỡng chế 2 lớp — `@agent-ux-reviewer` +
 máy đo trong `ux-shots.mjs` (axe-core cho WCAG), chưa chặn commit. Sửa các trang cho đạt là PR riêng, sau PR luật.
@@ -529,7 +529,7 @@ máy đo trong `ux-shots.mjs` (axe-core cho WCAG), chưa chặn commit. Sửa c�
 ### 2026-10-29 — Trang app: tiêu đề lớn hơn nội dung; bản đồ topic đa sắc
 
 Thy bác 2 lần bản /topics: tiêu đề khối 13px nhỏ hơn câu trả lời 20px và thân bài 15px làm mất mạch đọc nhanh. Thang
-mới (§3 "Thang chữ trang app"): h1 40 > h2 26 > h3 20 > answer 18 > h4 17 > body 15; mỗi khối có số thứ tự, câu
+mới (§3, nay là thang chung cho mọi trang — ADR-0029): h1 40 > h2 26 > h3 20 > answer 18 > h4 17 > body 15; mỗi khối có số thứ tự, câu
 mục đích, kẻ đậm; câu trả lời trong khung nhấn. Bản đồ topic chuyển sang đa sắc (§9) và nằm bên trái danh sách topic.
 
 ### 2026-10-01 — Giữ amber; landing tầng B chốt; thêm dải tối

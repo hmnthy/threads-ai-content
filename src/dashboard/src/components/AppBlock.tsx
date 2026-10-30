@@ -3,9 +3,10 @@
 import { useState, type ReactNode } from "react";
 import { CaretDown } from "@phosphor-icons/react";
 
-// Mảnh trình bày dùng chung của trang app tầng A. Thứ bậc chữ (Thy 2026-10-29, lần bác thứ 2: "headline
-// / title khối thì bé, còn chữ nội dung thì lớn, dựa trên logic gì?") — tiêu đề LUÔN lớn hơn nội dung
-// nó dẫn, để người đọc nhanh quét theo tiêu đề mà không sót khối (design-system §3, thang trang app):
+// Mảnh trình bày dùng chung của mọi trang (landing lấy vai từ đây — design-system §3b C2). Thứ bậc chữ
+// (Thy 2026-10-29, lần bác thứ 2: "headline / title khối thì bé, còn chữ nội dung thì lớn, dựa trên logic
+// gì?") — tiêu đề LUÔN lớn hơn nội dung nó dẫn, để người đọc nhanh quét theo tiêu đề mà không sót khối
+// (design-system §3, thang chung của sản phẩm — landing chỉ thêm display-1/2, ADR-0029):
 //   40px w700  h1 tiêu đề trang (đầu trang căn giữa)
 //   26px w700  h2 tiêu đề khối (kèm số thứ tự + dòng mục đích + kẻ đậm dưới)
 //   20px w600  h3 tiêu đề mục trong khối

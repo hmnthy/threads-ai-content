@@ -1,6 +1,7 @@
 // Chụp trang cho @agent-ux-reviewer: toàn trang ở 3 khổ + từng khối của <main> ở khổ rộng, ở 2 trạng thái
 // (như người xem thấy lúc mở trang / mọi khối thu gọn đã mở). Kèm máy đo theo sổ luật UI/UX
-// (docs/claude/design-system.md §3b, mã luật T/L/C/A): `violations` = luật [máy], còn ≥ 1 thì UX gate FAIL;
+// (docs/claude/design-system.md §3b; máy đo luật [máy] thuộc T/L/C/A, còn N/B/X do reviewer chấm):
+// `violations` = luật [máy], còn ≥ 1 thì UX gate FAIL;
 // `warnings` = luật [máy·gợi ý], reviewer xác nhận trên ảnh. Ảnh + report.json lưu ở data/ux-shots/
 // (gitignored, riêng tư). Cần `npm run dev` đang chạy (hoặc BASE_URL trỏ server khác).
 //

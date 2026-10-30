@@ -1113,6 +1113,55 @@ LEARNED_RULES = [
         "kho bare `<CHÍNH>\\..\\threads-harness.git`",
         "harness `.claude/` có kho riêng (ADR-0027)",
     ),
+    # ADR-0029: landing không còn thang chữ riêng
+    (
+        "ADR0029-landing-own-scale",
+        "docs/design/landing-handoff.md",
+        "Thứ tự bắt buộc: **câu hỏi** (13px w600 amber) → biểu đồ",
+        "Thứ tự bắt buộc (luật C1): eyebrow → **tiêu đề panel** (`h3`, vai block title 26px w700)",
+    ),
+    (
+        "ADR0029-landing-own-scale",
+        "docs/design/landing-handoff.md",
+        "→ **câu trả lời 1 dòng** (24px w700 −0.02em) → biểu đồ",
+        "→ **câu trả lời 1 dòng** (vai answer 18px w600, khung nhấn) → biểu đồ",
+    ),
+    (
+        "ADR0029-landing-own-scale",
+        "docs/claude/design-system.md",
+        "Mỗi panel bằng chứng theo thứ tự: câu hỏi (13px w600 amber) → câu trả lời",
+        "Mỗi panel bằng chứng theo thứ tự đọc chung C1 (§3b): eyebrow → tiêu đề panel",
+    ),
+    (
+        "ADR0029-landing-own-scale",
+        "docs/design/landing-handoff.md",
+        "- Eyebrow: IBM Plex Mono 13px w500 `--amber-600`, dạng `01 · Problem`.",
+        "- Eyebrow: IBM Plex Mono 12.5px w600 `--amber-600`, dạng `01 · Problem`.",
+    ),
+    (
+        "ADR0029-landing-own-scale",
+        "docs/claude/design-system.md",
+        "Tiêu đề section landing: 46px w800 −0.035em; eyebrow mono 13px amber dạng `01 · Problem`.",
+        "Tiêu đề section landing: display-2 `h2`; eyebrow mono 12.5px amber dạng `01 · Problem`.",
+    ),
+    (
+        "ADR0029-landing-own-scale",
+        "docs/claude/design-system.md",
+        "- **Content unit row** — số thứ tự 2 chữ số, tiêu đề 14px hiển thị đầy đủ",
+        "- **Content unit row** — số thứ tự 2 chữ số, tiêu đề 15px (body) hiển thị đầy đủ",
+    ),
+    (
+        "ADR0029-landing-own-scale",
+        "docs/claude/design-system.md",
+        "- **Bảng** — header 11px w600, không uppercase",
+        "- **Bảng** — header 12px w600 (vai label · th, §3), không uppercase",
+    ),
+    (
+        "ADR0029-landing-own-scale",
+        "docs/design/landing-handoff.md",
+        "Khối `--dark-bg` radius 20, padding 80/32, mark 52px, H2 52px.",
+        "Khối `--dark-bg` radius 20, padding 80/32, mark 52px, H2 display-2.",
+    ),
 ]
 
 
