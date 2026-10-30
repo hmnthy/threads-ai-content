@@ -88,5 +88,6 @@ Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) �
 
 Thy public repo hiện tại thay cho kế hoạch curate sang repo mới (2026-10-30). Đã làm: `LICENSE` giữ mọi quyền,
 `tools/ui-ux-pro-max/LICENSE` (MIT gốc), `.claude/` gitignored + kho riêng; soát nội dung nhạy cảm, bỏ `docs/archive/`,
-quy tắc làm việc riêng sang `CLAUDE.local.md`. Còn: viết lại lịch sử (bỏ `.claude/`, `docs/research/`, `docs/archive/`
-khỏi mọi commit) + cập nhật mã commit trong docs theo bảng đổi mã (ADR-0028); kiểm license asset khác khi thêm mới.
+quy tắc làm việc riêng sang `CLAUDE.local.md`; viết lại lịch sử (bỏ `.claude/`, `docs/research/`, `docs/archive/`
+khỏi mọi commit, force push 2026-10-30) + ticket GitHub Support xoá ref PR cũ. Còn: cập nhật mã commit trong docs theo
+bảng đổi mã (ADR-0028); kiểm license asset khác khi thêm mới.

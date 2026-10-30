@@ -1,11 +1,11 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-30 (dọn repo public + kế hoạch viết lại lịch sử — ADR-0028)
+> Cập nhật: 2026-10-30 (lịch sử repo public đã viết lại — ADR-0028)
 
 ## Now
 
-- ADR-0027 (PR #25, Thy chọn 2026-10-30): repo public chính thức, `LICENSE` giữ mọi quyền (bên thứ ba giữ giấy phép gốc: `tools/ui-ux-pro-max/` MIT); `.claude/` gitignored, có kho riêng, worktree nhận bản sao chỉ đọc; `check --all` vẫn quét harness trên máy, mọi chế độ (cả `--all` ở CI) chặn `.claude/` bị track. ADR-0028 (nhánh `chore/public-readiness`): soát nội dung nhạy cảm (không có secret thật) → bỏ `docs/archive/` khỏi repo, quy tắc làm việc riêng sang `CLAUDE.local.md`, sửa câu chữ ADR; sau merge viết lại lịch sử (bỏ `.claude/`, `docs/research/`, `docs/archive/` khỏi mọi commit).
+- ADR-0027 (PR #25, Thy chọn 2026-10-30): repo public chính thức, `LICENSE` giữ mọi quyền (bên thứ ba giữ giấy phép gốc: `tools/ui-ux-pro-max/` MIT); `.claude/` gitignored, có kho riêng, worktree nhận bản sao chỉ đọc; `check --all` vẫn quét harness trên máy, mọi chế độ (cả `--all` ở CI) chặn `.claude/` bị track. ADR-0028 (PR #26): soát nội dung nhạy cảm (không có secret thật) → bỏ `docs/archive/` khỏi repo, quy tắc làm việc riêng sang `CLAUDE.local.md`, sửa câu chữ ADR. **Lịch sử đã viết lại** (2026-10-30, Thy force push `691ab6e`): bỏ `.claude/`, `docs/research/`, `docs/archive/`, chuỗi riêng tư, metadata ảnh, trailer khỏi mọi commit; mọi cổng an toàn đạt (cây `main` giống hệt trước). Đã gửi ticket GitHub Support xoá ref 26 PR cũ + cache (chờ trả lời). **Mọi mã commit cũ đã đổi** — các mã trong file này và vài ADR (VD `e8d645e`, `f5d1890`) là mã cũ: PR riêng đổi theo bảng đổi mã (lưu ngoài repo).
 - `main` (2026-10-05, PR #1 merge commit `e8d645e`, CI xanh lần đầu) gồm: tái cấu trúc "LESS IS MORE" (ADR-0001, 0003); cưỡng chế nhất quán (ADR-0008) + tên **Unthreaded** (ADR-0009); P0 dashboard trung thực — median + n + IQR, heatmap giờ đăng (ADR-0010 SQLite là CSDL duy nhất, ADR-0011 bài views = 0 là dữ liệu thiếu); P1 Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, 9 cụm; `/conversation` trả được bình luận follower); các mục dưới đến ADR-0018.
 - Cảnh sát lời hứa (2026-10-28, Thy yêu cầu sau khi thấy landing hứa nhiều hơn dashboard): `@agent-promise-auditor` + `/promise-audit` kiểm kê lời hứa của landing so với nội dung thật của các trang app, chấm mức lệch 0–4 + độ phủ + gói việc; báo cáo riêng tư `data/audits/promise-gap/` (gitignored). Lần đầu (148dc37): **mức 4 "bìa hứa sai"**, độ phủ 11/36 — `/topics` chưa hiện kiểm định/δ/Holm/lịch sử/từ khoá dù `/topics/comparisons` đã trả đủ; 2 S1: câu CTA "the method behind each number" và mẫu số "161 posts with text".
 - Lịch sử "k of m" (PR #17 `f5d1890`, ADR-0024 quyết định 3; Thy chốt cách đếm + chữ 2026-10-20): `GET /topics/comparisons` trả `history` mỗi topic × chỉ số, tính khi đọc từ kết quả đã lưu (không bảng mới, không sửa job) — mỗi cách chia đếm 1 lần bằng lần so sánh mới nhất, m chỉ gồm cách chia đủ bài, k tách hướng (`src/analysis/partition_history.py`); landing panel 1 thêm cột "stood out in" ("2 of 3 ↑") + hover + Limits. Số 2026-10-20: topic_11 engagement 2 of 3 (+1 thiếu bài). Sinh lại: `scripts.topic_stability_report --history-only`.
@@ -57,4 +57,4 @@
 
 ## Last checkpoint
 
-- Prepare the public repo: private details out, archive untracked (ADR-0028)
+- Record that the public history was rewritten (ADR-0028)
