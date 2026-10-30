@@ -1069,6 +1069,50 @@ LEARNED_RULES = [
         "built and open-sourced-in-spirit as an NLP/ML engineering portfolio piece.",
         "This is not open-source software, and external contributions are not accepted.",
     ),
+    # ADR-0028: chi tiết riêng tư không thuộc tài liệu public — ví dụ TỔNG HỢP tối thiểu, không chép
+    # nguyên văn chi tiết thật (file test bị loại khỏi quét → chép nguyên văn = lộ mà không ai bắt)
+    (
+        "ADR0028-private-detail-in-public",
+        "docs/claude/git-workflow.md",
+        "`<CHÍNH>` = `C:\\Users\\hmnth\\repo`.",
+        "`<CHÍNH>` = thư mục clone gốc (`$env:USERPROFILE`, chủ repo github.com/hmnthy).",
+    ),
+    (
+        "ADR0028-private-detail-in-public",
+        "docs/claude/dev-rules.md",
+        "Trong WSL: `/home/hmnth/code/repo`.",
+        "Trong WSL: `~/code/repo`.",
+    ),
+    (
+        "ADR0028-private-detail-in-public",
+        "docs/claude/data-model.md",
+        "CMI≈21.7, xem `docs/research/x.html`)",
+        "CMI≈21.7 — kết luận đã chốt; ghi chép gốc ở `docs/research/` (riêng tư))",
+    ),
+    (
+        "ADR0028-private-detail-in-public",
+        "docs/decisions/0016-x.md",
+        "Credit trả trước còn $9.99 (Console).",
+        "Chi phí không còn nhỏ so với ngân sách API của dự án.",
+    ),
+    (
+        "ADR0028-private-detail-in-public",
+        "docs/decisions/0019-x.md",
+        "Tác giả là người mới  dùng git.",
+        "Câu hỏi được đặt lại ngày 2026-10-05.",
+    ),
+    (
+        "ADR0028-private-detail-in-public",
+        "CLAUDE.md",
+        "- **mọi thuật ngữ kỹ thuật phải có ngoặc giải thích** ở lần đầu",
+        "  Quy tắc làm việc riêng của tác giả: `CLAUDE.local.md` (gitignored — ADR-0028).",
+    ),
+    (
+        "ADR0028-private-detail-in-public",
+        "docs/claude/git-workflow.md",
+        "kho bare `<CHÍNH>\\..\\threads-harness.git`",
+        "harness `.claude/` có kho riêng (ADR-0027)",
+    ),
 ]
 
 

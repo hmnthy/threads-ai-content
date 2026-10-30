@@ -9,7 +9,7 @@
 Quyết định 2026-09-03 (`legacy-log.md`, dòng "Chốt `CLUSTER_LABELING_MODEL`") giữ `claude-opus-5` vì tên cụm tốt hơn với bài Việt/Pháp trộn và "chi phí task labeling nhỏ". Một tháng sau:
 
 - Job NLP đặt tên lại **mọi** cụm mỗi đêm (~9–11 lời gọi, tối đa 15 bài/cụm), kể cả khi cụm không đổi. Với Opus, chi phí đặt tên hằng đêm không còn nhỏ so với ngân sách API của dự án.
-- Key cũ hết hạn 2026-10-02 → job lỗi 401 đêm 2026-10-03 (`data/logs/nlp_cluster_job.log`); key mới tạo 2026-10-04. Không liên quan model nhưng là dịp rà lại chi phí.
+- Key API được thay 2026-10-04 (job lỗi 401 một đêm). Không liên quan model nhưng là dịp rà lại chi phí.
 - So sánh trên **9 cụm thật** (cùng đầu vào job import: bài xếp theo độ gần tâm cụm, tối đa 15 bài; DB ngày 2026-10-01): Sonnet 5.5 cho tên đúng chủ đề ở 9/9 cụm, mô tả chi tiết tương đương. Khác biệt nhìn thấy: vài tên của Sonnet chung chung hơn ("Life Abroad in France" thay cho "Life as a Vietnamese in France") và không thống nhất kiểu viết hoa ("Shopping and prices in France"). Đây là đánh giá định tính của 1 người trên n = 9 — không phải đo lường.
 
 Kèm theo: README ×3 ghi "prompt caching" ở dòng Claude API, nhưng code không có `cache_control` và Console báo "Prompt caching: Not enabled". Prompt đặt tên mỗi cụm khác nhau nên cache không giúp gì — đây là mô tả sai, sửa trong cùng ADR.

@@ -8,12 +8,10 @@ Không generation giọng văn, không carousel, không KOL engine. Portfolio NL
 ## Quy tắc tuyệt đối
 
 - Không đăng gì lên Threads. Không commit `.env`, token, data cá nhân (`content/`, `data/`, `docs/research/`).
-- `.claude/` (harness: agents, skills, hooks, rules) **riêng tư, gitignored** — lịch sử ở kho bare riêng ngoài thư mục
-  (`..\threads-harness.git`); sửa ở `.claude/` của thư mục chính, commit vào kho đó, không qua repo này (ADR-0027).
-- Commit message **tiếng Anh**, **không** trailer `Co-Authored-By` (hook + `attribution` đã cưỡng chế — đừng tìm cách vượt).
+- `.claude/` (harness: agents, skills, hooks, rules) **riêng tư, gitignored**, có kho riêng; không đưa vào repo này (ADR-0027).
+  Quy tắc làm việc riêng của tác giả: `CLAUDE.local.md` (gitignored, Claude Code tự nạp — ADR-0028).
+- Commit message **tiếng Anh**.
 - Product copy (dashboard, README, label do LLM sinh) **tiếng Anh**; docs + code comment **tiếng Việt**.
-- Khi trao đổi với Thy: **mọi thuật ngữ kỹ thuật phải có ngoặc giải thích** ở lần đầu xuất hiện **trong mỗi câu trả lời**
-  (cả câu hỏi lựa chọn, plan, báo cáo) — VD `PR (Pull Request — "đề nghị gộp nhánh")`; không được bỏ qua.
 - Không hằng số heuristic chưa gắn nhãn; mọi kết luận thống kê kèm n, effect size, CI (`docs/claude/data-model.md` — Narrative Layering).
 - Đề xuất trong `docs/research/` (private) chỉ được triển khai sau khi Thy duyệt → ghi ADR.
 - Bằng chứng từ data thật > giả định; "verify live" trước khi tin shape của Threads API.
