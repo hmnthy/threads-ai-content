@@ -3,8 +3,8 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-861%20passing-brightgreen)
-![License](https://img.shields.io/badge/license-private-lightgrey)
+![Tests](https://img.shields.io/badge/tests-872%20passing-brightgreen)
+![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
 > (Thuật toán, được đọc ngược lại cho bạn.)
@@ -213,9 +213,13 @@ thành case study thống kê + NLP đầy đủ như mô tả ở trên.
 
 ## Giấy phép
 
-Dự án cá nhân, private. Giữ toàn bộ quyền — không phải mã nguồn mở, không nhận contribution từ bên
-ngoài. Được xây dựng làm sản phẩm portfolio, thể hiện năng lực kỹ thuật NLP/ML áp dụng thật trên
-data production.
+Repo công khai chỉ để xem. Bảo lưu mọi quyền: không được dùng, sao chép, sửa đổi, phân phối lại hay
+bán bất kỳ phần nào khi chưa có sự cho phép trước bằng văn bản của tác giả. Điều khoản đầy đủ, cùng
+các thành phần bên thứ ba giữ giấy phép riêng, nằm trong [LICENSE](LICENSE). Đây không phải phần
+mềm mã nguồn mở và không nhận đóng góp từ bên ngoài. Liên hệ cấp phép: thydilammuon@gmail.com.
+
+Được xây dựng làm sản phẩm portfolio, thể hiện năng lực kỹ thuật NLP/ML áp dụng thật trên data
+production.
 
 Không liên kết với Meta. Threads là nhãn hiệu của Meta Platforms, Inc. Repo vẫn giữ tên kỹ thuật
 `threads-ai-content`.

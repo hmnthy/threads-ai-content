@@ -92,5 +92,5 @@ mockup, chỉ sửa sự thật kỹ thuật trong handoff/brief và ghi lại.
   **kỹ thuật** — sửa spec/hợp đồng trước, sync/code sau, không làm ngược.
 - Commit nhỏ, thường xuyên, message rõ nghĩa — các tool không chia sẻ bộ nhớ; kênh giao tiếp là git log, brief
   (`docs/design/*-brief-*.md`) và `ui-contract.md`.
-- Cổng review tầng 2 (ADR-0015) chặn commit do Claude chạy (kể cả lệnh `!` trong Claude Code) mà chạm file logic/ADR chưa có dấu review khớp nội dung; merge không xung đột không chạy hook. Lối thoát khi cổng hỏng: commit tay từ terminal ngoài Claude Code.
+- Cổng review tầng 2 (ADR-0015) chặn commit do Claude chạy (kể cả lệnh `!` trong Claude Code) mà chạm file logic/ADR chưa có dấu review khớp nội dung; merge không xung đột không chạy hook. Lối thoát khi cổng hỏng: commit tay từ terminal ngoài Claude Code. Cổng không phủ harness `.claude/` (kho riêng, ADR-0027 — `docs/claude/git-workflow.md`).
 
