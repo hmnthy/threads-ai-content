@@ -97,9 +97,6 @@ def test_scope() -> None:
         "src/dashboard/package.json",
         "src/dashboard/next.config.ts",
         "scripts/consistency/check.py",
-        ".claude/hooks/guard_commit.py",
-        ".claude/settings.json",
-        ".claude/agents/code-reviewer.md",
         "docs/decisions/invariants.toml",
     ):
         assert rg.needs(logic) == [rg.REVIEWER], logic
@@ -109,6 +106,10 @@ def test_scope() -> None:
         "docs/status.md",
         "README.md",
         "docs/decisions/0000-template.md",
+        # harness `.claude/` gitignored, kho riêng — ngoài phạm vi cổng (ADR-0027)
+        ".claude/hooks/guard_commit.py",
+        ".claude/settings.json",
+        ".claude/agents/code-reviewer.md",
         ".claude/skills/checkpoint/SKILL.md",
         "uv.lock",
         "src/dashboard/public/brand/logo.svg",
@@ -446,16 +447,25 @@ def test_check_fails_closed_outside_a_repo(tmp_path: Path) -> None:
 # --- đường lách cổng (hook PreToolUse guard_commit.py) ---------------------------------
 
 
+# Harness `.claude/` gitignored, kho riêng (ADR-0027): CI, clone mới và worktree không có nó →
+# bỏ qua nhóm test này ở đó; chạy ở thư mục chính (nơi có harness).
 GUARD = REPO_ROOT / ".claude" / "hooks" / "guard_commit.py"
+SETTINGS = REPO_ROOT / ".claude" / "settings.json"
+needs_harness = pytest.mark.skipif(
+    not GUARD.exists(), reason="harness .claude/ riêng tư, không có ở đây (ADR-0027)"
+)
 
 
 def guard(command: str) -> int:
+    # Thiếu file thì `python <file>` trả mã 2 — trùng mã "chặn" → test chặn sẽ pass giả
+    assert GUARD.exists(), GUARD
     payload = json.dumps({"tool_input": {"command": command}})
     return subprocess.run(
         [sys.executable, str(GUARD)], input=payload, capture_output=True, text=True
     ).returncode
 
 
+@needs_harness
 @pytest.mark.parametrize(
     "command",
     [
@@ -489,6 +499,7 @@ def test_guard_blocks_gate_bypasses(command: str) -> None:
     assert guard(command) == 2
 
 
+@needs_harness
 @pytest.mark.parametrize(
     "command",
     [
@@ -521,14 +532,16 @@ def test_guard_allows_normal_commands(command: str) -> None:
     assert guard(command) == 0
 
 
+@needs_harness
 def test_guard_sees_git_dash_c_with_a_quoted_path() -> None:
     assert guard('git -C "C:/a b/repo" commit --no-verify -m "x"') == 2
 
 
+@needs_harness
 def test_guard_is_wired_for_env_shell_and_powershell_commands() -> None:
     # Test gọi thẳng guard_commit.py nên KHÔNG đi qua bộ lọc `if` của Claude Code; kiểm cấu
     # hình để lệnh bắt đầu bằng env/bash/sh và tool PowerShell thật sự tới được guard.
-    settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    settings = json.loads(SETTINGS.read_text(encoding="utf-8"))
     entries = settings["hooks"]["PreToolUse"]
     guarded = [
         (e["matcher"], h.get("if"))
