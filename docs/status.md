@@ -57,4 +57,4 @@
 
 ## Last checkpoint
 
-- Record ADR-0029: one UI rule book for every page
+- Patch Next.js and vulnerable dashboard dependencies
