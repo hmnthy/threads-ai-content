@@ -1162,6 +1162,30 @@ LEARNED_RULES = [
         "Khối `--dark-bg` radius 20, padding 80/32, mark 52px, H2 52px.",
         "Khối `--dark-bg` radius 20, padding 80/32, mark 52px, H2 display-2.",
     ),
+    (
+        "ADR0030-key-numbers-box",
+        "docs/claude/design-system.md",
+        "(ANSWER thêm viền trái amber 4px). Hộp số kéo dài bằng cột bên cạnh.",
+        "(ANSWER thêm viền trái amber 4px). Hộp số cao theo nội dung (luật K3).",
+    ),
+    (
+        "ADR0030-key-numbers-box",
+        "docs/claude/design-system.md",
+        "thân bài, gạch đầu dòng, nhãn hàng của bảng số; số chính 15px w700 (nhấn bằng độ đậm)",
+        "thân bài, gạch đầu dòng, nhãn hàng của bảng số · nhãn dưới số trong hộp Key numbers",
+    ),
+    (
+        "ADR0030-key-numbers-box",
+        ".claude/agents/ux-reviewer.md",
+        '- Hộp "This topic in numbers" của Topics: nhãn trái, số phải.',
+        '- Hộp "Key numbers" của topic đang chọn: dòng phạm vi `SELECTED TOPIC · <tên>` phía trên.',
+    ),
+    (
+        "ADR0030-key-numbers-box",
+        ".claude/rules/dashboard.md",
+        "- Hộp số luôn cao bằng cột bên cạnh để cột phải không trống.",
+        "- Hộp số cao theo nội dung, dính khi ở cột phụ.",
+    ),
 ]
 
 

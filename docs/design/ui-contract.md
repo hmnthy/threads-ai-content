@@ -1,6 +1,6 @@
 # Hợp đồng UI — Unthreaded
 
-> Cập nhật tới: ADR-0029 · 2026-10-30 (một thang chữ + sổ luật UI/UX cho mọi trang, máy đo `ux-shots.mjs`)
+> Cập nhật tới: ADR-0030 · 2026-10-31 (hộp Key numbers: một component, số 28px căn trái, cao theo nội dung)
 >
 > **Đọc khi:** trước mọi phiên thiết kế (Claude Design) và trước khi port mockup sang code (Claude Code).
 > **Vì sao có file này:** ADR-0020. Chiều thay đổi chỉ có một: **ADR → hợp đồng này → mockup → code.** Mockup cần thứ
@@ -164,6 +164,12 @@ liệu (đường dẫn chết bị chặn).
 | UI-0029-type-scale | 0029 | `TYPE` (`src/dashboard/src/components/AppBlock.tsx:20`); cỡ chữ đã render của mọi trang | Mọi chữ thuộc tập cỡ của `docs/claude/design-system.md` §3 (12 · 12.5 · 13 · 15 · 17 · 18 · 20 · 26 · 28 · 40 · 56px); cỡ fluid chỉ cho `h1`/`h2` landing (display-1/2); không chữ < 12px trừ `sub`/`sup` công thức. Máy đo `RULES.scale`, `RULES.display` (`src/dashboard/scripts/ux-shots.mjs:32-37`), mặc định mọi route (`:19`) | all | manual | Tiêu đề luôn lớn hơn nội dung nó dẫn; landing và trang app cùng cỡ cho cùng vai (tiêu đề khối 26px, mục 20px, hộp 17px, câu trả lời 18px, thân 15px); mockup chỉ dùng cỡ trong thang |
 | UI-0029-heading-roles | 0029 | `h1`–`h5`, thuộc tính `data-ux-role` | Tiêu đề là thẻ heading thật theo bảng vai §3 (app `h1` 40 · `h2` 26 · `h3` 20 · `h4` 17; landing `h1` display-1 · `h2` display-2 · `h3` 26 · `h4` 20 · `h5` 17); mỗi trang 1 `h1`, không nhảy cấp, cha mang vai hợp lệ (`RULES.roles`, `RULES.parents`, `src/dashboard/scripts/ux-shots.mjs:39-69`); component có heading nhận prop cấp tiêu đề (§3b C2) | all | manual | Dòng đầu khối trông như tiêu đề thì phải là heading, không là `<span>` đậm/màu; tag lệch vai mặc định → `data-ux-role` (6 vai heading), không dùng để che heading sai cấp |
 | UI-0029-landing-whitelist | 0029 | Landing `/` (`src/dashboard/src/app/page.tsx`) | Landing chỉ khác trang app ở X1–X6 của `docs/claude/design-system.md` §3b (display-1/2, 2 dải tối, panel bo 20px + bento, khoảng cách section rộng hơn, "Method and limits" có thể thu gọn mặc định, khung 1200px + `LandingNav`); mọi luật khác áp như trang app | landing | manual | Panel landing theo thứ tự đọc chung C1: eyebrow → tiêu đề panel 26px → câu mục đích 15px → câu trả lời 18px → biểu đồ → nút "Method and limits" cùng kiểu với trang app |
+
+## ADR-0030 — hộp Key numbers
+
+| id | ADR | Khái niệm / trường (A) | Ràng buộc kỹ thuật (B) | Trang (C) | Kiểm bằng (D) | Trình bày (E) |
+|---|---|---|---|---|---|---|
+| UI-0030-key-numbers | 0030 | Component `KeyNumbers` + `KeyNumber` (`src/dashboard/src/components/AppBlock.tsx:138-174`); mọi hộp nền ấm chứa `dl` | Mọi hộp số là `KeyNumbers` (`data-ux="key-numbers"`), tiêu đề "Key numbers"; số chính 28px tabular w700 trên dòng riêng, căn trái, nhãn 15px w600 ngay dưới, tối đa 4 số; hộp cao theo nội dung (danh sách không `space-*`, đáy cách dòng cuối ≤ padding + 8px), ở cột phụ thì `position: sticky` khi hàng có thứ cao hơn hộp — máy đo `RULES.keyNumbers` + K1–K3 (`src/dashboard/scripts/ux-shots.mjs:75-83`, `:234-414`); `docs/claude/design-system.md` §3b K | all | `ADR0030-key-numbers-box` | Phạm vi hẹp hơn khối ghi ở dòng nhãn 12px phía trên tiêu đề; số là phần của số trước có thanh tỉ lệ 4px + "N% of <số cha>"; một kết quả thống kê một dòng (median là số, IQR + n ở ghi chú); căn phải chỉ cho cột số trong bảng |
 
 ## Quyết định trước ADR-0001 còn hiệu lực (legacy-log, design-system)
 
