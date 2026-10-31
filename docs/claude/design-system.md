@@ -123,7 +123,8 @@ metric-hero       56px tabular                w700 -0.03em   không phải headi
 h1 page title     40px                        w700 -0.025em  h1 / —              tiêu đề trang app, đầu trang căn giữa (Thy 2026-10-29) —
                                                                                  trên nó eyebrow trang (label 12px w600 amber), dưới câu hỏi
                                                                                  trang 18px, chip mốc dữ liệu, dải mục lục khối 15px
-metric            28px tabular                w700 -0.02em   không phải heading  số KPI (strip Overview, hàng số hero landing)
+metric            28px tabular                w700 -0.02em   không phải heading  số KPI (strip Overview, hàng số hero landing), số chính
+                                                                                 trong hộp Key numbers (K2)
 h2 block title    26px                        w700 -0.02em   h2 / h3             tiêu đề khối (app) = tiêu đề panel/khối của landing: trên nó
                                                                                  eyebrow khối = số mono 12.5px + tên ngắn label 12px (cùng chữ với
                                                                                  mục lục); dưới câu mục đích 15px + kẻ đậm 2px
@@ -133,8 +134,8 @@ answer · lead     18px                        w600 · w400    —              
                                                                                  dẫn dưới h1 / display-2
 h4 box title      17px                        w600           h4 / h5             tiêu đề hộp con (Key numbers, What to know, How it is computed,
                                                                                  Limits)
-body              15px  lh 1.6                w400           —                   thân bài, gạch đầu dòng, nhãn hàng của bảng số; số chính 15px
-                                                                                 w700 (nhấn bằng độ đậm, không bằng cỡ — tiêu đề hộp luôn lớn nhất)
+body              15px  lh 1.6                w400 · w600    —                   thân bài, gạch đầu dòng, nhãn hàng của bảng số · nhãn dưới
+                                                                                 số trong hộp Key numbers
 note · cell · control 13px                    w400 · w600    —                   ô bảng, ghi chú phụ, chú giải · chữ trên nút/tab/pill bấm được
                                                                                  (như nút "Method and limits" của `AppBlock.tsx`)
 mono · eyebrow số 12.5px mono lh 1.7          w400 · w600    —                   công thức, ID, số trong bảng · eyebrow có số, amber: số khối,
@@ -153,8 +154,8 @@ Khoảng cách: khối cách nhau 40px; trong khối, mục h3 cách nhau 28px c
 không chừa khoảng trắng bên phải (Thy 2026-10-29, thay quy tắc 72ch). Không hộp viền lồng trong hộp.
 
 **Ba lớp màu nền trên trang app** (Thy 2026-10-29) — mỗi lớp một vai, người đọc biết đang ở lớp nào:
-- **Kết quả** — khung ANSWER, Key numbers, "This topic in numbers": `--warm-surface` `#FFFAF0` + viền `--warm-border`
-  `#F3DFB5` (ANSWER thêm viền trái amber 4px). Hộp số kéo dài bằng cột bên cạnh, không để trống bên dưới.
+- **Kết quả** — khung ANSWER, hộp Key numbers: `--warm-surface` `#FFFAF0` + viền `--warm-border` `#F3DFB5` (ANSWER
+  thêm viền trái amber 4px). Hộp số cao theo nội dung và dính theo khi cuộn (luật K3).
 - **Kỹ thuật** — nội dung "Method and limits", chú giải bảng: `--bg-sunken` + viền hairline. Cách tính rồi giới hạn,
   xếp dọc (không 2 cột song song).
 - **Bằng chứng** — biểu đồ, bảng: nền trắng của card.
@@ -213,7 +214,7 @@ Cổng chặn commit cho các luật này **chưa** bật (Thy 2026-10-30: 2 l�
   nhau). Khoảng cách là bội của 4px (§4).
 - **L4 [mắt]** Mỗi tầng một khung lề: app 1280px, landing 1200px. Header và thân thẳng với Nav.
 - **L5 [mắt]** Không khoảng trắng lớn vô cớ: khối trải đủ bề rộng, hoặc cột bên kia có nội dung. Không đặt 2 khối
-  chữ dày cạnh nhau. Chữ chạy hết bề rộng khung chứa.
+  chữ dày cạnh nhau. Chữ chạy hết bề rộng khung chứa. Chỗ trống dưới hộp Key numbers dính ở cột phụ (K3) là được phép.
 
 ### C — Khối và mạch đọc
 
@@ -239,6 +240,39 @@ Cổng chặn commit cho các luật này **chưa** bật (Thy 2026-10-30: 2 l�
 - **N3 [mắt]** Nhãn phân loại (kết quả, trạng thái) có chú giải ngay cạnh, và khác nhau thấy được bằng chữ kèm ký
   hiệu hoặc màu, không cần hover.
 - **N4 [mắt]** Số chính là median + IQR + n, không mean (§7).
+
+### K — Hộp số (Key numbers)
+
+Thy chốt 2026-10-31 (ADR-0030), sau khi thấy các hộp số lệch nhau giữa các trang: hộp bị kéo theo chiều cao cột bên
+cạnh rồi rải khoảng thừa giữa các dòng, cùng một vai có 2 kiểu hộp và 2 tên, số 15px bằng cỡ nhãn nên không nổi.
+
+- **K1 [máy]** Một vai, một component, một tên. Mọi hộp số (nền ấm, chứa danh sách `dl`) là `KeyNumbers` của
+  `AppBlock.tsx`, đánh dấu `data-ux="key-numbers"`, tiêu đề vai box-title đúng chữ "Key numbers". Hộp nói về phạm vi
+  hẹp hơn khối chứa nó (VD topic đang chọn) thì ghi phạm vi ở dòng ngay trên tiêu đề: label 12px w600 chữ hoa, VD
+  `SELECTED TOPIC · Career & alternance`. `data-ux` gắn lên hộp (khung nền ấm hoặc phần tử bọc nó, khi dòng phạm vi
+  nằm ngoài khung). Component phải gắn `data-ux="kn-value"` / `data-ux="kn-label"` cho số và nhãn (PR 2), để máy chọn
+  đúng phần tử thay vì đoán theo thứ tự. Máy kiểm component + tiêu đề; dòng phạm vi do reviewer chấm bằng mắt.
+- **K2 [máy]** Mỗi dòng: số chính metric 28px tabular w700, đứng riêng một dòng, căn trái → nhãn 15px w600 ngay dưới
+  → ghi chú 13px. Tối đa 4 số mỗi hộp; nhiều hơn thì dùng bảng. Máy đo số, nhãn và số dòng; cỡ ghi chú do reviewer
+  chấm.
+- **K3 [máy]** Hộp cao theo nội dung. Không kéo giãn, không rải khoảng thừa: danh sách không dùng `justify-content`
+  kiểu `space-*` hay dòng `flex-grow`; khoảng giữa các dòng bằng nhau (lệch ≤ 4px); đáy hộp cách chữ cuối không quá
+  padding + 8px. Hộp ở cột phụ (ô hẹp hơn ô rộng nhất cùng hàng của lưới ≥ 2 cột gần nhất — từ 1024px với
+  `AnswerRow`) dính theo khi cuộn, khi hàng có thứ cao hơn hộp (hộp cao nhất hàng thì không cần): `position: sticky` +
+  `top` ở khung hoặc phần tử bọc nó, phần tử đó còn chỗ trống bên dưới trong khối chứa nó (khối chứa của ô lưới là cả
+  lưới — ô bị kéo giãn ở hàng cuối, hay khung sticky sát đáy phần tử bọc, đều không trượt được; dùng `self-start`), và
+  không tổ tiên nào có `overflow` khác `visible`/`clip`. Ô dính trượt trong cả lưới, không chỉ trong hàng của nó: lưới
+  chỉ chứa hàng của hộp — khối trải bên dưới (`below` của `AnswerRow`) đặt ngoài lưới, không thì hộp trượt đè lên nó.
+  Chỗ trống dưới hộp khi đó là chỗ trống tự nhiên (L5); xếp chồng 1 cột thì không cần dính. Máy chỉ xét lưới CSS; cột
+  phụ dựng bằng flex do reviewer chấm. Sửa phép đo K thì chạy `node scripts/ux-shots-fixtures.mjs` (trang mẫu đúng/sai).
+- **K4 [mắt]** Số là một phần của số đứng trước (VD 169 bài → 163 có chữ → 110 vào topic) có thanh tỉ lệ 4px kèm chữ
+  "N% of <số cha>" dưới nhãn. % tính bằng số nguyên trước khi chia (`Math.floor(a * 100 / b)`). Thanh chỉ để nhìn
+  (`aria-hidden`); chữ % mang thông tin, nên màu không là tín hiệu duy nhất (A2).
+- **K5 [mắt]** Một kết quả thống kê là một dòng: số chính là median, ghi chú là IQR + n (VD "Middle half 1.77–3.08%
+  (IQR), n = 16"); n = 0 thì hiện "—" (N4). Không tách median, IQR, n thành 3 dòng.
+- **K6 [mắt]** Căn phải chỉ dành cho cột số cùng đơn vị trong bảng (tabular-nums, để hàng đơn vị thẳng hàng khi so).
+  Hộp số luôn căn trái: các số trong hộp khác đơn vị, không ai so chúng theo cột, và ghi chú + thanh tỉ lệ bám cùng
+  mép trái với số.
 
 ### B — Người đọc và ngôn ngữ
 
@@ -483,7 +517,7 @@ Kết quả trả về là **khuyến nghị**, không phải lệnh. Nếu mâu
 
 ## 12. Checklist trước khi merge UI
 
-Checklist này là bản rút gọn; nguồn chấm là sổ luật §3b (mã luật T/L/C/N/B/A/X) và `@agent-ux-reviewer`.
+Checklist này là bản rút gọn; nguồn chấm là sổ luật §3b (mã luật T/L/C/N/K/B/A/X) và `@agent-ux-reviewer`.
 
 **Sổ luật §3b**
 - [ ] `node scripts/ux-shots.mjs` (mọi route): `violations` + `crossRoute` = 0 (dòng cuối in `UX gate (máy): PASS`); mỗi `warnings` đã được reviewer xác nhận hoặc bác.
@@ -517,6 +551,14 @@ Checklist này là bản rút gọn; nguồn chấm là sổ luật §3b (mã lu
 ---
 
 ## 13. Decision log
+
+### 2026-10-31 — Hộp Key numbers: một component, số 28px, cao theo nội dung
+
+Thy gửi 6 ảnh hộp số có khoảng trống lệch nhau. Nguyên nhân trong code: luật 2026-10-29 bắt hộp số theo chiều cao của cột
+bên cạnh, được làm bằng `justify-evenly`, nên cột trái càng dài thì khoảng giữa các số càng to; trang Topics tự viết hộp
+thứ 2 (nhãn trái, số phải, tên riêng); số 15px bằng cỡ nhãn. Thy chốt (ADR-0030): số 28px căn trái
+xếp dọc (căn phải chỉ cho cột số trong bảng), hộp cao theo nội dung + dính khi cuộn, luôn tên "Key numbers" + dòng phạm
+vi, thanh tỉ lệ cho số lồng nhau, một kết quả thống kê một dòng. Luật K1–K6 (§3b); sửa component là PR 2.
 
 ### 2026-10-30 — Một thang chữ + một sổ luật cho mọi trang
 

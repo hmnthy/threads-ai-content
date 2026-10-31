@@ -1033,3 +1033,14 @@ why = "Từ ADR-0029: landing và mọi trang app dùng một thang chữ (desig
 fix = "Ghi theo vai của thang §3: tiêu đề panel h3 26px, câu trả lời 18px, eyebrow mono 12.5px, H2 section display-2, header bảng 12px, tiêu đề hàng 15px"
 paths = ["docs/**", ".claude/**", "src/**"]
 allow = ["docs/decisions/0029-*.md", "docs/decisions/legacy-log.md"]
+
+[[forbid]]
+id = "ADR0030-key-numbers-box"
+adr = "0030"
+# Luật cũ của hộp số (design-system §3, 2026-10-29) và tên hộp thứ 2 của Topics. Không quét src/: code còn vi phạm tới
+# PR 2 — máy đo ux-shots K1–K3 giữ phần code (ADR-0030, nợ chấp nhận)
+pattern = 'kéo dài bằng cột|cao bằng cột bên cạnh|số chính 15px|This topic in numbers'
+why = "Từ ADR-0030: hộp Key numbers cao theo nội dung + dính khi cuộn, số chính 28px (vai metric), một tên 'Key numbers'"
+fix = "Ghi theo design-system §3b K: hộp cao theo nội dung (K3), số chính 28px tabular (K2), tiêu đề 'Key numbers' + dòng phạm vi (K1)"
+paths = ["docs/**", ".claude/**"]
+allow = ["docs/decisions/0030-*.md", "docs/decisions/legacy-log.md"]
