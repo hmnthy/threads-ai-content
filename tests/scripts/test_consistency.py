@@ -1223,6 +1223,32 @@ LEARNED_RULES = [
         "  <sub><b>2. Overview</b> — a hero band with the window's median, Key numbers",
     ),
     (
+        "ADR0032-old-landing-copy",
+        "src/dashboard/src/components/LandingProof.tsx",
+        "const PANEL_QUESTION = "
+        '"Which topics get a higher engagement rate than the rest of the channel?";',
+        "const APP_QUESTION = "
+        '"Does any topic\'s engagement rate differ from the rest of the channel?";',
+    ),
+    (
+        "ADR0032-single-accent-id",
+        "docs/design/landing-handoff.md",
+        "| Màu: một amber cho topic chọn | 3.3, 3.4 | UI-L20260930-topic-single-accent |",
+        "| Màu: mỗi topic một màu | 3.3, 3.4 | UI-L20261029-topic-categorical |",
+    ),
+    (
+        "ADR0032-whitelist-x1-x6",
+        "docs/claude/design-system.md",
+        "Landing chỉ được khác ở danh sách trắng X1–X6;",
+        "Landing chỉ được khác ở danh sách trắng X1–X8;",
+    ),
+    (
+        "ADR0032-cta-no-logo",
+        "docs/claude/design-system.md",
+        "- Khối CTA landing: `mark` 52px. Footer landing: `lockup` 24px.",
+        "- Khối CTA landing: không logo (ADR-0032 mục 5b). Footer landing: `lockup` 24px.",
+    ),
+    (
         "ADR0031-topic-english-column",
         "src/dashboard/src/components/TopicsView.tsx",
         '                <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Topic (English)</th>',

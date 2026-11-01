@@ -23,7 +23,7 @@ export function LandingNav() {
           {/* Lockup 28px, hoạt cảnh chạy 1 lần mỗi 15 giây (Thy 2026-10-29, BrandLogoReplay) */}
           <BrandLogo variant="lockup-replay" height={28} />
         </a>
-        <div className="hidden gap-[22px] whitespace-nowrap text-sm lg:flex">
+        <div className="hidden gap-[22px] whitespace-nowrap text-[13px] font-medium lg:flex">
           {LINKS.map((link) => (
             <a
               key={link.href}
@@ -36,7 +36,7 @@ export function LandingNav() {
         </div>
         <Link
           href="/overview"
-          className="flex h-10 flex-none items-center whitespace-nowrap rounded-full bg-amber-600 px-[18px] text-sm font-semibold text-white transition-colors hover:bg-amber-700"
+          className="flex h-11 flex-none items-center whitespace-nowrap rounded-full bg-amber-600 px-[18px] text-[13px] font-semibold text-white transition-colors hover:bg-amber-700"
         >
           View live dashboard
         </Link>

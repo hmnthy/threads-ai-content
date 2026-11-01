@@ -1,6 +1,7 @@
 import Image from "next/image";
-import { SECTION } from "@/components/LandingParts";
-import { count, parisTime, type LandingData } from "@/lib/landing";
+import { Bullets } from "@/components/AppBlock";
+import { SECTION, SectionHead } from "@/components/LandingParts";
+import { count, parisDate, type LandingData } from "@/lib/landing";
 
 // "About the channel" (handoff §3.6, design-system §10: ảnh 200×240, radius 16).
 // Bio DRAFT — chỉ dựa trên fact đã có trong CLAUDE.md (kênh "thydilammuon", người Việt tại
@@ -25,27 +26,28 @@ export function LandingAuthor({ data }: { data: LandingData | null }) {
           style={{ objectPosition: "50% 30%" }}
         />
       </div>
-      <div className="flex min-w-0 max-w-[760px] flex-[1_1_320px] flex-col gap-[18px]">
-        <span className="font-mono text-[13px] font-medium text-amber-600">05 · About the channel</span>
-        <h2 className="m-0 text-[clamp(28px,3vw,38px)] font-extrabold leading-[1.1] tracking-[-0.03em]">
-          Thy · @thydilammuon
-        </h2>
-        <p className="m-0 text-base leading-[1.7] text-text-secondary [text-wrap:pretty]">
-          Thy is a Vietnamese creator living and working in France. She writes on Threads about
-          alternance, job hunting and everyday life as an expat. Unthreaded started as a way to
-          understand her own channel from its real posts, and grew into the statistics and NLP case
-          study on this site.
-        </p>
+      <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-[18px]">
+        {/* Cùng đầu section display-2 với mọi section (T3: một kiểu display-2 trên cả trang — ADR-0032) */}
+        <SectionHead eyebrow="05 · About the channel" title="Thy · @thydilammuon">
+          Thy is a Vietnamese creator living and working in France. She writes on Threads about alternance, job hunting
+          and everyday life as an expat. Unthreaded started as a way to understand her own channel from its real posts,
+          and grew into the statistics and NLP case study on this site.
+        </SectionHead>
         {summary ? (
-          <span className="font-mono text-[12.5px] leading-[1.7] text-text-muted">
-            {count(summary.content_units)} posts · {count(summary.reply_roles.author_answer)} answers to
-            followers · {count(summary.reply_roles.self_continuation)} follow-up parts ·{" "}
-            {count(summary.reply_roles.outbound)} replies on other accounts · snapshots every 4h while
-            the machine is awake
-            {run
-              ? ` · topics as clustered ${parisTime(run.run_at)}, named by Claude · ${count(run.n_noise)} posts unclustered`
-              : ""}
-          </span>
+          <div className="flex flex-col gap-2">
+            {/* Dòng mono 8 số cũ → gạch đầu dòng dọc, mỗi số có nghĩa (N1); không tiêu đề riêng: section chỉ có 1 khối
+                nên hộp con sẽ nằm thẳng dưới display-2 (T5) */}
+            <Bullets
+              items={[
+                `**${count(summary.content_units)} content units** published since the channel's first post.`,
+                `**${count(summary.reply_roles.author_answer)} answers to followers** and ${count(summary.reply_roles.outbound)} replies on other accounts' posts, both kept apart from the content units.`,
+                "Views and interactions re-read **every 4 hours** while the collecting laptop is awake.",
+                run
+                  ? `Topics from the clustering run of **${parisDate(run.run_at)}**, named by Claude; ${count(run.n_noise)} content units fit no topic (unclustered).`
+                  : null,
+              ]}
+            />
+          </div>
         ) : null}
       </div>
     </section>

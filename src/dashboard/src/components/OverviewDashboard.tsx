@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getDailyViewsSeries, getWindowAnalytics, type DailyViewsSeries, type DistributionStats, type WindowAnalytics } from "@/lib/api";
 import { AnswerRow, LoadError, MethodSection, Section, type KeyNumber } from "@/components/AppBlock";
 import { formatIqrRange, hasPosts, rateNote, TOO_FEW_POSTS } from "@/components/DistributionCaption";
@@ -10,7 +10,7 @@ import { TimelineBrush } from "@/components/TimelineBrush";
 import { TopContentList } from "@/components/TopContentList";
 import { OVERVIEW_SECTIONS, shortOf } from "@/lib/appSections";
 import { count, pct } from "@/lib/landing";
-import { daysBetweenInclusive, formatFullDate } from "@/lib/dates";
+import { addDays, daysBetweenInclusive, formatFullDate } from "@/lib/dates";
 
 // Trang /overview theo khuôn khối chung (Thy 2026-10-31: làm như /topics): mỗi khối = số + tiêu đề h2 + câu mục
 // đích → câu trả lời + ý chính + Key numbers → bằng chứng → "Method and limits" mở sẵn. Dải hero gradient (chữ ký
@@ -19,10 +19,12 @@ export function OverviewDashboard({
   topicOf,
   topicCount,
   channelEngagement,
+  firstPostDate,
 }: {
   topicOf: Record<string, string | null> | null;
   topicCount: number | null;
   channelEngagement: DistributionStats | null;
+  firstPostDate: string | null;
 }) {
   const [series, setSeries] = useState<DailyViewsSeries | null>(null);
   const [seriesError, setSeriesError] = useState<string | null>(null);
@@ -33,6 +35,18 @@ export function OverviewDashboard({
   const requestSeq = useRef(0);
   // Cửa sổ vừa yêu cầu — nút thử lại gọi lại đúng cửa sổ này khi lần tải đầu tiên lỗi (chưa có số nào để giữ)
   const lastWindow = useRef<[string, string] | null>(null);
+  // Chuỗi views theo ngày bắt đầu từ ngày có content unit đầu tiên (Thy 2026-11-01): đoạn trước đó không có bài nên
+  // không hiện; thiếu ngày đầu hoặc cắt còn < 2 điểm → giữ cả chuỗi
+  const points = useMemo(() => {
+    if (series === null) return null;
+    if (firstPostDate === null) return series.points;
+    // TẠM bù 1 ngày (Thy 2026-11-01): backend gắn nhãn chuỗi views sớm 1 ngày (`src/api/endpoints.py` lùi end_time
+    // 07:00Z thêm 1 ngày — data thật: 8/10 bài đăng riêng lẻ có đỉnh views ở ngày trước khi đăng), nên views của ngày
+    // đăng bài đầu nằm ở nhãn ngày trước đó. Gỡ phần bù khi PR sửa nhãn ngày (có ADR riêng) vào main
+    const start = addDays(firstPostDate, -1);
+    const cut = series.points.filter((point) => point.date >= start);
+    return cut.length >= 2 ? cut : series.points;
+  }, [series, firstPostDate]);
 
   useEffect(() => {
     getDailyViewsSeries()
@@ -74,7 +88,7 @@ export function OverviewDashboard({
     return <LoadError onRetry={() => setAttempt((n) => n + 1)} />;
   }
 
-  if (series === null) {
+  if (series === null || points === null) {
     return (
       <div className="flex flex-col gap-4">
         <div className="h-[140px] animate-pulse rounded-[20px] bg-bg-surface" />
@@ -92,9 +106,11 @@ export function OverviewDashboard({
         n="01"
         short={shortOf(OVERVIEW_SECTIONS, "window")}
         title="How did the channel do in the window you choose?"
-        purpose="Drag the window on the chart below, or pick a preset: every number in blocks 01 and 02 is recomputed for that window."
+        purpose="Drag the window on the chart just below, or pick a preset: every number in blocks 01 and 02 is recomputed for that window."
       >
-        {/* Thứ tự đọc C1: dải hero (số chính) → câu trả lời + Key numbers → timeline (điều khiển + bằng chứng) → Method */}
+        {/* Biểu đồ + thanh kéo ngay dưới đầu khối (Thy 2026-11-01): kéo tới đâu, số ngay bên dưới đổi theo — không phải
+            cuộn lên xem lại. Sau đó: dải hero → câu trả lời + Key numbers → Method */}
+        <TimelineBrush points={points} onWindowCommit={handleWindowCommit} />
         <div style={dim}>
           <HeroBand data={windowData} />
         </div>
@@ -122,12 +138,11 @@ export function OverviewDashboard({
             />
           </div>
         )}
-        <TimelineBrush points={series.points} onWindowCommit={handleWindowCommit} />
         <MethodSection
           steps={[
             {
               title: "Window",
-              plain: "The days between the two handles, both included. The presets select the last 30, 60 or 90 days with account views; Peak week selects the 7 consecutive days with the most account views.",
+              plain: "The days between the two handles, both included. The chart starts at the channel's first content unit; earlier days, with no content units yet, are not shown. The presets select the last 30, 60 or 90 days with account views; Peak week selects the 7 consecutive days with the most account views.",
             },
             {
               title: "Account views",

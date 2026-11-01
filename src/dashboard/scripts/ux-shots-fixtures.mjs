@@ -112,21 +112,37 @@ const CASES = [
   ["AA sai: ô dính bị kéo giãn, lưới nhiều hàng — vẫn trượt đè khối dưới", page(`<div class="grid">${left(600)}${box("sticky")}${below}</div>`), ["K3|stretch", "K3|sticky-overlap"]],
 ];
 
+// T5 — ngoại lệ panel hero của landing (Thy 2026-11-01, ADR-0032, §3b X7): chỉ tiêu đề khối ĐẦU TIÊN của
+// `[data-ux="hero-panel"]` được nằm ngay dưới display-1 (h1 → h3); thiếu dấu hoặc heading khác trong panel → vẫn bắt
+const landingPage = (body) =>
+  `<!doctype html><style>${CSS} h1{font-size:60px} h2{font-size:40px} h3{font-size:26px;margin:0} h5{font-size:17px}</style><main style="width:1200px"><h1>Display</h1>${body}<h2>Next section</h2><h3>Panel</h3></main>`;
+const T5_CASES = [
+  ["T5-A đúng: tiêu đề khối của panel hero ngay dưới display-1", landingPage('<section data-ux="hero-panel"><h3>Question?</h3><h4 data-ux-role="box-title" style="font-size:17px">What to know</h4></section>'), []],
+  ["T5-B sai: cùng bố cục nhưng thiếu dấu hero-panel", landingPage('<section><h3>Question?</h3><h4 data-ux-role="box-title" style="font-size:17px">What to know</h4></section>'), ["T5|parent", "T5|skip"]],
+  ["T5-D sai: panel hero mở bằng h4 (khai vai block-title) — chỉ h3 được miễn", landingPage('<section data-ux="hero-panel"><h4 data-ux-role="block-title" style="font-size:26px">Question?</h4></section>'), ["T5|parent", "T5|skip"]],
+  ["T5-C sai: tiêu đề khối thứ 2 trong panel hero không được ngoại lệ", landingPage('<section data-ux="hero-panel"><h3>Question?</h3><h3>Another block</h3></section>'), ["T5|parent"]],
+];
+
 const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL ?? "msedge" });
 let failed = 0;
-for (const [name, html, expect, scroll = 0] of CASES) {
-  const tab = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-  await tab.setContent(html);
-  if (scroll) await tab.evaluate((y) => window.scrollTo(0, y), scroll);
-  const { violations } = await tab.evaluate(measure, { tier: "app", rules: RULES });
-  const k = violations.filter((v) => v.rule.startsWith("K"));
-  const got = [...new Set(k.map((v) => v.key.split("|").slice(0, 2).join("|")))].sort();
-  const ok = JSON.stringify(got) === JSON.stringify([...expect].sort());
-  if (!ok) failed++;
-  console.log(`${ok ? "OK  " : "FAIL"} ${name} → ${got.join(", ") || "0 vi phạm K"}${ok ? "" : ` (mong đợi: ${expect.join(", ") || "0"})`}`);
-  if (!ok) for (const v of k) console.log(`       ${v.detail}`);
-  await tab.close();
-}
+const runCases = async (cases, tier, prefix) => {
+  for (const [name, html, expect, scroll = 0] of cases) {
+    const tab = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await tab.setContent(html);
+    if (scroll) await tab.evaluate((y) => window.scrollTo(0, y), scroll);
+    const { violations } = await tab.evaluate(measure, { tier, rules: RULES });
+    const k = violations.filter((v) => v.rule.startsWith(prefix));
+    const got = [...new Set(k.map((v) => v.key.split("|").slice(0, 2).join("|")))].sort();
+    const ok = JSON.stringify(got) === JSON.stringify([...expect].sort());
+    if (!ok) failed++;
+    console.log(`${ok ? "OK  " : "FAIL"} ${name} → ${got.join(", ") || `0 vi phạm ${prefix}`}${ok ? "" : ` (mong đợi: ${expect.join(", ") || "0"})`}`);
+    if (!ok) for (const v of k) console.log(`       ${v.detail}`);
+    await tab.close();
+  }
+};
+await runCases(CASES, "app", "K");
+await runCases(T5_CASES, "landing", "T5");
 await browser.close();
-console.log(failed ? `Máy đo: ${failed}/${CASES.length} trường hợp sai` : `Máy đo: ${CASES.length}/${CASES.length} trường hợp đúng`);
+const total = CASES.length + T5_CASES.length;
+console.log(failed ? `Máy đo: ${failed}/${total} trường hợp sai` : `Máy đo: ${total}/${total} trường hợp đúng`);
 process.exitCode = failed ? 1 : 0;

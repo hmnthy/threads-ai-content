@@ -4,7 +4,7 @@ import { LandingCta } from "@/components/LandingCta";
 import { LandingHero } from "@/components/LandingHero";
 import { LandingNav } from "@/components/LandingNav";
 import { LandingProblem } from "@/components/LandingProblem";
-import { LandingProof } from "@/components/LandingProof";
+import { LandingProof } from "@/components/LandingProofSection";
 import { LandingSolution } from "@/components/LandingSolution";
 import { LandingTechStack } from "@/components/LandingTechStack";
 import { dayMonthYear } from "@/lib/landing";
@@ -15,7 +15,8 @@ import { loadTopicPageData } from "@/lib/load";
 // Server component: lấy số thật từ API mỗi request (`lib/load.ts`, chung với /topics); API lỗi →
 // mỗi khối hiện trạng thái rỗng rõ ràng thay vì khung trục trống (design-system §9).
 export default async function LandingPage() {
-  const data = (await loadTopicPageData("landing"))?.data ?? null;
+  const loaded = await loadTopicPageData("landing");
+  const data = loaded?.data ?? null;
   return (
     <div className="landing flex flex-1 flex-col">
       <LandingNav />
@@ -23,7 +24,7 @@ export default async function LandingPage() {
         <LandingHero data={data} />
         <LandingProblem data={data} />
         <LandingSolution data={data} />
-        <LandingProof data={data} />
+        <LandingProof data={data} units={loaded?.units ?? []} />
         <LandingTechStack data={data} />
         <LandingAuthor data={data} />
         <LandingCta />
@@ -36,11 +37,11 @@ export default async function LandingPage() {
           </div>
           <div className="flex flex-col gap-1 sm:items-end sm:text-right">
             {/* Câu miễn trừ nguyên văn (ADR-0009) — tests/test_branding.py chặn khi mất */}
-            <span className="text-[12.5px] text-text-secondary">
+            <span className="text-[13px] text-text-secondary">
               Not affiliated with Meta. Threads is a trademark of Meta Platforms, Inc.
             </span>
             {data?.summary.latest_snapshot_at ? (
-              <span className="font-mono text-xs text-text-muted">
+              <span className="font-mono text-[12.5px] text-text-muted">
                 Data as of {dayMonthYear(data.summary.latest_snapshot_at)}
               </span>
             ) : null}

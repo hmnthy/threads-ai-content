@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-898%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-902%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -29,13 +29,13 @@ multi-tenant, not trying to be.
 The product in four steps — from the pitch to the discovered topics and how each compares with the rest of the channel.
 
 <p align="center">
-  <img src="docs/screenshots/landing.png" alt="Landing page: one post placed against its channel, the three layers, two dashboard panels, the pipeline diagram" width="820"><br>
-  <sub><b>1. Landing</b> — one real post placed against its own channel (median, spread, n), the three layers (statistics → NLP → knowledge base) followed through that post, two dashboard panels on live data, and the pipeline from the Threads API to the page, each step with its real status.</sub>
+  <img src="docs/screenshots/landing.png" alt="Landing page: one content unit placed against its channel, the three layers, three dashboard panels, the pipeline diagram" width="820"><br>
+  <sub><b>1. Landing</b> — one real content unit placed against its own channel (median, spread, n), the three layers (statistics → NLP → knowledge base) followed through it, the three Topics panels of the dashboard on live data, and the pipeline from the Threads API to the page, each step with its real status.</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/overview.png" alt="Overview tab: hero band, Key numbers and Timeline Brush" width="820"><br>
-  <sub><b>2. Overview</b> — the window's median engagement rate in a hero band with Key numbers, the daily-views chart with the drag-to-rescale Timeline Brush, and the top content units in the selected window.</sub>
+  <img src="docs/screenshots/overview.png" alt="Overview tab: Timeline Brush, hero band and Key numbers" width="820"><br>
+  <sub><b>2. Overview</b> — the daily-views chart with the drag-to-rescale Timeline Brush, then the window's median engagement rate in a hero band with Key numbers, and the top content units in the selected window.</sub>
 </p>
 
 <p align="center">

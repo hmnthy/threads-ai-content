@@ -3,7 +3,7 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-898%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-902%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -32,13 +32,13 @@ multi-tenant, et ça n'a pas vocation à le devenir.
 Le produit en quatre étapes — du pitch jusqu'aux sujets découverts et à la façon dont chacun se compare au reste du compte.
 
 <p align="center">
-  <img src="docs/screenshots/landing.png" alt="Landing page: one post placed against its channel, the three layers, two dashboard panels, the pipeline diagram" width="820"><br>
-  <sub><b>1. Landing</b> — un vrai post placé face à sa propre chaîne (médiane, dispersion, n), les trois couches (statistiques → NLP → base de connaissances) suivies à travers ce post, deux panneaux du dashboard sur les données réelles, et le pipeline de l'API Threads jusqu'à la page, chaque étape avec son statut réel.</sub>
+  <img src="docs/screenshots/landing.png" alt="Landing page: one content unit placed against its channel, the three layers, three dashboard panels, the pipeline diagram" width="820"><br>
+  <sub><b>1. Landing</b> — une vraie content unit placée face à sa propre chaîne (médiane, dispersion, n), les trois couches (statistiques → NLP → base de connaissances) suivies à travers elle, les trois panneaux Topics du dashboard sur les données réelles, et le pipeline de l'API Threads jusqu'à la page, chaque étape avec son statut réel.</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/overview.png" alt="Overview tab: hero band, Key numbers and Timeline Brush" width="820"><br>
-  <sub><b>2. Overview</b> — le taux d'engagement médian de la fenêtre dans un bandeau principal avec les Key numbers, graphique des vues quotidiennes avec le Timeline Brush (glisser pour recalculer), et les contenus les plus performants sur la fenêtre sélectionnée.</sub>
+  <img src="docs/screenshots/overview.png" alt="Overview tab: Timeline Brush, hero band and Key numbers" width="820"><br>
+  <sub><b>2. Overview</b> — le graphique des vues quotidiennes avec le Timeline Brush (glisser pour recalculer), puis le taux d'engagement médian de la fenêtre dans un bandeau principal avec les Key numbers, et les contenus les plus performants sur la fenêtre sélectionnée.</sub>
 </p>
 
 <p align="center">
