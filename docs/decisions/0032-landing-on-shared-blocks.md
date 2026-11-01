@@ -25,35 +25,35 @@
 ## Quyết định
 
 1. **Landing dùng lại chính các khối của trang app** (C2): ngữ cảnh `LandingBlocks`
-   (`src/dashboard/src/components/AppBlock.tsx:25`) đổi hình khối theo tầng B — tiêu đề lùi 1 cấp (X1, component tiêu
-   đề `H`, `:43`), panel bo 20px (X3), "Method and limits" thu gọn sẵn (X5), link thuật ngữ trỏ sang bảng thuật ngữ của
-   /topics (`TermMore`, `:497`), số + tên ngắn của khối theo id. Section Proof (`LandingProofSection.tsx:23`) = 3 khối
-   của /topics: chủ đề + bản đồ 3D nhiều màu (`TopicProfilePanel`, bỏ bảng mọi content unit, `TopicsView.tsx:151`),
-   topic so với kênh (`TopicEngagementPanel`, `LandingProof.tsx:39` — câu hỏi "differ" như /topics), độ bền
-   (`StabilityPanel`, `TopicsView.tsx:621`). Bản landing riêng của panel engagement và panel cấu trúc bỏ.
+   (`src/dashboard/src/components/AppBlock.tsx:25#LandingBlocks`) đổi hình khối theo tầng B — tiêu đề lùi 1 cấp (X1, component tiêu
+   đề `H`, `:43#H`), panel bo 20px (X3), "Method and limits" thu gọn sẵn (X5), link thuật ngữ trỏ sang bảng thuật ngữ của
+   /topics (`TermMore`, `:497#TermMore`), số + tên ngắn của khối theo id. Section Proof (`LandingProofSection.tsx:23#LandingProof`) = 3 khối
+   của /topics: chủ đề + bản đồ 3D nhiều màu (`TopicProfilePanel`, bỏ bảng mọi content unit, `TopicsView.tsx:151#TopicProfilePanel`),
+   topic so với kênh (`TopicEngagementPanel`, `LandingProof.tsx:39#TopicEngagementPanel` — câu hỏi "differ" như /topics), độ bền
+   (`StabilityPanel`, `TopicsView.tsx:621#StabilityPanel`). Bản landing riêng của panel engagement và panel cấu trúc bỏ.
 2. **Panel hero theo khuôn khối chung**: tiêu đề = chính câu hỏi (h3 26px), câu trả lời trong khung ANSWER trải hết bề
    rộng, không hộp Key numbers (dải 4 số phía trên đã đủ), nút chọn tập so sánh là `ToggleGroup` "Compare with", Method
-   có từng bước + công thức (`LandingHero.tsx:232`).
+   có từng bước + công thức (`LandingHero.tsx:232#example`).
 3. **Sổ luật thêm 3 điểm**:
    - ngoại lệ T5 duy nhất (§3b X7): tiêu đề khối của panel hero landing (`[data-ux="hero-panel"]`) được nằm ngay dưới
-     display-1 — máy đo chỉ cho chính tiêu đề đầu tiên của panel đó (`scripts/ux-shots.mjs:188`, 3 trang mẫu trong
+     display-1 — máy đo chỉ cho chính tiêu đề đầu tiên của panel đó (`scripts/ux-shots.mjs:188#heroTitle`, 3 trang mẫu trong
      `ux-shots-fixtures.mjs`);
    - ngoại lệ **X8**: chữ căn giữa của hero và khối CTA cuối giới hạn ~640–720px vì độ dài dòng (ngoại lệ của L5); chữ
      căn trái của các section trải hết bề rộng;
-   - vai **CTA 15px w600** (`TYPE.cta`, `src/dashboard/src/lib/typeScale.ts:35`) cho nút chính của trang giới thiệu
+   - vai **CTA 15px w600** (`TYPE.cta`, `src/dashboard/src/lib/typeScale.ts:35#cta`) cho nút chính của trang giới thiệu
      (hero + CTA cuối); mọi nút / tab / pill khác vẫn là control 13px.
 4. **Bố cục landing**: Problem — đầu section trải ngang, Q1–Q3 thành 3 cột từ 1024px, cùng lưới với 3 tầng Measure /
-   Group / Search của Approach (`LAYER_GRID`, `LandingParts.tsx:55`), mỗi câu hỏi là h3 26px; Approach xếp dọc dưới
+   Group / Search của Approach (`LAYER_GRID`, `LandingParts.tsx:55#LAYER_GRID`), mỗi câu hỏi là h3 26px; Approach xếp dọc dưới
    1024px; sơ đồ "How it works" vẽ ở 960px, dưới 1024px là danh sách các bước xếp dọc. Mọi đầu section (kể cả About,
    CTA) dùng một display-2. Proof có dải mục lục 3 khối ngay dưới đầu section (`SectionIndex`, cùng kiểu mục lục đầu
    trang app). Nút thứ hai của khối CTA là "Explore all topics" → /topics (không đưa ngược lên sơ đồ).
 5. **Một tên "content units" trên cả landing**, định nghĩa một lần dưới dải số đầu trang (cùng câu với các trang app,
-   `src/dashboard/src/lib/appSections.ts:17`). "post" chỉ còn khi nói về đối tượng của chính Threads.
+   `src/dashboard/src/lib/appSections.ts:17#CONTENT_UNIT`). "post" chỉ còn khi nói về đối tượng của chính Threads.
 5b. **Khối CTA cuối không còn logo** (Thy 2026-11-01: viền trắng của logo lộ trên dải tối; `UI-0021-logo-placement` sửa
    theo).
 6. **Overview (đi kèm, Thy 2026-11-01 khi duyệt PR 2b)**: biểu đồ views theo ngày + thanh kéo nằm ngay dưới đầu khối 01
-   (`src/dashboard/src/components/OverviewDashboard.tsx:113`), dải hero + câu trả lời ở dưới — kéo tới đâu số đổi ngay
-   bên dưới; chuỗi bắt đầu từ ngày có content unit đầu tiên (`firstPostDate`, `src/dashboard/src/lib/load.ts:72`), đoạn
+   (`src/dashboard/src/components/OverviewDashboard.tsx:113#TimelineBrush`), dải hero + câu trả lời ở dưới — kéo tới đâu số đổi ngay
+   bên dưới; chuỗi bắt đầu từ ngày có content unit đầu tiên (`firstPostDate`, `src/dashboard/src/lib/load.ts:72#firstPostDate`), đoạn
    trước đó không hiện (thiếu ngày đầu hoặc còn < 2 điểm thì giữ cả chuỗi). Tạm cắt từ ngày đầu − 1 ngày: code-reviewer
    phát hiện (đã kiểm lại trên data thật) backend gắn nhãn chuỗi views sớm 1 ngày — 8/10 bài đăng riêng lẻ có đỉnh views
    ở ngày trước khi đăng; Thy chọn sửa tận gốc ở PR riêng có ADR (sửa `src/api/endpoints.py`, dời nhãn dữ liệu đã lưu,

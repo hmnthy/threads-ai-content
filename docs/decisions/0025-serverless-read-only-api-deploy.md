@@ -21,12 +21,12 @@ số liệu cho bản công khai.
    (danh sách entrypoint chuẩn gồm `main.py` trong `src/`) — không cần đổi cấu trúc thư mục.
 2. **Dung lượng thư viện API đang import:** đo wheel Linux (manylinux x86_64, CPython 3.12) đúng phiên bản trong
    `uv.lock` của mọi gói mà `import src.main` nạp: **474,8 MB** — sát giới hạn. Riêng `lingua-language-detector` 292,0 MB;
-   scipy 106,8; numpy 54,5; phần còn lại ≈ 21,5. `lingua` và `anthropic` bị kéo vào chỉ vì `src/main.py:88` import
+   scipy 106,8; numpy 54,5; phần còn lại ≈ 21,5. `lingua` và `anthropic` bị kéo vào chỉ vì `src/main.py:92#topic_identity` import
    `src.nlp.topic_identity`, và `src/nlp/__init__.py` import sẵn `src.nlp.language` (lingua) + `src.nlp.topics`
    (anthropic). API không dùng 2 thư viện này. Mô phỏng bản sửa (nạp `src.main` khi gói `src.nlp` không chạy
    `__init__.py`) → còn **177,6 MB** (không còn `lingua`, `anthropic`, `jiter`, `docstring_parser`, `httpx2`; chưa tính
    `setuptools` — vẫn bị nạp, chưa đo). Con số này vẫn gồm `httpx`, `python-dotenv` và mã client Threads, vì
-   `src/main.py:64` import `src.api.models` → chạy `src/api/__init__.py` (auth, client, cache, endpoints) —
+   `src/main.py:66#models` import `src.api.models` → chạy `src/api/__init__.py` (auth, client, cache, endpoints) —
    chấp nhận (nhỏ, không chứa token); PR triển khai cân nhắc tách. Số của gói thật đo lại ở lần deploy thử.
 3. **Danh sách thư viện của dự án:** `pyproject.toml` khai báo chung cả bộ ML (`sentence-transformers` → torch,
    `umap-learn`, `hdbscan`, `underthesea`, `scikit-learn`). Tài liệu Vercel không nêu thứ tự ưu tiên giữa
@@ -34,7 +34,7 @@ số liệu cho bản công khai.
    danh sách thư viện riêng.
 4. **DB:** `data/threads.db` 8,5 MB, `journal_mode = delete` (mở chỉ-đọc được, không cần file `-wal`/`-shm`). Không
    chứa token (token lưu riêng, gitignored). `connect()` hiện mở đọc-ghi và tạo thư mục cha
-   (`src/db/schema.py:233-241`) — trên Vercel chỉ ghi được thư mục tạm.
+   (`src/db/schema.py:233-241#connect`) — trên Vercel chỉ ghi được thư mục tạm.
 5. **Phép tính theo khoảng ngày tuỳ chọn:** `GET /analytics/window?start&end` (`src/main.py`, `get_analytics_window`)
    tính lại cho khoảng bất kỳ do thanh thời gian chọn; `account_daily_views` có 775 ngày (2024-09-02 → 2026-10-18) →
    ~300.000 cặp ngày, không tính sẵn được.

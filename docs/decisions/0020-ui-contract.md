@@ -14,7 +14,7 @@
 - Thực tế đã lệch, và không có tín hiệu nào báo:
   - Landing mockup chốt 2026-10-01 vẫn dùng id `cluster_N` (ADR-0018 đổi sang `topic_N` bền), ghi job NLP "daily 03:00"
     (ADR-0017 dời sang 12:30), và ghi "3 bài gần tâm + từ khoá c-TF-IDF được gửi cho Claude" — code gửi tối đa 15 bài,
-    không gửi từ khoá (`src/nlp/topics.py:124`).
+    không gửi từ khoá (`src/nlp/topics.py:124#joined`).
   - Chính các dòng mẫu trong brief sai tên trường: `cluster_runs.validity_index` (cột thật là `dbcv`),
     `topics.topic_id` (cột thật là `id`), bảng `insight_snapshots` (thật là `insights_snapshots`).
   - `src/dashboard/mockups/**` nằm trong `exclude` của sổ luật (ADR-0008), nên không luật nào quét mockup của Claude
@@ -68,7 +68,7 @@
   thay bằng "Mockup bị sổ luật quét ở mức cảnh báo; đầu mỗi phiên thiết kế đọc `docs/design/ui-contract.md` và
   `docs/design/ui-contract-audit.md`."
 - Rủi ro chấp nhận: cột E là bản nháp của Claude Code cho tới khi Claude Design duyệt; số dòng trong `file:line` có thể
-  trôi khi code đổi (máy chỉ kiểm file còn tồn tại, không kiểm số dòng) — rà lại các dòng của ADR liên quan mỗi khi sửa
+  trôi khi code đổi (máy chỉ kiểm file còn tồn tại, không kiểm số dòng — từ ADR-0033 máy kiểm cả số dòng qua tên neo) — rà lại các dòng của ADR liên quan mỗi khi sửa
   ADR đó; cảnh báo có thể bị lờ đi.
 - Xem lại khi: cảnh báo mockup còn nguyên sau 2 gói thiết kế liên tiếp (→ chuyển sang chặn); hợp đồng vượt ~100 dòng
   (→ tách theo trang); có công cụ thiết kế thứ ba ghi vào repo.

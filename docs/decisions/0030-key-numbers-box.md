@@ -12,9 +12,9 @@
   gọi "Key numbers", chỗ gọi "This topic in numbers".
 - Nguyên nhân trong code (2026-10-31):
   - luật 2026-10-29 "hộp số kéo dài bằng cột bên cạnh" (`docs/claude/design-system.md` §3) được làm bằng `flex-1
-    justify-evenly` trên danh sách (`src/dashboard/src/components/AppBlock.tsx:152`): hộp bị kéo cao bằng cột trái, rồi
+    justify-evenly` trên danh sách (`src/dashboard/src/components/AppBlock.tsx:152`): hộp bị kéo cao bằng cột trái, rồi <!-- consistency: allow ref-anchor — trỏ code lúc viết ADR (hộp cũ trước khi viết lại) -->
     khoảng thừa được rải giữa các dòng — cột trái càng dài, lỗ hổng càng to;
-  - trang Topics tự viết hộp thứ 2 cho cùng vai (`src/dashboard/src/components/TopicsView.tsx:404`): nhãn trái, số
+  - trang Topics tự viết hộp thứ 2 cho cùng vai (`src/dashboard/src/components/TopicsView.tsx:404`): nhãn trái, số <!-- consistency: allow ref-anchor — hộp thứ 2 đã bỏ ở PR 2a, trỏ code lúc viết ADR -->
     phải, tên riêng — vi phạm C2 mà máy đo không thấy vì C2 là luật [mắt];
   - số chính 15px bằng cỡ nhãn, nên hộp tên "Key numbers" mà mắt không bắt được số; median, IQR, n của cùng một kết
     quả nằm ở 3 dòng rời.

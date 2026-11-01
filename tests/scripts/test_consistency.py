@@ -7,6 +7,7 @@ thời đã phát hiện ngày 2026-09-30 luôn bị bắt (không ai vô tình 
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -153,6 +154,234 @@ def test_markdown_link_resolves_relative_to_file(tmp_path: Path) -> None:
     }
     root = make_repo(tmp_path, files)
     assert run_dead(root) == ["đường dẫn không tồn tại: docs/claude/nope.md"]
+
+
+# --- ref_anchor (ADR-0033) ------------------------------------------------------------
+
+CODE = "import os\n\n\ndef load(path):\n    return path\n\n\nLIMIT = 5\n"
+
+
+def run_refs(root: Path) -> list[check.Violation]:
+    cfg = check.load_config(root)
+    tracked = check.tracked_files(root)
+    return check.check_ref_anchors(root, tracked, tracked, cfg)
+
+
+def test_ref_anchor_flags_missing_anchor(tmp_path: Path) -> None:
+    root = make_repo(tmp_path, {"docs/a.md": "see `src/x.py:4`\n", "src/x.py": CODE})
+    [v] = run_refs(root)
+    assert (v.path, v.line, v.rule, v.adr) == ("docs/a.md", 1, "ref-anchor", "0033")
+    assert "thiếu tên neo" in v.message
+
+
+def test_ref_anchor_accepts_range_bare_continuation_and_short_name(tmp_path: Path) -> None:
+    content = (
+        "`src/x.py:4#load` and `:8#LIMIT`\n"
+        "next line continues the file: `:4-5#path`\n"
+        "short name `x.py:8#LIMIT`\n"
+    )
+    root = make_repo(tmp_path, {"docs/a.md": content, "src/x.py": CODE})
+    assert run_refs(root) == []
+
+
+def test_ref_anchor_flags_drift_and_past_end_of_file(tmp_path: Path) -> None:
+    content = "`src/x.py:5#load`\n`src/x.py:30#LIMIT`\n"
+    root = make_repo(tmp_path, {"docs/a.md": content, "src/x.py": CODE})
+    drift, past = run_refs(root)
+    assert drift.line == 1 and "không còn chứa `load`" in drift.message
+    assert "giờ ở dòng 4" in drift.fix  # chỗ mới xác định duy nhất → gợi ý --fix-refs
+    assert past.line == 2 and "quá cuối file" in past.message
+
+
+def test_ref_anchor_name_needs_whole_token(tmp_path: Path) -> None:
+    code = 'RULE = "ADR0032-cta-no-logo"\ncta = 1\n'
+    root = make_repo(tmp_path, {"docs/a.md": "`src/r.py:1#cta`\n", "src/r.py": code})
+    [v] = run_refs(root)
+    assert "không còn chứa `cta`" in v.message
+
+
+def test_ref_anchor_inline_allow(tmp_path: Path) -> None:
+    content = "old code `src/x.py:2` <!-- consistency: allow ref-anchor — lịch sử -->\n"
+    root = make_repo(tmp_path, {"docs/a.md": content, "src/x.py": CODE})
+    assert run_refs(root) == []
+
+
+def test_ref_anchor_skips_spans_that_are_not_code_refs(tmp_path: Path) -> None:
+    # Địa chỉ mạng, giờ, `:N` trần không tên neo/ngữ cảnh; đường dẫn đủ không có → dead_path báo
+    content = "`127.0.0.1:8000` `12:30` `:15` `docs/missing.py:3`\n"
+    root = make_repo(tmp_path, {"docs/a.md": content, "src/x.py": CODE})
+    assert run_refs(root) == []
+
+
+def test_ref_anchor_reports_what_it_cannot_read_instead_of_skipping(tmp_path: Path) -> None:
+    content = (
+        "- `util.py:2#load` matches two files\n"
+        "- `src/x.py:L3` `src/x.py:3#a.b` `src/x.py:4 #load`\n"
+        "- `:4#load` has no file before it in this item\n"
+        "- `nothere.py:2#load` names no file\n"
+        "- `src/x.py:04#load` has a leading zero\n"
+        "- `src/x.py:1٢#load` has a non-ASCII digit\n"
+    )
+    files = {"docs/a.md": content, "src/x.py": CODE, "src/a/util.py": CODE, "src/b/util.py": CODE}
+    root = make_repo(tmp_path, files)
+    messages = [(v.line, v.message) for v in run_refs(root)]
+    assert messages == [
+        (1, "`util.py` khớp 2 file"),
+        (2, "không đọc được tham chiếu `src/x.py:L3`"),
+        (2, "không đọc được tham chiếu `src/x.py:3#a.b`"),
+        (2, "không đọc được tham chiếu `src/x.py:4 #load`"),
+        (3, "`:4#load` không biết thuộc file nào"),
+        (4, "không có file `nothere.py`"),
+        (5, "không đọc được tham chiếu `src/x.py:04#load`"),
+        (6, "không đọc được tham chiếu `src/x.py:1٢#load`"),
+    ]
+
+
+def test_ref_anchor_non_file_mention_keeps_context(tmp_path: Path) -> None:
+    # `np.mean` trông như tên file nhưng không có file → không xoá ngữ cảnh `src/x.py`
+    content = "`src/x.py` uses `np.mean` at `:4#load`\n"
+    root = make_repo(tmp_path, {"docs/a.md": content, "src/x.py": CODE})
+    assert run_refs(root) == []
+
+
+def test_ref_anchor_reads_spans_across_lines_and_scopes_context_per_block(tmp_path: Path) -> None:
+    content = (
+        "- text with `a code span\n"
+        "  that wraps` then `src/x.py:2#load` on the wrapped line\n"
+        "\n"
+        "| row 1 | `src/x.py:4#load` |\n"
+        "| row 2 | `:8#LIMIT` |\n"
+        "\n"
+        "a mention of `y.py` then `:1#beta`\n"
+        "```\n"
+        "`src/x.py:2` inside a fenced block is not prose\n"
+        "```\n"
+    )
+    files = {"docs/a.md": content, "src/x.py": CODE, "src/y.py": "beta = 1\n"}
+    root = make_repo(tmp_path, files)
+    found = [(v.line, v.message) for v in run_refs(root)]
+    # dòng 2: span vắt dòng không làm lệch cặp backtick → tham chiếu được đọc (lệch: dòng 2 trống);
+    # dòng 5: mỗi dòng bảng là 1 khối, `:8` không mượn file dòng trên; dòng 7: tên ngắn đặt ngữ cảnh
+    assert found == [
+        (2, "src/x.py:2 không còn chứa `load`"),
+        (5, "`:8#LIMIT` không biết thuộc file nào"),
+    ]
+
+
+def test_ref_anchor_double_backtick_spans_and_hash_continuation_lines(tmp_path: Path) -> None:
+    content = (
+        "a span ``with `inner` ticks`` then `src/x.py:2#load`\n"
+        "a span `opened here\n"
+        "#30 continues the paragraph` then `src/x.py:2#load`\n"
+    )
+    root = make_repo(tmp_path, {"docs/a.md": content, "src/x.py": CODE})
+    # cả 2 tham chiếu được đọc (và lệch: dòng 2 trống) — không bị cặp backtick lệch che mất
+    assert [v.line for v in run_refs(root)] == [1, 3]
+
+
+def test_ref_anchor_allow_on_previous_line_only_when_comment_only(tmp_path: Path) -> None:
+    content = (
+        "old `src/x.py:2` <!-- consistency: allow ref-anchor — lịch sử -->\n"
+        "current `src/x.py:2#load`\n"
+        "<!-- consistency: allow ref-anchor — lịch sử -->\n"
+        "old `src/x.py:2`\n"
+    )
+    root = make_repo(tmp_path, {"docs/a.md": content, "src/x.py": CODE})
+    # allow cuối dòng 1 không miễn dòng 2; dòng 3 chỉ có chú thích → miễn dòng 4
+    assert [v.line for v in run_refs(root)] == [2]
+
+
+def test_ref_anchor_ignores_non_markdown_and_excluded_docs(tmp_path: Path) -> None:
+    files = {
+        "docs/archive/old.md": "`src/x.py:4`\n",
+        "src/notes.py": "# `src/x.py:4`\n",
+        "src/x.py": CODE,
+    }
+    root = make_repo(tmp_path, files)
+    assert run_refs(root) == []
+
+
+def test_locate_anchor_prefers_the_definition_line() -> None:
+    code = ["value = load(1)", "def load(path):", "    return load"]
+    assert check.locate_anchor(code, "load") == 2
+    assert check.locate_anchor(["a = x", "b = x"], "x") is None  # 2 chỗ, không định nghĩa
+    assert check.locate_anchor(["print(x)"], "x") == 1  # 1 chỗ duy nhất
+
+
+def test_fix_refs_moves_unique_anchor_and_keeps_ambiguous_one(tmp_path: Path) -> None:
+    code = "\n\nX = 1\ndef load(path):\n    return path\nprint(X)\n"
+    content = "`src/x.py:1-2#load` · `:2#X` · `:1#path`\r\nkeep CRLF\r\n"
+    root = make_repo(tmp_path, {"docs/a.md": "", "src/x.py": code})
+    # bytes: write_text trên Windows tự đổi "\n" → "\r\n" (thành "\r\r\n")
+    (root / "docs/a.md").write_bytes(content.encode("utf-8"))
+    cfg = check.load_config(root)
+    tracked = check.tracked_files(root)
+    moved = check.fix_ref_anchors(root, tracked, tracked, cfg)
+    after = (root / "docs/a.md").read_bytes().decode("utf-8")
+    # `load`: định nghĩa duy nhất ở dòng 4, khoảng giữ độ rộng 2 dòng; `X`: định nghĩa ở dòng 3;
+    # `path` ở 2 dòng (4, 5), không dòng nào định nghĩa nó → giữ nguyên để người chọn
+    assert moved == 2
+    assert after == "`src/x.py:4-5#load` · `:3#X` · `:1#path`\r\nkeep CRLF\r\n"
+    [left] = run_refs(root)
+    assert "`path`" in left.message
+
+
+def test_fix_refs_follows_the_code_diff_and_keeps_a_usage_line(tmp_path: Path) -> None:
+    # Ở HEAD tham chiếu trỏ đúng dòng DÙNG `rows` (dòng 3), không phải dòng định nghĩa (dòng 2);
+    # code chèn 2 dòng phía trên → dời theo diff giữ dòng dùng (5), không nhảy sang định nghĩa (4)
+    code = "import os\nrows = load()\ntotal = sum(rows)\n"
+    root = make_repo(tmp_path, {"docs/a.md": "`src/x.py:3#rows`\n", "src/x.py": code})
+    (root / "src/x.py").write_text("# new\n# lines\n" + code, encoding="utf-8")
+    cfg = check.load_config(root)
+    tracked = check.tracked_files(root)
+    assert check.fix_ref_anchors(root, tracked, tracked, cfg) == 1
+    assert (root / "docs/a.md").read_text(encoding="utf-8") == "`src/x.py:5#rows`\n"
+    assert run_refs(root) == []
+
+
+def test_fix_refs_leaves_allowed_lines_and_new_files_without_head(tmp_path: Path) -> None:
+    content = (
+        "new file `src/new.py:1#gamma`\n"
+        "history `src/x.py:1#load` <!-- consistency: allow ref-anchor — lịch sử -->\n"
+    )
+    root = make_repo(tmp_path, {"docs/a.md": content, "src/x.py": CODE})
+    # file mới chưa có ở HEAD → không có diff để dời, quay về chỗ duy nhất của Tên
+    (root / "src/new.py").write_text("\n\ngamma = 3\n", encoding="utf-8")
+    cfg = check.load_config(root)
+    known = check.tracked_files(root) + ["src/new.py"]
+    assert check.fix_ref_anchors(root, known, known, cfg) == 1
+    after = (root / "docs/a.md").read_text(encoding="utf-8").splitlines()
+    assert after[0] == "new file `src/new.py:3#gamma`"
+    assert after[1].startswith("history `src/x.py:1#load`")  # dòng có allow: không dời
+
+
+def test_fix_refs_rewrites_inside_a_spaced_double_backtick_span(tmp_path: Path) -> None:
+    code = "\n\ndef load(path):\n    return path\n"
+    root = make_repo(tmp_path, {"docs/a.md": "see `` src/x.py:1#load `` here\n", "src/x.py": code})
+    cfg = check.load_config(root)
+    tracked = check.tracked_files(root)
+    assert check.fix_ref_anchors(root, tracked, tracked, cfg) == 1
+    after = (root / "docs/a.md").read_text(encoding="utf-8")
+    assert after == "see `` src/x.py:3#load `` here\n"  # dấu cách 2 bên giữ nguyên
+
+
+def test_fix_refs_cli_keeps_json_output_clean(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = "\n\ndef load(path):\n    return path\n"
+    root = make_repo(tmp_path, {"docs/a.md": "`src/x.py:1#load`\n", "src/x.py": code})
+    monkeypatch.chdir(root)
+    assert check.main(["--fix-refs", "--json", "--no-pytest"]) == 0
+    out, err = capsys.readouterr()
+    assert json.loads(out) == []  # thông báo "đã dời" ra stderr, không làm hỏng JSON
+    assert "đã dời số dòng của 1 tham chiếu" in err
+    assert (root / "docs/a.md").read_text(encoding="utf-8") == "`src/x.py:3#load`\n"
+
+
+def test_fix_refs_flag_requires_all_mode() -> None:
+    with pytest.raises(SystemExit) as exc:
+        check.main(["--fix-refs", "--staged"])
+    assert exc.value.code == 2
 
 
 # --- readme_sync ----------------------------------------------------------------------

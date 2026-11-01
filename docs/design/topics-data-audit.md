@@ -18,9 +18,9 @@ SELECT COUNT(*) FROM content_units WHERE trim(coalesce(full_text,'')) <> ''; -- 
 
 | Bước | Điều kiện | Code | Số minh hoạ |
 |---|---|---|---|
-| Bài gốc | `posts.is_reply = 0` | `list_root_posts` (`src/db/schema.py:387`) | 152 |
-| Content unit | 1 unit / 1 bài gốc (id unit = id bài gốc) | `rebuild_content_units` (`src/pipeline/ingest.py:90`) | 152 |
-| Unit có chữ | `full_text` khác rỗng sau `strip()` | `src/pipeline/clustering_export.py:71` | 146 |
+| Bài gốc | `posts.is_reply = 0` | `list_root_posts` (`src/db/schema.py:452#list_root_posts`) | 152 |
+| Content unit | 1 unit / 1 bài gốc (id unit = id bài gốc) | `rebuild_content_units` (`src/pipeline/ingest.py:94#rebuild_content_units`) | 152 |
+| Unit có chữ | `full_text` khác rỗng sau `strip()` | `src/pipeline/clustering_export.py:71#clusterable` | 146 |
 | Unit trong lần gom cụm (có embedding, có toạ độ UMAP) | = unit có chữ tại lúc export | khoá `labels_json`; `embeddings` cùng `model_id`; `umap_x` | 146 |
 | Unit đo được | snapshot mới nhất `views > 0` | `split_measurable` (`src/analysis/stats.py`) | 146 trong lần gom cụm; 146 bài gốc |
 
@@ -61,10 +61,10 @@ SELECT COUNT(*) FROM topics WHERE <cột> IS NULL OR <cột> = '' OR <cột> = '
 
 | Trường | Hôm nay | Khi nào có thể null hoặc rỗng (theo code) |
 |---|---|---|
-| `keywords_json` | 9/9 có, 8 từ khoá mỗi topic | `[]` khi lần gom cụm chưa ghi hồ sơ (`TopicOut.keywords`, `src/main.py:183`) |
+| `keywords_json` | 9/9 có, 8 từ khoá mỗi topic | `[]` khi lần gom cụm chưa ghi hồ sơ (`TopicOut.keywords`, `src/main.py:232#keywords`) |
 | `representative_ids_json` | 9/9 có, 3 bài | `[]` khi cụm không có embedding. API bỏ id không còn content unit (`_representatives`) |
 | `centroid_embedding_json` | 9/9 có | null khi file kết quả không có embedding (`clustering_import.py`, nhánh `embeddings is None`) |
-| `labeled_at`, `label_model`, `label_prompt_version` | 9/9 có (đặt tên 2026-10-05, `claude-sonnet-5-5`, prompt v2) | null với topic từ trước ADR-0018 chưa được đặt lại tên (`src/db/schema.py:331`) |
+| `labeled_at`, `label_model`, `label_prompt_version` | 9/9 có (đặt tên 2026-10-05, `claude-sonnet-5-5`, prompt v2) | null với topic từ trước ADR-0018 chưa được đặt lại tên (`src/db/schema.py:352#_migrate`) |
 | `label_anchor_json` | 9/9 có | null cùng điều kiện trên |
 | `description_en` | 9/9 có | cột cho phép null |
 
@@ -118,8 +118,8 @@ null khi lần gom cụm không có embedding. Đây là độ gần tâm, khôn
 ## 8. Cửa sổ Overview
 
 `account_daily_views` từ 2024-09-02 tới 2026-10-07 (764 ngày; dữ liệu theo ngày của Meta trễ khoảng 1–2 ngày).
-Cửa sổ mặc định = 30 ngày cuối của chuỗi này, hoặc toàn bộ nếu chuỗi ngắn hơn (`TimelineBrush.tsx:48-52`). Bài
-thuộc cửa sổ khi `timestamp[:10]` nằm trong [start, end] (`list_root_posts_in_range`, `src/db/schema.py:394`).
+Cửa sổ mặc định = 30 ngày cuối của chuỗi này, hoặc toàn bộ nếu chuỗi ngắn hơn (`TimelineBrush.tsx:49-53#defaultWindow`). Bài
+thuộc cửa sổ khi `timestamp[:10]` nằm trong [start, end] (`list_root_posts_in_range`, `src/db/schema.py:459#list_root_posts_in_range`).
 
 **Kết luận cấu trúc:** cửa sổ cắt theo ngày cuối của **daily views**, không theo ngày hôm nay. Bài đăng sau ngày
 cuối đó chưa vào cửa sổ mặc định cho tới khi Meta trả ngày mới.

@@ -24,7 +24,7 @@ Chiều thay đổi chỉ có một: ADR → `ui-contract.md` → mockup. Khi mo
 
 ### 0.1 Tạo `docs/design/ui-contract.md`
 
-Mỗi dòng ứng với **một ràng buộc mà UI phải tuân**, xuất phát từ một ADR (hoặc từ một sự thật trong code nếu chưa có ADR, ghi `code:` cùng file:line).
+Mỗi dòng ứng với **một ràng buộc mà UI phải tuân**, xuất phát từ một ADR (hoặc từ một sự thật trong code nếu chưa có ADR, ghi `code:` cùng `file:dòng#Tên` — ADR-0033).
 
 ```
 | id | ADR | Khái niệm / trường (A) | Ràng buộc kỹ thuật (B) | Trang (C) | Kiểm bằng (D) | Trình bày (E) |
@@ -32,7 +32,7 @@ Mỗi dòng ứng với **một ràng buộc mà UI phải tuân**, xuất phát
 
 - **id**: `UI-<ADR>-<slug>`, ví dụ `UI-0018-id-not-name`. Không tái dùng id.
 - **A**: tên khái niệm cùng trường thật (bảng.cột hoặc trường API), ví dụ `topics.topic_id`, `TopicOut.label_en`.
-- **B**: điều kỹ thuật đúng, kiểm được bằng code, viết thành 1 câu khẳng định. Không chứa số liệu, chỉ chứa tham số cố định của code (ví dụ "tối đa 15 bài/cụm") kèm file:line.
+- **B**: điều kỹ thuật đúng, kiểm được bằng code, viết thành 1 câu khẳng định. Không chứa số liệu, chỉ chứa tham số cố định của code (ví dụ "tối đa 15 bài/cụm") kèm `file:dòng#Tên` (ADR-0033).
 - **C**: `landing`, `overview`, `analytics`, `topics`, hoặc `all`.
 - **D**: mã luật trong `invariants.toml` nếu kiểm tự động được; `test:` cùng tên test; hoặc `manual`.
 - **E**: quy tắc trình bày, 1 câu. Claude Code điền nháp, Claude Design duyệt.

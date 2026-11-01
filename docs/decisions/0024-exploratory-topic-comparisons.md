@@ -75,7 +75,7 @@ tập bài khác. Lần gom cụm mới thêm cách chia vào output của scrip
 ## Hệ quả
 
 - **Code (`/decision-sweep` của ADR này):** panel 1 bỏ câu khẳng định và câu hover "Its posts tend to get a … rate";
-  `testVerdict` (`src/dashboard/src/lib/landing.ts:74-81`) vẫn trả "higher"/"lower" để chọn topic được nêu tên, nhưng
+  `testVerdict` (`src/dashboard/src/lib/landing.ts:251-258#testVerdict`) vẫn trả "higher"/"lower" để chọn topic được nêu tên, nhưng
   chữ dựng từ đó là gợi ý ("For now, … stands out", "a lead, not a finding") — qua `copy-reviewer`, Thy duyệt từng
   câu 2026-10-18, ghi `docs/design/ui-contract-audit.md`. Thy chọn thêm: đánh dấu cả topic thấp hơn — chưa có token
   màu, chuyển Claude Design.

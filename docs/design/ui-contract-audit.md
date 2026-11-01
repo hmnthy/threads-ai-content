@@ -292,7 +292,7 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
    `design-system.dc.html` ghi màu Blue cho "follower geography": dữ liệu đó chưa có trong DB hay API — chỉ là ý nghĩa
    màu, không phải lời hứa tính năng.
 3. **Claude Code đã sửa trong tài liệu của Claude Design (dữ kiện kỹ thuật):** 2026-10-06 — `landing-handoff.md`
-   `src/main.py:258` → `:270`, 4 chỗ "chờ Câu hỏi mở" → id hợp đồng; `topics-brief-for-claude-code.md` 2 dòng "Câu hỏi
+   `src/main.py:258` → `:270`, 4 chỗ "chờ Câu hỏi mở" → id hợp đồng; `topics-brief-for-claude-code.md` 2 dòng "Câu hỏi <!-- consistency: allow ref-anchor — ghi lại tham chiếu cũ trước khi sửa -->
    mở 1 / 2" → "Đã chốt"; `brief-ui-contract-review-2026-10-06.md` gắn `consistency: allow ADR0001-coming-soon`.
    2026-10-07 — `landing-handoff.md` §0.5 dòng UI-0017-run-time: thêm `run_at` thật (`cluster_runs.id = 3`); PR 10 —
    `landing-handoff.md` §0 (bảng A, B) và §4: trường đã có API trỏ tới `/topics`, `/pipeline/summary`;
@@ -300,7 +300,7 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
    dùng mà §2 chưa có) — mockup nên gọi đúng tên token này.
    2026-10-09 (ADR-0023) — `topics-proposal.md` §2: engine so sánh là Brunner-Munzel (không còn Mann-Whitney), họ
    Holm 27 phép so (không còn 9); §1 bảng trường: engine Brunner-Munzel, `holm_adjust` đã có, nhóm so sánh đã
-   chốt. `landing-handoff.md` §4 dòng δ/Holm: "chưa có API — Việc 3"; §0 bảng A dòng "Cliff's δ, p, p Holm": việc repo đã làm/còn thiếu, ghi chú họ 27; ref `src/main.py:270` → `:302`. `topics-brief-for-claude-code.md` Việc 1:
+   chốt. `landing-handoff.md` §4 dòng δ/Holm: "chưa có API — Việc 3"; §0 bảng A dòng "Cliff's δ, p, p Holm": việc repo đã làm/còn thiếu, ghi chú họ 27; ref `src/main.py:270` → `:302`. `topics-brief-for-claude-code.md` Việc 1: <!-- consistency: allow ref-anchor — ghi lại tham chiếu cũ trước khi sửa -->
    ghi chú "đã chốt ở ADR-0023" (1a–1f + 1h), Việc 3: `holm_adjust` đã có.
 4. **Tầng reach (ADR-0012)** chưa có trên mockup nào: `UI-0012-reach-tiers`, `UI-0012-raw-views-reference`,
    `UI-0012-not-tiered` là ràng buộc cho lần thiết kế Analytics / Topics tới; mốc so sánh mô tả là "the channel's recent

@@ -13,12 +13,15 @@ Các kiểm tra:
 7. ui_contract  — hợp đồng UI (ADR-0020): `ui-contract.md` xét đủ mọi ADR, mốc "Cập nhật tới"
                   không tụt sau ADR mới nhất, id không trùng, luật/test ở cột "Kiểm bằng" có thật;
                   ADR từ `ui_impact_from` có mục "### Hệ quả UI"
+8. ref_anchor   — tham chiếu code trong docs ghi `path:N#Tên`, dòng N (…M) còn chứa Tên (ADR-0033);
+                  thứ trông như tham chiếu mà không đọc được / tên file trùng → vi phạm;
+                  `--fix-refs` dời số theo diff code so với HEAD, không thì về chỗ duy nhất
 
 Mockup (`mockup_paths`, của Claude Design) chỉ bị quét bởi luật forbid có `mockups = true`, và
 vi phạm ở đó là CẢNH BÁO (severity "warn"): in ra, ghi audit, nhưng không chặn commit (ADR-0020).
 
 Ngoại lệ có dấu vết: chú thích `consistency: allow <rule-id>` trên cùng dòng hoặc dòng
-ngay trước. Dùng:  uv run python -m scripts.consistency.check --all [--json]
+ngay trước. Dùng:  uv run python -m scripts.consistency.check --all [--json] [--fix-refs]
 
 Harness Claude Code (`.claude/`) gitignored, có kho git riêng (ADR-0027): --all quét thêm bản
 trên đĩa (nếu có) để /decision-sweep vẫn phủ skill/agent/rule; --commit, --staged và CI không quét
@@ -33,6 +36,7 @@ file đang sửa (VD thêm test làm README ghi sai số test) — chỉ quét f
 from __future__ import annotations
 
 import argparse
+import difflib
 import fnmatch
 import json
 import os
@@ -42,6 +46,7 @@ import subprocess
 import sys
 import tomllib
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -739,6 +744,336 @@ def check_ui_contract(root: Path, cfg: Config, tracked: list[str]) -> list[Viola
     return out
 
 
+# --- 8. ref_anchor --------------------------------------------------------------------
+
+# Tham chiếu code trong docs (ADR-0033): `path:N#Tên`, `path:N-M#Tên`, hoặc `:N#Tên` (cùng file
+# với file nhắc gần nhất trước nó trong tài liệu). Số dòng trôi mỗi khi code thêm/bớt dòng; tên neo
+# cho máy biết dòng đó PHẢI chứa gì, và cho `--fix-refs` tìm lại chỗ mới.
+REF_RULE = "ref-anchor"
+_REF = re.compile(
+    # Số dòng: chữ số ASCII, không 0 đứng đầu (`\d` còn khớp chữ số Unicode như `٢`) — `:03`, `:1٢`
+    # rơi về `_LOOSE_REF` → báo "không đọc được"; nhờ vậy chuỗi gốc luôn chứa đúng `:{int(a)}`
+    r"^(?P<path>[\w./()\[\]-]+\.\w+)?:(?P<a>[1-9][0-9]*)(?:-(?P<b>[1-9][0-9]*))?"
+    r"(?:#(?P<anchor>[A-Za-z_$][\w$-]*))?$"
+)
+# Ranh giới tên neo: không dính chữ/số/_/$/- hai bên (`cta` không khớp trong `ADR0032-cta-no-logo`)
+_ANCHOR_EDGE = r"[\w$-]"
+
+
+# Trông như tham chiếu code (`x.py:3`, `x.py:L3`, `x.py:3 #f`, `x.py:3#a.b`, `:3`): `_REF` không đọc
+# được thì BÁO LỖI, không bỏ qua — bộ kiểm không được im lặng khi gặp thứ nó không hiểu
+_LOOSE_REF = re.compile(r"^(?:[\w./()\[\]-]+\.[A-Za-z]\w*)?:L?\d")
+# Tên file / đường dẫn nhắc trong câu (không số dòng) — ngữ cảnh cho `:N` trần phía sau
+_FILE_LIKE = re.compile(r"^[\w./()\[\]-]+\.[A-Za-z]\w*$")
+_FENCE = re.compile(r"^\s*(?:```|~~~)")
+# Đầu 1 khối markdown mới (mục danh sách, tiêu đề, dòng bảng): code span và ngữ cảnh `:N` không vắt
+# qua ranh giới khối; trong 1 khối thì vắt dòng được — gần CommonMark (không xử lý chú thích HTML,
+# khối code thụt lề)
+_BLOCK_START = re.compile(r"^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}(?:\s|$)|\|)")
+# Code span: mở và đóng bằng chuỗi backtick CÙNG độ dài (``a`b`` là 1 span), như CommonMark
+_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.S)
+
+
+@dataclass(frozen=True)
+class CodeRef:
+    line: int  # chỉ số dòng 0-based trong tài liệu
+    start: int  # vị trí nội dung trong backtick (không gồm dấu `)
+    end: int
+    file: str
+    a: int
+    b: int
+    anchor: str | None
+    error: str | None = None  # không đọc được / không biết file → vi phạm, không bỏ qua
+
+
+def _file_index(known: list[str]) -> tuple[frozenset[str], dict[str, list[str]]]:
+    by_base: dict[str, list[str]] = {}
+    for f in known:
+        by_base.setdefault(f.rsplit("/", 1)[-1], []).append(f)
+    return frozenset(known), by_base
+
+
+def _ref_file_candidates(
+    name: str, known: frozenset[str], by_base: dict[str, list[str]]
+) -> list[str]:
+    """Đường dẫn đầy đủ, hoặc mọi file có tên ngắn / đuôi đường dẫn khớp (VD `LandingHero.tsx`)."""
+    if name in known:
+        return [name]
+    base = name.rsplit("/", 1)[-1]
+    return [f for f in by_base.get(base, []) if f == name or f.endswith("/" + name)]
+
+
+def _md_blocks(lines: list[str]) -> list[list[int]]:
+    """Chỉ số dòng theo từng khối markdown (đoạn văn, mục danh sách, dòng bảng); bỏ code rào."""
+    blocks: list[list[int]] = []
+    current: list[int] = []
+    fenced = False
+    for i, raw in enumerate(lines):
+        line = raw.rstrip("\r")
+        if _FENCE.match(line) or fenced or not line.strip() or _BLOCK_START.match(line):
+            if current:
+                blocks.append(current)
+            current = []
+        if _FENCE.match(line):
+            fenced = not fenced
+            continue
+        if fenced or not line.strip():
+            continue
+        current.append(i)
+    if current:
+        blocks.append(current)
+    return blocks
+
+
+def iter_code_refs(
+    lines: list[str], known: frozenset[str], by_base: dict[str, list[str]]
+) -> list[CodeRef]:
+    refs: list[CodeRef] = []
+    for block in _md_blocks(lines):
+        starts: list[int] = []  # vị trí đầu mỗi dòng trong văn bản ghép của khối
+        pos = 0
+        for i in block:
+            starts.append(pos)
+            pos += len(lines[i].rstrip("\r")) + 1
+        text = "\n".join(lines[i].rstrip("\r") for i in block)
+        context: str | None = None  # file nhắc gần nhất trong khối — `:N` trần thuộc file này
+        for m in _SPAN.finditer(text):
+            span, offset = m.group(2), m.start(2)
+            if "\n" in span:
+                continue  # span vắt dòng không phải tham chiếu, nhưng vẫn giữ đúng cặp backtick
+            if len(span) > 2 and span[0] == span[-1] == " " and span.strip():
+                span, offset = span[1:-1], offset + 1  # `` `x` `` — bỏ 1 dấu cách mỗi bên
+            k = max(j for j, s in enumerate(starts) if s <= offset)
+            line, col = block[k], offset - starts[k]
+            r = _REF.match(span)
+            if r is None:
+                if _LOOSE_REF.match(span):
+                    refs.append(_bad(line, col, span, f"không đọc được tham chiếu `{span}`"))
+                elif " " not in span and _FILE_LIKE.match(_clean_candidate(span) or ""):
+                    cands = _ref_file_candidates(_clean_candidate(span) or "", known, by_base)
+                    if cands:  # trông như tên file mà không có file (VD `np.mean`) → giữ ngữ cảnh
+                        context = cands[0] if len(cands) == 1 else None
+                continue
+            path = r.group("path")
+            if path:
+                cands = _ref_file_candidates(path, known, by_base)
+                context = cands[0] if len(cands) == 1 else None
+                if len(cands) > 1:
+                    refs.append(_bad(line, col, span, f"`{path}` khớp {len(cands)} file"))
+                    continue
+                if context is None:
+                    # Đường dẫn đủ không có → dead_path đã báo; tên ngắn không có → báo ở đây
+                    if "/" not in path and _FILE_LIKE.match(path):
+                        refs.append(_bad(line, col, span, f"không có file `{path}`"))
+                    continue  # còn lại không phải tham chiếu code (VD `127.0.0.1:8000`)
+            elif context is None:
+                if r.group("anchor"):
+                    refs.append(_bad(line, col, span, f"`{span}` không biết thuộc file nào"))
+                continue  # `:N` trần không ngữ cảnh, không tên neo — không phải tham chiếu (VD giờ)
+            a = int(r.group("a"))
+            refs.append(
+                CodeRef(
+                    line,
+                    col,
+                    col + len(span),
+                    context,
+                    a,
+                    int(r.group("b") or a),
+                    r.group("anchor"),
+                )
+            )
+    return refs
+
+
+def _bad(line: int, col: int, span: str, error: str) -> CodeRef:
+    return CodeRef(line, col, col + len(span), "", 0, 0, None, error)
+
+
+def _ref_allowed(lines: list[str], idx: int) -> bool:
+    """Allow `ref-anchor` trên chính dòng đó, hoặc ở dòng trước khi dòng trước CHỈ có chú thích —
+    dấu allow cuối 1 dòng lịch sử không được miễn luôn tham chiếu hiện hành ở dòng sau."""
+    if _allowed_inline(lines[idx : idx + 1], 0, REF_RULE):
+        return True
+    prev = lines[idx - 1].strip() if idx > 0 else ""
+    only_comment = prev.startswith("<!--") and prev.endswith("-->")
+    return only_comment and _allowed_inline([prev], 0, REF_RULE)
+
+
+def _has_anchor(text: str, anchor: str) -> bool:
+    return re.search(rf"(?<!{_ANCHOR_EDGE}){re.escape(anchor)}(?!{_ANCHOR_EDGE})", text) is not None
+
+
+def locate_anchor(code: list[str], anchor: str) -> int | None:
+    """Dòng (1-based) của tên neo nếu xác định được duy nhất: ưu tiên dòng ĐỊNH NGHĨA (def/class/
+    function/const/…, hoặc `tên =` / `tên:` đầu dòng); không thì dòng duy nhất chứa tên. Nhiều chỗ
+    → None: để người chọn, không đoán (dời nhầm rồi thì kiểm tra cũng qua)."""
+    a = re.escape(anchor)
+    definition = re.compile(
+        rf"\b(?:def|class|function|const|let|var|interface|type|enum)\s+{a}(?!{_ANCHOR_EDGE})"
+        rf"|^\s*[\"']?{a}[\"']?\s*[:=]"
+    )
+    hits = [n for n, text in enumerate(code, 1) if _has_anchor(text, anchor)]
+    defs = [n for n in hits if definition.search(code[n - 1])]
+    if len(defs) == 1:
+        return defs[0]
+    return hits[0] if len(hits) == 1 else None
+
+
+def _ref_problem(ref: CodeRef, code: list[str]) -> tuple[str, str] | None:
+    """(thông điệp, cách sửa) nếu tham chiếu hỏng; None nếu đúng."""
+    if ref.error is not None:
+        return (
+            ref.error,
+            "Ghi `path:N#Tên` (ADR-0033); tên file ngắn chỉ dùng khi repo có đúng 1 file trùng tên",
+        )
+    shown = f"{ref.file}:{ref.a}" + (f"-{ref.b}" if ref.b != ref.a else "")
+    if ref.anchor is None:
+        return (
+            f"tham chiếu {shown} thiếu tên neo",
+            f"Ghi `…:{ref.a}#Tên` — Tên là hàm/biến/khoá phải có ở dòng đó (ADR-0033)",
+        )
+    if ref.b < ref.a or ref.b > len(code):
+        return (f"{shown} quá cuối file ({len(code)} dòng)", _fix_hint(ref, code))
+    if not any(_has_anchor(text, ref.anchor) for text in code[ref.a - 1 : ref.b]):
+        return (f"{shown} không còn chứa `{ref.anchor}`", _fix_hint(ref, code))
+    return None
+
+
+def _fix_hint(ref: CodeRef, code: list[str]) -> str:
+    assert ref.anchor is not None
+    found = locate_anchor(code, ref.anchor)
+    if found is not None:
+        return f"`{ref.anchor}` giờ ở dòng {found} — chạy `check --fix-refs` để tự dời số"
+    return f"`{ref.anchor}` không có hoặc có ở nhiều chỗ trong file — sửa tay số dòng hoặc tên neo"
+
+
+def _code_lines(root: Path, rel: str, cache: dict[str, list[str] | None]) -> list[str] | None:
+    if rel not in cache:
+        text = read_text(root / rel)
+        cache[rel] = text.split("\n") if text is not None else None
+    return cache[rel]
+
+
+def check_ref_anchors(
+    root: Path, files: list[str], known: list[str], cfg: Config
+) -> list[Violation]:
+    index, by_base = _file_index(known)
+    cache: dict[str, list[str] | None] = {}
+    out: list[Violation] = []
+    for rel in files:
+        if not rel.endswith(".md") or _matches(rel, cfg.exclude):
+            continue
+        text = read_text(root / rel)
+        if text is None:
+            continue
+        lines = text.split("\n")
+        for ref in iter_code_refs(lines, index, by_base):
+            code = [] if ref.error else _code_lines(root, ref.file, cache)
+            if code is None:
+                continue  # file nhị phân / quá lớn — không phải code đọc được
+            problem = _ref_problem(ref, code)
+            if problem is None or _ref_allowed(lines, ref.line):
+                continue
+            out.append(
+                Violation(
+                    check="ref_anchor",
+                    rule=REF_RULE,
+                    path=rel,
+                    line=ref.line + 1,
+                    message=problem[0],
+                    fix=problem[1],
+                    adr="0033",
+                )
+            )
+    return out
+
+
+def _map_line(opcodes: Sequence[tuple[str, int, int, int, int]], n: int) -> int | None:
+    """Dòng n (1-based) của bản cũ ứng với dòng nào ở bản mới — chỉ khi nằm trong đoạn không đổi."""
+    for tag, i1, i2, j1, _j2 in opcodes:
+        if i1 <= n - 1 < i2:
+            return j1 + (n - 1 - i1) + 1 if tag == "equal" else None
+    return None
+
+
+_HeadDiff = tuple[list[str], difflib.SequenceMatcher[str]] | None
+
+
+def _diff_target(
+    root: Path, ref: CodeRef, code: list[str], cache: dict[str, _HeadDiff]
+) -> tuple[int, int] | None:
+    """Vị trí mới theo diff file code so với HEAD: tham chiếu đúng ở HEAD thì dời đúng theo số dòng
+    code đã xê dịch — giữ dòng tác giả chọn, kể cả dòng DÙNG tên chứ không phải định nghĩa."""
+    assert ref.anchor is not None
+    if ref.file not in cache:
+        old = _git(root, "show", f"HEAD:{ref.file}")
+        # Bỏ "\r": file trên đĩa Windows có thể là CRLF, bản trong git là LF
+        old_lines = [t.rstrip("\r") for t in old.split("\n")]
+        new_lines = [t.rstrip("\r") for t in code]
+        cache[ref.file] = (
+            None
+            if not old
+            else (old_lines, difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False))
+        )
+    entry = cache[ref.file]
+    if entry is None:
+        return None
+    old_lines, matcher = entry
+    if ref.b > len(old_lines) or not any(
+        _has_anchor(t, ref.anchor) for t in old_lines[ref.a - 1 : ref.b]
+    ):
+        return None  # ở HEAD đã lệch → diff không nói được tác giả định trỏ đâu
+    opcodes = matcher.get_opcodes()
+    a = _map_line(opcodes, ref.a)
+    if a is None:
+        return None
+    b = _map_line(opcodes, ref.b) or a + ref.b - ref.a
+    if not any(_has_anchor(t, ref.anchor) for t in code[a - 1 : b]):
+        return None
+    return a, b
+
+
+def fix_ref_anchors(root: Path, files: list[str], known: list[str], cfg: Config) -> int:
+    """Dời số dòng của tham chiếu có tên neo: theo diff file code so với HEAD nếu được, không thì về
+    chỗ mới của Tên khi xác định duy nhất. Bỏ qua dòng có `allow ref-anchor` (tham chiếu lịch sử
+    cố ý trỏ code cũ). Trả số tham chiếu đã dời."""
+    index, by_base = _file_index(known)
+    cache: dict[str, list[str] | None] = {}
+    head: dict[str, _HeadDiff] = {}
+    moved = 0
+    for rel in files:
+        if not rel.endswith(".md") or _matches(rel, cfg.exclude):
+            continue
+        text = read_text(root / rel)
+        if text is None:
+            continue
+        lines = text.split("\n")
+        changed = False
+        # Từ phải sang trái để vị trí các tham chiếu còn lại trên cùng dòng không đổi
+        for ref in sorted(iter_code_refs(lines, index, by_base), key=lambda r: (r.line, -r.start)):
+            if ref.error or ref.anchor is None or _ref_allowed(lines, ref.line):
+                continue
+            code = _code_lines(root, ref.file, cache)
+            if code is None or _ref_problem(ref, code) is None:
+                continue
+            target = _diff_target(root, ref, code, head)
+            if target is None:
+                found = locate_anchor(code, ref.anchor)
+                if found is None:
+                    continue
+                target = (found, found + ref.b - ref.a)
+            old = lines[ref.line][ref.start : ref.end]
+            prefix = old[: old.index(f":{ref.a}")]
+            span = f"{target[0]}" if target[1] == target[0] else f"{target[0]}-{target[1]}"
+            new = f"{prefix}:{span}#{ref.anchor}"
+            lines[ref.line] = lines[ref.line][: ref.start] + new + lines[ref.line][ref.end :]
+            moved += 1
+            changed = True
+        if changed:
+            (root / rel).write_bytes("\n".join(lines).encode("utf-8"))
+    return moved
+
+
 # --- Chạy -----------------------------------------------------------------------------
 
 
@@ -771,7 +1106,10 @@ def run(root: Path, mode: str, with_pytest: bool = True) -> list[Violation]:
         files += [f for f in harness_files(root) if f not in listed]
     else:  # commit: file chưa track không thuộc commit (pre-commit không cất chúng đi)
         files = tracked
+    # --all: cả file harness trên máy (tên ngắn của file harness phân giải được)
+    known = tracked + untracked_files(root) + harness_files(root) if mode == "all" else tracked
     violations = check_forbid(root, files, cfg)
+    violations += check_ref_anchors(root, files, known, cfg)
     # Cả --all: CI chỉ chạy --all — lưới thứ hai khi commit lọt pre-commit
     # (--no-verify, clone chưa cài hook)
     violations += check_harness_not_tracked((staged or []) if mode == "staged" else tracked)
@@ -830,6 +1168,11 @@ def main(argv: list[str] | None = None) -> int:
     group.add_argument(
         "--commit", action="store_true", help="pre-commit: toàn repo + README theo file stage"
     )
+    parser.add_argument(
+        "--fix-refs",
+        action="store_true",
+        help="dời số dòng của tham chiếu `path:N#Tên` về chỗ mới của Tên, rồi kiểm như --all",
+    )
     parser.add_argument("--json", action="store_true", help="xuất JSON")
     parser.add_argument("--no-pytest", action="store_true", help="bỏ kiểm tra số test")
     parser.add_argument(
@@ -842,7 +1185,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = Path(_git(Path.cwd(), "rev-parse", "--show-toplevel").strip() or ".")
     mode = "staged" if args.staged else "commit" if args.commit else "all"
+    if args.fix_refs and mode != "all":
+        parser.error("--fix-refs chỉ chạy với --all (sửa file trên đĩa)")
     try:
+        if args.fix_refs:
+            known = tracked_files(root) + untracked_files(root)
+            moved = fix_ref_anchors(root, known, known, load_config(root))
+            # stderr: không làm hỏng đầu ra --json / --count
+            print(f"ref_anchor: đã dời số dòng của {moved} tham chiếu", file=sys.stderr)
         violations = run(root, mode, with_pytest=not (args.no_pytest or args.count))
     except (tomllib.TOMLDecodeError, re.error, KeyError) as exc:
         # Sổ luật hỏng phải chặn commit với thông báo rõ ràng, không phải traceback
