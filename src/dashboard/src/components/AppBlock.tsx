@@ -11,8 +11,9 @@ import { CaretDown } from "@phosphor-icons/react";
 //   26px w700  h2 tiêu đề khối (kèm số thứ tự + dòng mục đích + kẻ đậm dưới)
 //   20px w600  h3 tiêu đề mục trong khối
 //   18px w600  câu trả lời của khối, trong khung nhấn
+//   28px w700  số chính trong hộp Key numbers (vai metric, tabular — ADR-0030 K2)
 //   17px w600  h4 tiêu đề hộp con (Key numbers, How it is computed, Limits…)
-//   15px       thân bài, gạch đầu dòng, nhãn hàng của bảng số; số chính 15px w700 (nhấn bằng độ đậm, không bằng cỡ)
+//   15px       thân bài, gạch đầu dòng, nhãn hàng của bảng số · nhãn dưới số trong hộp Key numbers (w600)
 //   13px       chữ trong ô bảng, ghi chú phụ
 //   12.5px     mono: công thức, số trong bảng — chỉ mono
 //   12px w600  header cột bảng, nhãn nhỏ (eyebrow "Answer")
@@ -29,9 +30,178 @@ export const TYPE = {
   mono: "font-mono text-[12.5px] leading-[1.7] tabular-nums",
   label: "text-[12px] font-medium leading-[1.5] text-text-muted",
   th: "text-[12px] font-semibold text-text-secondary",
+  metric: "text-[28px] font-bold leading-[1.15] tracking-[-0.02em] tabular-nums text-text-primary",
+  eyebrow: "text-[12px] font-semibold tracking-[0.06em] text-text-muted",
   // Thy 2026-10-29: chữ chạy hết bề rộng khung chứa — không chừa khoảng trắng bên phải (bỏ giới hạn 72ch)
   measure: "",
 } as const;
+
+// Đầu trang app, dùng chung cho mọi trang (Thy 2026-10-31: Overview + Analytics căn giữa như Topics, ADR-0029 C2):
+// eyebrow trang (label 12px amber) → h1 40px → câu hỏi của trang 18px → chip mốc dữ liệu → (tuỳ chọn) mục lục khối.
+// Nội dung nằm trong cùng khung 1280px với Nav và <main> — thiếu khung thì trên màn hình rộng tiêu đề dạt mép trái
+// `sections` = dải mục lục khối (số + tên ngắn, cùng chữ với nhãn trên tiêu đề mỗi khối) — thấy cả trang trong 1
+// dòng, nhảy thẳng tới khối (Thy 2026-10-29: đọc nhanh không sót khối)
+export type PageSection = readonly [id: string, n: string, label: string];
+
+export function PageHeader({
+  eyebrow,
+  title,
+  question,
+  chips,
+  sections,
+  definition,
+}: {
+  eyebrow: string;
+  title: string;
+  question: ReactNode;
+  chips?: ReactNode[];
+  sections?: readonly PageSection[];
+  definition?: ReactNode; // định nghĩa đơn vị đếm của trang, ngay dưới câu hỏi (B3: thuật ngữ định nghĩa trước khi dùng)
+}) {
+  const shown = (chips ?? []).filter((chip) => chip !== null && chip !== false && chip !== "");
+  return (
+    <header className="border-b border-border-hairline bg-bg-card">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col items-center gap-4 px-6 pb-10 pt-12 text-center">
+        <span className="text-[12px] font-semibold tracking-[0.14em] text-amber-700">{eyebrow.toUpperCase()}</span>
+        <h1 className="m-0 text-[40px] font-bold leading-[1.1] tracking-[-0.025em] text-text-primary">{title}</h1>
+        <p className="m-0 max-w-[720px] text-[18px] leading-[1.55] text-text-secondary [text-wrap:balance]">{question}</p>
+        {definition ? <p className={`m-0 max-w-[720px] ${TYPE.body} [text-wrap:balance]`}>{rich(definition)}</p> : null}
+        {shown.length > 0 ? (
+          <p className="m-0 flex flex-wrap justify-center gap-2 font-mono text-[12.5px] text-text-secondary">
+            {shown.map((chip, i) => (
+              <span key={i} className="rounded-full border border-border-hairline bg-bg-sunken px-3 py-1">
+                {chip}
+              </span>
+            ))}
+          </p>
+        ) : null}
+        {sections && sections.length > 0 ? (
+          <nav aria-label="Sections of this page" className="mt-4 w-full border-t border-border-hairline pt-6">
+            <ol className="m-0 flex list-none flex-wrap justify-center gap-2 p-0">
+              {sections.map(([id, n, label]) => (
+                <li key={id}>
+                  <a
+                    href={`#${id}`}
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-border-hairline bg-bg-card px-4 text-[15px] font-medium text-text-primary transition-colors hover:border-amber-600 hover:text-amber-700"
+                  >
+                    <span className="font-mono text-[12.5px] font-semibold text-amber-600">{n}</span>
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+// Nhóm nút bật/tắt — MỘT kiểu cho mọi trang (ux-reviewer 2026-10-31: 3 kiểu toggle trên 3 trang, C2/C3): chọn = viền +
+// nền amber nhạt, chưa chọn = viền mảnh + nền trắng (vẫn trông bấm được), 13px w600, vùng chạm 44px, `aria-pressed`
+export function ToggleGroup<K extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  mono = false,
+}: {
+  label: string; // tên nhóm cho trình đọc màn hình
+  options: readonly { key: K; label: string }[];
+  value: K | null;
+  onChange: (key: K) => void;
+  mono?: boolean; // nhãn là số/mã (VD "30d") → mono 12.5px
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-wrap gap-2">
+      {options.map((option) => {
+        const on = option.key === value;
+        return (
+          <button
+            key={option.key}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(option.key)}
+            className={`inline-flex min-h-[44px] cursor-pointer items-center rounded-full border px-4 font-semibold transition-colors ${
+              mono ? "font-mono text-[12.5px]" : "text-[13px]"
+            } ${
+              on
+                ? "border-amber-600 bg-amber-soft text-amber-700"
+                : "border-border-hairline bg-bg-card text-text-secondary hover:bg-bg-surface hover:text-text-primary"
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Chữ gốc của 1 content unit (tiếng Việt / Pháp) không bao giờ đứng một mình (B2): dòng ngữ cảnh tiếng Anh nằm TRÊN
+// chữ gốc, tiếng Anh đứng trước trong dòng, rồi "original language" (Thy 2026-11-01: người đọc tiếng Anh gặp ngữ cảnh
+// trước, không phải đọc qua 5–9 dòng tiếng Việt). `topic`: tên topic; null = không thuộc topic nào trong lần gom cụm mới
+// nhất (cùng tên "Unclustered" với trang Topics); undefined = chưa qua lần gom cụm nào. `topicCount` = số topic của lần
+// gom cụm mới nhất. `size`: "body" 15px cho danh sách, "cell" 13px trong bảng (một cỡ cho mọi bảng).
+// TOPIC_UNKNOWN = không đọc được thông tin topic lúc này: nhãn trung tính, không khẳng định gì (code-reviewer: "không
+// biết" ≠ "rỗng"); `topicCount` null + chưa có khoá = kênh chưa gom cụm lần nào
+export const TOPIC_UNKNOWN = Object.freeze({ topic: "unknown" } as const);
+export type UnitTopic = string | null | undefined | typeof TOPIC_UNKNOWN;
+
+// Tra topic của 1 content unit từ map phía server (`loadAppContext`) — một cách đọc cho mọi trang
+export function topicOfUnit(topicOf: Record<string, string | null> | null, id: string): UnitTopic {
+  if (topicOf === null) return TOPIC_UNKNOWN;
+  return id in topicOf ? topicOf[id] : undefined;
+}
+
+export function UnitText({
+  text,
+  topic,
+  topicCount = null,
+  size = "body",
+}: {
+  text: string | null;
+  topic: UnitTopic;
+  topicCount?: number | null;
+  size?: "body" | "cell";
+}) {
+  const hasText = text !== null && text.trim() !== "";
+  const context = !hasText
+    ? "No text, so no topic"
+    : topic === TOPIC_UNKNOWN
+      ? "Topic not available right now · original language"
+    : topic === undefined
+      ? topicCount === null
+        ? "Not grouped into topics yet · original language"
+        : "Published after the latest topic run · original language"
+      : topic === null
+        ? `Unclustered: fits none of the ${topicCount ? `${topicCount} ` : ""}topics · original language`
+        : `Topic: ${topic} · original language`;
+  return (
+    <span className="flex min-w-0 flex-col gap-0.5">
+      <span className={TYPE.label}>{context}</span>
+      <span className={size === "body" ? `${TYPE.body} text-text-primary` : `${TYPE.cell} text-text-primary`}>
+        {hasText ? text : "(no text)"}
+      </span>
+    </span>
+  );
+}
+
+// Lỗi tải dữ liệu — câu cho người xem + nút thử lại (§9: error = message + retry; ux-reviewer N9). Chi tiết ở console
+export function LoadError({ onRetry, what = "The data service is not reachable right now." }: { onRetry: () => void; what?: string }) {
+  return (
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border-hairline bg-bg-card p-6">
+      <p className={`m-0 ${TYPE.body}`}>{what}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex min-h-[44px] cursor-pointer items-center rounded-full border border-border-hairline bg-bg-surface px-4 text-[13px] font-semibold text-text-primary hover:border-amber-600 hover:text-amber-700"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
 
 // Khối nội dung của trang: card riêng, đầu khối = số thứ tự + tiêu đề h2 + 1 câu mục đích, kẻ đậm ngăn
 // đầu khối với thân. Mỗi khối một mục đích, thấy được khi lướt (Thy 2026-10-29)
@@ -134,40 +304,72 @@ export function Bullets({ items, tone = "body" }: { items: ReactNode[]; tone?: "
   );
 }
 
-// Số chính, xếp dọc ở cột phải: mỗi số có nhãn, 1 dòng nghĩa và link tới định nghĩa — không số trần
+// Số chính của một khối (ADR-0030, design-system §3b K): mỗi số có nhãn, 1 dòng nghĩa và link tới định nghĩa —
+// không số trần. `share` = số này là một phần của số đứng trước (K4: thanh tỉ lệ + "N% of …")
 export interface KeyNumber {
   value: string;
   label: string;
   note?: ReactNode;
   term?: string; // id mục trong "How every number on this page is computed" (anchor `term-<id>`)
+  share?: { part: number; whole: number; of: string };
 }
 
 const LINK =
   "underline decoration-text-muted decoration-dotted decoration-1 underline-offset-[3px] hover:text-amber-700 hover:decoration-amber-600 hover:decoration-solid";
 
-export function KeyNumbers({ title = "Key numbers", items }: { title?: string; items: KeyNumber[] }) {
+// Hộp Key numbers — component DUY NHẤT cho vai hộp số (K1). Số 28px căn trái trên dòng riêng → nhãn 15px w600 →
+// ghi chú 13px (K2, tối đa 4 số); cao theo nội dung, dính khi ở cột phụ: `self-start` + `lg:sticky lg:top-6` (K3).
+// `scope` = phạm vi hẹp hơn khối chứa (VD topic đang chọn), ghi ở dòng nhãn trên tiêu đề. `level`: 3 khi hộp nằm
+// thẳng dưới tiêu đề khối h2 (tag h3, vai box-title), 4 khi nằm trong mục h3
+export function KeyNumbers({ items, scope, level = 3 }: { items: KeyNumber[]; scope?: string; level?: 3 | 4 }) {
+  const Heading = level === 3 ? "h3" : "h4";
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-warm-border bg-warm-surface px-5 py-5">
-      <h4 className={`m-0 ${TYPE.h4}`}>{title}</h4>
-      <dl className="m-0 flex flex-1 flex-col justify-evenly gap-3.5">
-        {items.map((item) => (
-          <div
-            key={item.label}
-            className="flex flex-col gap-0.5 border-t border-warm-border pt-3.5 first:border-t-0 first:pt-0"
-          >
-            <dt className="flex flex-wrap items-baseline gap-x-2.5">
-              <span className="text-[15px] font-bold tabular-nums text-text-primary">{item.value}</span>
-              {item.term ? (
-                <a href={`#term-${item.term}`} className={`text-[15px] font-semibold text-text-primary ${LINK}`}>
-                  {item.label}
-                </a>
-              ) : (
-                <span className="text-[15px] font-semibold text-text-primary">{item.label}</span>
-              )}
-            </dt>
-            {item.note ? <dd className={`m-0 ${TYPE.note}`}>{rich(item.note)}</dd> : null}
-          </div>
-        ))}
+    <div
+      data-ux="key-numbers"
+      className="flex flex-col gap-4 self-start rounded-xl border border-warm-border bg-warm-surface px-5 py-5 lg:sticky lg:top-6"
+    >
+      <div className="flex flex-col gap-1">
+        {scope ? <span className={TYPE.eyebrow}>{scope.toUpperCase()}</span> : null}
+        <Heading data-ux-role={level === 3 ? "box-title" : undefined} className={`m-0 ${TYPE.h4}`}>
+          Key numbers
+        </Heading>
+      </div>
+      <dl className="m-0 flex flex-col gap-4">
+        {items.map((item) => {
+          // Làm tròn XUỐNG trên số nguyên (nhân trước khi chia — .claude/rules/dashboard.md): 199 / 200 không được đọc
+          // thành "100%" (code-reviewer); phần > 0 mà xuống 0 thì ghi "<1"
+          const percent = item.share && item.share.whole > 0 ? Math.floor((item.share.part * 100) / item.share.whole) : null;
+          const percentText = percent === 0 && item.share && item.share.part > 0 ? "<1" : `${percent}`;
+          return (
+            <div key={item.label} className="flex flex-col gap-1.5 border-t border-warm-border pt-4 first:border-t-0 first:pt-0">
+              <dt className="flex flex-col gap-0.5">
+                <span data-ux="kn-value" className={TYPE.metric}>
+                  {item.value}
+                </span>
+                {item.term ? (
+                  <a data-ux="kn-label" href={`#term-${item.term}`} className={`${TYPE.bodyStrong} ${LINK}`}>
+                    {item.label}
+                  </a>
+                ) : (
+                  <span data-ux="kn-label" className={TYPE.bodyStrong}>
+                    {item.label}
+                  </span>
+                )}
+              </dt>
+              {percent !== null && item.share ? (
+                <dd className="m-0 flex items-center gap-2.5">
+                  <span aria-hidden="true" className="h-1 w-full max-w-[160px] overflow-hidden rounded-full bg-warm-border">
+                    <span className="block h-full rounded-full bg-amber-600" style={{ width: `${percent}%` }} />
+                  </span>
+                  <span className={`${TYPE.note} whitespace-nowrap tabular-nums`}>
+                    {percentText}% of {item.share.of}
+                  </span>
+                </dd>
+              ) : null}
+              {item.note ? <dd className={`m-0 ${TYPE.note}`}>{rich(item.note)}</dd> : null}
+            </div>
+          );
+        })}
       </dl>
     </div>
   );
@@ -183,7 +385,8 @@ export function Answer({ children }: { children: ReactNode }) {
   );
 }
 
-// Câu trả lời + ý chính bên trái, số chính bên phải (cột phải có nội dung — không trống nửa card)
+// Câu trả lời + ý chính bên trái, hộp Key numbers bên phải (dính khi cuộn). `below` (khối trải hết bề rộng) nằm
+// NGOÀI lưới 2 cột: ô dính trượt trong cả lưới, nên khối nằm chung lưới sẽ bị hộp trượt đè lên (ADR-0030 K3)
 export function AnswerRow({
   answer,
   pointsTitle = "What to know",
@@ -200,28 +403,36 @@ export function AnswerRow({
   below?: ReactNode; // khối dài trải hết bề rộng dưới 2 cột — không kéo cột trái dài hơn hộp số
 }) {
   const hasPoints = points !== undefined && points.some((p) => p !== null && p !== false && p !== "");
+  const hasNumbers = keyNumbers !== undefined && keyNumbers.length > 0;
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-      <div className="flex flex-col gap-5">
-        <Answer>{answer}</Answer>
-        {hasPoints ? (
-          <div className="flex flex-col gap-2">
-            <h4 className={`m-0 ${TYPE.h4}`}>{pointsTitle}</h4>
-            <Bullets items={points} />
-          </div>
-        ) : null}
-        {extra}
+    <div className="flex flex-col gap-6">
+      {/* Không có Key numbers → câu trả lời trải hết bề rộng (L5: không chừa nửa phải trống) */}
+      <div className={hasNumbers ? "grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]" : "flex flex-col"}>
+        <div className="flex flex-col gap-5">
+          <Answer>{answer}</Answer>
+          {hasPoints ? (
+            <div className="flex flex-col gap-2">
+              {/* Hộp con nằm thẳng dưới tiêu đề khối h2: tag h3, vai box-title (T5 — không nhảy h2 → h4) */}
+              <h3 data-ux-role="box-title" className={`m-0 ${TYPE.h4}`}>
+                {pointsTitle}
+              </h3>
+              <Bullets items={points} />
+            </div>
+          ) : null}
+          {extra}
+        </div>
+        {keyNumbers && keyNumbers.length > 0 ? <KeyNumbers items={keyNumbers} /> : null}
       </div>
-      {keyNumbers && keyNumbers.length > 0 ? <KeyNumbers items={keyNumbers} /> : null}
-      {below ? <div className="lg:col-span-2">{below}</div> : null}
+      {below}
     </div>
   );
 }
 
 // Link tới định nghĩa trong phần "How every number on this page is computed"
-export function TermLink({ term, children }: { term: string; children: ReactNode }) {
+// `tall`: vùng chạm cao 24px khi link đứng sát link khác (VD 2 link xếp chồng trong header bảng — WCAG 2.5.8)
+export function TermLink({ term, children, tall = false }: { term: string; children: ReactNode; tall?: boolean }) {
   return (
-    <a href={`#term-${term}`} className={`text-inherit ${LINK}`}>
+    <a href={`#term-${term}`} className={`text-inherit ${LINK} ${tall ? "inline-flex min-h-[24px] items-center" : ""}`}>
       {children}
     </a>
   );

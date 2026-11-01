@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState, type CSSProperties } from "react";
+import { CaretDown } from "@phosphor-icons/react";
+import { AnswerRow, MethodSection, SubSection, ToggleGroup, TYPE } from "@/components/AppBlock";
 import { WEEKDAY_LABELS, type DistributionStats, type TimezoneEngagement } from "@/lib/api";
 import {
   Iqr,
@@ -37,7 +39,7 @@ function pct(value: number): string {
 }
 
 function describe(prefix: string, stats: DistributionStats | null): string {
-  if (stats === null || stats.n === 0) return `${prefix} · no posts`;
+  if (stats === null || stats.n === 0) return `${prefix} · no content units`;
   return `${prefix} · median ${pct(stats.median)} · ${distributionCaptionText(stats)}`;
 }
 
@@ -81,7 +83,7 @@ function HeatRow({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-text-secondary">{title}</span>
+      <span className="text-[12px] font-semibold text-text-secondary">{title}</span>
       <div className={`grid gap-[2px] ${columnsClass}`} role="list" aria-label={title}>
         {cells.map((cell) => {
           const stats = cell.stats;
@@ -97,20 +99,21 @@ function HeatRow({
               onMouseLeave={() => onActivate(null)}
               onFocus={() => onActivate(cell)}
               onBlur={() => onActivate(null)}
-              className={`flex min-h-[52px] flex-col items-center justify-center rounded-[4px] border px-0.5 py-1 outline-none focus-visible:ring-2 focus-visible:ring-amber-600 ${
+              className={`flex min-h-[60px] flex-col items-center justify-center rounded-[4px] border px-0.5 py-1 outline-none focus-visible:ring-2 focus-visible:ring-amber-600 ${
                 active === cell.key ? "border-text-primary" : "border-border-hairline"
               }`}
               style={cellStyle(mixFor(stats, lo, hi), hasPosts)}
             >
-              <span className={`font-mono text-[10px] ${readable ? "text-text-primary" : "text-text-muted"}`}>{cell.label}</span>
+              {/* Chữ trong ô theo thang chung (§3: nhỏ nhất 12px; số mono 12.5px) — ô đủ rộng nhờ 6 cột ở màn hẹp */}
+              <span className={`font-mono text-[12.5px] ${readable ? "text-text-primary" : "text-text-muted"}`}>{cell.label}</span>
               <span
-                className={`font-mono text-[11px] tabular-nums ${
+                className={`font-mono text-[12.5px] tabular-nums ${
                   readable ? "font-semibold text-text-primary" : "text-text-muted"
                 }`}
               >
                 {readable ? stats.median.toFixed(1) : "–"}
               </span>
-              <span className={`font-mono text-[10px] tabular-nums ${readable ? "text-text-primary" : "text-text-muted"}`}>
+              <span className={`font-mono text-[12.5px] tabular-nums ${readable ? "text-text-primary" : "text-text-muted"}`}>
                 {hasPosts ? `n ${stats.n}` : ""}
               </span>
             </div>
@@ -121,13 +124,21 @@ function HeatRow({
   );
 }
 
+// Thân khối 02 của /analytics (khung + tiêu đề h2 do `Section` của AnalyticsBreakdown giữ): câu trả lời → ý chính →
+// heatmap (bằng chứng) → chú giải → bảng → "Method and limits" mở sẵn
 export function PostingTimeHeatmap({
   timezones,
   excludedNoViews,
+  totalUnits,
+  minPosts,
 }: {
   timezones: TimezoneEngagement[];
   // ADR-0011: bài views = 0 bị loại khỏi mọi ô — phải nói ra, không loại ngầm
   excludedNoViews: number;
+  totalUnits: number; // mẫu số của dòng loại: content unit đo được + bị loại (UI-0011-excluded)
+  // ngưỡng mẫu nhỏ của backend (MIN_N_PER_BUCKET, qua /pipeline/summary) — UI ghi số này, không tự đặt; null khi không
+  // đọc được summary → câu chữ bỏ con số (cờ insufficient_data của từng ô vẫn từ backend)
+  minPosts: number | null;
 }) {
   const available = CLOCKS.filter((clock) => timezones.some((tz) => tz.timezone === clock.timezone));
   const [clock, setClock] = useState<string>(available[0]?.timezone ?? "");
@@ -160,11 +171,7 @@ export function PostingTimeHeatmap({
   }, [tz, clockLabel]);
 
   if (tz === undefined) {
-    return (
-      <section className="rounded-xl border border-border-hairline bg-bg-card p-5 text-sm text-text-secondary">
-        No posting-time breakdown yet — it appears once posts have insight snapshots.
-      </section>
-    );
+    return <p className={`m-0 ${TYPE.body}`}>No posting-time breakdown yet: it appears once views are recorded.</p>;
   }
 
   const tableRows = [...hourCells, ...weekdayCells].filter((c) => c.stats !== null && c.stats.n > 0);
@@ -173,41 +180,70 @@ export function PostingTimeHeatmap({
     (c) => c.stats !== null && c.stats.n > 0 && !c.stats.insufficient_data,
   );
 
+  const tooFew = minPosts === null ? "too few content units" : `too few content units (n < ${minPosts})`;
+  // Câu trả lời mô tả (Thy 2026-10-31): khoảng median của các ô đọc được theo giờ và theo thứ, trên đồng hồ đang chọn —
+  // không nêu tên ô cao nhất (tránh đọc thành "giờ tốt nhất"), kèm "chưa kiểm định" ngay trong câu
+  // Khoảng median của các ô đọc được; nhánh riêng cho 1 ô và cho min = max (code-reviewer: không "from X to X")
+  const range = (cells: Cell[]) => {
+    const medians = cells.flatMap((c) => (c.stats && c.stats.n > 0 && !c.stats.insufficient_data ? [c.stats.median] : []));
+    if (medians.length === 0) return null;
+    const lo = Math.min(...medians);
+    const hi = Math.max(...medians);
+    return { count: medians.length, lo: pct(lo), hi: pct(hi), same: pct(lo) === pct(hi) };
+  };
+  const hourRange = range(hourCells);
+  const dayRange = range(weekdayCells);
+  // Ngưỡng nói bằng chữ ngay trong câu (copy-reviewer lượt 3: "readable" dùng trước khi định nghĩa); câu ngắn, 1 ý
+  const enough = minPosts === null ? "enough content units" : `at least ${minPosts} content units`;
+  const clockName = clockLabel.replace(/ time$/, "");
+  const hourSentence = !hourRange
+    ? null
+    : hourRange.count === 1
+      ? `On the ${clockName} clock, only one hour has ${enough}; its median engagement rate is ${hourRange.lo}.`
+      : hourRange.same
+        ? `On the ${clockName} clock, the ${hourRange.count} hours with ${enough} all have a median engagement rate of ${hourRange.lo}.`
+        : `On the ${clockName} clock, hours with ${enough} have median engagement rates from ${hourRange.lo} to ${hourRange.hi}.`;
+  const daySentence = !dayRange
+    ? null
+    : dayRange.count === 1
+      ? `Only one weekday has ${enough}; its median is ${dayRange.lo}.`
+      : dayRange.same
+        ? `The ${dayRange.count} weekdays with ${enough} all have a median of ${dayRange.lo}.`
+        : `Across weekdays with ${enough}, the range is ${dayRange.lo} to ${dayRange.hi}.`;
+  const hasGap = [hourRange, dayRange].some((r) => r !== null && r.count > 1 && !r.same);
+  const answer =
+    hourRange === null && dayRange === null
+      ? "No hour or weekday has enough content units to read yet."
+      : [hourSentence, daySentence, hasGap ? "None of these differences has been tested." : null].filter(Boolean).join(" ");
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-border-hairline bg-bg-card p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex max-w-[720px] flex-col gap-1">
-          <h2 className="text-[15px] font-semibold text-text-primary">
-            Median engagement rate by posting hour and weekday
-          </h2>
-          <p className="text-[13px] leading-snug text-text-secondary">
-            The same posts, placed on a Paris or a Vietnam clock. Each cell shows the median rate (%) and
-            how many posts it rests on. Hatched cells hold too few posts to interpret; their median is only in the table below.
-          </p>
-        </div>
-        <div className="flex gap-2" role="group" aria-label="Clock">
-          {available.map((item) => (
-            <button
-              key={item.timezone}
-              type="button"
-              aria-pressed={clock === item.timezone}
-              onClick={() => setClock(item.timezone)}
-              className={`min-h-[36px] rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                clock === item.timezone
-                  ? "bg-amber-600 text-white"
-                  : "text-text-secondary hover:bg-bg-surface hover:text-text-primary"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <>
+      <AnswerRow
+        answer={answer}
+        points={[
+          "Each cell shows the **median engagement rate** (%) of the content units published in that hour or on that weekday, rounded to one decimal.",
+          "Below it, **n** is how many content units that median rests on; the table gives two decimals.",
+          `Cells with ${tooFew} are **hatched** instead of coloured; their median is only in the table below.`,
+          // Chuỗi chuẩn UI-0011-excluded
+          excludedNoViews > 0 ? `${excludedNoViews} of ${totalUnits} excluded: no views recorded; they are in no cell.` : null,
+        ]}
+      />
+      <SubSection
+        title={`Engagement rate by posting time (${clockLabel})`}
+        note="Switch the clock to read the same content units in the other time zone."
+        action={
+          <ToggleGroup
+            label="Clock"
+            options={available.map((item) => ({ key: item.timezone, label: item.label }))}
+            value={clock}
+            onChange={setClock}
+          />
+        }
+      >
 
       <HeatRow
         title={`Hour of day (${clockLabel})`}
         cells={hourCells}
-        columnsClass="grid-cols-[repeat(12,minmax(0,1fr))] lg:grid-cols-[repeat(24,minmax(0,1fr))]"
+        columnsClass="grid-cols-[repeat(6,minmax(0,1fr))] sm:grid-cols-[repeat(12,minmax(0,1fr))] lg:grid-cols-[repeat(24,minmax(0,1fr))]"
         lo={lo}
         hi={hi}
         active={activeCell?.key ?? null}
@@ -223,9 +259,9 @@ export function PostingTimeHeatmap({
         onActivate={setActiveCell}
       />
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-text-secondary">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-text-secondary">
         {!hasScale ? (
-          <span>No hour or weekday has enough posts to read yet.</span>
+          <span>No hour or weekday has enough content units to read yet.</span>
         ) : hi <= lo ? (
           <div className="flex items-center gap-2">
             <span
@@ -252,45 +288,47 @@ export function PostingTimeHeatmap({
         )}
         <div className="flex items-center gap-2">
           <span aria-hidden="true" className="h-3 w-5 rounded-[3px] border border-border-hairline" style={cellStyle(null, true)} />
-          <span>too few posts to interpret</span>
+          <span>{tooFew}: not coloured</span>
+        </div>
+        {/* Ô không có content unit nào: không sọc, không n (ux-reviewer lượt 4 N3 — chú giải phải nói đủ mọi kiểu ô) */}
+        <div className="flex items-center gap-2">
+          <span aria-hidden="true" className="h-3 w-5 rounded-[3px] border border-border-hairline" style={cellStyle(null, false)} />
+          <span>no n: no content unit published then</span>
         </div>
       </div>
 
-      <p className="min-h-[20px] font-mono text-xs tabular-nums text-text-primary" aria-live="polite">
-        {activeCell?.description ?? "Hover or focus a cell for median, IQR and n."}
+      {/* Câu chữ: TYPE.note (sans) — mono chỉ cho công thức, ID, số (ux-reviewer S9) */}
+      <p className={`m-0 min-h-[20px] ${TYPE.note} text-text-primary`} aria-live="polite">
+        {activeCell?.description ?? "Hover or focus a cell for its median, IQR and n."}
       </p>
 
-      <p className="text-[13px] leading-snug text-text-muted">
-        {excludedNoViews > 0
-          ? `${excludedNoViews} posts without views are left out of every cell. `
-          : ""}
-        Descriptive only. Differences between hours have not been tested for significance, and posting time
-        overlaps with topic — so this is not a recommended time to post.
-      </p>
-
-      <details className="text-sm">
-        <summary className="cursor-pointer text-text-secondary hover:text-text-primary">Show as table</summary>
-        <div className="mt-2 overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+      {/* Nút mở bảng trông rõ là nút, cùng kiểu nút "Method and limits" (C3): viền + nền + chevron, vùng chạm 44px */}
+      <details className="group text-[13px]">
+        <summary className="inline-flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-full border border-border-hairline bg-bg-surface px-4 text-[13px] font-semibold text-text-primary hover:border-amber-600 hover:text-amber-700 [&::-webkit-details-marker]:hidden">
+          <CaretDown size={16} aria-hidden="true" className="transition-transform duration-150 group-open:rotate-180" />
+          Show as table
+        </summary>
+        <div className="mt-3 overflow-x-auto" tabIndex={0} role="region" aria-label="Median engagement rate by bucket, as a table">
+          <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr className="text-left text-[11px] font-semibold text-text-muted">
-                <th className="py-1.5 pr-4">Bucket ({clockLabel})</th>
-                <th className="py-1.5 pr-4">Median</th>
-                <th className="py-1.5 pr-4">
+              <tr className="text-left">
+                <th scope="col" className={`py-1.5 pr-4 ${TYPE.th}`}>Hour or weekday ({clockLabel})</th>
+                <th scope="col" className={`py-1.5 pr-4 text-right ${TYPE.th}`}>Median</th>
+                <th scope="col" className={`py-1.5 pr-4 text-right ${TYPE.th}`}>
                   <Iqr />
                 </th>
-                <th className="py-1.5">n</th>
+                <th scope="col" className={`py-1.5 text-right ${TYPE.th}`}>n</th>
               </tr>
             </thead>
-            <tbody className="font-mono tabular-nums">
+            <tbody className="font-mono text-[12.5px] tabular-nums">
               {tableRows.map((cell) => (
                 <tr key={cell.key} className="border-t border-border-hairline hover:bg-bg-surface">
                   <td className="py-1.5 pr-4">{cell.key.startsWith("h") ? `${cell.label}:00` : cell.label}</td>
-                  <td className="py-1.5 pr-4">{pct(cell.stats!.median)}</td>
-                  <td className="py-1.5 pr-4">
+                  <td className="py-1.5 pr-4 text-right">{pct(cell.stats!.median)}</td>
+                  <td className="py-1.5 pr-4 text-right">
                     {formatIqrRange(cell.stats!)}
                   </td>
-                  <td className="py-1.5">
+                  <td className="py-1.5 text-right">
                     {cell.stats!.n}
                     {cell.stats!.insufficient_data ? ` · ${TOO_FEW_POSTS}` : ""}
                   </td>
@@ -300,6 +338,33 @@ export function PostingTimeHeatmap({
           </table>
         </div>
       </details>
-    </section>
+      </SubSection>
+      <MethodSection
+        steps={[
+          {
+            title: "Cell",
+            plain: "Each content unit goes to the hour and the weekday its opening post was published, on the chosen clock.",
+          },
+          {
+            title: "Median per cell",
+            plain: "The cell shows the median engagement rate of its content units, with the middle half (IQR) and n in the hover text and the table.",
+            formula: [
+              "engagement rate = (likes + replies + reposts + quotes) ÷ views × 100",
+              "cell value = median{ engagement rate of the cell's content units },  n = their count",
+            ],
+          },
+          {
+            title: "Readable cells",
+            plain: `A cell is read only when it rests on at least ${minPosts ?? "a minimum number of"} content units, the same threshold every comparison on this dashboard uses; the colour scale spans readable cells only.`,
+            formula: minPosts === null ? undefined : `readable ⇔ n ≥ ${minPosts}`,
+          },
+        ]}
+        limits={[
+          "**Descriptive only**: differences between hours or weekdays have not been tested.",
+          "Posting time overlaps with topic, so a cell can reflect what was posted rather than when.",
+          "No cell is a recommended time to post.",
+        ]}
+      />
+    </>
   );
 }

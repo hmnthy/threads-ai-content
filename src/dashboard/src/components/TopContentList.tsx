@@ -1,60 +1,84 @@
+"use client";
+
+import { Answer, MethodSection, Section, topicOfUnit, UnitText } from "@/components/AppBlock";
 import type { WindowAnalytics } from "@/lib/api";
-import { daysBetweenInclusive, formatFullDate, formatPostDateParis } from "@/lib/dates";
+import { OVERVIEW_SECTIONS, shortOf } from "@/lib/appSections";
+import { formatPostDateParis } from "@/lib/dates";
+import { count } from "@/lib/landing";
 
-function formatNumber(n: number): string {
-  return n.toLocaleString("en-US");
-}
-
-// Content unit row — số thứ tự 2 chữ số, tiêu đề đầy đủ không cắt, bar 220px, số
-// bên phải (docs/claude/design-system.md §6). Xếp theo popularity_index
-// (post-level views) — KHÁC `data.views` ở hero/KPI strip (account-level).
-export function TopContentList({ data }: { data: WindowAnalytics | null }) {
-  const windowLabel = data
-    ? `${formatFullDate(data.start)} → ${formatFullDate(data.end)} · ${daysBetweenInclusive(data.start, data.end)} days`
-    : "—";
-
+// Khối 02 của /overview: content unit đăng trong cửa sổ, xếp theo views của bài mở đầu (popularity_index, post-level) —
+// KHÁC "Views" của dải hero (account-level, gồm cả reply). Chữ gốc luôn kèm tên topic tiếng Anh (B2). Dưới sm: thanh +
+// số xuống dòng dưới chữ (ux-reviewer K9: chữ bị ép còn 1 từ/dòng ở 375px)
+export function TopContentList({
+  data,
+  topicOf,
+  topicCount,
+}: {
+  data: WindowAnalytics | null;
+  topicOf: Record<string, string | null> | null;
+  topicCount: number | null;
+}) {
   const entries = data?.top_content_units ?? [];
   const maxViews = Math.max(...entries.map((entry) => entry.metrics.popularity_index), 1);
+  const top = entries[0];
 
   return (
-    <section className="flex flex-col gap-3 pt-10">
-      <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <h2 className="text-xl font-bold tracking-tight text-text-primary">Top content units in window</h2>
-        <span className="font-mono text-[13px] tabular-nums text-text-secondary">{windowLabel}</span>
-      </div>
-      <div className="overflow-hidden rounded-xl border border-border-hairline bg-bg-card">
-        {entries.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-12">
-            <span className="text-sm text-text-secondary">No content units published in this window</span>
-          </div>
-        ) : (
-          entries.map((entry, i) => {
+    <Section
+      id="top"
+      n="02"
+      short={shortOf(OVERVIEW_SECTIONS, "top")}
+      title="Which content units published in this window drew the most views?"
+      purpose="Ranked by views of the opening post to date, not by the account's daily views in block 01."
+    >
+      <Answer>
+        {!data
+          ? "Loading the selected window…"
+          : top
+            ? `The most viewed content unit published in this window has ${count(top.metrics.popularity_index)} views on its opening post; the list shows the top ${entries.length} of ${count(data.content_unit_count)}.`
+            : "No content unit was published in this window."}
+      </Answer>
+      {entries.length > 0 ? (
+        <ol className="m-0 flex list-none flex-col p-0">
+          {entries.map((entry, i) => {
             const width = Math.max((entry.metrics.popularity_index / maxViews) * 100, 2);
             return (
-              <div
+              <li
                 key={entry.id}
-                className={`flex items-center gap-5 px-6 py-4.5 ${i > 0 ? "border-t border-border-hairline" : ""}`}
+                className="grid grid-cols-[28px_minmax(0,1fr)] gap-x-4 gap-y-2 border-t border-border-hairline py-4 first:border-t-0 sm:grid-cols-[28px_minmax(0,1fr)_200px_112px] sm:items-center"
               >
-                <span className="w-6 flex-none text-[13px] font-medium tabular-nums text-text-muted">
+                <span className="font-mono text-[12.5px] font-semibold tabular-nums text-text-muted">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="text-sm leading-normal text-text-primary">{entry.text ?? "(no text)"}</span>
-                  <span className="text-xs tabular-nums text-text-muted">
+                <span className="flex min-w-0 flex-col gap-1">
+                  <UnitText text={entry.text} topic={topicOfUnit(topicOf, entry.id)} topicCount={topicCount} />
+                  <span className="font-mono text-[12.5px] tabular-nums text-text-muted">
                     {formatPostDateParis(entry.timestamp)}
                   </span>
-                </div>
-                <span className="h-2 w-[220px] flex-none overflow-hidden rounded-full bg-bg-surface">
+                </span>
+                <span aria-hidden="true" className="col-start-2 h-2 overflow-hidden rounded-full bg-bg-surface sm:col-start-auto">
                   <span className="block h-full rounded-full bg-amber-fill" style={{ width: `${width}%` }} />
                 </span>
-                <span className="w-[88px] flex-none text-right text-[15px] font-semibold tabular-nums text-text-primary">
-                  {formatNumber(entry.metrics.popularity_index)}
+                <span className="col-start-2 text-[15px] font-semibold tabular-nums text-text-primary sm:col-start-auto sm:text-right">
+                  {count(entry.metrics.popularity_index)} <span className="text-[13px] font-normal text-text-secondary">views</span>
                 </span>
-              </div>
+              </li>
             );
-          })
-        )}
-      </div>
-    </section>
+          })}
+        </ol>
+      ) : null}
+      <MethodSection
+        steps={[
+          {
+            title: "Ranking",
+            plain: "Content units published in the window, sorted by their opening post's views as last read from Threads. Views of follow-up parts are not added. Each bar's length is its views divided by the largest in the list.",
+            formula: "bar = views ÷ max(views in the list)",
+          },
+        ]}
+        limits={[
+          "Views are **counted to date**: a content unit published early in the window has had more time to collect them.",
+          "A ranking describes the window; it does not say why a content unit drew more views.",
+        ]}
+      />
+    </Section>
   );
 }

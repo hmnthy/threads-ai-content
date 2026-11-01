@@ -53,7 +53,6 @@ export interface HeroPost {
 }
 
 export interface LandingData {
-  snapshotDate: string | null;
   firstPostAt: string | null; // bài sớm nhất trong DB — "since <tháng năm>" (không nói "toàn lịch sử")
   axisMax: number; // biên phải trục engagement % của mọi strip
   channel: {
@@ -298,19 +297,34 @@ export function parisTime(iso: string): string {
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} Paris time`;
 }
 
+// Ngày + giờ trong câu, kiểu chung của thân trang ("Oct 9, 2026" · "9:08 PM", giờ Paris)
+const PARIS_DAY = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Europe/Paris",
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+const PARIS_CLOCK = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Europe/Paris",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
 // Mốc kiểm định: 1 nhãn "Paris time" cho cả câu, bỏ ngày của mốc dữ liệu khi trùng ngày
-// (UI-0017-run-time) — "2026-10-09 at 21:08 on data collected up to 17:18 (Paris time)"
+// (UI-0017-run-time) — "Oct 9, 2026 at 9:08 PM on data collected up to 5:18 PM (Paris time)"
 export function testTimes(computedAt: string, dataAsOf: string | null): string {
-  const [ranDate, ranTime] = parisTime(computedAt).replace(" Paris time", "").split(" ");
+  const ranDate = parisDate(computedAt);
+  const ranTime = PARIS_CLOCK.format(new Date(computedAt));
   if (!dataAsOf) return `${ranDate} at ${ranTime} (Paris time)`;
-  const [dataDate, dataTime] = parisTime(dataAsOf).replace(" Paris time", "").split(" ");
-  const upTo = dataDate === ranDate ? dataTime : `${dataDate} ${dataTime}`;
+  const dataDate = parisDate(dataAsOf);
+  const dataTime = PARIS_CLOCK.format(new Date(dataAsOf));
+  const upTo = dataDate === ranDate ? dataTime : `${dataDate}, ${dataTime}`;
   return `${ranDate} at ${ranTime} on data collected up to ${upTo} (Paris time)`;
 }
 
-// Chỉ ngày theo giờ Paris ("2026-10-12") — mốc bắt đầu lịch sử "k of m" (ADR-0024)
+// Chỉ ngày theo giờ Paris ("Oct 12, 2026") — mốc bắt đầu lịch sử "k of m" (ADR-0024)
 export function parisDate(iso: string): string {
-  return parisTime(iso).slice(0, 10);
+  return PARIS_DAY.format(new Date(iso));
 }
 
 // "A", "A and B", "A, B and C"
@@ -326,7 +340,7 @@ export function winShare(delta: number): number {
   return Math.round(((1 + delta) / 2) * 100);
 }
 
-// "April 2025", "7 Oct 2026" — ngày theo Europe/Paris như mọi mốc khác trên trang
+// "April 2025", "Oct 7, 2026" — ngày theo Europe/Paris như mọi mốc khác trên trang
 export function monthYear(iso: string): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Paris",
@@ -336,12 +350,7 @@ export function monthYear(iso: string): string {
 }
 
 export function dayMonthYear(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Paris",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(iso));
+  return parisDate(iso);
 }
 
 // Thứ hạng so với các bài KHÁC (bài không so với chính nó): số bài thấp hơn và % trên số bài
@@ -429,8 +438,6 @@ export function buildLandingData(
     noText.length === noViews.size &&
     noText.every((id) => noViews.has(id));
   return {
-    // ngày theo giờ Paris, cùng múi với mốc "clustered … Paris time" trên trang
-    snapshotDate: summary.latest_snapshot_at ? parisTime(summary.latest_snapshot_at).slice(0, 10) : null,
     firstPostAt: units.reduce<string | null>(
       (min, unit) =>
         unit.timestamp && (min === null || unit.timestamp < min) ? unit.timestamp : min,

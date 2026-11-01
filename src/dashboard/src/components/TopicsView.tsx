@@ -2,7 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { ArrowDown } from "@phosphor-icons/react";
-import { AnswerRow, Bullets, MethodSection, Section, SubSection, TermLink, TYPE, type KeyNumber } from "@/components/AppBlock";
+import {
+  AnswerRow,
+  Bullets,
+  KeyNumbers,
+  MethodSection,
+  Section,
+  SubSection,
+  TermLink,
+  ToggleGroup,
+  TYPE,
+  UnitText,
+  type KeyNumber,
+} from "@/components/AppBlock";
+import { rateNote } from "@/components/DistributionCaption";
 import { TopicEngagementPanel } from "@/components/LandingProof";
 import { TopicComparisonTable } from "@/components/TopicComparisonTable";
 import { TopicMap3D } from "@/components/TopicMap3D";
@@ -86,12 +99,14 @@ function PageIntro({ data, units }: { data: LandingData; units: ContentUnit[] })
             ? `${noText} have no text to embed (for example, a repost with no caption)${data.sameExcludedPosts ? "; the same ones have no recorded views either" : ""}.`
             : "Every content unit has text.",
         term: "embedding",
+        share: { part: run.n_units, whole: total, of: count(total) },
       },
       {
         value: count(run.n_units - run.n_noise),
         label: `in ${run.n_clusters} topics`,
         note: `The other ${count(run.n_noise)} fit no topic and stay unclustered.`,
         term: "hdbscan",
+        share: { part: run.n_units - run.n_noise, whole: run.n_units, of: count(run.n_units) },
       },
     );
   }
@@ -185,10 +200,11 @@ function TopicProfilePanel({ data, units }: { data: LandingData; units: ContentU
                   term: "topic",
                 },
                 {
-                  value: `${count(unclustered)} of ${count(inRun)}`,
+                  value: count(unclustered),
                   label: "unclustered",
-                  note: `${share(unclustered, inRun)}: no dense group around them, so they are kept apart.`,
+                  note: "No dense group around them, so they are kept apart.",
                   term: "hdbscan",
+                  share: { part: unclustered, whole: inRun, of: `the ${count(inRun)} in the latest run` },
                 },
               ]
             : undefined
@@ -337,18 +353,28 @@ function TopicProfile({
   count: number;
   inRun: number;
 }) {
-  const facts: { label: React.ReactNode; value: string }[] = [
-    { label: "Content units in this topic", value: `${n} (${share(n, inRun)} of ${count(inRun)})` },
+  // Hộp Key numbers chung (ADR-0030): một kết quả thống kê = một dòng (median là số, IQR + n ở ghi chú — K5)
+  const facts: KeyNumber[] = [
+    {
+      value: count(n),
+      label: "content units in this topic",
+      term: "topic",
+      share: { part: n, whole: inRun, of: `the ${count(inRun)} in the latest run` },
+    },
+    selected.stats.n > 0
+      ? {
+          value: pct(selected.stats.median),
+          label: "median engagement rate",
+          term: "median",
+          note: rateNote(selected.stats, 2, "No content unit in this topic has recorded views yet."),
+        }
+      : {
+          value: "—",
+          label: "median engagement rate",
+          term: "recorded-views",
+          note: "No content unit in this topic has recorded views, so there is no rate to show.",
+        },
   ];
-  if (selected.stats.n > 0) {
-    facts.push(
-      { label: <TermLink term="median">Median engagement rate</TermLink>, value: pct(selected.stats.median) },
-      { label: <TermLink term="median">Middle half (IQR)</TermLink>, value: `${pct(selected.stats.iqr_low)} to ${pct(selected.stats.iqr_high)}` },
-      { label: <TermLink term="recorded-views">With recorded views (n)</TermLink>, value: `${selected.stats.n}` },
-    );
-  } else {
-    facts.push({ label: <TermLink term="recorded-views">With recorded views (n)</TermLink>, value: "0: no rate to show" });
-  }
   // runs_keeping_label = 0 khi topic vừa được đặt/đặt lại tên ở lần chạy mới nhất
   // (src/nlp/topic_identity.py); đếm lần chạy hằng ngày, không phải "clustering" (cách chia khác nhau)
   const naming = [
@@ -401,17 +427,7 @@ function TopicProfile({
             />
           </div>
         </div>
-        <div className="flex flex-col gap-3 rounded-xl border border-warm-border bg-warm-surface px-5 py-4">
-          <h4 className={`m-0 ${H4}`}>This topic in numbers</h4>
-          <dl className="m-0 flex flex-1 flex-col justify-evenly">
-            {facts.map((fact, i) => (
-              <div key={i} className="flex items-baseline justify-between gap-4 border-t border-warm-border py-2 first:border-t-0">
-                <dt className="min-w-0 text-[15px] font-semibold text-text-primary">{fact.label}</dt>
-                <dd className="m-0 whitespace-nowrap text-right text-[15px] font-bold tabular-nums text-text-primary">{fact.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
+        <KeyNumbers items={facts} scope={`Selected topic · ${selected.name}`} level={4} />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -426,10 +442,8 @@ function TopicProfile({
           <ol className="m-0 flex list-none flex-col p-0">
             {selected.representatives.map((rep) => (
               <li key={rep.id} className="grid grid-cols-[minmax(0,1fr)_56px] items-baseline gap-4 border-b border-bg-surface py-2.5">
-                <span className="flex flex-col gap-0.5">
-                  <span className={`${TYPE.body} text-text-primary`}>{rep.text}</span>
-                  <span className={TYPE.label}>Original language · topic: {selected.name}</span>
-                </span>
+                {/* Dòng ngữ cảnh dùng chung (ADR-0031, ux-reviewer B2): tiếng Anh đứng trước "original language" */}
+                <UnitText text={rep.text} topic={selected.name} />
                 <span className={`text-right ${TYPE.mono} font-medium`}>{rep.similarity?.toFixed(3) ?? "—"}</span>
               </li>
             ))}
@@ -455,8 +469,8 @@ function UnitTable({
   selectedName: string;
   labelOf: Map<string, string>;
 }) {
-  // Bảng content unit: 1 topic hoặc cả lần gom cụm. Cột "Topic (English)" cho người không đọc tiếng
-  // Việt biết mỗi dòng thuộc chủ đề gì (Thy 2026-10-29: luồng đọc song ngữ, .claude/rules/dashboard.md)
+  // Bảng content unit: 1 topic hoặc cả lần gom cụm. Mỗi dòng hiện tên topic tiếng Anh TRÊN chữ gốc, cùng ô
+  // (`UnitText`, như Analytics — Thy 2026-11-01: người đọc tiếng Anh gặp ngữ cảnh trước; luồng song ngữ 2026-10-29)
   const [scope, setScope] = useState<"topic" | "all">("topic");
   const [showAll, setShowAll] = useState(false);
   const order = useMemo(() => new Map(data.topics.map((t, i) => [t.id, i])), [data.topics]);
@@ -472,7 +486,8 @@ function UnitTable({
         );
   const shown = scope === "all" && !showAll ? members.slice(0, PAGE) : members;
   const topicOf = (unit: ContentUnit) =>
-    unit.topic ? (labelOf.get(unit.topic.topic_id) ?? "Unnamed topic") : "Unclustered";
+    unit.topic ? (labelOf.get(unit.topic.topic_id) ?? "Unnamed topic") : null;
+  const topicCount = data.summary.latest_cluster_run?.n_clusters ?? null;
   const rate = (unit: ContentUnit) => (unit.metrics ? pct(unit.metrics.engagement_rate) : "no views recorded");
   const sim = (unit: ContentUnit) => unit.topic?.centroid_similarity?.toFixed(3) ?? "—";
 
@@ -484,36 +499,24 @@ function UnitTable({
             ? `Every content unit in “${selectedName}”, most typical first`
             : `All ${count(embedded.length)} content units in the latest clustering run, by topic`}
         </h3>
-        <div className="flex gap-1" role="group" aria-label="Which content units to list">
-          {(
-            [
-              ["topic", "This topic"],
-              ["all", "All content units"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={scope === value}
-              onClick={() => {
-                setScope(value);
-                setShowAll(false);
-              }}
-              className={`min-h-[44px] cursor-pointer rounded-full border px-4 text-[13px] font-medium ${
-                scope === value
-                  ? "border-amber-600 bg-amber-soft text-amber-700"
-                  : "border-border-hairline bg-bg-card text-text-secondary hover:bg-bg-surface"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* Một kiểu toggle cho mọi trang (AppBlock `ToggleGroup`, ux-reviewer X3) */}
+        <ToggleGroup
+          label="Which content units to list"
+          options={[
+            { key: "topic", label: "This topic" },
+            { key: "all", label: "All content units" },
+          ]}
+          value={scope}
+          onChange={(value) => {
+            setScope(value);
+            setShowAll(false);
+          }}
+        />
       </div>
       <Bullets
         tone="muted"
         items={[
-          "First lines are shown as written (original language); the English topic name on the same row says which topic each one belongs to. Unclustered rows have no English label yet.",
+          "Each row gives the English topic name first, then the first line as written (original language). Unclustered rows have no English summary yet.",
           "Parts: how many posts make up the content unit (the opening post plus its follow-ups).",
           "Engagement rate: the opening post's rate in the latest data.",
         ]}
@@ -522,11 +525,10 @@ function UnitTable({
         <span className={TYPE.body}>No content units to list.</span>
       ) : (
         <>
-          {/* ≥ md: bảng; < md: mỗi dòng 1 thẻ để cột "Topic (English)" không nằm ngoài màn hình (ux-reviewer B9) */}
+          {/* ≥ md: bảng; < md: mỗi dòng 1 thẻ để các cột số không nằm ngoài màn hình (ux-reviewer B9) */}
           <table className="hidden w-full table-fixed border-collapse text-left md:table">
             <colgroup>
               <col />
-              <col className="w-[22%]" />
               <col className="w-[104px]" />
               <col className="w-[56px]" />
               <col className="w-[96px]" />
@@ -534,8 +536,7 @@ function UnitTable({
             </colgroup>
             <thead>
               <tr className="border-b border-rule">
-                <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>First line · original language</th>
-                <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Topic (English)</th>
+                <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Content unit: topic in English, then the first line as written</th>
                 <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Published</th>
                 <th scope="col" className={`px-3 py-2 text-right ${TYPE.th}`}>Parts</th>
                 <th scope="col" className={`px-3 py-2 text-right ${TYPE.th}`}>
@@ -549,13 +550,8 @@ function UnitTable({
             <tbody>
               {shown.map((unit) => (
                 <tr key={unit.id} className="border-b border-bg-surface align-baseline hover:bg-bg-sunken">
-                  <td className={`px-3 py-2 ${TYPE.cell} text-text-primary`}>{firstLine(unit.full_text)}</td>
-                  <td
-                    className={`px-3 py-2 ${TYPE.cell} ${
-                      scope === "all" && unit.topic?.topic_id === selectedId ? "font-medium text-amber-700" : "text-text-secondary"
-                    }`}
-                  >
-                    {topicOf(unit)}
+                  <td className="px-3 py-2">
+                    <UnitText text={firstLine(unit.full_text)} topic={topicOf(unit)} topicCount={topicCount} size="cell" />
                   </td>
                   <td className={`whitespace-nowrap px-3 py-2 ${TYPE.mono} text-text-secondary`}>
                     {unit.timestamp ? dayMonthYear(unit.timestamp) : "—"}
@@ -570,8 +566,7 @@ function UnitTable({
           <ul className="m-0 flex list-none flex-col p-0 md:hidden">
             {shown.map((unit) => (
               <li key={unit.id} className="flex flex-col gap-1 border-b border-bg-surface py-3">
-                <span className={`${TYPE.cell} text-text-primary`}>{firstLine(unit.full_text)}</span>
-                <span className={TYPE.label}>Original language · topic: {topicOf(unit)}</span>
+                <UnitText text={firstLine(unit.full_text)} topic={topicOf(unit)} topicCount={topicCount} size="cell" />
                 {/* cặp nhãn + giá trị không tách khi xuống dòng (ux-reviewer P2) */}
                 <span className="flex flex-wrap gap-x-3 gap-y-0.5">
                   {[
@@ -671,11 +666,18 @@ function StabilityPanel({ data }: { data: LandingData }) {
         keyNumbers={
           run
             ? [
-                // 2 cách tính ARI luôn đi cùng nhau (UI-0004-ari-two-ways) — không chọn số đẹp
+                // 2 cách tính ARI luôn đi cùng nhau (UI-0004-ari-two-ways) — không chọn số đẹp; 2 dòng liền kề, mỗi ô
+                // một số (K2)
                 {
-                  value: `${fmt(run.ari_clustered_only)} and ${fmt(run.ari_vs_previous)}`,
-                  label: "ARI vs the previous run",
-                  note: `${fmt(run.ari_clustered_only)} on content units with a topic in both runs; ${fmt(run.ari_vs_previous)} when moves into or out of unclustered count as changes. 1 = identical grouping.`,
+                  value: fmt(run.ari_clustered_only),
+                  label: "ARI vs the previous run, topics only",
+                  note: "On content units with a topic in both runs. 1 = identical grouping.",
+                  term: "ari",
+                },
+                {
+                  value: fmt(run.ari_vs_previous),
+                  label: "ARI vs the previous run, all content units",
+                  note: "Moves into or out of unclustered count as changes.",
                   term: "ari",
                 },
                 { value: run.dbcv === null ? "—" : run.dbcv.toFixed(3), label: "DBCV of this run", note: "From −1 to 1, higher = better separated topics.", term: "dbcv" },
@@ -716,7 +718,10 @@ function StabilityPanel({ data }: { data: LandingData }) {
                 <TermLink term="seed">Stability across random seeds</TermLink>
               </dt>
               <dd className="m-0 text-right md:text-left">
-                <span className={`rounded-full border border-border-hairline bg-bg-surface px-2.5 py-[3px] ${TYPE.label}`}>not measured yet</span>
+                {/* Nền xám: chữ text-secondary, không muted (muted chỉ đạt 4.34:1 trên nền này) */}
+                <span className="rounded-full border border-border-hairline bg-bg-surface px-2.5 py-[3px] text-[12px] font-medium leading-[1.5] text-text-secondary">
+                  not measured yet
+                </span>
               </dd>
               <dd className="col-span-2 m-0 text-[13px] leading-[1.55] text-text-secondary md:col-span-1">
                 Re-clustering the same content units with several seeds measures how much the topics depend on chance.

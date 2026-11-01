@@ -38,13 +38,14 @@ export function VerdictMark({ verdict }: { verdict: Verdict }) {
   );
 }
 
-// Nhãn đầy đủ (ký hiệu + chữ); "too few" nằm trong pill nền xám để cả ô khác hẳn "not significant"
+// Nhãn đầy đủ (ký hiệu + chữ); "too few" nằm trong pill nền xám để cả ô khác hẳn "not significant". Trên nền xám,
+// chữ muted chỉ đạt 4.34:1 → dùng text-secondary (WCAG 1.4.3 ≥ 4.5:1, axe color-contrast)
 export function VerdictLabel({ verdict, minPosts, noun }: { verdict: Verdict; minPosts: number; noun: Noun }) {
   const v = verdictParts(verdict, minPosts, noun);
   return (
     <span
-      className={`inline-flex items-baseline gap-1.5 text-[13px] leading-[1.45] ${v.tone} ${
-        verdict === "too few posts" ? "rounded-md bg-bg-surface px-1.5 py-0.5" : ""
+      className={`inline-flex items-baseline gap-1.5 text-[13px] leading-[1.45] ${
+        verdict === "too few posts" ? "rounded-md bg-bg-surface px-1.5 py-0.5 text-text-secondary" : v.tone
       }`}
     >
       <VerdictMark verdict={verdict} />

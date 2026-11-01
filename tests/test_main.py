@@ -198,6 +198,12 @@ def test_analytics_overview_ranks_top_posts_per_metric_and_breaks_down_by_timezo
     assert data["engagement"]["median"] == pytest.approx(15.5)
     assert data["engagement"]["mean"] == pytest.approx(15.5)
     assert data["engagement"]["n"] == 2
+    # ADR-0031: share rate + conversation rate toàn kênh, cùng tập bài — share 0% và 10%,
+    # conversation 1% và 0% (khác engagement 15.5 → bắt được nhầm công thức)
+    assert data["share_rate"]["median"] == pytest.approx(5.0)
+    assert data["share_rate"]["n"] == 2
+    assert data["conversation"]["median"] == pytest.approx(0.5)
+    assert data["conversation"]["n"] == 2
 
     timezone_names = [tz["timezone"] for tz in data["timezones"]]
     assert timezone_names == ["Europe/Paris", "Asia/Ho_Chi_Minh"]
@@ -232,6 +238,8 @@ def test_analytics_overview_excludes_posts_without_insight_snapshot(
     assert data["top_by_engagement"] == []
     assert data["engagement"]["n"] == 0
     assert data["engagement"]["insufficient_data"] is True
+    assert data["share_rate"]["n"] == 0
+    assert data["conversation"]["n"] == 0
     assert data["excluded_no_views"] == 0
 
 

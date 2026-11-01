@@ -3,7 +3,7 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-891%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-898%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -37,13 +37,13 @@ Le produit en quatre étapes — du pitch jusqu'aux sujets découverts et à la 
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/overview.png" alt="Overview tab: KPI strip and Timeline Brush" width="820"><br>
-  <sub><b>2. Overview</b> — bandeau de KPI centré sur la médiane, graphique des vues quotidiennes avec le Timeline Brush (glisser pour recalculer), et les contenus les plus performants sur la fenêtre sélectionnée.</sub>
+  <img src="docs/screenshots/overview.png" alt="Overview tab: hero band, Key numbers and Timeline Brush" width="820"><br>
+  <sub><b>2. Overview</b> — le taux d'engagement médian de la fenêtre dans un bandeau principal avec les Key numbers, graphique des vues quotidiennes avec le Timeline Brush (glisser pour recalculer), et les contenus les plus performants sur la fenêtre sélectionnée.</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/analytics.png" alt="Analytics tab: top posts and timezone breakdown" width="820"><br>
-  <sub><b>3. Analytics</b> — meilleures publications par engagement/taux de partage/conversation, et performance par créneau horaire, répartie sur les deux fuseaux Europe/Paris et Asia/Ho_Chi_Minh.</sub>
+  <img src="docs/screenshots/analytics.png" alt="Analytics tab: top content units and posting-time breakdown" width="820"><br>
+  <sub><b>3. Analytics</b> — meilleures content units par engagement/taux de partage/conversation, et performance par créneau horaire, répartie sur les deux fuseaux Europe/Paris et Asia/Ho_Chi_Minh.</sub>
 </p>
 
 <p align="center">

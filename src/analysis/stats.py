@@ -1,5 +1,5 @@
 """Distribution stats dùng chung — extract từ `engagement.py` (Layer 2 cũ) để tái
-dùng cho Share rate/Conversation trong KPI strip cửa sổ thời gian (Overview mới),
+dùng cho Share rate/Conversation trong hộp Key numbers của cửa sổ thời gian (Overview),
 tránh viết lặp lại median+mean+n+IQR+insufficient_data 3 lần cho 3 index khác nhau.
 Đúng pattern "engine dùng chung" đã áp dụng cho `significance.compare_groups()`.
 
@@ -106,7 +106,7 @@ def window_stats(
     insights: list[PostInsights], metric: Callable[[PostInsights], float]
 ) -> DistributionStats:
     """`distribution_stats()` áp `metric` lên từng `PostInsights` trong 1 cửa sổ —
-    dùng chung cho engagement/share rate/conversation của KPI strip cửa sổ thời gian:
+    dùng chung cho engagement/share rate/conversation của dải hero + Key numbers cửa sổ thời gian:
     `window_stats(insights, lambda i: i.engagement_rate)`,
     `window_stats(insights, share_rate)`, `window_stats(insights, conversation_rate)`.
     """

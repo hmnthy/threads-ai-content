@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/AppBlock";
 import { TopicsView } from "@/components/TopicsView";
 import { parisTime } from "@/lib/landing";
 import { loadTopicPageData } from "@/lib/load";
@@ -12,53 +13,24 @@ export default async function TopicsPage() {
   const run = summary?.latest_cluster_run ?? null;
   return (
     <div className="flex flex-1 flex-col">
-      {/* Nội dung header nằm trong cùng khung 1280px với Nav và <main> — thiếu khung này thì trên màn
-          hình rộng tiêu đề dạt sát mép trái, lệch với phần thân căn giữa */}
-      {/* Đầu trang căn giữa (Thy 2026-10-29): tiêu đề 40px, câu hỏi của trang, mốc dữ liệu dạng chip, mục lục
-          6 khối. Vẫn trong khung 1280px như Nav và <main> */}
-      <header className="border-b border-border-hairline bg-bg-card">
-        <div className="mx-auto flex w-full max-w-[1280px] flex-col items-center gap-4 px-6 pb-10 pt-12 text-center">
-          <span className="text-[12px] font-semibold tracking-[0.14em] text-amber-700">TOPIC ANALYSIS</span>
-          <h1 className="m-0 text-[40px] font-bold leading-[1.1] tracking-[-0.025em] text-text-primary">Topic Explorer</h1>
-          {/* Thy chốt 2026-10-29 (c): phép so 2 phía — "differ", không "higher" */}
-          <p className="m-0 max-w-[720px] text-[18px] leading-[1.55] text-text-secondary [text-wrap:balance]">
-            What does the channel write about, and does any topic&apos;s engagement differ from the rest of the
-            channel?
-          </p>
-          {summary ? (
-            <p className="m-0 flex flex-wrap justify-center gap-2 font-mono text-[12.5px] text-text-secondary">
-              <span className="rounded-full border border-border-hairline bg-bg-sunken px-3 py-1">
-                {run ? `clustered ${parisTime(run.run_at)}` : "not clustered yet"}
-              </span>
-              {/* UI-0025-published-snapshot: mốc dữ liệu kèm giờ + múi giờ (UI-0017-run-time) */}
-              {summary.latest_snapshot_at ? (
-                <span className="rounded-full border border-border-hairline bg-bg-sunken px-3 py-1">
-                  data as of {parisTime(summary.latest_snapshot_at)}
-                </span>
-              ) : null}
-            </p>
-          ) : null}
-          {/* Mục lục 6 khối: thấy cả trang trong 1 dòng, nhảy thẳng tới khối (Thy 2026-10-29: đọc nhanh
-              không sót khối). Số khớp số trên tiêu đề mỗi khối (AppBlock `Section`) */}
-          {loaded && loaded.data.topics.length > 0 ? (
-            <nav aria-label="Sections of this page" className="mt-4 w-full border-t border-border-hairline pt-6">
-              <ol className="m-0 flex list-none flex-wrap justify-center gap-2 p-0">
-                {SECTIONS.map(([id, n, label]) => (
-                  <li key={id}>
-                    <a
-                      href={`#${id}`}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-border-hairline bg-bg-card px-4 text-[15px] font-medium text-text-primary transition-colors hover:border-amber-600 hover:text-amber-700"
-                    >
-                      <span className="font-mono text-[12.5px] font-semibold text-amber-600">{n}</span>
-                      {label}
-                    </a>
-                  </li>
-                ))}
-              </ol>
-            </nav>
-          ) : null}
-        </div>
-      </header>
+      {/* Đầu trang căn giữa dùng chung (AppBlock `PageHeader`, Thy 2026-10-29 / 2026-10-31). Câu hỏi: Thy chốt
+          2026-10-29 (c) — phép so 2 phía, "differ", không "higher". Chip mốc dữ liệu: UI-0025-published-snapshot
+          (kèm giờ + múi giờ, UI-0017-run-time) */}
+      <PageHeader
+        eyebrow="Group · Topics from text"
+        title="Topic Explorer"
+        question="What does the channel write about, and does any topic's engagement differ from the rest of the channel?"
+        chips={
+          summary
+            ? [
+                run ? `clustered ${parisTime(run.run_at)}` : "not clustered yet",
+                summary.latest_snapshot_at ? `data as of ${parisTime(summary.latest_snapshot_at)}` : null,
+              ]
+            : undefined
+        }
+        // Mục lục 6 khối; số khớp số trên tiêu đề mỗi khối (AppBlock `Section`)
+        sections={loaded && loaded.data.topics.length > 0 ? SECTIONS : undefined}
+      />
       <main className="mx-auto w-full max-w-[1280px] flex-1 px-6 py-10">
         {!loaded ? (
           <div className="rounded-xl border border-border-hairline bg-bg-card p-6 text-text-secondary">

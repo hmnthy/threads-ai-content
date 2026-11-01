@@ -1037,10 +1037,43 @@ allow = ["docs/decisions/0029-*.md", "docs/decisions/legacy-log.md"]
 [[forbid]]
 id = "ADR0030-key-numbers-box"
 adr = "0030"
-# Luật cũ của hộp số (design-system §3, 2026-10-29) và tên hộp thứ 2 của Topics. Không quét src/: code còn vi phạm tới
-# PR 2 — máy đo ux-shots K1–K3 giữ phần code (ADR-0030, nợ chấp nhận)
+# Luật cũ của hộp số (design-system §3, 2026-10-29) và tên hộp thứ 2 của Topics. Quét cả src/ từ PR sửa component
+# (ADR-0030 "Nợ chấp nhận"); trang mẫu SAI của máy đo cố ý dựng lại hộp cũ nên được phép
 pattern = 'kéo dài bằng cột|cao bằng cột bên cạnh|số chính 15px|This topic in numbers'
 why = "Từ ADR-0030: hộp Key numbers cao theo nội dung + dính khi cuộn, số chính 28px (vai metric), một tên 'Key numbers'"
 fix = "Ghi theo design-system §3b K: hộp cao theo nội dung (K3), số chính 28px tabular (K2), tiêu đề 'Key numbers' + dòng phạm vi (K1)"
-paths = ["docs/**", ".claude/**"]
-allow = ["docs/decisions/0030-*.md", "docs/decisions/legacy-log.md"]
+paths = ["docs/**", ".claude/**", "src/**"]
+allow = ["docs/decisions/0030-*.md", "docs/decisions/legacy-log.md", "src/dashboard/scripts/ux-shots-fixtures.mjs"]
+
+[[forbid]]
+id = "ADR0031-old-app-copy"
+adr = "0031"
+mockups = true
+# Câu cũ của Overview/Analytics: tên "root posts" (một tên "content units"), định nghĩa engagement sai (một người xem
+# phản ứng được nhiều lần), phụ đề Analytics nói "stand out" cho bảng chưa kiểm định
+pattern = 'Root posts analyzed|root posts in window|Share of views that led to any reaction|stand out on each index'
+why = "Từ ADR-0031: một tên 'content units' trên mọi trang; engagement = phản ứng trên 100 views, không phải tỉ lệ người xem đã phản ứng; bảng xếp hạng không phải kiểm định"
+fix = "Viết 'content units with recorded views' / 'published in this window'; 'Interactions per 100 views of the opening post'; 'rank highest'"
+paths = ["docs/**", "src/**"]
+allow = ["docs/decisions/0031-*.md", "docs/decisions/legacy-log.md", "docs/design/ui-contract-audit.md"]
+
+[[forbid]]
+id = "ADR0031-kpi-strip-removed"
+adr = "0031"
+# Dải KPI của Overview đã bỏ (lặp số của dải hero); số phụ nằm trong hộp Key numbers. README, docs kỹ thuật và comment
+# code không được tả một thành phần không còn
+pattern = 'KPI strip|dải KPI|bandeau de KPI'
+why = "Từ ADR-0031: dải KPI của Overview bỏ, KpiStrip.tsx xoá; khối 01 = dải hero + câu trả lời + Key numbers"
+fix = "Viết 'hero band + Key numbers' (README: cả 3 bản) và chụp lại ảnh overview nếu ảnh còn dải cũ"
+paths = ["README*.md", "docs/claude/**", "src/**"]
+allow = ["docs/decisions/0031-*.md", "docs/decisions/legacy-log.md"]
+
+[[forbid]]
+id = "ADR0031-topic-english-column"
+adr = "0031"
+# Bảng content unit không tách tên topic tiếng Anh ra cột riêng sau chữ gốc: UnitText đặt dòng "Topic: X · original
+# language" TRÊN chữ gốc, cùng ô (Thy 2026-11-01)
+pattern = '<th[^>]*>Topic \(English\)'
+why = "Từ ADR-0031 (Thy 2026-11-01): ngữ cảnh tiếng Anh đứng trước chữ gốc, cùng một component UnitText trên mọi trang"
+fix = "Dùng UnitText trong ô chữ gốc, gộp tiêu đề cột"
+paths = ["src/**"]

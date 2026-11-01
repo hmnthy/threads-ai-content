@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ToggleGroup } from "@/components/AppBlock";
 import type { DailyViewsPoint } from "@/lib/api";
-import { addDays, formatFullDate, formatMonthYear } from "@/lib/dates";
+import { daysBetweenInclusive, formatFullDate, formatMonthYear } from "@/lib/dates";
 
 // Thành phần chữ ký của sản phẩm (docs/claude/design-system.md §5) — port từ
 // src/dashboard/mockups/overview-amber.dc.html (pointer-capture drag 2 tay cầm +
@@ -48,7 +49,7 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
   const defaultWindow = useMemo((): [number, number] => {
     if (days <= 1) return [0, 1];
     const n = Math.min(30, days);
-    return [(days - n) / days, 1];
+    return [(days - n) / (days - 1 || 1), 1];
   }, [days]);
 
   const [w0, setW0] = useState(defaultWindow[0]);
@@ -58,6 +59,8 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
   const panFromRef = useRef<number | null>(null);
   const commitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialCommitDone = useRef(false);
+  // Cửa sổ đã commit (sau debounce) — câu aria-live đọc theo nó, không đổi theo từng khung hình khi kéo
+  const [committed, setCommitted] = useState<[number, number] | null>(null);
 
   useEffect(() => () => {
     if (commitTimeoutRef.current) clearTimeout(commitTimeoutRef.current);
@@ -72,7 +75,8 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
         const fire = () => {
           const i0 = Math.round(nextW0 * (days - 1));
           const i1 = Math.round(nextW1 * (days - 1));
-          onWindowCommit(addDays(minDate, i0), addDays(minDate, i1));
+          setCommitted([i0, i1]);
+          onWindowCommit(points[i0].date, points[i1].date);
         };
         if (commitTimeoutRef.current) clearTimeout(commitTimeoutRef.current);
         if (opts.debounce === false) {
@@ -81,7 +85,7 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
           commitTimeoutRef.current = setTimeout(fire, COMMIT_DEBOUNCE_MS);
         }
       },
-    [minDate, days, onWindowCommit],
+    [minDate, days, onWindowCommit, points],
   );
 
   // Commit 1 lần khi series vừa sẵn sàng, để hero/KPI có số liệu ngay từ đầu
@@ -97,10 +101,7 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
   if (days === 0) {
     return (
       <section className="flex flex-col items-center gap-2 rounded-xl border border-border-hairline bg-bg-card p-12 text-center">
-        <p className="text-sm text-text-secondary">No daily views ingested yet.</p>
-        <p className="font-mono text-xs text-text-muted">
-          Run <code>python -m src.pipeline.daily_views</code>
-        </p>
+        <p className="text-[15px] text-text-secondary">No daily views have been collected yet.</p>
       </section>
     );
   }
@@ -193,7 +194,7 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
       return;
     }
     const n = Math.min({ "30d": 30, "60d": 60, "90d": 90 }[kind], days);
-    commitWindow(Math.max((days - n) / days, 0), 1, { debounce: false });
+    commitWindow(Math.max((days - n) / (days - 1 || 1), 0), 1, { debounce: false });
   }
 
   function isPresetActive(kind: "30d" | "60d" | "90d" | "peak"): boolean {
@@ -205,14 +206,15 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
       );
     }
     const n = Math.min({ "30d": 30, "60d": 60, "90d": 90 }[kind], days);
-    return Math.abs(w1 - 1) < 0.005 && Math.abs(w0 - (days - n) / days) < 0.008;
+    return Math.abs(w1 - 1) < 0.005 && Math.abs(w0 - (days - n) / (days - 1 || 1)) < 0.008;
   }
 
   const i0 = Math.round(w0 * (days - 1));
   const i1 = Math.round(w1 * (days - 1));
-  const startDate = addDays(minDate!, i0);
-  const endDate = addDays(minDate!, i1);
-  const spanDays = i1 - i0 + 1;
+  const startDate = points[i0].date;
+  const endDate = points[i1].date;
+  // Ngày lịch, cùng cách đếm với dải hero và câu trả lời (chuỗi thiếu vài ngày DST — code-reviewer)
+  const spanDays = daysBetweenInclusive(startDate, endDate);
 
   const maxViews = Math.max(...points.map((p) => p.views), 1);
   const chartPoints = points.map(
@@ -232,8 +234,14 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
   });
 
   const axisLabels = [0, 0.25, 0.5, 0.75, 1].map((f) =>
-    formatMonthYear(addDays(minDate!, Math.round(f * (days - 1)))),
+    formatMonthYear(points[Math.round(f * (days - 1))].date),
   );
+  // Thang giá trị (ux-reviewer X5: chart không có số): nhãn đặt đúng 3 đường lưới, giá trị suy từ cùng phép chiếu
+  // y = 216 − views ÷ max × 190 của đường vẽ
+  const gridLines = [48, 112, 176].map((y) => ({ y, views: Math.round(((216 - y) / 190) * maxViews) }));
+  // Ngày nhiều views nhất trong cửa sổ đã commit — đọc bằng chữ (aria-live), không chỉ bằng hình
+  const [c0, c1] = committed ?? [i0, i1];
+  const peak = points.slice(c0, c1 + 1).reduce((best, p) => (p.views > best.views ? p : best), points[c0]);
 
   const presets: { key: "30d" | "60d" | "90d" | "peak"; label: string }[] = [
     { key: "30d", label: "30d" },
@@ -246,39 +254,42 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
     <section className="flex flex-col gap-3.5 rounded-xl border border-border-hairline bg-bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-semibold text-text-primary">
-            Daily views, whole account (replies included) · drag the window to rescale the metrics below
-          </span>
-          <span className="font-mono text-xs tabular-nums text-text-muted">
+          {/* Heading thật (T6), vai box-title dưới tiêu đề khối h2 */}
+          <h3 data-ux-role="box-title" className="m-0 text-[17px] font-semibold leading-[1.4] text-text-primary">
+            Daily views, whole account
+          </h3>
+          <span className="text-[13px] leading-[1.55] text-text-secondary">As Threads reports them. Drag the window or pick a preset.</span>
+          <span className="font-mono text-[12.5px] tabular-nums text-text-muted">
             {formatFullDate(startDate)} → {formatFullDate(endDate)} · {spanDays} days
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          {presets.map((preset) => {
-            const active = isPresetActive(preset.key);
-            return (
-              <button
-                key={preset.key}
-                type="button"
-                onClick={() => setPreset(preset.key)}
-                className={`h-8 flex-none rounded-full border px-3.5 font-mono text-[12.5px] font-medium ${
-                  active
-                    ? "border-amber-600 bg-amber-soft text-amber-600"
-                    : "border-border-hairline bg-bg-surface text-text-secondary"
-                }`}
-              >
-                {preset.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Một kiểu toggle cho mọi trang (AppBlock `ToggleGroup`); preset sáng lên khi cửa sổ khớp nó */}
+        <ToggleGroup
+          label="Window presets"
+          options={presets}
+          value={presets.find((preset) => isPresetActive(preset.key))?.key ?? null}
+          onChange={setPreset}
+          mono
+        />
       </div>
 
+      <div className="relative">
+      {/* Nhãn thang bằng HTML (SVG co giãn không giữ tỉ lệ chữ); top = y ÷ 240 của viewBox */}
+      {gridLines.map((line) => (
+        <span
+          key={line.y}
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 -translate-y-1/2 rounded bg-bg-card px-1 font-mono text-[12px] tabular-nums text-text-muted"
+          style={{ top: `${(line.y / 240) * 100}%` }}
+        >
+          {line.views.toLocaleString("en-US")}
+        </span>
+      ))}
       <svg
         viewBox="0 0 1200 240"
         preserveAspectRatio="none"
         role="img"
-        aria-label={`Daily views over ${days} days`}
+        aria-label={`Daily views over ${days} days; the highest day is ${maxViews.toLocaleString("en-US")} views`}
         className="block h-[220px] w-full"
       >
         <line x1="0" y1="48" x2="1200" y2="48" stroke="var(--rule)" strokeWidth="1" />
@@ -291,15 +302,23 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
         <line x1={x0} y1="0" x2={x0} y2="240" stroke="var(--amber-600)" strokeWidth="1" strokeOpacity="0.5" />
         <line x1={x1} y1="0" x2={x1} y2="240" stroke="var(--amber-600)" strokeWidth="1" strokeOpacity="0.5" />
       </svg>
+      </div>
+      <p className="m-0 text-[13px] leading-[1.55] text-text-secondary" aria-live="polite">
+        Highest day in the window: {formatFullDate(peak.date)} · {peak.views.toLocaleString("en-US")} views. The y-axis
+        counts daily views.
+      </p>
 
-      <div ref={railRef} className="relative h-11 touch-none">
-        <div className="absolute top-[21px] right-0 left-0 h-0.5 rounded-full bg-[var(--rule)]" />
+      {/* Đường ray ở y = 37px. Vùng chạm 44×44 của 2 tay cầm lệch dọc — đầu cửa sổ phía trên, cuối cửa sổ phía dưới
+          đường ray, chồng nhau tối đa 14px — để cửa sổ hẹp (30 ngày ≈ 12px ở 375px) không làm tay cầm này che tay cầm
+          kia (WCAG 2.5.8, axe target-size); chấm 13px vẫn nằm đúng trên đường ray (design-system §5) */}
+      <div ref={railRef} className="relative h-[74px] touch-none">
+        <div className="absolute top-[36px] right-0 left-0 h-0.5 rounded-full bg-[var(--rule)]" />
         {ticks.map((tick, i) => (
           <span
             key={i}
             className="absolute w-px"
             style={{
-              top: tick.major ? 15 : 17,
+              top: tick.major ? 31 : 33,
               left: `${(tick.p * 100).toFixed(3)}%`,
               height: tick.major ? 14 : 10,
               background: tick.inWindow ? "rgba(180,83,9,0.35)" : "var(--rule)",
@@ -310,7 +329,7 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
           onPointerDown={onPanDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          className="absolute top-0 flex h-11 cursor-grab touch-none items-center"
+          className="absolute top-[15px] flex h-11 cursor-grab touch-none items-center"
           style={{ left: `${(w0 * 100).toFixed(3)}%`, width: `${((w1 - w0) * 100).toFixed(3)}%` }}
         >
           <span className="block h-0.5 w-full rounded-full bg-amber-600" />
@@ -327,7 +346,7 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onKeyDown={onStartKey}
-          className="absolute top-0 flex h-11 w-11 cursor-ew-resize touch-none items-center justify-center"
+          className="absolute top-0 flex h-11 w-11 cursor-ew-resize touch-none items-start justify-center pt-[30.5px]"
           style={{ left: `calc(${(w0 * 100).toFixed(3)}% - 22px)` }}
         >
           <span className="h-[13px] w-[13px] rounded-full border-2 border-amber-600 bg-white shadow-[0_1px_4px_rgba(17,24,39,0.20)]" />
@@ -344,16 +363,19 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onKeyDown={onEndKey}
-          className="absolute top-0 flex h-11 w-11 cursor-ew-resize touch-none items-center justify-center"
+          className="absolute top-[30px] flex h-11 w-11 cursor-ew-resize touch-none items-start justify-center pt-[0.5px]"
           style={{ left: `calc(${(w1 * 100).toFixed(3)}% - 22px)` }}
         >
           <span className="h-[13px] w-[13px] rounded-full border-2 border-amber-600 bg-white shadow-[0_1px_4px_rgba(17,24,39,0.20)]" />
         </div>
       </div>
 
-      <div className="flex justify-between font-mono text-[11px] text-text-muted">
+      {/* Dưới sm chỉ giữ nhãn đầu / giữa / cuối — 5 nhãn 12px dính nhau ở 375px (ux-reviewer S1) */}
+      <div className="flex justify-between font-mono text-[12px] text-text-muted">
         {axisLabels.map((label, i) => (
-          <span key={i}>{label}</span>
+          <span key={i} className={i === 1 || i === 3 ? "hidden sm:inline" : undefined}>
+            {label}
+          </span>
         ))}
       </div>
     </section>

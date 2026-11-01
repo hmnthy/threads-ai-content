@@ -207,6 +207,9 @@ export interface AnalyticsOverview {
   excluded_no_views: number;
   // Engagement rate toàn kênh, tính theo từng root post — median là số chính
   engagement: DistributionStats;
+  // ADR-0031: share rate + conversation rate toàn kênh, cùng tập bài đo được
+  share_rate: DistributionStats;
+  conversation: DistributionStats;
   // ADR-0023 1f: 3 bảng top chỉ xếp bài có views ≥ sàn (P25 views, tính lại mỗi lần); null khi
   // quá ít bài để tính phân vị (không lọc). `below_views_floor` bài đo được nằm dưới sàn.
   views_floor: number | null;
@@ -229,7 +232,7 @@ export interface DailyViewsSeries {
   max_date: string | null;
 }
 
-// Hero band + KPI strip + top content units cho Timeline Brush (Overview) — tính
+// Hero band + Key numbers + top content units cho Timeline Brush (Overview) — tính
 // lại từ data thật CHỈ trong [start, end] mỗi khi cửa sổ đổi. `views` = tổng
 // account-level daily views trong cửa sổ (gồm views từ replies) — KHÁC
 // `top_content_units[].metrics.popularity_index` (post-level, per content unit).
