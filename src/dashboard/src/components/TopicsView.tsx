@@ -1,15 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowDown } from "@phosphor-icons/react";
 import {
   AnswerRow,
   Bullets,
+  H,
   KeyNumbers,
   MethodSection,
   Section,
   SubSection,
   TermLink,
+  TermMore,
   ToggleGroup,
   TYPE,
   UnitText,
@@ -21,7 +24,7 @@ import { TopicComparisonTable } from "@/components/TopicComparisonTable";
 import { TopicMap3D } from "@/components/TopicMap3D";
 import { TopicMethods } from "@/components/TopicMethods";
 import type { ContentUnit } from "@/lib/api";
-import { count, dayMonthYear, firstLine, parisDate, pct, UNIT_NOUN, type LandingData } from "@/lib/landing";
+import { count, dayMonthYear, firstLine, parisDate, partOfWhole, pct, UNIT_NOUN, type LandingData } from "@/lib/landing";
 import { topicMark } from "@/lib/topicColors";
 import { sectionShort } from "@/lib/topicSections";
 
@@ -49,16 +52,16 @@ function Swatch({ index, size = 12 }: { index: number; size?: number }) {
   );
 }
 
-function share(part: number, whole: number): string {
-  return whole > 0 ? `${Math.round((part * 100) / whole)}%` : "—";
-}
+// Một luật làm tròn cho mọi "phần của tổng" (K4) — helper chung `partOfWhole` (copy-reviewer: "16 · 10%" cạnh
+// "9% of 163" là một số mang 2 giá trị)
+const share = partOfWhole;
 
 export function TopicsView({ data, units }: { data: LandingData; units: ContentUnit[] }) {
   return (
     <div className="flex flex-col gap-10">
       <PageIntro data={data} units={units} />
       <TopicProfilePanel data={data} units={units} />
-      <TopicEngagementPanel data={data} variant="app" noun={noun} />
+      <TopicEngagementPanel data={data} noun={noun} />
       <TopicComparisonTable data={data} noun={noun} />
       <StabilityPanel data={data} />
       <TopicMethods
@@ -144,7 +147,8 @@ function PageIntro({ data, units }: { data: LandingData; units: ContentUnit[] })
   );
 }
 
-function TopicProfilePanel({ data, units }: { data: LandingData; units: ContentUnit[] }) {
+// Dùng lại trên landing (Thy 2026-11-01, ADR-0032): `full = false` bỏ bảng mọi content unit, thay bằng 1 dòng trỏ sang /topics
+export function TopicProfilePanel({ data, units, full = true }: { data: LandingData; units: ContentUnit[]; full?: boolean }) {
   const run = data.summary.latest_cluster_run;
   const [sel, setSel] = useState<string>(data.topics[0].id);
   const selected = data.topics.find((t) => t.id === sel) ?? data.topics[0];
@@ -217,7 +221,7 @@ function TopicProfilePanel({ data, units }: { data: LandingData; units: ContentU
       >
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
           <div className="flex flex-col gap-3">
-            <h4 className={`m-0 ${H4}`}>Map of the content units</h4>
+            <H level={4} className={H4}>Map of the content units</H>
             <TopicMap3D units={embedded} activeId={selected.id} labelOf={labelOf} topicIds={topicIds} />
             <Bullets
               tone="muted"
@@ -234,7 +238,7 @@ function TopicProfilePanel({ data, units }: { data: LandingData; units: ContentU
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-              <h4 className={`m-0 ${H4}`}>Topics (select one)</h4>
+              <H level={4} className={H4}>Topics (select one)</H>
               <span className={TYPE.label}>content units · % of {count(inRun)}</span>
             </div>
             <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
@@ -283,7 +287,17 @@ function TopicProfilePanel({ data, units }: { data: LandingData; units: ContentU
 
       <TopicProfile selected={selected} index={selectedIndex} count={countOf.get(selected.id) ?? 0} inRun={inRun} />
 
-      <UnitTable embedded={embedded} data={data} selectedId={selected.id} selectedName={selected.name} labelOf={labelOf} />
+      {full ? (
+        <UnitTable embedded={embedded} data={data} selectedId={selected.id} selectedName={selected.name} labelOf={labelOf} />
+      ) : (
+        <p className={`m-0 ${TYPE.body}`}>
+          The{" "}
+          <Link href="/topics#topics" className="font-medium text-amber-700 underline underline-offset-4">
+            Topics page
+          </Link>{" "}
+          lists every content unit in each topic, with its engagement rate and similarity to the centre.
+        </p>
+      )}
 
       <MethodSection
         steps={[
@@ -331,9 +345,9 @@ function TopicProfilePanel({ data, units }: { data: LandingData; units: ContentU
         more={
           <>
             Every symbol is explained in{" "}
-            <a href="#term-embedding" className="font-medium text-amber-700 underline underline-offset-4">
+            <TermMore term="embedding">
               Finding topics
-            </a>
+            </TermMore>
             .
           </>
         }
@@ -381,7 +395,10 @@ function TopicProfile({
     selected.labeledAt ? `Name and description written by Claude${selected.labelModel ? ` (${selected.labelModel})` : ""} on ${dayMonthYear(selected.labeledAt)}.` : "Name and description written by Claude.",
     selected.runsKeepingLabel === 0
       ? "Named in the latest clustering run."
-      : `Name unchanged for the last ${selected.runsKeepingLabel} daily ${selected.runsKeepingLabel === 1 ? "run" : "runs"}.`,
+      : // n = 1 không viết "the last 1 daily run" (copy-reviewer PR 2b)
+        selected.runsKeepingLabel === 1
+        ? "Name unchanged in the daily run since."
+        : `Name unchanged in the ${selected.runsKeepingLabel} daily runs since.`,
   ].filter(Boolean) as string[];
 
   return (
@@ -396,7 +413,7 @@ function TopicProfile({
     >
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div className="flex flex-col gap-2">
-          <h4 className={`m-0 ${H4}`}>What it is about</h4>
+          <H level={4} className={H4}>What it is about</H>
           {selected.description ? (
             <p className={`m-0 ${TYPE.measure} ${TYPE.body}`}>{selected.description}</p>
           ) : (
@@ -404,7 +421,7 @@ function TopicProfile({
           )}
           <div className="mt-4" />
           <div className="flex flex-col gap-2">
-            <h4 className={`m-0 ${H4}`}>Keywords</h4>
+            <H level={4} className={H4}>Keywords</H>
             <p className={`m-0 ${TYPE.note}`}>
               Chosen by <TermLink term="keywords">c-TF-IDF</TermLink>: frequent in this topic, rare in the others.
             </p>
@@ -431,7 +448,7 @@ function TopicProfile({
       </div>
 
       <div className="flex flex-col gap-2">
-        <h4 className={`m-0 ${H4}`}>Most typical content units</h4>
+        <H level={4} className={H4}>Most typical content units</H>
         <span className={TYPE.label}>
           The {selected.representatives.length} nearest the topic&apos;s centre · original language ·{" "}
           <TermLink term="similarity">similarity to centre</TermLink> (cosine, at most 1)
@@ -494,11 +511,11 @@ function UnitTable({
   return (
     <div className="flex flex-col gap-3 border-t border-border-hairline pt-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className={`m-0 ${TYPE.h3}`}>
+        <H level={3} className={TYPE.h3}>
           {scope === "topic"
             ? `Every content unit in “${selectedName}”, most typical first`
             : `All ${count(embedded.length)} content units in the latest clustering run, by topic`}
-        </h3>
+        </H>
         {/* Một kiểu toggle cho mọi trang (AppBlock `ToggleGroup`, ux-reviewer X3) */}
         <ToggleGroup
           label="Which content units to list"
@@ -601,7 +618,7 @@ function UnitTable({
   );
 }
 
-function StabilityPanel({ data }: { data: LandingData }) {
+export function StabilityPanel({ data }: { data: LandingData }) {
   const run = data.summary.latest_cluster_run;
   const history = data.topicTests?.history ?? null;
   const fmt = (value: number | null | undefined) => (value === null || value === undefined ? "—" : value.toFixed(2));
@@ -651,7 +668,7 @@ function StabilityPanel({ data }: { data: LandingData }) {
       n="05"
       short={sectionShort("stability")}
       title="How stable are these topics?"
-      purpose="Shows how much the topics changed since the previous run and how well separated they are, which decides how far any result above can be trusted."
+      purpose="Shows how much the topics changed since the previous run and how well separated they are, which limits how far any result above can be trusted."
     >
       <AnswerRow
         answer="No stability rule is set yet, so a topic that stands out on this page is at most a lead, not a finding."
@@ -671,7 +688,13 @@ function StabilityPanel({ data }: { data: LandingData }) {
                 {
                   value: fmt(run.ari_clustered_only),
                   label: "ARI vs the previous run, topics only",
-                  note: "On content units with a topic in both runs. 1 = identical grouping.",
+                  // Cảnh báo seed ở lớp đầu (Thy 2026-11-01): cùng seed thì 1.00 là lặp lại được, chưa phải bền.
+                  // So trên số đã làm tròn: 0.996 cũng hiện "1.00" và cũng cần câu này (code-reviewer)
+                  note: `On content units with a topic in both runs. 1 = identical grouping.${
+                    run.params.umap_random_state != null && fmt(run.ari_clustered_only) === "1.00"
+                      ? " Same seed every run, so 1.00 shows reproducibility, not stability."
+                      : ""
+                  }`,
                   term: "ari",
                 },
                 {
@@ -698,7 +721,7 @@ function StabilityPanel({ data }: { data: LandingData }) {
 
       {run ? (
         <div className="flex flex-col gap-3 border-t border-border-hairline pt-7">
-          <h3 className={`m-0 ${TYPE.h3}`}>Measures of the latest clustering run</h3>
+          <H level={3} className={TYPE.h3}>Measures of the latest clustering run</H>
           {/* 1 lưới chung cho mọi hàng (subgrid) — cột giá trị và cột nghĩa thẳng hàng từ trên xuống */}
           <dl className="m-0 flex flex-col md:grid md:grid-cols-[max-content_max-content_minmax(0,1fr)] md:gap-x-8">
             {rows.map((row, i) => (
@@ -758,9 +781,9 @@ function StabilityPanel({ data }: { data: LandingData }) {
         more={
           <>
             Every symbol is explained in{" "}
-            <a href="#term-dbcv" className="font-medium text-amber-700 underline underline-offset-4">
+            <TermMore term="dbcv">
               Quality and stability of the topics
-            </a>
+            </TermMore>
             .
           </>
         }

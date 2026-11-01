@@ -182,14 +182,28 @@ export function measure({ tier, rules }) {
     } else if (!near(size, role[1])) {
       add(violations, "T3", `${where(el)}: ${size}px, vai ${role[0]} phải ${role[1]}px`, at);
     }
-    if (prev && heading > prev + 1) {
+    // Ngoại lệ T5 duy nhất (Thy 2026-11-01, ADR-0032 — design-system §3b X7): tiêu đề khối của panel hero landing
+    // (`[data-ux="hero-panel"]`) được nằm ngay dưới display-1 — cha display-1 hợp lệ và bước h1 → h3 không tính là nhảy
+    // cấp. Chỉ cho chính tiêu đề khối của panel đó, không cho heading nào khác bên trong
+    const heroTitle =
+      tier === "landing" &&
+      heading === 3 &&
+      role?.[0] === "block-title" &&
+      el.closest('[data-ux="hero-panel"]') !== null &&
+      el.closest('[data-ux="hero-panel"]').querySelector("h1, h2, h3, h4, h5, h6") === el;
+    if (prev && heading > prev + 1 && !(heroTitle && prev === 1)) {
       add(violations, "T5", `${where(el)}: nhảy cấp h${prev} → h${heading}`, `T5|skip|${where(el)}`);
     }
     prev = heading;
     // Cha = heading gần nhất phía trên có tag nông hơn; vai của nó phải nằm trong `parents` của vai này
     while (stack.length && stack[stack.length - 1].heading >= heading) stack.pop();
     const parent = stack[stack.length - 1];
-    const allowed = role && own(rules.parents, role[0]) ? rules.parents[role[0]] : undefined;
+    const allowed =
+      role && own(rules.parents, role[0])
+        ? heroTitle
+          ? [...rules.parents[role[0]], "display-1"]
+          : rules.parents[role[0]]
+        : undefined;
     if (!parent && allowed?.length) {
       add(violations, "T5", `${where(el)}: vai ${role[0]} không có heading cha (cần ${allowed.join(", ")})`, `T5|parent|${where(el)}`);
     } else if (parent?.role && allowed && !allowed.includes(parent.role)) {

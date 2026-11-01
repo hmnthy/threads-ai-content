@@ -1,7 +1,8 @@
 // Logo Unknot (ADR-0021). File gốc duy nhất ở `public/brand/` — không sửa tay hình học hay màu
 // (docs/design/brand-assets.md). Vị trí theo ADR-0021, cập nhật Thy 2026-10-29: topbar app, navbar
 // landing và hero landing dùng `lockup-replay` (bản "chạy 1 lần" phát lại mỗi 15 giây, BrandLogoReplay);
-// `mark` ở khối CTA; `lockup` tĩnh ở footer. `lockup-animated` (lặp liên tục) không còn chỗ dùng.
+// `lockup` tĩnh ở footer. `mark` và `lockup-animated` (lặp liên tục) không còn chỗ dùng (khối CTA bỏ logo —
+// ADR-0032 mục 5b); favicon `app/icon.svg` là bản sao của mark.
 //
 // Dùng <img> thay next/image: next/image không tối ưu được SVG, và SVG động chạy bằng CSS keyframes
 // bên trong file nên cần phục vụ nguyên bản; <picture> đổi sang bản tĩnh khi người xem bật
@@ -23,7 +24,7 @@ const STATIC_FALLBACK = "/brand/unthreaded-lockup.svg";
 interface BrandLogoProps {
   variant?: BrandLogoVariant;
   height: number;
-  // "" khi logo chỉ để trang trí bên cạnh chữ "Unthreaded" (VD khối CTA của landing)
+  // "" khi logo chỉ để trang trí bên cạnh chữ "Unthreaded"
   alt?: string;
   // Gắn vào phần tử ngoài cùng (`<picture>` với bản động) để layout giống nhau ở mọi biến thể
   className?: string;

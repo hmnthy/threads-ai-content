@@ -60,6 +60,7 @@ landing giờ đọc từ API (`/content-units`, `/topics`, `/analytics/overview
 Lý do chung: chữ của mockup dùng thuật ngữ và mẫu số trước khi định nghĩa, dồn nhiều số vào một câu, và có câu nói
 quá dữ liệu. Code đã đổi theo bản dưới; **mockup nên lấy đúng câu này**. Số trong câu sinh từ API.
 
+- (Thay bởi mục ADR-0032 cuối file cho hero / Approach / Problem Q1 / CTA — landing dùng "content units".)
 - **Hero**: câu phụ "Unthreaded shows how each post on a Threads channel did compared with the rest of that channel,
   not with Threads as a whole. Every figure says how many posts it rests on." · **dải thống kê mới** giữa 2 nút và panel
   (posts since <tháng bài đầu> · with recorded views · median engagement rate · topics · "Data as of <ngày>") · câu
@@ -141,7 +142,8 @@ Kết quả đạt p Holm chưa bền qua các cách chia cụm → là **gợi 
 (`UI-0024-exploratory-comparisons`). Mockup nên lấy đúng các câu dưới (số và tên sinh từ API); luật
 `ADR0024-topic-claim` cảnh báo mọi câu "tend to get a higher / lower …".
 
-- **Câu hỏi panel 1 giữ nguyên có chủ đích** (Thy chọn): "Which topics get a higher engagement rate than the rest of
+- **Câu hỏi panel 1 giữ nguyên có chủ đích** (Thy chọn; landing đổi 2026-11-01 sang "Does any topic's engagement rate
+  differ from the rest of the channel?" — ADR-0032): "Which topics get a higher engagement rate than the rest of
   the channel?" — câu hỏi hợp lệ; dòng trả lời mang ý tạm thời.
 - **Dòng trả lời (đậm):** "For now, one topic stands out above the rest of the channel: <topic>." · nhiều topic: "For
   now, 2 topics stand out above the rest of the channel: <A> and <B>." · chỉ thấp hơn: "…stands out below the rest of
@@ -273,7 +275,7 @@ Bảng có chú giải "How to read the result column" ngay bên trên.
 **Bản đồ topic**
 - Đa sắc: 8 màu `--cat-1..8`, topic thứ 9 trở đi dùng hình thoi.
 - Đặt bên trái, danh sách topic bên phải làm chú giải (`UI-L20261029-topic-categorical`).
-- Landing vẫn một màu nhấn.
+- Landing vẫn một màu nhấn (đến 2026-11-01; từ đó landing dùng bản đồ nhiều màu của /topics — ADR-0032).
 
 **ADR-0026 (logo):** `src/dashboard/mockups/landing.dc.html` dòng 24, 40-41 còn navbar logo tĩnh 28px và hero
 bản động lặp (`picture` + công tắc `animatedLogo`) — đổi sang logo phát lại mỗi 15 giây ở navbar và hero (Claude
@@ -342,3 +344,24 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
     interpret]."; Holm: "Holm-corrected across all 39 tests; only topics with at least 5 content units with recorded
     views can count."; chú giải heatmap: "no n: no content unit published then".
   - Ngày trong thân trang "Oct 2, 2026" (+ ", 9:08 PM"); ISO chỉ ở chip "data as of".
+
+### ADR-0032 — Landing dùng lại khối của trang app (2026-11-01; `ux-reviewer` 3 lượt, `copy-reviewer` 2 lượt)
+
+- Mockup `landing.dc.html` lệch code ở nhiều chỗ (vòng thiết kế kế tiếp dựng lại theo `UI-0032-*`): panel hero có tiêu đề
+  là câu hỏi + khung ANSWER, không hộp Key numbers, nút "Compare with"; Problem 3 cột; Proof = 3 khối của /topics (bản
+  đồ 3D nhiều màu, mục lục 3 khối); sơ đồ "How it works" 960px; một tên "content units" trên cả landing; CTA "Every
+  content unit, measured against its own channel." + nút 2 "Explore all topics" → /topics.
+- **Thy chốt chữ 2026-11-01** (qua câu hỏi trong PR 2b; câu cuối duyệt cùng lúc OK commit):
+  - Câu dẫn hero: "Unthreaded shows how each content unit on a Threads channel did compared with the rest of that
+    channel, not with Threads as a whole. Every figure says how many content units it rests on." + định nghĩa
+    `CONTENT_UNIT` ngay dưới (trước 2 nút).
+  - Panel hero: tiêu đề 'Did "8 kinh nghiệm sau 8 năm ở Pháp" (8 lessons from 8 years in France) do better than the
+    channel's usual content unit?' (giữ ngoặc kép — tên gọi của bài); mục đích "Ranks this content unit against the
+    channel's other content units by engagement rate: likes, replies, reposts and quotes per 100 views of its opening
+    post."; bước Rank "Yes means its rate is above the median. The percentage counts the other content units with a
+    lower rate (ties not counted), as a share of all the others, rounded down."
+  - Problem Q1: "Which content units did well by this channel's own standard?"
+  - Panel engagement của landing: câu hỏi "Does any topic's engagement rate differ from the rest of the channel?"
+    (thay "Which topics get a higher engagement rate than the rest of the channel?").
+  - Ghi chú ARI (panel độ bền, cả /topics): "On content units with a topic in both runs. 1 = identical grouping. Same
+    seed every run, so 1.00 shows reproducibility, not stability."

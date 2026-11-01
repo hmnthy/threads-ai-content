@@ -15,11 +15,13 @@ import type {
 
 // Bài minh hoạ của hero — lựa chọn thiết kế của mockup (post 17939285085325700), không phải số liệu
 export const HERO_POST_ID = "17939285085325700";
-export const HERO_QUESTION =
-  'Did "8 kinh nghiệm sau 8 năm ở Pháp" (8 lessons from 8 years in France) do better than the channel\'s usual post?';
+// Nghĩa tiếng Anh của dòng đầu bài hero (B2: chữ gốc tiếng Việt luôn kèm ngữ cảnh tiếng Anh) — dùng ở câu hỏi hero và
+// ô "input" của Approach
+export const HERO_ENGLISH = "8 lessons from 8 years in France";
+export const HERO_QUESTION = `Did "8 kinh nghiệm sau 8 năm ở Pháp" (${HERO_ENGLISH}) do better than the channel's usual content unit?`;
 
-// Danh từ gọi đơn vị phân tích: landing gọi "post" (định nghĩa 1 lần ở "How it solves"), trang
-// /topics hiện đúng thuật ngữ "content unit" kèm định nghĩa (Thy chốt 2026-10-29)
+// Danh từ gọi đơn vị phân tích: mọi trang (cả landing từ 2026-11-01, ADR-0032) gọi "content unit" kèm định nghĩa;
+// POST_NOUN chỉ còn làm giá trị mặc định cho helper cũ
 export interface Noun {
   one: string;
   many: string;
@@ -276,6 +278,14 @@ export function pct(value: number, digits = 2): string {
   return `${value.toFixed(digits)}%`;
 }
 
+// Một luật làm tròn cho mọi "phần của tổng" (design-system §3b K4): xuống, nhân trước khi chia; phần > 0 mà ra 0 →
+// "<1%"; tổng 0 → "—". Dùng ở mọi chỗ in "N% of …" để không có 2 cách làm tròn (code-reviewer PR 2b)
+export function partOfWhole(part: number, whole: number): string {
+  if (whole <= 0) return "—";
+  const value = Math.floor((part * 100) / whole);
+  return value === 0 && part > 0 ? "<1%" : `${value}%`;
+}
+
 export function count(value: number): string {
   return value.toLocaleString("en-US");
 }
@@ -515,7 +525,7 @@ export function swarm(
   return placed;
 }
 
-// Strip 1 hàng (bảng topic, CMI, ô "This post"): toạ độ x theo % để co giãn theo cột
+// Strip 1 hàng (bảng topic, CMI, ô "This content unit"): toạ độ x theo % để co giãn theo cột
 export function rowSwarm(
   values: number[],
   axisMax: number,

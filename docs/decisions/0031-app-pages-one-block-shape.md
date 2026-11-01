@@ -23,17 +23,17 @@
 
 ## Quyết định
 
-1. **Một khuôn khối cho 3 trang app**: đầu trang dùng chung `PageHeader` (`src/dashboard/src/components/AppBlock.tsx:46`
+1. **Một khuôn khối cho 3 trang app**: đầu trang dùng chung `PageHeader` (`src/dashboard/src/components/AppBlock.tsx:72`
    — eyebrow → h1 → câu hỏi → định nghĩa đơn vị đếm → chip mốc dữ liệu → mục lục khối); mỗi khối là `Section` + câu
-   trả lời (+ Key numbers) + bằng chứng + "Method and limits" mở sẵn; một kiểu nút bật/tắt `ToggleGroup` (`:102`).
+   trả lời (+ Key numbers) + bằng chứng + "Method and limits" mở sẵn; một kiểu nút bật/tắt `ToggleGroup` (`:146`).
    Overview: 01 cửa sổ thời gian → 02 nhiều views nhất → 03 các chỉ số; dải KPI bỏ. Analytics: 01 xếp hạng theo tỉ lệ
    → 02 giờ và ngày đăng.
 2. **Một tên "content units"** trên mọi trang; Overview và Analytics định nghĩa nó ngay dưới câu hỏi đầu trang (cùng câu
    với khối 01 của Topics, `src/dashboard/src/lib/appSections.ts:17`).
 3. **Chữ gốc không đứng một mình**: mỗi content unit trong danh sách / bảng có dòng ngữ cảnh tiếng Anh nằm trên chữ
-   gốc (`UnitText`, `AppBlock.tsx:157` — "Topic: X · original language" / "Unclustered: fits none of the N topics" /
+   gốc (`UnitText`, `AppBlock.tsx:201` — "Topic: X · original language" / "Unclustered: fits none of the N topics" /
    "Published after the latest topic run"; "Unclustered" cùng tên với trang Topics). Tên topic ghép phía server từ `/content-units` + `/topics`
-   (`src/dashboard/src/lib/load.ts:37`), không đổi API. Bảng dùng chữ 13px, danh sách 15px.
+   (`src/dashboard/src/lib/load.ts:41`), không đổi API. Bảng dùng chữ 13px, danh sách 15px.
 4. **Câu trả lời nêu số mô tả, kèm "chưa kiểm định"**: Analytics 01 nêu khoảng của top N theo tỉ lệ đang chọn và
    median toàn kênh của đúng tỉ lệ đó; Analytics 02 nêu khoảng median của các ô đọc được, không nêu tên ô cao nhất;
    Overview 01 nêu median engagement rate của cửa sổ kèm median của mọi content unit đã thu, ghi "(not tested)".

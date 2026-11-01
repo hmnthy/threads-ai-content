@@ -1,40 +1,66 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { CaretDown } from "@phosphor-icons/react";
+import { partOfWhole } from "@/lib/landing";
+import { TYPE } from "@/lib/typeScale";
 
-// Mảnh trình bày dùng chung của mọi trang (landing lấy vai từ đây — design-system §3b C2). Thứ bậc chữ
-// (Thy 2026-10-29, lần bác thứ 2: "headline / title khối thì bé, còn chữ nội dung thì lớn, dựa trên logic
-// gì?") — tiêu đề LUÔN lớn hơn nội dung nó dẫn, để người đọc nhanh quét theo tiêu đề mà không sót khối
-// (design-system §3, thang chung của sản phẩm — landing chỉ thêm display-1/2, ADR-0029):
-//   40px w700  h1 tiêu đề trang (đầu trang căn giữa)
-//   26px w700  h2 tiêu đề khối (kèm số thứ tự + dòng mục đích + kẻ đậm dưới)
-//   20px w600  h3 tiêu đề mục trong khối
-//   18px w600  câu trả lời của khối, trong khung nhấn
-//   28px w700  số chính trong hộp Key numbers (vai metric, tabular — ADR-0030 K2)
-//   17px w600  h4 tiêu đề hộp con (Key numbers, How it is computed, Limits…)
-//   15px       thân bài, gạch đầu dòng, nhãn hàng của bảng số · nhãn dưới số trong hộp Key numbers (w600)
-//   13px       chữ trong ô bảng, ghi chú phụ
-//   12.5px     mono: công thức, số trong bảng — chỉ mono
-//   12px w600  header cột bảng, nhãn nhỏ (eyebrow "Answer")
-//   0.8em      chỉ số dưới/trên trong Formula (≈ 10px) — không dùng ngoài công thức
-export const TYPE = {
-  h2: "text-[26px] font-bold leading-[1.25] tracking-[-0.02em] text-text-primary",
-  h3: "text-[20px] font-semibold leading-[1.3] tracking-[-0.01em] text-text-primary",
-  h4: "text-[17px] font-semibold leading-[1.4] text-text-primary",
-  answer: "text-[18px] font-semibold leading-[1.45] text-text-primary",
-  body: "text-[15px] leading-[1.6] text-text-secondary",
-  bodyStrong: "text-[15px] font-semibold leading-[1.45] text-text-primary",
-  cell: "text-[13px] leading-[1.45]",
-  note: "text-[13px] leading-[1.55] text-text-secondary",
-  mono: "font-mono text-[12.5px] leading-[1.7] tabular-nums",
-  label: "text-[12px] font-medium leading-[1.5] text-text-muted",
-  th: "text-[12px] font-semibold text-text-secondary",
-  metric: "text-[28px] font-bold leading-[1.15] tracking-[-0.02em] tabular-nums text-text-primary",
-  eyebrow: "text-[12px] font-semibold tracking-[0.06em] text-text-muted",
-  // Thy 2026-10-29: chữ chạy hết bề rộng khung chứa — không chừa khoảng trắng bên phải (bỏ giới hạn 72ch)
-  measure: "",
-} as const;
+export { TYPE };
+
+// Biến thể khối theo tầng (design-system §3b X1/X3/X5, ADR-0032): app là mặc định. Landing dùng LẠI chính các khối
+// của trang app (C2 — một vai, một component; Thy 2026-11-01: panel Proof của landing = panel của /topics) qua
+// `LandingBlocks`: tiêu đề lùi 1 cấp (landing có thêm tầng section display-2), card bo 20px, "Method and limits" thu
+// gọn sẵn, link thuật ngữ trỏ sang bảng thuật ngữ của /topics (landing không có bảng riêng). `labels` = số + tên ngắn
+// của khối theo id, thay nhãn của trang app (VD khối "engagement" là 03 trên /topics, 02 trong Proof của landing)
+interface BlockVariant {
+  shift: 0 | 1;
+  card: "app" | "landing";
+  methodOpen: boolean;
+  termBase: string;
+  labels: Readonly<Record<string, readonly [n: string, short: string]>>;
+}
+const APP_BLOCKS: BlockVariant = { shift: 0, card: "app", methodOpen: true, termBase: "", labels: {} };
+const BlockContext = createContext<BlockVariant>(APP_BLOCKS);
+
+export function LandingBlocks({
+  labels = {},
+  children,
+}: {
+  labels?: Readonly<Record<string, readonly [n: string, short: string]>>;
+  children: ReactNode;
+}) {
+  return (
+    <BlockContext.Provider value={{ shift: 1, card: "landing", methodOpen: false, termBase: "/topics", labels }}>
+      {children}
+    </BlockContext.Provider>
+  );
+}
+
+// Tiêu đề theo cấp của trang app (2 = khối, 3 = mục, 4 = hộp con); trong `LandingBlocks` tag tự lùi 1 cấp nên vai
+// giữ nguyên (T3/T5 đọc vai mặc định theo tag của từng tầng). `role` khi tag lệch vai mặc định (VD hộp con ngay dưới
+// tiêu đề khối: cấp 3, vai box-title)
+type Role = "block-title" | "section" | "box-title";
+export function H({
+  level,
+  role,
+  id,
+  className = "",
+  children,
+}: {
+  level: 2 | 3 | 4;
+  role?: Role;
+  id?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  const { shift } = useContext(BlockContext);
+  const Tag = `h${level + shift}` as "h2" | "h3" | "h4" | "h5";
+  return (
+    <Tag id={id} data-ux-role={role} className={`m-0 ${className}`}>
+      {children}
+    </Tag>
+  );
+}
 
 // Đầu trang app, dùng chung cho mọi trang (Thy 2026-10-31: Overview + Analytics căn giữa như Topics, ADR-0029 C2):
 // eyebrow trang (label 12px amber) → h1 40px → câu hỏi của trang 18px → chip mốc dữ liệu → (tuỳ chọn) mục lục khối.
@@ -76,24 +102,42 @@ export function PageHeader({
           </p>
         ) : null}
         {sections && sections.length > 0 ? (
-          <nav aria-label="Sections of this page" className="mt-4 w-full border-t border-border-hairline pt-6">
-            <ol className="m-0 flex list-none flex-wrap justify-center gap-2 p-0">
-              {sections.map(([id, n, label]) => (
-                <li key={id}>
-                  <a
-                    href={`#${id}`}
-                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-border-hairline bg-bg-card px-4 text-[15px] font-medium text-text-primary transition-colors hover:border-amber-600 hover:text-amber-700"
-                  >
-                    <span className="font-mono text-[12.5px] font-semibold text-amber-600">{n}</span>
-                    {label}
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </nav>
+          <SectionIndex sections={sections} label="Sections of this page" className="mt-4 w-full border-t border-border-hairline pt-6" align="center" />
         ) : null}
       </div>
     </header>
+  );
+}
+
+// Dải mục lục khối (số + tên ngắn, nhảy thẳng tới khối) — một kiểu cho đầu trang app và đầu section Proof của landing
+// (Thy 2026-11-01, ADR-0032: Proof dài ~4,5 màn hình, mục lục để quét không cắt nội dung)
+export function SectionIndex({
+  sections,
+  label,
+  className = "",
+  align = "start",
+}: {
+  sections: readonly PageSection[];
+  label: string;
+  className?: string;
+  align?: "start" | "center";
+}) {
+  return (
+    <nav aria-label={label} className={className}>
+      <ol className={`m-0 flex list-none flex-wrap gap-2 p-0 ${align === "center" ? "justify-center" : ""}`}>
+        {sections.map(([id, n, short]) => (
+          <li key={id}>
+            <a
+              href={`#${id}`}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-border-hairline bg-bg-card px-4 text-[15px] font-medium text-text-primary transition-colors hover:border-amber-600 hover:text-amber-700"
+            >
+              <span className="font-mono text-[12.5px] font-semibold text-amber-600">{n}</span>
+              {short}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
   );
 }
 
@@ -212,6 +256,7 @@ export function Section({
   title,
   purpose,
   aside,
+  ux,
   children,
 }: {
   id: string;
@@ -220,23 +265,30 @@ export function Section({
   title: string;
   purpose: ReactNode;
   aside?: ReactNode;
+  ux?: string; // data-ux cho máy đo (VD "hero-panel": ngoại lệ T5 của panel hero landing — ADR-0032)
   children: ReactNode;
 }) {
+  const { card, labels } = useContext(BlockContext);
+  const [shownN, shownShort] = labels[id] ?? [n, short];
   return (
     <section
       id={id}
+      data-ux={ux}
       aria-labelledby={`${id}-title`}
-      className="flex scroll-mt-6 flex-col gap-8 rounded-xl border border-border-hairline bg-bg-card px-5 py-7 sm:px-8 sm:py-8"
+      // landing: panel bo 20px (X3) và cuộn tới dưới LandingNav dính (72px); app: card 12px
+      className={`flex flex-col gap-8 border border-border-hairline bg-bg-card px-5 sm:px-8 ${
+        card === "landing" ? "scroll-mt-[88px] rounded-[20px] py-7 sm:py-9" : "scroll-mt-6 rounded-xl py-7 sm:py-8"
+      }`}
     >
       <header className="flex flex-col gap-2.5 border-b-2 border-text-primary pb-5">
         <span className="flex items-baseline gap-2">
-          <span className="font-mono text-[12.5px] font-semibold text-amber-600">{n}</span>
-          <span className="text-[12px] font-semibold tracking-[0.06em] text-text-muted">{short.toUpperCase()}</span>
+          <span className={`${TYPE.eyebrowNum} text-amber-600`}>{shownN}</span>
+          <span className={TYPE.eyebrow}>{shownShort.toUpperCase()}</span>
         </span>
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
-          <h2 id={`${id}-title`} className={`m-0 ${TYPE.h2} [text-wrap:balance]`}>
+          <H level={2} id={`${id}-title`} className={`${TYPE.h2} [text-wrap:balance]`}>
             {title}
-          </h2>
+          </H>
           {aside ? <span className="ml-auto">{aside}</span> : null}
         </div>
         <p className={`m-0 ${TYPE.body}`}>{purpose}</p>
@@ -262,7 +314,9 @@ export function SubSection({
     <div className="flex flex-col gap-4 border-t border-border-hairline pt-7">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h3 className={`m-0 ${TYPE.h3}`}>{title}</h3>
+          <H level={3} className={TYPE.h3}>
+            {title}
+          </H>
           {note ? <p className={`m-0 ${TYPE.note}`}>{note}</p> : null}
         </div>
         {action}
@@ -322,7 +376,8 @@ const LINK =
 // `scope` = phạm vi hẹp hơn khối chứa (VD topic đang chọn), ghi ở dòng nhãn trên tiêu đề. `level`: 3 khi hộp nằm
 // thẳng dưới tiêu đề khối h2 (tag h3, vai box-title), 4 khi nằm trong mục h3
 export function KeyNumbers({ items, scope, level = 3 }: { items: KeyNumber[]; scope?: string; level?: 3 | 4 }) {
-  const Heading = level === 3 ? "h3" : "h4";
+  // Link nhãn tới định nghĩa: trên landing trỏ sang bảng thuật ngữ của /topics (copy-reviewer: 9 link chết)
+  const { termBase } = useContext(BlockContext);
   return (
     <div
       data-ux="key-numbers"
@@ -330,16 +385,14 @@ export function KeyNumbers({ items, scope, level = 3 }: { items: KeyNumber[]; sc
     >
       <div className="flex flex-col gap-1">
         {scope ? <span className={TYPE.eyebrow}>{scope.toUpperCase()}</span> : null}
-        <Heading data-ux-role={level === 3 ? "box-title" : undefined} className={`m-0 ${TYPE.h4}`}>
+        <H level={level} role={level === 3 ? "box-title" : undefined} className={TYPE.h4}>
           Key numbers
-        </Heading>
+        </H>
       </div>
       <dl className="m-0 flex flex-col gap-4">
         {items.map((item) => {
-          // Làm tròn XUỐNG trên số nguyên (nhân trước khi chia — .claude/rules/dashboard.md): 199 / 200 không được đọc
-          // thành "100%" (code-reviewer); phần > 0 mà xuống 0 thì ghi "<1"
-          const percent = item.share && item.share.whole > 0 ? Math.floor((item.share.part * 100) / item.share.whole) : null;
-          const percentText = percent === 0 && item.share && item.share.part > 0 ? "<1" : `${percent}`;
+          // Chữ "N% of" qua luật làm tròn chung partOfWhole (K4: xuống, "<1%"); `percent` chỉ để vẽ độ dài thanh
+          const percent = item.share && item.share.whole > 0 ? (item.share.part * 100) / item.share.whole : null;
           return (
             <div key={item.label} className="flex flex-col gap-1.5 border-t border-warm-border pt-4 first:border-t-0 first:pt-0">
               <dt className="flex flex-col gap-0.5">
@@ -347,7 +400,7 @@ export function KeyNumbers({ items, scope, level = 3 }: { items: KeyNumber[]; sc
                   {item.value}
                 </span>
                 {item.term ? (
-                  <a data-ux="kn-label" href={`#term-${item.term}`} className={`${TYPE.bodyStrong} ${LINK}`}>
+                  <a data-ux="kn-label" href={`${termBase}#term-${item.term}`} className={`${TYPE.bodyStrong} ${LINK}`}>
                     {item.label}
                   </a>
                 ) : (
@@ -362,7 +415,7 @@ export function KeyNumbers({ items, scope, level = 3 }: { items: KeyNumber[]; sc
                     <span className="block h-full rounded-full bg-amber-600" style={{ width: `${percent}%` }} />
                   </span>
                   <span className={`${TYPE.note} whitespace-nowrap tabular-nums`}>
-                    {percentText}% of {item.share.of}
+                    {partOfWhole(item.share.part, item.share.whole)} of {item.share.of}
                   </span>
                 </dd>
               ) : null}
@@ -413,9 +466,9 @@ export function AnswerRow({
           {hasPoints ? (
             <div className="flex flex-col gap-2">
               {/* Hộp con nằm thẳng dưới tiêu đề khối h2: tag h3, vai box-title (T5 — không nhảy h2 → h4) */}
-              <h3 data-ux-role="box-title" className={`m-0 ${TYPE.h4}`}>
+              <H level={3} role="box-title" className={TYPE.h4}>
                 {pointsTitle}
-              </h3>
+              </H>
               <Bullets items={points} />
             </div>
           ) : null}
@@ -431,9 +484,23 @@ export function AnswerRow({
 // Link tới định nghĩa trong phần "How every number on this page is computed"
 // `tall`: vùng chạm cao 24px khi link đứng sát link khác (VD 2 link xếp chồng trong header bảng — WCAG 2.5.8)
 export function TermLink({ term, children, tall = false }: { term: string; children: ReactNode; tall?: boolean }) {
+  const { termBase } = useContext(BlockContext);
   return (
-    <a href={`#term-${term}`} className={`text-inherit ${LINK} ${tall ? "inline-flex min-h-[24px] items-center" : ""}`}>
+    <a href={`${termBase}#term-${term}`} className={`text-inherit ${LINK} ${tall ? "inline-flex min-h-[24px] items-center" : ""}`}>
       {children}
+    </a>
+  );
+}
+
+// Link "đọc đủ ký hiệu" ở cuối Method (chữ amber gạch chân) — cùng đích với TermLink, nên trên landing cũng trỏ sang
+// bảng thuật ngữ của /topics
+export function TermMore({ term, children }: { term: string; children: ReactNode }) {
+  const { termBase } = useContext(BlockContext);
+  return (
+    <a href={`${termBase}#term-${term}`} className="font-medium text-amber-700 underline underline-offset-4">
+      {children}
+      {/* Ngoài /topics: nói rõ đích là trang khác (copy-reviewer S8) */}
+      {termBase ? " (Topics page)" : null}
     </a>
   );
 }
@@ -485,7 +552,9 @@ export function MethodSection({
   limits: ReactNode[];
   more?: ReactNode; // link tới phần công thức đầy đủ của trang
 }) {
-  const [open, setOpen] = useState(true);
+  // App: mở sẵn; landing: thu gọn sẵn (X5) — nút và nội dung giữ nguyên (C3, N1–N2)
+  const { methodOpen } = useContext(BlockContext);
+  const [open, setOpen] = useState(methodOpen);
   return (
     <SubSection
       title="Method and limits"
@@ -511,7 +580,9 @@ export function MethodSection({
         // thuật, tách khỏi lớp kết quả (nền ấm) và lớp bằng chứng (nền trắng)
         <div className="flex flex-col gap-7 rounded-xl border border-border-hairline bg-bg-sunken px-3.5 py-5 sm:px-7 sm:py-6">
           <div className="flex flex-col gap-3">
-            <h4 className={`m-0 ${TYPE.h4}`}>How it is computed</h4>
+            <H level={4} className={TYPE.h4}>
+              How it is computed
+            </H>
             <ol className="m-0 flex list-decimal flex-col gap-3 pl-4 marker:text-[15px] marker:font-semibold marker:text-text-muted sm:pl-5">
               {steps.map((step) => (
                 <li key={step.title} className="sm:pl-1">
@@ -532,7 +603,9 @@ export function MethodSection({
             </ol>
           </div>
           <div className="flex flex-col gap-2">
-            <h4 className={`m-0 ${TYPE.h4}`}>Limits</h4>
+            <H level={4} className={TYPE.h4}>
+              Limits
+            </H>
             <Bullets items={limits} />
           </div>
           {more ? <span className={TYPE.note}>{more}</span> : null}

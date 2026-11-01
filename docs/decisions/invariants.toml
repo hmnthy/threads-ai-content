@@ -1077,3 +1077,45 @@ pattern = '<th[^>]*>Topic \(English\)'
 why = "Từ ADR-0031 (Thy 2026-11-01): ngữ cảnh tiếng Anh đứng trước chữ gốc, cùng một component UnitText trên mọi trang"
 fix = "Dùng UnitText trong ô chữ gốc, gộp tiêu đề cột"
 paths = ["src/**"]
+
+[[forbid]]
+id = "ADR0032-old-landing-copy"
+adr = "0032"
+mockups = true
+# Câu cũ của landing: câu hỏi panel 1 nói "higher" cho phép kiểm 2 phía; câu hỏi hero gọi đơn vị là "post"; nút
+# "Same topic · none" của toggle cũ (nay chỉ còn 1 lựa chọn khi bài hero không thuộc topic nào)
+pattern = "Which topics get a higher engagement rate than the rest of the channel|the channel's usual post|Same topic · none"
+why = "Từ ADR-0032: landing dùng lại panel /topics (câu hỏi 'differ'), một tên 'content units' trên landing"
+fix = "Dùng 'Does any topic's engagement rate differ from the rest of the channel?' và 'the channel's usual content unit'"
+paths = ["docs/**", "src/**"]
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md", "docs/design/topics-proposal.md"]
+
+[[forbid]]
+id = "ADR0032-single-accent-id"
+adr = "0032"
+# Dòng hợp đồng bản đồ 2D một màu nhấn của landing đã bỏ: landing dùng bản đồ 3D nhiều màu của /topics
+# (UI-L20261029-topic-categorical); id cũ chỉ còn trong lịch sử
+pattern = "UI-L20260930-topic-single-accent"
+why = "Từ ADR-0032: bản đồ 2D một màu nhấn của landing không còn; dòng hợp đồng đã bỏ"
+fix = "Trỏ UI-L20261029-topic-categorical (bản đồ 3D nhiều màu, /topics + landing)"
+paths = ["docs/**", "src/**"]
+allow = ["docs/decisions/**", "docs/design/brief-ui-contract-review-2026-10-06.md", "src/dashboard/src/lib/topicColors.ts"]
+
+[[forbid]]
+id = "ADR0032-whitelist-x1-x6"
+adr = "0032"
+# Danh sách trắng của landing nay là X1–X8 (X7 panel hero, X8 chữ căn giữa)
+pattern = 'X1[–-]X6'
+why = "Từ ADR-0032: danh sách trắng của landing có thêm X7 (panel hero) và X8 (chữ căn giữa hero/CTA)"
+fix = "Viết 'X1–X8'"
+paths = ["docs/claude/**", "docs/design/ui-contract.md", "README*.md"]
+
+[[forbid]]
+id = "ADR0032-cta-no-logo"
+adr = "0032"
+# Khối CTA cuối landing không còn logo (viền trắng của mark lộ trên nền tối — Thy 2026-11-01); ADR-0021/0026 Accepted
+# vẫn ghi "khối CTA mark 52px" như lịch sử (nằm ngoài paths)
+pattern = 'Khối CTA landing: `mark` 52px|CTA mark 52px|`mark` ở khối CTA'
+why = "Từ ADR-0032 mục 5b: khối CTA cuối landing không có logo"
+fix = "Ghi 'khối CTA không logo (ADR-0032 mục 5b)'"
+paths = ["docs/claude/**", "docs/design/**", "src/**"]

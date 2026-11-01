@@ -1,5 +1,11 @@
 # Handoff: Landing Unthreaded (tầng B) — 2026-10-01
 
+> **Bố cục đã thay từ 2026-11-01 (ADR-0032).** Landing dùng lại khối của trang app: panel hero theo khuôn khối chung,
+> Problem 3 cột, Approach xếp dọc dưới 1024px, Proof = 3 khối của /topics (bản đồ 3D nhiều màu + mục lục), sơ đồ
+> 960px + danh sách dọc, CTA "Explore all topics" → /topics, một tên "content units". Bố cục, kích thước, bản đồ và
+> chữ ở §0.5, §1–§3, §5 dưới đây là lịch sử — đọc `docs/claude/design-system.md` §7 + `docs/design/ui-contract.md`
+> (UI-0032-*) và mục ADR-0032 của `docs/design/ui-contract-audit.md`.
+
 > Đọc khi: port landing từ mockup sang `src/dashboard/`. Đọc kèm `docs/claude/design-system.md` (v3.2 — §2.6 dải tối, §7 tầng B).
 > Mockup: `src/dashboard/mockups/landing.dc.html` — **tham chiếu thiết kế viết bằng HTML**, không copy nguyên vào app. Dựng lại bằng Next.js 16 + Tailwind v4 + token trong `globals.css` theo pattern sẵn có của repo.
 > Fidelity: **hi-fi**. Màu, cỡ chữ, khoảng cách, copy và tương tác là bản cuối. Copy tiếng Anh lấy **nguyên văn** từ mockup.
@@ -64,7 +70,7 @@ Nguồn: `docs/design/ui-contract.md` (ADR-0020). Mỗi quyết định cấu tr
 | DBCV luôn ghi `validity_index (DBCV)`; null → "validity_index (DBCV) not computed (fewer than 2 clusters)" ở cả 3 chỗ: đầu panel 2, khối phương pháp, node Cluster (xem bằng tweak `dbcvNull`) | 3.4, 3.5 | UI-0004-dbcv-named |
 | Topic n nhỏ: mờ theo cờ backend `insufficient_data` mỗi topic (mockup giả lập cùng tên; n < `MIN_N_PER_BUCKET` = 5, hiện chỉ `topic_2`, n = 4). Không so n ở client, không có ngưỡng thứ hai. Mục mang cờ vẫn hiện n, δ, p (compare_groups vẫn tính, chỉ gắn cờ), không kèm câu kết luận. Hero (toggle Topic) cũng đọc cờ: không cờ → không có câu "small sample" | 3.1, 3.4 panel 1 | UI-L20260903-small-n-flag |
 | Beeswarm hero xếp lại chấm theo bề rộng thật (≥ 720px), hẹp hơn thì cuộn ngang trong container; About chuyển 1 cột trên màn hẹp | 3.1, 3.6 | UI-L20260829-mobile |
-| Màu: một amber cho topic chọn, xám cho topic khác, vòng rỗng cho nhiễu | 3.3, 3.4 | UI-L20260930-topic-single-accent |
+| Màu: mỗi topic một màu + hình như /topics (bản đồ 3D, từ 2026-11-01), vòng rỗng cho nhiễu | 3.3, 3.4 | UI-L20261029-topic-categorical |
 | Câu miễn trừ Meta nguyên văn ở footer | 3.7 | UI-0009-meta-disclaimer |
 
 Ảnh README cần chụp lại sau khi port: landing (UI-0009-screenshots).
@@ -115,7 +121,7 @@ Lưới 2 cột (`minmax(min(100%,420px),1fr)`, gap 56). Trái: eyebrow, H2, đo
 - Cột nối: `←` amber "topic becomes the comparison group"; `→` muted "text and topic become documents".
 
 ### 3.4 Product proof
-**Panel 1 — Which topics get a higher engagement rate than the rest of the channel?** (Thy duyệt 2026-10-09) Pill `live` khi `GET /topics/comparisons` có kết quả (Việc 3, 2026-10-09): câu trả lời là **kết quả khám phá** (ADR-0024): topic đạt p Holm < 0.05 và không mang cờ n nhỏ được nêu tên dạng gợi ý ("For now, one topic stands out above the rest of the channel: <topic>." + dòng phụ "This is a lead, not a finding…"), không câu khẳng định "tend to get…" cho tới khi có luật bền (chữ cuối: `ui-contract-audit.md`), dòng dưới ghi giờ tính kiểm định và mốc views đã dùng; cột δ, p Holm điền số thật; kết quả thuộc lần gom cụm cũ (`stale`) → ô "—" kèm lý do. Chưa có kết quả nào → pill `next` + câu "Preview. Per-topic tests are not in the dashboard yet…". Bảng `minmax(150px,240px) 44px 1fr 64px 52px 60px`: tên cụm, n, strip (chấm 6px, IQR band, vạch median 3px), median, Cliff's δ, p Holm. Đường dashed `--text-primary` = median kênh 1.99%. Cụm dẫn đầu chữ amber w600, IQR `--amber-soft`. Cụm có cờ low n mờ 50% (hover/focus bỏ mờ; cờ backend `insufficient_data`, n < 5 — UI-L20260903-small-n-flag). Chân bảng: `6 excluded: no views recorded` luôn hiện. Hàng cuối "Unclustered (HDBSCAN noise)" n 52, chấm rỗng, `not tested`. Hover/focus hàng → ghi chú đổi thành mô tả hàng đó.
+**Panel 1 — Does any topic's engagement rate differ from the rest of the channel?** (Thy duyệt 2026-10-09; từ 2026-11-01 landing dùng lại panel /topics với câu hỏi "differ" — ADR-0032) Pill `live` khi `GET /topics/comparisons` có kết quả (Việc 3, 2026-10-09): câu trả lời là **kết quả khám phá** (ADR-0024): topic đạt p Holm < 0.05 và không mang cờ n nhỏ được nêu tên dạng gợi ý ("For now, one topic stands out above the rest of the channel: <topic>." + dòng phụ "This is a lead, not a finding…"), không câu khẳng định "tend to get…" cho tới khi có luật bền (chữ cuối: `ui-contract-audit.md`), dòng dưới ghi giờ tính kiểm định và mốc views đã dùng; cột δ, p Holm điền số thật; kết quả thuộc lần gom cụm cũ (`stale`) → ô "—" kèm lý do. Chưa có kết quả nào → pill `next` + câu "Preview. Per-topic tests are not in the dashboard yet…". Bảng `minmax(150px,240px) 44px 1fr 64px 52px 60px`: tên cụm, n, strip (chấm 6px, IQR band, vạch median 3px), median, Cliff's δ, p Holm. Đường dashed `--text-primary` = median kênh 1.99%. Cụm dẫn đầu chữ amber w600, IQR `--amber-soft`. Cụm có cờ low n mờ 50% (hover/focus bỏ mờ; cờ backend `insufficient_data`, n < 5 — UI-L20260903-small-n-flag). Chân bảng: `6 excluded: no views recorded` luôn hiện. Hàng cuối "Unclustered (HDBSCAN noise)" n 52, chấm rỗng, `not tested`. Hover/focus hàng → ghi chú đổi thành mô tả hàng đó.
 
 **Panel 2 — Do the topics describe real structure in the text?**
 - Bản đồ UMAP (dim 1–2 của 3), tỉ lệ 4:3, nền `--bg-sunken`: chấm xám 7px, nhiễu = vòng rỗng, cụm đang chọn amber 10px. Legend luôn hiện.
@@ -134,7 +140,7 @@ Lưới 2 cột (`minmax(min(100%,420px),1fr)`, gap 56). Trái: eyebrow, H2, đo
 Flex wrap, gap 48: ảnh 200px cố định, chữ `flex 1 1 320px` (màn hẹp xuống 1 cột). Ảnh `photo_author` 200×240 radius 16 `object-position 50% 30%`. Bio **vẫn là nháp chờ Thy duyệt** (status.md). Chip 9 cụm kèm n.
 
 ### 3.7 CTA + footer
-Khối `--dark-bg` radius 20, padding 80/32, mark 52px, H2 display-2 (thang chung §3; code còn `clamp(32px,4vw,52px)` ở `LandingCta.tsx`, và H2 About còn `clamp(28px,3vw,38px)` ở `LandingAuthor.tsx` — sửa ở PR sau PR sổ luật). Nút chính `--amber-on-dark` chữ `#111827`; 2 nút viền trắng 28%. Link dashboard/methodology/repo **chưa có URL thật** — giữ `#` tới khi deploy. Footer: lockup + tagline; câu miễn trừ Meta (ADR-0009) + `snapshot YYYY-MM-DD`.
+Khối `--dark-bg` radius 20, padding 80/32, H2 display-2. Nút chính `--amber-on-dark` chữ `#111827`. (Bản handoff gốc còn mark 52px, 2 nút viền trắng và link `#` — ADR-0032 đã bỏ logo, nút thứ hai là "Explore all topics" → /topics; hiện trạng ở `docs/design/ui-contract.md` UI-0021, UI-0032-landing-layout.) Footer: lockup + tagline; câu miễn trừ Meta (ADR-0009) + `snapshot YYYY-MM-DD`.
 
 ## 4. Dữ liệu — không hardcode số
 

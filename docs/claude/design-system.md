@@ -112,7 +112,7 @@ Inter cho UI. **IBM Plex Mono cho công thức, ID, timestamp** — đây là d�
 /topics ra 2 "giọng" vì thang cũ chỉ viết cho tầng A: tiêu đề khối landing 13px, nhỏ hơn câu trả lời 24px nó dẫn). Mở rộng thang tầng A
 Thy chốt 2026-10-29 sau 2 lần bác bản /topics: **tiêu đề luôn lớn hơn nội dung nó dẫn**, để người đọc nhanh quét
 theo tiêu đề mà không sót khối. Mỗi cỡ một vai, không cỡ nào khác (luật T1–T4 ở §3b); hằng số `TYPE` trong
-`src/dashboard/src/components/AppBlock.tsx`. Landing chỉ thêm 2 bậc trưng bày ở đỉnh thang (display-1, display-2 —
+`src/dashboard/src/lib/typeScale.ts` (`AppBlock.tsx` re-export cho component client). Landing chỉ thêm 2 bậc trưng bày ở đỉnh thang (display-1, display-2 —
 danh sách trắng X1), không thêm bậc giữa.
 
 ```
@@ -138,6 +138,8 @@ body              15px  lh 1.6                w400 · w600    —               
                                                                                  số trong hộp Key numbers
 note · cell · control 13px                    w400 · w600    —                   ô bảng, ghi chú phụ, chú giải · chữ trên nút/tab/pill bấm được
                                                                                  (như nút "Method and limits" của `AppBlock.tsx`)
+cta               15px                        w600           —                   chỉ nút chính của trang giới thiệu (hero + CTA cuối landing,
+                                                                                 `TYPE.cta` — Thy 2026-11-01, ADR-0032); mọi nút khác là control 13
 mono · eyebrow số 12.5px mono lh 1.7          w400 · w600    —                   công thức, ID, số trong bảng · eyebrow có số, amber: số khối,
                                                                                  `01 · Problem` của section landing — chỉ mono
 label · th        12px                        w500–600       —                   header cột bảng, nhãn nhỏ, pill trạng thái, nhãn trục biểu đồ,
@@ -191,7 +193,8 @@ Cổng chặn commit cho các luật này **chưa** bật (Thy 2026-10-30: 2 l�
 - **T4 [máy]** Tiêu đề lớn hơn mọi chữ nó dẫn. Cỡ của heading phải lớn hơn cỡ lớn nhất của chữ thường đứng sau nó,
   cho tới heading cùng cấp hoặc cao hơn kế tiếp. Không tính số metric (tabular, 28/56px): số KPI là dữ liệu, nhãn
   dưới nó là chú thích, không phải tiêu đề.
-- **T5 [máy]** Tiêu đề là thẻ heading thật: mỗi trang đúng 1 `h1`, không nhảy cấp (`h2` → `h4`). Đây cũng là WCAG
+- **T5 [máy]** Tiêu đề là thẻ heading thật: mỗi trang đúng 1 `h1`, không nhảy cấp (`h2` → `h4`) — ngoại lệ duy nhất là
+  panel hero của landing (X7). Đây cũng là WCAG
   1.3.1 / 2.4.6: trình đọc màn hình đi theo heading. Tag lệch vai mặc định thì khai `data-ux-role="<vai>"` (VD hộp
   "What to know" ngay dưới `h2` là `h3` mang vai box-title). Giá trị hợp lệ chỉ có 6 vai heading: `display-1`,
   `display-2`, `page-title`, `block-title`, `section`, `box-title`. Không dùng thuộc tính này để che heading sai cấp:
@@ -300,6 +303,21 @@ Landing chỉ được khác trang app ở các điểm dưới đây. Điểm n
 - **X5** "Method and limits" có thể thu gọn mặc định, vì landing là trang giới thiệu. Nút vẫn theo C3, và bên trong
   vẫn theo N1–N2.
 - **X6** Khung nội dung 1200px; Nav riêng (`LandingNav`).
+- **X7** Panel hero (`[data-ux="hero-panel"]`, một panel duy nhất ngay dưới H1): tiêu đề khối của nó được nằm thẳng
+  dưới display-1, bỏ qua T5 (cha hợp lệ + bước h1 → h3). Chỉ chính tiêu đề đầu tiên của panel; heading khác trong
+  panel theo T5 như thường (Thy 2026-11-01, ADR-0032; máy đo + trang mẫu ở `ux-shots-fixtures.mjs`).
+- **X8** Chữ căn giữa của hero và khối CTA cuối (câu dẫn, định nghĩa dưới dải số) giới hạn ~640–720px vì độ dài
+  dòng — ngoại lệ của L5. Chữ căn trái của mọi section vẫn trải hết bề rộng khung (Thy 2026-11-01, ADR-0032).
+
+Landing không viết lại khối của trang app: bọc khối trong `LandingBlocks` (`AppBlock.tsx`) — tiêu đề tự lùi 1 cấp qua
+component `H` (X1), card bo 20px + đệm dọc 36px + `scroll-mt` 88px dưới `LandingNav` dính (X3), Method thu gọn sẵn
+(X5), mọi link thuật ngữ (`TermLink`, `TermMore`, nhãn trong `KeyNumbers`) trỏ sang bảng thuật ngữ của /topics; prop
+`labels` đánh số lại khối theo id (VD khối "engagement" là 03 trên /topics, 02 trong Proof); `Section` nhận `ux` để gắn
+`data-ux` cho máy đo (X7). Mục lục khối dùng chung `SectionIndex` (đầu trang app + đầu Proof). Nút CTA trên dải tối
+(X2) dùng `--amber-on-dark` chữ `#111827`, ở hero là `--amber-600` chữ trắng — cùng vai `cta`. Khoá `TYPE` của vai
+"eyebrow số" là `eyebrowNum`.
+Hằng `TYPE` ở `src/dashboard/src/lib/typeScale.ts` (file thường): server component phải import từ đây, không từ
+`AppBlock.tsx` (module "use client" — hằng của nó phía server ra `undefined`).
 
 ---
 
@@ -365,7 +383,7 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 
 ## 7. Layout — hai tầng, không trộn
 
-**Tầng A · App shell** (ưu tiên — `src/dashboard/`, sản phẩm thật): `max-width 1280`, padding 24. Thứ tự dọc: topbar (logo + tagline + account pill + avatar) → tab pill → đầu trang `PageHeader` → các khối `Section` (§3b C1). Overview (2026-10-31, ADR-0031): khối 01 = **dải hero gradient** → câu trả lời + Key numbers → chart + timeline brush → Method; khối 02 = top content units; khối 03 = metric architecture. Top nav tab pill, không sidebar.
+**Tầng A · App shell** (ưu tiên — `src/dashboard/`, sản phẩm thật): `max-width 1280`, padding 24. Thứ tự dọc: topbar (logo + tagline + account pill + avatar) → tab pill → đầu trang `PageHeader` → các khối `Section` (§3b C1). Overview (ADR-0031; thứ tự khối 01 Thy đổi 2026-11-01, ADR-0032): khối 01 = chart + timeline brush ngay dưới đầu khối (kéo tới đâu số ngay dưới đổi theo, không phải cuộn lên) → **dải hero gradient** → câu trả lời + Key numbers → Method; chuỗi views bắt đầu từ ngày có content unit đầu tiên; khối 02 = top content units; khối 03 = metric architecture. Top nav tab pill, không sidebar.
 
 Mỗi trang app trả lời đúng 1 câu hỏi chính (ADR-0023): `/overview` — kênh đang thế nào trong cửa sổ đã chọn? ·
 `/analytics` — bài nào, giờ nào hiệu quả? · `/topics` — kênh viết về gì, và chủ đề có liên quan tới engagement không?
@@ -378,10 +396,17 @@ hạn); không đạt thì mô tả ("not distinguishable"). Số chính là med
 
 **Tầng B · Landing** — chốt 2026-10-01, mockup `src/dashboard/mockups/landing.dc.html`, spec port ở `docs/design/landing-handoff.md`. Trang giới thiệu tool cho portfolio; pricing, FAQ, Login/Register **ngoài scope** (không phải SaaS); landing thương hiệu thydilammuon là việc của roadmap Phase F, cần ADR riêng.
 
-Thứ tự: navbar pill sticky → **Hero** (H1 tagline + panel bằng chứng: beeswarm 144 bài, bài hero amber, toggle Channel/Topic) → **Problem** (3 câu hỏi của người làm kênh, mỗi câu "Threads shows / Missing") → **How it solves** (3 tầng Measure · Group · Search nối bằng mũi tên, theo 1 bài thật) → **Product proof** (2 panel dashboard: chủ đề so với kênh; kết quả NLP) → **How it works** (sơ đồ trên dải tối §2.6, bấm node xem stack) → **About the channel** → **CTA** (dải tối) → footer có câu miễn trừ Meta.
+Thứ tự (ADR-0032, 2026-11-01): navbar pill sticky → **Hero** (H1 tagline → dải 4 số kênh + định nghĩa content unit
+→ panel hero `00`: câu hỏi làm tiêu đề, khung ANSWER, `ToggleGroup` "Compare with", beeswarm, Method thu gọn — X7) →
+**Problem** (đầu section trải ngang; Q1–Q3 thành 3 cột từ 1024px, mỗi câu h3 26px + "Threads shows / Missing") →
+**Approach** (3 tầng Measure · Group · Search cùng lưới 3 cột với Q1–Q3, cách 96px chỗ mũi tên; dưới 1024px xếp dọc)
+→ **Proof** (3 khối của /topics qua `LandingBlocks`: 01 chủ đề + bản đồ 3D, 02 topic so với kênh, 03 độ bền) → **How
+it works** (sơ đồ 960px trên dải tối §2.6, bấm node xem stack; dưới 1024px là danh sách bước) → **About the
+channel** → **CTA** (dải tối) → footer có câu miễn trừ Meta. Một tên "content units" trên cả landing.
 
-Mỗi panel bằng chứng theo thứ tự đọc chung C1 (§3b): eyebrow → tiêu đề panel (`h3`, vai h2 block title 26px) → câu mục đích 15px →
-câu trả lời 1 dòng (answer 18px, khung nhấn) → biểu đồ → nút "Method and limits" mở công thức + giới hạn (X5). Tiêu
+Mỗi panel bằng chứng là `Section` của `AppBlock.tsx` trong `LandingBlocks`, theo thứ tự đọc chung C1 (§3b): eyebrow →
+tiêu đề panel (`h3`, vai h2 block title 26px) → câu mục đích 15px → khung ANSWER (+ Key numbers) → bằng chứng →
+"Method and limits" thu gọn sẵn (X5). Tiêu
 đề section landing: display-2 `h2`; eyebrow mono 12.5px amber dạng `01 · Problem`. Cỡ chữ theo thang chung §3 —
 landing không có thang riêng (Thy 2026-10-30).
 
@@ -481,7 +506,7 @@ File gốc và quy tắc: `docs/design/brand-assets.md` (file trong `src/dashboa
 - Topbar dashboard: `lockup-replay` 36px + tagline chữ HTML 15px cạnh logo, ngăn bằng vạch dọc (ẩn tagline dưới 640px).
 - Navbar landing: `lockup-replay` 28px. Hero landing: `lockup-replay` 64px.
 - `lockup-replay` = bản "chạy 1 lần" phát lúc mở trang rồi mỗi 15 giây (ADR-0026); `prefers-reduced-motion` → bản tĩnh (§8).
-- Khối CTA landing: `mark` 52px. Footer landing: `lockup` 24px. Favicon: `app/icon.svg` (bản sao của mark).
+- Khối CTA landing: không logo (viền trắng của mark lộ trên nền tối — ADR-0032 mục 5b). Footer landing: `lockup` 24px. Favicon: `app/icon.svg` (bản sao của mark).
 
 ---
 
@@ -563,6 +588,20 @@ Checklist này là bản rút gọn; nguồn chấm là sổ luật §3b (mã lu
 ---
 
 ## 13. Decision log
+
+### 2026-11-01 — Overview: thanh kéo lên đầu khối 01, biểu đồ từ bài đầu tiên (ADR-0032)
+
+Thy thấy khi kéo khung thời gian phải cuộn lên mới xem lại số (biểu đồ nằm dưới dải hero và câu trả lời). Thy chốt:
+biểu đồ + thanh kéo ngay dưới câu hỏi của khối 01, số đặt bên dưới; chuỗi views theo ngày bắt đầu từ ngày có content
+unit đầu tiên của kênh (đoạn trước đó không có bài, không hiện).
+
+### 2026-11-01 — Landing dùng lại khối của trang app (ADR-0032)
+
+ux-reviewer chấm landing "trước khi sửa": 28 vi phạm máy + 11 lỗi chặn bằng mắt (tiêu đề giả ở mọi panel, không
+component nào của `AppBlock`, Method trông như link, số trần, chữ Việt không ngữ cảnh). Thy chốt: landing dùng lại
+chính các khối của /topics (panel Proof, bản đồ 3D nhiều màu), panel hero lấy câu hỏi làm tiêu đề + khung ANSWER,
+không hộp số; Problem 3 cột thẳng với 3 tầng Approach; sơ đồ 960px + danh sách dọc; thêm vai nút CTA 15px và ngoại
+lệ X7 cho panel hero; một tên "content units" trên cả landing. Kết quả: UX gate (máy) PASS trên cả 4 trang.
 
 ### 2026-11-01 — Ngày, dòng ngữ cảnh, "Unclustered", mốc so toàn kênh (ADR-0031)
 

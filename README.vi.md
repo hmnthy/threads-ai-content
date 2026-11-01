@@ -3,7 +3,7 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-898%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-902%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -30,13 +30,13 @@ Engineer. Không phải SaaS, không multi-tenant, và không có tham vọng tr
 Sản phẩm qua 4 bước — từ tuyên ngôn tới các chủ đề khám phá được và cách mỗi chủ đề so với phần còn lại của kênh.
 
 <p align="center">
-  <img src="docs/screenshots/landing.png" alt="Landing page: one post placed against its channel, the three layers, two dashboard panels, the pipeline diagram" width="820"><br>
-  <sub><b>1. Landing</b> — một bài thật đặt cạnh chính kênh của nó (median, độ phân tán, n), 3 tầng (statistics → NLP → knowledge base) theo dấu bài đó, 2 panel dashboard trên dữ liệu thật, và pipeline từ Threads API tới trang, mỗi bước ghi đúng trạng thái thật.</sub>
+  <img src="docs/screenshots/landing.png" alt="Landing page: one content unit placed against its channel, the three layers, three dashboard panels, the pipeline diagram" width="820"><br>
+  <sub><b>1. Landing</b> — một content unit thật đặt cạnh chính kênh của nó (median, độ phân tán, n), 3 tầng (statistics → NLP → knowledge base) theo dấu content unit đó, 3 panel Topics của dashboard trên dữ liệu thật, và pipeline từ Threads API tới trang, mỗi bước ghi đúng trạng thái thật.</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/overview.png" alt="Overview tab: hero band, Key numbers and Timeline Brush" width="820"><br>
-  <sub><b>2. Overview</b> — median engagement rate của cửa sổ trong dải hero kèm hộp Key numbers, biểu đồ views theo ngày với Timeline Brush kéo-để-tính-lại, và danh sách content unit hiệu suất cao nhất trong cửa sổ đã chọn.</sub>
+  <img src="docs/screenshots/overview.png" alt="Overview tab: Timeline Brush, hero band and Key numbers" width="820"><br>
+  <sub><b>2. Overview</b> — biểu đồ views theo ngày với Timeline Brush kéo-để-tính-lại, rồi median engagement rate của cửa sổ trong dải hero kèm hộp Key numbers, và danh sách content unit hiệu suất cao nhất trong cửa sổ đã chọn.</sub>
 </p>
 
 <p align="center">

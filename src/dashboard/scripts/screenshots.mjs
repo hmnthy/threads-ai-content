@@ -15,6 +15,8 @@ const OUT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.
 // Ảnh README hiện có rộng 1740px = khung nhìn 1160 × tỉ lệ điểm ảnh 1.5
 const VIEWPORT = { width: 1160, height: 900 };
 const DEVICE_SCALE_FACTOR = 1.5;
+// Chromium vẽ 1 ảnh tối đa 16 384 px mỗi chiều (giới hạn texture GPU) — chừa 384 px an toàn
+const MAX_CAPTURE_PX = 16_000;
 
 // `maxHeight` (px CSS) chỉ đặt cho từng trang cụ thể — không áp chung (ảnh landing cần đủ trang). /topics
 // dài ~15 000 px → ảnh 5,6 MB; chỉ chụp phần đầu đại diện (đầu trang, khối 01–02).
@@ -75,11 +77,34 @@ for (const [name, { route }] of targets) {
   const file = path.join(OUT_DIR, `${name}.png`);
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   const maxHeight = PAGES[name].maxHeight;
-  await page.screenshot(
-    maxHeight && height > maxHeight
-      ? { path: file, fullPage: true, clip: { x: 0, y: 0, width: VIEWPORT.width, height: maxHeight } }
-      : { path: file, fullPage: true },
-  );
+  const shotHeight = maxHeight && height > maxHeight ? maxHeight : height;
+  if (shotHeight * DEVICE_SCALE_FACTOR <= MAX_CAPTURE_PX) {
+    await page.screenshot(
+      shotHeight < height
+        ? { path: file, fullPage: true, clip: { x: 0, y: 0, width: VIEWPORT.width, height: shotHeight } }
+        : { path: file, fullPage: true },
+    );
+  } else {
+    // Ảnh quá giới hạn của Chromium thì phần vượt bị vẽ lại từ đầu trang (landing 2026-11-01: ~12 200 px CSS
+    // × 1.5 = 18 248 px) → chụp từng đoạn rồi ghép bằng sharp. sharp chỉ là phụ thuộc TUỲ CHỌN của next nên nạp
+    // muộn ở đây: thiếu sharp thì chỉ trang quá dài lỗi, các trang khác vẫn chụp được (code-reviewer)
+    const { default: sharp } = await import("sharp");
+    const step = Math.floor(MAX_CAPTURE_PX / DEVICE_SCALE_FACTOR);
+    const parts = [];
+    for (let y = 0; y < shotHeight; y += step) {
+      const h = Math.min(step, shotHeight - y);
+      const buf = await page.screenshot({ fullPage: true, clip: { x: 0, y, width: VIEWPORT.width, height: h } });
+      parts.push({ input: buf, top: Math.round(y * DEVICE_SCALE_FACTOR), left: 0 });
+    }
+    const width = Math.round(VIEWPORT.width * DEVICE_SCALE_FACTOR);
+    await sharp({
+      create: { width, height: Math.round(shotHeight * DEVICE_SCALE_FACTOR), channels: 4, background: "#ffffff" },
+      limitInputPixels: false,
+    })
+      .composite(parts)
+      .png()
+      .toFile(file);
+  }
   console.log(`✓ ${name} → ${path.relative(process.cwd(), file)}`);
 }
 

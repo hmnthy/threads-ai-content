@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ToggleGroup } from "@/components/AppBlock";
+import { ToggleGroup, TYPE } from "@/components/AppBlock";
 import type { DailyViewsPoint } from "@/lib/api";
 import { daysBetweenInclusive, formatFullDate, formatMonthYear } from "@/lib/dates";
 
@@ -254,8 +254,9 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
     <section className="flex flex-col gap-3.5 rounded-xl border border-border-hairline bg-bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-0.5">
-          {/* Heading thật (T6), vai box-title dưới tiêu đề khối h2 */}
-          <h3 data-ux-role="box-title" className="m-0 text-[17px] font-semibold leading-[1.4] text-text-primary">
+          {/* Heading thật (T6): vai mục (section, h3 20px) — biểu đồ là mục đầu của khối 01, đứng trước câu trả lời 18px
+              nên tiêu đề phải lớn hơn chữ nó dẫn (T4, Thy 2026-11-01 đổi thứ tự) */}
+          <h3 className={`m-0 ${TYPE.h3}`}>
             Daily views, whole account
           </h3>
           <span className="text-[13px] leading-[1.55] text-text-secondary">As Threads reports them. Drag the window or pick a preset.</span>
