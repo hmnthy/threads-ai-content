@@ -32,7 +32,7 @@ top theo tỉ lệ) gộp vào đây vì cùng câu hỏi "so với nhóm nào, 
   (reposts + quotes) / views (ADR-0012); conversation = replies / views.
 - **Phân phối lệch phải**: skewness (độ lệch, 0 = đối xứng) 1.01 / 2.28 / 2.45; 97/146 bài có share_rate dưới mean
   (mục 8) — mean bị vài bài đột biến kéo lên, không đại diện "bài điển hình".
-- **Việc chia topic không nhìn kết quả**: gom cụm chỉ nhận `(id, full_text)` (`src/pipeline/clustering_export.py:74`),
+- **Việc chia topic không nhìn kết quả**: gom cụm chỉ nhận `(id, full_text)` (`src/pipeline/clustering_export.py:74#texts`),
   không thấy views hay tương tác. So engagement giữa topic vì vậy không mắc lỗi "phân tích vòng tròn" (dùng chính kết
   quả để chia nhóm rồi kiểm định trên kết quả đó) — điều kiện tiên quyết để mọi phép so dưới đây có nghĩa.
 

@@ -14,7 +14,7 @@
   amber → câu trả lời 24px"), và `@agent-ux-reviewer` chỉ chấm theo luật tầng A, mỗi lần 1 trang.
 - Bằng chứng trong code (2026-10-30):
   - tiêu đề panel Proof của landing là `<span>` 13px, nhỏ hơn chữ nó dẫn ngay dưới — câu trả lời 24px
-    (`src/dashboard/src/components/LandingProof.tsx:239` → `:242`), 17px (`:1219` → `:1220`);
+    (`src/dashboard/src/components/LandingProof.tsx:239` → `:242`), 17px (`:1219` → `:1220`); <!-- consistency: allow ref-anchor — trỏ code landing lúc viết ADR (trước khi sửa) -->
   - toàn dashboard dùng khoảng 21 cỡ chữ khác nhau (10 → 76px), nhiều cặp sát nhau (11/11.5, 13/13.5, 14/14.5);
   - các trang app cũng lệch nhau: tiêu đề trang Analytics 24px, Topics 40px; tiêu đề khối Overview 20px (một khối
     15px), Topics 26px; landing có 3 cỡ tiêu đề section (38 / 46 / 52px).

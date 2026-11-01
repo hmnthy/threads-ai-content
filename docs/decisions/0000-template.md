@@ -6,7 +6,7 @@
 
 ## Bối cảnh
 
-Vấn đề gì, bằng chứng gì (số liệu thật, file:line, link nguồn). Vì sao phải quyết bây giờ.
+Vấn đề gì, bằng chứng gì (số liệu thật, `file:dòng#Tên` — ADR-0033, link nguồn). Vì sao phải quyết bây giờ.
 
 ## Quyết định
 

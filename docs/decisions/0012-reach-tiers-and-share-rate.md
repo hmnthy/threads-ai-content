@@ -6,7 +6,7 @@
 
 ## Bối cảnh
 
-- `virality_index` = (reposts + quotes) / views × 100 (`src/analysis/share_rate.py:15-25`) đo **tỉ lệ người xem
+- `virality_index` = (reposts + quotes) / views × 100 (`src/analysis/share_rate.py:15-25#share_rate`) đo **tỉ lệ người xem
   đăng lại / trích dẫn**, không đo bài chạm tới bao nhiêu người. Thy: "viral" theo nghĩa mạng xã hội là **độ phủ**. Hai
   chiều này khác nhau thật: engagement rate median của "Top 20% reach" là 1.61% (n = 27) so với 2.13% ở dưới median
   (n = 67) — Cliff's δ = −0.32, CI 95% của hiệu median [0.06; 0.94] điểm %, p = 0.017, p Holm (2 phép so) = 0.033
