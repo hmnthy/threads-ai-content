@@ -22,7 +22,7 @@ export function HeroBand({ data }: { data: WindowAnalytics | null }) {
     >
       <div className="flex min-w-0 flex-col gap-2">
         <span className="text-xs font-semibold tracking-wide text-[#FFF6EC]">
-          Engagement rate (median) · selected window
+          Median engagement rate · selected window
         </span>
         <span className="text-[56px] leading-none font-bold tracking-tight text-white tabular-nums">
           {hasPosts(engagement) ? `${engagement.median.toFixed(2)}%` : "—"}
@@ -41,7 +41,7 @@ export function HeroBand({ data }: { data: WindowAnalytics | null }) {
         </span>
       </div>
       <div className="flex flex-wrap gap-8">
-        <HeroStat label="Views" value={data ? formatNumber(data.views) : "—"} />
+        <HeroStat label="Account views" value={data ? formatNumber(data.views) : "—"} />
         <HeroStat label="Content units" value={data ? formatNumber(data.content_unit_count) : "—"} />
         <HeroStat
           label="Window"
@@ -56,7 +56,7 @@ function HeroStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs font-medium text-[#FFF6EC]">{label}</span>
-      <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
+      <span className="text-[28px] font-bold tracking-[-0.02em] text-white tabular-nums">{value}</span>
     </div>
   );
 }

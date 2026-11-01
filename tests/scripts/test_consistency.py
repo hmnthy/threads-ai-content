@@ -1186,6 +1186,48 @@ LEARNED_RULES = [
         "- Hộp số luôn cao bằng cột bên cạnh để cột phải không trống.",
         "- Hộp số cao theo nội dung, dính khi ở cột phụ.",
     ),
+    (
+        "ADR0030-key-numbers-box",
+        "src/dashboard/src/components/TopicsView.tsx",
+        "          <h4 className={`m-0 ${H4}`}>This topic in numbers</h4>",
+        "        <KeyNumbers items={facts} scope={scope} level={4} />",
+    ),
+    (
+        "ADR0031-old-app-copy",
+        "src/dashboard/src/components/AnalyticsBreakdown.tsx",
+        '      label: "Root posts analyzed",',
+        '      label: "content units with recorded views",',
+    ),
+    (
+        "ADR0031-old-app-copy",
+        "src/dashboard/src/components/KpiStrip.tsx",
+        '          ? "root posts in window · 6 without views"',
+        '          ? "published in this window · 6 without views"',
+    ),
+    (
+        "ADR0031-old-app-copy",
+        "src/dashboard/src/components/MetricArchitectureGrid.tsx",
+        '    note: "Share of views that led to any reaction.",',
+        '    note: "Reactions per 100 views of the opening post.",',
+    ),
+    (
+        "ADR0031-old-app-copy",
+        "src/dashboard/src/app/(app)/analytics/page.tsx",
+        "            Which posts stand out on each index, and how engagement varies",
+        '        question="Which content units have the highest rates per 100 views"',
+    ),
+    (
+        "ADR0031-kpi-strip-removed",
+        "README.md",
+        "  <sub><b>2. Overview</b> — median-first KPI strip, the daily-views chart",
+        "  <sub><b>2. Overview</b> — a hero band with the window's median, Key numbers",
+    ),
+    (
+        "ADR0031-topic-english-column",
+        "src/dashboard/src/components/TopicsView.tsx",
+        '                <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Topic (English)</th>',
+        '                <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Content unit</th>',
+    ),
 ]
 
 

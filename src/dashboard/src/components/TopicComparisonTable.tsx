@@ -142,12 +142,15 @@ export function TopicComparisonTable({ data, noun }: { data: LandingData; noun: 
             // của số đếm thật (lib/landing.ts rawSignificantCount)
             note: `If no topic truly differed, the expected number below ${alpha} by chance would be at most about ${expectedText} (${alpha} × ${family}). An expected count, not a test.`,
             term: "brunner-munzel",
+            // K4: phần của số tests đứng trước
+            share: { part: below, whole: family, of: `${family} tests` },
           },
           {
             value: `${standing.length}`,
             label: `with corrected p < ${alpha}`,
-            note: `Holm correction, on topics with at least ${minPosts} ${noun.many} with recorded views.`,
+            note: `Holm-corrected across all ${family} tests; only topics with at least ${minPosts} ${noun.many} with recorded views can count.`,
             term: "holm",
+            share: { part: standing.length, whole: family, of: `${family} tests` },
           },
         ]}
       />
@@ -239,14 +242,25 @@ export function TopicComparisonTable({ data, noun }: { data: LandingData; noun: 
                       <TermLink term="rest">Rest: n · median</TermLink>
                     </th>
                     <th scope="col" className={`${TH} whitespace-nowrap text-right`}>
-                      <TermLink term="cliffs-delta">Cliff&apos;s δ</TermLink>
-                      <br />
-                      <TermLink term="ci">95% CI, unadjusted</TermLink>
+                      {/* 2 link xếp chồng: mỗi link cao 24px để không quá sát nhau (WCAG 2.5.8) */}
+                      <span className="flex flex-col items-end">
+                        <TermLink term="cliffs-delta" tall>
+                          Cliff&apos;s δ
+                        </TermLink>
+                        <TermLink term="ci" tall>
+                          95% CI, unadjusted
+                        </TermLink>
+                      </span>
                     </th>
                     <th scope="col" className={`${TH} whitespace-nowrap text-right`}>
-                      <TermLink term="holm">Holm p</TermLink>
-                      <br />
-                      <TermLink term="brunner-munzel">p before correction</TermLink>
+                      <span className="flex flex-col items-end">
+                        <TermLink term="holm" tall>
+                          Holm p
+                        </TermLink>
+                        <TermLink term="brunner-munzel" tall>
+                          p before correction
+                        </TermLink>
+                      </span>
                     </th>
                     <th scope="col" className={TH}>
                       <TermLink term="result">Result</TermLink>

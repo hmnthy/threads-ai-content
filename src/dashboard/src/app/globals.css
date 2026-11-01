@@ -95,16 +95,34 @@ body {
   color: var(--text-primary);
 }
 
-/* Landing (tầng B): focus ring 2px amber; trên dải tối dùng amber-on-dark (design-system §5, §12) */
-.landing :focus-visible {
-  outline: 2px solid var(--amber-600);
-  outline-offset: 2px;
+/* Mọi trang (cả landing): focus ring 2px amber (design-system §12, A2 — ux-reviewer S11). Trong @layer base để
+   utility của Tailwind (VD outline-none + ring riêng của ô heatmap) vẫn thắng — code-reviewer: rule ngoài layer
+   ghi đè utility, ra 2 vòng */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--amber-600);
+    outline-offset: 2px;
+  }
 }
+
+/* Landing (tầng B): trên dải tối dùng amber-on-dark (design-system §5, §12) */
 .landing .on-dark :focus-visible {
   outline-color: var(--amber-on-dark);
 }
 @media (prefers-reduced-motion: no-preference) {
   html:has(.landing) {
     scroll-behavior: smooth;
+  }
+}
+
+/* Người xem bật giảm chuyển động → tắt mọi animation/transition CSS của trang, kể cả skeleton nhấp nháy và style
+   inline (design-system §8, A2 — ux-reviewer X7). Hoạt cảnh logo tự xử lý trong SVG (ADR-0026) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

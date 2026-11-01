@@ -31,7 +31,7 @@ export function Nav() {
         <div className="flex items-center gap-2.5">
           <button
             type="button"
-            className="flex h-9 items-center gap-2 rounded-full border border-border-hairline bg-bg-surface px-3.5 text-[13px] font-medium text-text-primary"
+            className="flex h-11 items-center gap-2 rounded-full border border-border-hairline bg-bg-surface px-3.5 text-[13px] font-medium text-text-primary"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-positive" aria-hidden="true" />
             <span>thydilammuon</span>

@@ -264,8 +264,9 @@ Bảng có chú giải "How to read the result column" ngay bên trên.
 - Khối 05: "No stability rule is set yet, so a topic that stands out on this page is at most a lead, not a finding."
 
 **Song ngữ**
-- Bảng dùng cột "Topic (English)".
-- Mỗi bài đại diện có dòng "Original language · topic: …".
+- Bảng dùng cột "Topic (English)" (thay 2026-11-01, ADR-0031: tên topic tiếng Anh nằm trên chữ gốc, cùng ô — `UnitText`).
+- Mỗi bài đại diện có dòng "Original language · topic: …" (thay 2026-11-01, ADR-0031: dòng "Topic: … · original
+  language" nằm trên chữ gốc).
 - Từ khoá ghi "Shown in the original language … The keywords are not translated; …".
 - Tóm tắt tiếng Anh từng bài chờ ADR riêng (phương án A, Thy chốt 2026-10-29).
 
@@ -312,3 +313,32 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
    báo `ADR0023-old-test-engine`) — đổi theo câu mới trong code (`LandingProof.tsx`, `LandingTechStack.tsx`).
 6. **(Đã sửa bởi ADR-0022, 2026-10-08 — từ khoá mới có sau khi merge + lần gom cụm kế tiếp)** **Từ khoá c-TF-IDF còn lẫn stopword tiếng Việt** ("một", "điều", "tui", "tớ", "ko"…) — lỗi phương pháp, không phải
    chữ; Thy chọn sửa bằng ADR + PR riêng trước khi công khai trang (2026-10-08). Mockup đừng chép bộ từ khoá hiện tại.
+
+### ADR-0031 — Overview và Analytics theo khuôn khối của Topics (2026-10-31 → 2026-11-01; `ux-reviewer` 4 lượt, `copy-reviewer` 4 lượt)
+
+- Mockup `overview-amber.dc.html` và `overview-cyan.dc.html` còn ghi "root posts in window" ở dải KPI (cảnh báo
+  `ADR0031-old-app-copy`). Code đã bỏ dải KPI (số của cửa sổ nằm ở dải hero + hộp Key numbers của khối 01) và dùng một
+  tên "content units" có định nghĩa dưới câu hỏi đầu trang. Vòng thiết kế kế tiếp: dựng lại mockup Overview theo 3 khối
+  01 cửa sổ → 02 nhiều views nhất → 03 các chỉ số (`UI-0031-page-shape`).
+- **Thy duyệt chữ cuối 2026-11-01** (PR 2a, "OK commit" sau khi xem 3 trang trên localhost). Mockup theo đúng các câu:
+  - Câu hỏi Overview: "How did the channel perform in the time window you choose, and which content units published in
+    it drew the most views?"; Analytics: "Which content units have the highest rates per 100 views, and how does
+    engagement rate vary with posting hour and weekday?".
+  - Eyebrow: "MEASURE · ONE TIME WINDOW", "MEASURE · RANKINGS AND POSTING TIME", "GROUP · TOPICS FROM TEXT".
+  - Định nghĩa dưới câu hỏi: "A content unit is one post as published, plus the follow-up parts its author added in the
+    same thread; comments are left out. Each rate counts interactions per 100 views of a content unit's opening post
+    (its first post)." (giữ "comments are left out" — Thy: phần nối tiếp của tác giả thuộc content unit, bình luận của
+    người khác thì không; không mâu thuẫn với conversation rate).
+  - Câu trả lời Overview 01: "Content units published from <date> to <date> have a median engagement rate of X%; across
+    all content units collected so far, it is Y% (not tested)." + gạch đầu dòng "All content units collected so far:
+    median Y%, middle half a–b% (IQR), n = N. This window is part of that set, and the gap between the two medians has
+    not been tested, so it does not show a better or worse period." Mẫu nhỏ: "(n = N, too few content units to
+    interpret)", bỏ vế so với kênh.
+  - Limits Overview: "…so numbers can be up to a day old; the time at the top of the page says when they were last
+    read."
+  - Dòng ngữ cảnh trên chữ gốc: "Topic: X · original language" / "Unclustered: fits none of the N topics · original
+    language"; bảng Topics: tiêu đề "Content unit: topic in English, then the first line as written".
+  - Ghi chú median: "Middle half a–b% (IQR) · n = N content units with recorded views[ · too few content units to
+    interpret]."; Holm: "Holm-corrected across all 39 tests; only topics with at least 5 content units with recorded
+    views can count."; chú giải heatmap: "no n: no content unit published then".
+  - Ngày trong thân trang "Oct 2, 2026" (+ ", 9:08 PM"); ISO chỉ ở chip "data as of".

@@ -1,11 +1,11 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-10-31 (luật hộp Key numbers — nhánh `key-numbers-rules` (loại docs))
+> Cập nhật: 2026-10-31 (3 trang app theo sổ luật UI — nhánh `app-ui-rulebook` (loại feat), PR 2a)
 
 ## Now
 
-- ADR-0029 — sổ luật UI/UX chung (Thy chốt 2026-10-30, PR #28 đã merge): một thang chữ cho landing + mọi trang app (`design-system.md` §3, landing chỉ thêm display-1/2), luật có mã (§3b), cưỡng chế 2 lớp — `@agent-ux-reviewer` (luôn chấm mọi trang) + máy đo `src/dashboard/scripts/ux-shots.mjs` (axe-core), **không** chặn commit. PR #29: Next.js 16.4.3 + `npm audit` 0 lỗ hổng. ADR-0030 (Thy chốt 2026-10-31, nhánh `key-numbers-rules` (loại docs)): hộp Key numbers — một component, một tên + dòng phạm vi, số 28px căn trái xếp dọc, cao theo nội dung + dính, thanh tỉ lệ, median + IQR + n một dòng (luật K1–K6, máy đo K1–K3). Bản live 2026-10-31: 105 vi phạm máy (landing 27, overview 15, analytics 14, topics 46 — gồm 42 K, + 3 T3 giữa các trang). Còn: PR 2 sửa `KeyNumbers` + các trang tới `UX gate (máy): PASS`.
+- ADR-0029 — sổ luật UI/UX chung (Thy chốt 2026-10-30, PR #28 đã merge): một thang chữ cho landing + mọi trang app (`design-system.md` §3, landing chỉ thêm display-1/2), luật có mã (§3b), cưỡng chế 2 lớp — `@agent-ux-reviewer` (luôn chấm mọi trang) + máy đo `src/dashboard/scripts/ux-shots.mjs` (axe-core), **không** chặn commit. PR #29: Next.js 16.4.3 + `npm audit` 0 lỗ hổng. ADR-0030 (PR #30): hộp Key numbers — một component, một tên + dòng phạm vi, số 28px căn trái xếp dọc, cao theo nội dung + dính, thanh tỉ lệ, median + IQR + n một dòng (luật K1–K6, máy đo K1–K3). PR 2a (nhánh `app-ui-rulebook` (loại feat), ADR-0031, Thy chốt 2026-10-31): 3 trang app theo một khuôn khối — `PageHeader` chung, Overview/Analytics viết lại thành `Section` + câu trả lời + Key numbers + "Method and limits", một tên "content units" có định nghĩa, tên topic tiếng Anh cạnh mỗi content unit, `/analytics/overview` thêm `share_rate` + `conversation` toàn kênh; máy đo 3 trang app = 0. Còn: PR 2b landing (27 vi phạm máy + 1 T3 display-2).
 - ADR-0027 (PR #25, Thy chọn 2026-10-30): repo public chính thức, `LICENSE` giữ mọi quyền (bên thứ ba giữ giấy phép gốc: `tools/ui-ux-pro-max/` MIT); `.claude/` gitignored, có kho riêng, worktree nhận bản sao chỉ đọc; `check --all` vẫn quét harness trên máy, mọi chế độ (cả `--all` ở CI) chặn `.claude/` bị track. ADR-0028 (PR #26): soát nội dung nhạy cảm (không có secret thật) → bỏ `docs/archive/` khỏi repo, quy tắc làm việc riêng sang `CLAUDE.local.md`, sửa câu chữ ADR. **Lịch sử đã viết lại** (2026-10-30, Thy force push `691ab6e`): bỏ `.claude/`, `docs/research/`, `docs/archive/`, chuỗi riêng tư, metadata ảnh, trailer khỏi mọi commit; mọi cổng an toàn đạt (cây `main` giống hệt trước). Đã gửi ticket GitHub Support xoá ref 26 PR cũ + cache (chờ trả lời). **Mọi mã commit cũ đã đổi** — các mã trong file này và vài ADR (VD `e8d645e`, `f5d1890`) là mã cũ: PR riêng đổi theo bảng đổi mã (lưu ngoài repo).
 - `main` (2026-10-05, PR #1 merge commit `e8d645e`, CI xanh lần đầu) gồm: tái cấu trúc "LESS IS MORE" (ADR-0001, 0003); cưỡng chế nhất quán (ADR-0008) + tên **Unthreaded** (ADR-0009); P0 dashboard trung thực — median + n + IQR, heatmap giờ đăng (ADR-0010 SQLite là CSDL duy nhất, ADR-0011 bài views = 0 là dữ liệu thiếu); P1 Bước 1 — ADR-0004 (phân vai reply 353/674/342, `full_text` sạch, lưu embedding, 9 cụm; `/conversation` trả được bình luận follower); các mục dưới đến ADR-0018.
 - Cảnh sát lời hứa (2026-10-28, Thy yêu cầu sau khi thấy landing hứa nhiều hơn dashboard): `@agent-promise-auditor` + `/promise-audit` kiểm kê lời hứa của landing so với nội dung thật của các trang app, chấm mức lệch 0–4 + độ phủ + gói việc; báo cáo riêng tư `data/audits/promise-gap/` (gitignored). Lần đầu (148dc37): **mức 4 "bìa hứa sai"**, độ phủ 11/36 — `/topics` chưa hiện kiểm định/δ/Holm/lịch sử/từ khoá dù `/topics/comparisons` đã trả đủ; 2 S1: câu CTA "the method behind each number" và mẫu số "161 posts with text".
@@ -30,7 +30,7 @@
 ## Next
 
 0b. **Trước khi chia sẻ link rộng (ADR-0025 bước 5):** Thy duyệt bio `LandingAuthor.tsx`, link CTA thật thay `#`, giới hạn tần suất gọi API, theo dõi Usage (Blob + Functions); tên miền riêng (Thy muốn `unthreaded.app`; `unthreaded.vercel.app` thuộc sản phẩm khác cùng tên) → thêm origin vào `CORS_ALLOW_ORIGINS` của API. Privacy: bản sao publish là CẢ DB — khi ADR-0007 thêm bình luận follower phải lọc bảng trước khi publish. Ngay sau: RQ-01 (đa seed, `/new-rq`) → ADR chọn luật bền.
-1. Nâng ruột theo `/promise-audit` (Thy chốt 2026-10-29: nâng các trang app lên đủ chi tiết kỹ thuật như landing; landing chỉ sửa khi sai kỹ thuật, Thy duyệt từng trường hợp). Việc 4 `/topics` XONG (nhánh `feat/topics-proof-panels`, Thy duyệt bố cục + chữ 2026-10-29). Tiếp: ADR tóm tắt tiếng Anh từng bài + nghĩa từ khoá (phương án A, PR riêng); đầu trang căn giữa cho Overview/Analytics (Thy chưa chốt); header `/analytics` gọi bảng chưa kiểm định là "stand out"; 2 câu landing sai so với code (mẫu số "161 posts with text", "Charts are hand-built SVG") + landing chưa nói rate đo trên bài mở đầu — Thy duyệt từng câu; `landing.dc.html` theo ADR-0026 (Claude Design). Phần còn mở của ADR-0012 dùng cùng engine + họ Holm.
+1. Nâng ruột theo `/promise-audit` (Thy chốt 2026-10-29: nâng các trang app lên đủ chi tiết kỹ thuật như landing; landing chỉ sửa khi sai kỹ thuật, Thy duyệt từng trường hợp). Việc 4 `/topics` XONG (nhánh `feat/topics-proof-panels`, Thy duyệt bố cục + chữ 2026-10-29). Tiếp: ADR tóm tắt tiếng Anh từng bài + nghĩa từ khoá (phương án A, PR riêng); 2 câu landing sai so với code (mẫu số "161 posts with text", "Charts are hand-built SVG") + landing chưa nói rate đo trên bài mở đầu — Thy duyệt từng câu; `landing.dc.html` theo ADR-0026 (Claude Design). Phần còn mở của ADR-0012 dùng cùng engine + họ Holm.
 2. RQ-10 (lọc từ khoá theo từ loại) — tạo file bằng `/new-rq`.
 3. Phase C — chuyển toàn bộ Python sang WSL2 (`docs/roadmap.md`).
 4. Phần còn lại của D0: ADR-0007 (lưu bình luận follower, pseudonymize) → `audience_replies`, `qa_pairs`.
@@ -52,9 +52,9 @@
 
 ## Số liệu nhanh
 
-- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 891 test pass
+- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 898 test pass
 - `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
 
 ## Last checkpoint
 
-- Record ADR-0030: one Key numbers box with machine checks
+- Rebuild the app pages on one block shape (ADR-0031)

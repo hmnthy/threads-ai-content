@@ -141,7 +141,7 @@ note · cell · control 13px                    w400 · w600    —             
 mono · eyebrow số 12.5px mono lh 1.7          w400 · w600    —                   công thức, ID, số trong bảng · eyebrow có số, amber: số khối,
                                                                                  `01 · Problem` của section landing — chỉ mono
 label · th        12px                        w500–600       —                   header cột bảng, nhãn nhỏ, pill trạng thái, nhãn trục biểu đồ,
-                                                                                 eyebrow chữ (eyebrow trang "TOPIC ANALYSIS", tên ngắn của khối)
+                                                                                 eyebrow chữ (eyebrow trang "GROUP · TOPICS FROM TEXT", tên ngắn của khối)
 formula script    0.8em (≈10px)               —              `sub`/`sup`         chỉ số dưới/trên trong `Formula` — không dùng ngoài công thức
 ```
 
@@ -266,7 +266,7 @@ cạnh rồi rải khoảng thừa giữa các dòng, cùng một vai có 2 ki�
   Chỗ trống dưới hộp khi đó là chỗ trống tự nhiên (L5); xếp chồng 1 cột thì không cần dính. Máy chỉ xét lưới CSS; cột
   phụ dựng bằng flex do reviewer chấm. Sửa phép đo K thì chạy `node scripts/ux-shots-fixtures.mjs` (trang mẫu đúng/sai).
 - **K4 [mắt]** Số là một phần của số đứng trước (VD 169 bài → 163 có chữ → 110 vào topic) có thanh tỉ lệ 4px kèm chữ
-  "N% of <số cha>" dưới nhãn. % tính bằng số nguyên trước khi chia (`Math.floor(a * 100 / b)`). Thanh chỉ để nhìn
+  "N% of <số cha>" dưới nhãn. % nhân số nguyên trước khi chia (`Math.floor(a * 100 / b)`, không `a / b * 100`; làm tròn xuống để 199/200 không thành "100%", phần > 0 mà ra 0 ghi "<1%"). Thanh chỉ để nhìn
   (`aria-hidden`); chữ % mang thông tin, nên màu không là tín hiệu duy nhất (A2).
 - **K5 [mắt]** Một kết quả thống kê là một dòng: số chính là median, ghi chú là IQR + n (VD "Middle half 1.77–3.08%
   (IQR), n = 16"); n = 0 thì hiện "—" (N4). Không tách median, IQR, n thành 3 dòng.
@@ -332,7 +332,7 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 - Cửa sổ tối thiểu 5 ngày.
 - Tab tới từng chấm, phím mũi tên dịch 1 ngày. `role="slider"` + `aria-valuetext` là ngày thật.
 
-**Đồng bộ dữ liệu:** mọi KPI, dải hero, danh sách top posts và số content unit đều tính lại từ cửa sổ. Không có số cứng nào trên trang.
+**Đồng bộ dữ liệu:** mọi KPI, dải hero, danh sách top content units và số content unit đều tính lại từ cửa sổ. Không có số cứng nào trên trang.
 
 **Chuyển động:** số **không** count-up khi đang kéo — phải bám tay theo thời gian thực. Count-up chỉ dùng lần load đầu.
 
@@ -342,9 +342,21 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 
 ## 6. Component
 
-- **KPI strip** — hàng ngang phẳng, không bọc card. Nhãn 12px + chấm màu nếu có series trên chart, số 28px tabular, **dòng công thức mono bên dưới** thay cho delta khi cần lộ phương pháp.
-- **Metric card** — 6 index trong lưới 3 cột. Tên 15px, badge trạng thái, công thức mono, một dòng giải thích. Card deferred dùng `--bg-sunken` và tên màu muted.
-- **Content unit row** — số thứ tự 2 chữ số, tiêu đề 15px (body) hiển thị đầy đủ (không cắt bằng ba chấm), dòng metadata, bar 220px, số bên phải 15px.
+- **Đầu trang app** — `PageHeader` (`AppBlock.tsx`), một component cho mọi trang app (Thy 2026-10-31): eyebrow trang →
+  h1 40px → câu hỏi của trang 18px → chip mốc dữ liệu → mục lục khối (số + tên ngắn, cùng chữ với nhãn trên mỗi khối).
+- **Nhóm nút bật/tắt** — `ToggleGroup` (`AppBlock.tsx`), một kiểu cho mọi trang: chọn = viền + nền amber nhạt, chưa chọn
+  = viền mảnh + nền trắng, 13px w600 (mono 12.5px khi nhãn là số như `30d`), vùng chạm 44px, `aria-pressed`.
+- **Số của cửa sổ thời gian (Overview)** — dải hero gradient (số chính) + hộp Key numbers của khối (§3b K). Dải KPI 6 số
+  cũ đã bỏ (2026-10-31): lặp số của dải hero.
+- **Metric card** — 6 index trong lưới 3 cột. Tên là heading vai box-title 17px, badge trạng thái, công thức mono, một
+  dòng giải thích. Card deferred dùng `--bg-sunken` + chip; tên giữ màu chung của vai (T3).
+- **Content unit row** — số thứ tự mono 2 chữ số, dòng "Topic: <tên tiếng Anh> · original language" (B2, `UnitText`;
+  nằm TRÊN chữ gốc, ngữ cảnh tiếng Anh đứng trước — ADR-0031; không thuộc topic nào: "Unclustered: fits none of the N
+  topics") → chữ gốc 15px hiển thị đầy đủ (không cắt bằng ba chấm), dòng ngày, bar 200px, số + đơn vị ("views") bên phải.
+- **Ngày** — một kiểu trong thân mọi trang: "Oct 2, 2026", thêm ", 12:52 PM" khi cần giờ (`src/dashboard/src/lib/dates.ts`,
+  `parisDate` / `testTimes` trong `landing.ts`); ISO "2026-10-31 20:17 Paris time" chỉ ở chip mốc dữ liệu đầu trang
+  (Thy chốt 2026-11-01).
+  Dưới `sm`: bar + số xuống dòng dưới chữ.
 - **Bảng** — header 12px w600 (vai label · th, §3), không uppercase, không zebra striping, hover đổi nền.
 - **Trạng thái chart** — bắt buộc có loading (skeleton, không spinner), empty (nói rõ lệnh cần chạy), error (message + retry).
 - **Icon** — Phosphor regular 18–20px. Không emoji.
@@ -353,7 +365,7 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 
 ## 7. Layout — hai tầng, không trộn
 
-**Tầng A · App shell** (ưu tiên — `src/dashboard/`, sản phẩm thật): `max-width 1280`, padding 24. Thứ tự dọc: topbar (logo + tagline + account pill + avatar) → tab pill → **dải hero gradient** → chart + timeline brush → KPI strip → metric architecture → top content units. Top nav tab pill, không sidebar.
+**Tầng A · App shell** (ưu tiên — `src/dashboard/`, sản phẩm thật): `max-width 1280`, padding 24. Thứ tự dọc: topbar (logo + tagline + account pill + avatar) → tab pill → đầu trang `PageHeader` → các khối `Section` (§3b C1). Overview (2026-10-31, ADR-0031): khối 01 = **dải hero gradient** → câu trả lời + Key numbers → chart + timeline brush → Method; khối 02 = top content units; khối 03 = metric architecture. Top nav tab pill, không sidebar.
 
 Mỗi trang app trả lời đúng 1 câu hỏi chính (ADR-0023): `/overview` — kênh đang thế nào trong cửa sổ đã chọn? ·
 `/analytics` — bài nào, giờ nào hiệu quả? · `/topics` — kênh viết về gì, và chủ đề có liên quan tới engagement không?
@@ -551,6 +563,24 @@ Checklist này là bản rút gọn; nguồn chấm là sổ luật §3b (mã lu
 ---
 
 ## 13. Decision log
+
+### 2026-11-01 — Ngày, dòng ngữ cảnh, "Unclustered", mốc so toàn kênh (ADR-0031)
+
+Ux-reviewer và copy-reviewer lượt 3 thấy 5 kiểu ngày giữa 3 trang và dòng ngữ cảnh tiếng Anh nằm dưới 5–9 dòng tiếng
+Việt. Thy chốt: ngày trong thân trang "Oct 2, 2026" (+ ", 9:08 PM" khi cần giờ), ISO chỉ ở chip "data as of"; dòng
+"Topic: X · original language" nằm TRÊN chữ gốc ở mọi trang, kể cả bảng "Every content unit" của Topics (bỏ cột riêng
+"Topic (English)"); content unit không thuộc topic nào gọi "Unclustered" như trang Topics; câu trả lời khối 01 Overview
+nêu kèm median của mọi content unit đã thu, ghi "(not tested)". Định nghĩa content unit giữ nguyên ("comments are left
+out": phần nối tiếp của chính tác giả thuộc content unit, bình luận của người khác thì không; conversation rate đếm số
+replies Threads báo cho bài mở đầu — hai định nghĩa không mâu thuẫn).
+
+### 2026-10-31 — Overview và Analytics theo khuôn khối của Topics
+
+Sau PR sổ luật (ADR-0029/0030), máy đo 3 trang app về 0 nhưng ux-reviewer còn 15 lỗi chặn bằng mắt, gần hết có từ
+trước: Overview/Analytics thiếu câu trả lời và "Method and limits", 3 kiểu toggle, 2 kiểu số KPI, tiêu đề giả, chữ gốc
+tiếng Việt không có ngữ cảnh tiếng Anh. Thy chốt: sửa hết trong cùng PR; đầu trang căn giữa dùng chung (`PageHeader`);
+một tên "content units" cho mọi trang; tên topic tiếng Anh cạnh mỗi content unit trong danh sách (ghép phía server từ
+`/content-units` + `/topics`, không đổi API). Dải KPI của Overview bỏ vì lặp dải hero.
 
 ### 2026-10-31 — Hộp Key numbers: một component, số 28px, cao theo nội dung
 

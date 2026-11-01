@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { TopicComparisonRow } from "@/lib/api";
 import { AnswerRow, Bullets, MethodSection, Section, SubSection, TermLink, TYPE } from "@/components/AppBlock";
 import { VerdictLabel, VerdictMark, tooFewLabel, verdictParts } from "@/components/Verdict";
+import { formatIqrRange } from "@/components/DistributionCaption";
 import { sectionShort } from "@/lib/topicSections";
 import {
   MethodBlock,
@@ -594,7 +595,13 @@ function AppEngagementPanel({
           anyStanding
             ? `This is a lead, not a finding: it holds for the current topics, which are re-clustered as new ${noun.many} arrive.`
             : null,
-          `Each topic is compared with **every other ${noun.one}**, unclustered ones included, not with the channel median.`,
+          `Each topic is compared with **every other ${noun.one}**, unclustered ones included, not with the channel median; the dashed line on the chart marks that median as a reference only.`,
+          // Chuyển từ ghi chú hộp Key numbers (ux-reviewer N12: 3 ý dồn trong 1 ghi chú 13px) — UI-0011-excluded
+          data.channel.excluded > 0
+            ? `${data.channel.excluded} of ${count(data.channel.total)} excluded: no views recorded${
+                data.sameExcludedPosts ? " (the same ones have no text, so they are in no topic)" : ""
+              }.`
+            : null,
           anyStanding ? `p-values are corrected for all ${family} tests${familyBreakdown}.` : null,
           tests.computedAt ? `Tests ran ${testTimes(tests.computedAt, tests.snapshotAsOf)}.` : null,
           `The medians and dots (one per ${noun.one}) use the latest data.`,
@@ -698,30 +705,25 @@ function AppEngagementPanel({
         below={
           whyNone.length > 0 ? (
             <div className="flex flex-col gap-2">
-              <h4 className={`m-0 ${TYPE.h4}`}>Why no topic stands out yet</h4>
+              {/* `below` nằm ngoài lưới, ngay dưới tiêu đề khối h2: tag h3, vai box-title (T5) */}
+              <h3 data-ux-role="box-title" className={`m-0 ${TYPE.h4}`}>
+                Why no topic stands out yet
+              </h3>
               <Bullets items={whyNone} />
             </div>
           ) : null
         }
         points={points}
         keyNumbers={[
+          // Một kết quả thống kê = một dòng (ADR-0030 K5): median kênh là số, IQR + n + phần bị loại ở ghi chú. n cùng
+          // tập với `channel.stats.n` (cả unit không chữ / đăng sau lần gom cụm) — UI-0011-excluded
           {
             value: hasChannelMedian ? pct(channelMedian) : "—",
             label: "channel median engagement rate",
-            note: "The dashed line on the chart: a reference, not the comparison group.",
+            note: hasChannelMedian
+              ? `Middle half ${formatIqrRange(data.channel.stats)} (IQR) · n = ${count(data.channel.stats.n)} ${noun.many} with recorded views.`
+              : `No ${noun.one} has recorded views yet.`,
             term: "median",
-          },
-          {
-            value: count(data.channel.stats.n),
-            label: `${noun.many} with recorded views`,
-            // cùng tập với `channel.stats.n` (cả unit không chữ / đăng sau lần gom cụm) — UI-0011-excluded
-            note:
-              data.channel.excluded > 0
-                ? `${data.channel.excluded} of ${count(data.channel.total)} excluded: no views recorded${
-                    data.sameExcludedPosts ? " (the same ones have no text, so they are in no topic)" : ""
-                  }.`
-                : `Every ${noun.one} has recorded views.`,
-            term: "recorded-views",
           },
           ...(closest
             ? [
@@ -781,17 +783,22 @@ function AppEngagementPanel({
             </ul>
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-semibold text-text-muted">Holm p and Stood out in columns</span>
+            <span className="text-[12px] font-semibold text-text-muted">The “Holm p” and “Stood out in” columns</span>
+            {/* Đủ 3 nhãn kết quả như chú giải khối 04, kể cả ▲/▼ của cột Holm p (ux-reviewer B1: thiếu ▲ hôm nay, còn
+                dòng ▲ duy nhất lại nói về lịch sử) */}
             <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[13px] text-text-secondary">
               <li className="flex items-center gap-1.5">
-                <VerdictMark verdict="not distinguishable" /> not significant after correction
+                <VerdictMark verdict="higher" /> Holm p: stood out above (▲) or below (▼) after correction, today
               </li>
               <li className="flex items-center gap-1.5">
-                <VerdictMark verdict="too few posts" /> {tooFewLabel(noun, minPosts).replace(/^T/, "t")} (row in grey)
+                <VerdictMark verdict="not distinguishable" /> Holm p: not significant after correction
               </li>
               <li className="flex items-center gap-1.5">
-                <span className="whitespace-nowrap text-text-primary">▲ above / ▼ below</span>: stood out in k of m
-                re-clusterings, a record, not today&apos;s result
+                <VerdictMark verdict="too few posts" /> Holm p: {tooFewLabel(noun, minPosts).replace(/^T/, "t")} (row in grey)
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="whitespace-nowrap text-text-primary">k of m ▲ / ▼</span>: “Stood out in” counts past
+                re-clusterings where the topic stood out, a record, not today&apos;s result
               </li>
             </ul>
           </div>

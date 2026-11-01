@@ -25,9 +25,11 @@ export function formatMonthYear(date: string): string {
 
 export function formatFullDate(date: string): string {
   const d = new Date(`${date}T00:00:00Z`);
-  return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
+// Một kiểu ngày trong thân mọi trang: "Oct 2, 2026" (+ ", 12:52 PM" khi cần giờ) — Thy chốt 2026-11-01;
+// ISO chỉ ở chip "data as of" đầu trang (`parisTime`).
 // Timestamp của post (ISO, UTC) hiển thị theo giờ Paris — nơi tác giả sống. Mọi trang
 // dùng chung 2 hàm này; cắt chuỗi `slice(0, 10)` cho ra ngày UTC, lệch 1 ngày với bài
 // đăng sau 22:00/23:00 giờ Paris.
@@ -35,14 +37,14 @@ const PARIS_DATE = new Intl.DateTimeFormat("en-US", {
   timeZone: "Europe/Paris",
   year: "numeric",
   month: "short",
-  day: "2-digit",
+  day: "numeric",
 });
 const PARIS_DATE_TIME = new Intl.DateTimeFormat("en-US", {
   timeZone: "Europe/Paris",
   year: "numeric",
   month: "short",
-  day: "2-digit",
-  hour: "2-digit",
+  day: "numeric",
+  hour: "numeric",
   minute: "2-digit",
 });
 

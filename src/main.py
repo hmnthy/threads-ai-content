@@ -272,6 +272,10 @@ class AnalyticsOverviewOut(BaseModel):
     # bên dưới — `post_count` chỉ đếm bài đo được, số bị loại báo riêng ở đây.
     excluded_no_views: int
     engagement: DistributionStatsOut
+    # ADR-0031: phân phối share rate + conversation rate toàn kênh (cùng tập bài đo được, cùng
+    # median/IQR/n như `engagement`) — câu trả lời của trang Analytics so top của mỗi tab với kênh
+    share_rate: DistributionStatsOut
+    conversation: DistributionStatsOut
     # ADR-0023 1f: 3 bảng top theo tỉ lệ chỉ xếp bài có views ≥ sàn = P25 views của các bài đo
     # được, tính lại mỗi request (`views_floor`); null khi < 2 bài đo được (không lọc).
     # `below_views_floor` = số bài đo được nằm dưới sàn, không vào 3 bảng top.
@@ -301,7 +305,7 @@ class DailyViewsSeriesOut(BaseModel):
 
 
 class WindowAnalyticsOut(BaseModel):
-    """Hero band + KPI strip + top content units — tính lại từ data thật CHỈ trong
+    """Hero band + Key numbers + top content units — tính lại từ data thật CHỈ trong
     [start, end]. `views` = Σ account_daily_views (account-level, gồm views từ
     replies) — KHÁC `top_content_units[].metrics.popularity_index` (post-level, per
     ContentUnit). `engagement`/`share_rate`/`conversation` là phân phối CỦA TỪNG
@@ -788,6 +792,8 @@ def get_analytics_overview() -> AnalyticsOverviewOut:
             post_count=len(posts),
             excluded_no_views=excluded,
             engagement=_to_stats_out(window_stats(insights, lambda i: i.engagement_rate)),
+            share_rate=_to_stats_out(window_stats(insights, share_rate)),
+            conversation=_to_stats_out(window_stats(insights, conversation_rate)),
             views_floor=floor,
             views_floor_rule=VIEWS_FLOOR_RULE,
             below_views_floor=len(insights) - len(ranked),
@@ -837,7 +843,7 @@ def get_analytics_daily_views() -> DailyViewsSeriesOut:
 
 @app.get("/analytics/window", response_model=WindowAnalyticsOut)
 def get_analytics_window(start: date_cls, end: date_cls) -> WindowAnalyticsOut:
-    """Hero band + KPI strip + top content units cho Timeline Brush (Overview mới)
+    """Hero band + Key numbers + top content units cho Timeline Brush (Overview)
     — tính lại từ data thật CHỈ trong [start, end] mỗi khi cửa sổ đổi (KHÔNG slice
     từ 1 series tĩnh phía client như mockup UI làm). Xem docstring `WindowAnalyticsOut`
     cho định nghĩa từng field — đặc biệt `views` (account-level) khác
