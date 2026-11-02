@@ -1,6 +1,6 @@
 # ADR-0031: Ba trang app theo một khuôn khối, một tên "content units", số toàn kênh cho cả 3 tỉ lệ
 
-- **Trạng thái**: Accepted
+- **Trạng thái**: Accepted — thứ tự khối, đánh số và eyebrow của Analytics (mục 1, câu "Analytics 02" ở mục 4, mục 5) thay bởi ADR-0035
 - **Ngày**: 2026-10-31
 - **Người quyết**: Thy (chọn qua câu hỏi 2026-10-31 trong lúc làm PR 2a của sổ luật UI: đầu trang căn giữa dùng chung,
   làm hết trong 1 PR, một tên "content units", tên topic tiếng Anh cạnh mỗi content unit, câu hỏi Overview, câu trả

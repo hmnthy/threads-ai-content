@@ -58,7 +58,7 @@ threads-ai-content/
 | Topic discovery | UMAP (3D) + HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8` — calibrate lại 2026-10-01, ADR-0004) | Live, re-cluster hằng ngày |
 | LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — CHỈ đặt tên cluster (tiếng Anh) | Live |
 | Thống kê | median/IQR, Brunner-Munzel hoán vị + Cliff's δ kèm CI + Holm (numpy/scipy, ADR-0023) — so sánh topic vs phần còn lại tính trong job NLP, landing live (`GET /topics/comparisons`); trang Topics hiện đủ họ Holm (mọi topic × 3 chỉ số) + bảng thuật ngữ (Việc 4, 2026-10-29) | Live |
-| Dashboard | Next.js 16 + Tailwind v4 + chart SVG tự dựng + Plotly (bản đồ topic) + Phosphor icons | Live — công khai tại https://unthreaded-analytics.vercel.app (mục "Deploy") |
+| Dashboard | Next.js 16 + Tailwind v4 + chart HTML/CSS tự dựng (SVG cho biểu đồ views theo ngày) + Plotly (bản đồ topic 3D) + Phosphor icons | Live — công khai tại https://unthreaded-analytics.vercel.app (mục "Deploy") |
 | Hosting | Vercel (Hobby): 2 project từ cùng repo + Vercel Blob riêng tư cho bản sao DB (ADR-0025) | Live từ 2026-10-28 |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |

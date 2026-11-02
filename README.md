@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-957%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-969%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -39,7 +39,7 @@ The product in four steps — from the pitch to the discovered topics and how ea
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/analytics.png" alt="Analytics tab: top content units and posting-time breakdown" width="820"><br>
+  <img src="docs/screenshots/analytics.png" alt="Analytics tab: top content units, one content unit against the channel, and posting-time breakdown" width="820"><br>
   <sub><b>3. Analytics</b> — top content units by engagement/share rate/conversation, any one content unit placed against the channel or its own topic, and posting-time performance broken down by both Europe/Paris and Asia/Ho_Chi_Minh.</sub>
 </p>
 

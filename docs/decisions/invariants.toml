@@ -1140,3 +1140,45 @@ pattern = 'timestamp\W{0,4}(\[:10\]|\[0:10\]|\.(slice|substring)\(0, ?10\)|\.spl
 why = "Từ ADR-0034: ngày đăng bài theo giờ Paris (author_day / parisDay), không phải ngày UTC"
 fix = "Dùng author_day (src/models/days.py) hoặc parisDay (src/dashboard/src/lib/dates.ts)"
 paths = ["src/**", "docs/claude/**", "docs/design/**"]
+
+[[forbid]]
+id = "ADR0035-old-chart-tech"
+adr = "0035"
+mockups = true
+# Câu cũ "biểu đồ là SVG tự dựng" (landing, README, architecture): chỉ timeline views theo ngày và sơ đồ "How it works"
+# là SVG; mọi biểu đồ còn lại là div HTML/CSS, bản đồ topic là Plotly scatter3d (WebGL)
+# Chỉ bắt câu nói CHUNG "mọi chart là SVG" (consistency-auditor + code-reviewer 2026-11-02): câu đúng về biểu đồ views
+# theo ngày ("the daily-views chart is a hand-built SVG") không bị bắt; bản Việt / Pháp là dòng stack cũ của README
+# ("… + Plotly"). Không bắt "SVG thuần" (data-model.md ghi thực nghiệm lịch sử 2026-09)
+pattern = '(?i)(charts|graphs) (are )?hand-?(built|made|drawn|rolled) SVG|hand-?(built|made|drawn|rolled) SVG (charts|graphs)|SVG (charts|graphs) (tự dựng|faits main)|(chart|biểu đồ|graphiques)( en)? SVG (tự dựng|faits main) \+ Plotly'
+why = "Từ ADR-0035 (promise-audit 2b): biểu đồ dựng tay bằng HTML/CSS; SVG chỉ cho biểu đồ views theo ngày và sơ đồ"
+fix = "Ghi 'hand-built in HTML/CSS; the daily-views chart … are SVG, … Plotly (WebGL)' / 'chart HTML/CSS tự dựng (SVG cho biểu đồ views theo ngày)'"
+paths = ["docs/**", "src/**", "README*.md"]
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
+
+[[forbid]]
+id = "ADR0035-old-analytics-shape"
+adr = "0035"
+mockups = true
+# Trang Analytics cũ có 2 khối (01 xếp hạng → 02 giờ đăng) và eyebrow "Rankings and posting time"; nay 3 khối
+# Eyebrow cũ đúng nguyên văn (phân biệt hoa/thường), thứ tự có mũi tên, mô tả "2 khối" (consistency-auditor +
+# code-reviewer 2026-11-02). Không bắt câu đúng nhắc 2 khối cùng lúc ("between rankings and posting time"); eyebrow mới
+# có "one content unit" xen giữa nên không khớp
+pattern = 'Rankings and posting time|RANKINGS AND POSTING TIME|01 xếp hạng → 02 giờ|(?i:(rankings?|xếp hạng)\W{0,8}(→|->)\W{0,8}(posting time|giờ đăng))|(?i:(rankings?|xếp hạng) (and|và) (posting time|giờ đăng) \((2 khối|2 blocks|two blocks)\))'
+why = "Từ ADR-0035: Analytics = 01 xếp hạng → 02 một content unit so với kênh → 03 giờ đăng; eyebrow 'Measure · Rankings, one content unit, posting time'"
+fix = "Ghi 3 khối và eyebrow mới (src/dashboard/src/lib/appSections.ts ANALYTICS_SECTIONS)"
+paths = ["docs/**", "src/**"]
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
+
+[[forbid]]
+id = "ADR0035-old-refresh-limit"
+adr = "0035"
+mockups = true
+# Limits cũ của panel hero: "re-read every 4 hours" không kèm điều kiện laptop thức (ADR-0017) — số có thể cũ hơn 4h
+# Mọi câu "re-read(s) every 4 hours" mà CẢ CÂU (trước lẫn sau) không nhắc máy thu dữ liệu thức (laptop / machine /
+# máy) — consistency-auditor + code-reviewer 2026-11-02
+pattern = '(?i)(?:^|[.\n])(?![^.\n]*(laptop|machine|máy))[^.\n]*re-reads?\b[^.\n]{0,40}every 4 hours'
+why = "Từ ADR-0035 (promise-audit 2b): job chỉ chạy khi laptop thu dữ liệu đang thức (ADR-0017)"
+fix = "Ghi '…re-read every 4 hours while the collecting laptop is awake, so they are usually less than a day old.'"
+paths = ["docs/**", "src/**"]
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]

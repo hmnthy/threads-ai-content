@@ -437,3 +437,6 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
     text when it ran."; ghi chú ARI có n ("On the 110 content units with a topic in both runs." / "On the 163 content
     units present in both runs."), cảnh báo seed cho cả 2 ARI; DBCV "Weighted over all N content units; the M
     unclustered pull it toward 0." (bài unclustered chỉ vào mẫu số trọng số |t|/n).
+- Cảnh báo mockup mới (ADR-0035, luật `ADR0035-old-chart-tech`): `src/dashboard/mockups/landing.dc.html:560#body` node
+  "Dashboard · Landing" còn "Charts are hand-built SVG; the topic map uses Plotly." — vòng thiết kế kế tiếp đổi theo câu
+  đã duyệt ở trên (biểu đồ HTML/CSS; SVG chỉ cho biểu đồ views theo ngày và sơ đồ; bản đồ 3D Plotly WebGL).

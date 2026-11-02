@@ -3,7 +3,7 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-957%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-969%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -40,7 +40,7 @@ Sản phẩm qua 4 bước — từ tuyên ngôn tới các chủ đề khám ph
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/analytics.png" alt="Analytics tab: top content units and posting-time breakdown" width="820"><br>
+  <img src="docs/screenshots/analytics.png" alt="Analytics tab: top content units, one content unit against the channel, and posting-time breakdown" width="820"><br>
   <sub><b>3. Analytics</b> — top content unit theo engagement/share rate/conversation, đặt một content unit bất kỳ cạnh cả kênh hoặc cạnh topic của nó, và hiệu suất theo giờ đăng tách riêng 2 múi giờ Europe/Paris và Asia/Ho_Chi_Minh.</sub>
 </p>
 
