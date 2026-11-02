@@ -10,7 +10,7 @@ import { TimelineBrush } from "@/components/TimelineBrush";
 import { TopContentList } from "@/components/TopContentList";
 import { OVERVIEW_SECTIONS, shortOf } from "@/lib/appSections";
 import { count, pct } from "@/lib/landing";
-import { addDays, daysBetweenInclusive, formatFullDate } from "@/lib/dates";
+import { daysBetweenInclusive, formatFullDate } from "@/lib/dates";
 
 // Trang /overview theo khuôn khối chung (Thy 2026-10-31: làm như /topics): mỗi khối = số + tiêu đề h2 + câu mục
 // đích → câu trả lời + ý chính + Key numbers → bằng chứng → "Method and limits" mở sẵn. Dải hero gradient (chữ ký
@@ -20,11 +20,13 @@ export function OverviewDashboard({
   topicCount,
   channelEngagement,
   firstPostDate,
+  dayMismatch,
 }: {
   topicOf: Record<string, string | null> | null;
   topicCount: number | null;
   channelEngagement: DistributionStats | null;
   firstPostDate: string | null;
+  dayMismatch: { count: number; total: number } | null;
 }) {
   const [series, setSeries] = useState<DailyViewsSeries | null>(null);
   const [seriesError, setSeriesError] = useState<string | null>(null);
@@ -40,11 +42,9 @@ export function OverviewDashboard({
   const points = useMemo(() => {
     if (series === null) return null;
     if (firstPostDate === null) return series.points;
-    // TẠM bù 1 ngày (Thy 2026-11-01): backend gắn nhãn chuỗi views sớm 1 ngày (`src/api/endpoints.py` lùi end_time
-    // 07:00Z thêm 1 ngày — data thật: 8/10 bài đăng riêng lẻ có đỉnh views ở ngày trước khi đăng), nên views của ngày
-    // đăng bài đầu nằm ở nhãn ngày trước đó. Gỡ phần bù khi PR sửa nhãn ngày (có ADR riêng) vào main
-    const start = addDays(firstPostDate, -1);
-    const cut = series.points.filter((point) => point.date >= start);
+    // Nhãn chuỗi = ngày Pacific mà điểm đo, ngày đăng = ngày Paris (ADR-0034): bài đầu tiên đăng tối giờ Paris nên
+    // views của nó nằm ở chính ngày đó. Bài đăng 0h–9h sáng Paris thì views rơi vào ngày Pacific trước — giới hạn ADR
+    const cut = series.points.filter((point) => point.date >= firstPostDate);
     return cut.length >= 2 ? cut : series.points;
   }, [series, firstPostDate]);
 
@@ -150,6 +150,15 @@ export function OverviewDashboard({
               formula: "V = Σ_d views_d",
             },
             {
+              title: "Which day",
+              plain: "The Threads API gives the account's views only as one total per day, and its days run on Pacific time (California). So each chart day starts at midnight Pacific, which is 9 am in Paris for most of the year. A content unit falls in a window by the day it was published in Paris time: the date printed under it in block 02.",
+              formula: [
+                "chart day = calendar date in America/Los\\_Angeles",
+                "content unit day = publish date in Europe/Paris",
+                "unit in window when start ≤ content unit day ≤ end   (start, end = chart days at the two handles)",
+              ],
+            },
+            {
               title: "Rates",
               plain: "Each rate divides the opening post's interactions by its views, so content units with few and many views can be compared on the same scale.",
               formula: [
@@ -169,6 +178,11 @@ export function OverviewDashboard({
             "Interactions and views are **counted to date**, so a content unit published early in the window has had more time to collect them.",
             "Views and interactions are re-read from Threads every 4 hours, only while the collecting laptop is awake, so numbers can be up to a day old; the time at the top of the page says when they were last read.",
             "Content units published after the last day on the chart are in no window yet.",
+            `A content unit published **between midnight and 9 am Paris time** (8 am for a few weeks a year) is counted on its Paris date, but the account's views from those first hours land on the chart day before. This only matters at the edges of a window.${
+              dayMismatch && dayMismatch.total > 0
+                ? ` So far, it applies to ${count(dayMismatch.count)} of the ${count(dayMismatch.total)} content units collected, with or without recorded views.`
+                : ""
+            }`,
             "A window of a few days holds few content units: read n before reading a median.",
           ]}
         />
@@ -206,7 +220,7 @@ function windowPoints(data: WindowAnalytics | null, channel: DistributionStats |
     }.`,
     ...(channel && hasPosts(channel) && hasPosts(data.engagement) && !data.engagement.insufficient_data
       ? [
-          `**All content units collected so far**: median ${pct(channel.median)}, middle half ${formatIqrRange(channel)} (IQR), n = ${count(channel.n)}. This window is part of that set, and the gap between the two medians has not been tested, so it does not show a better or worse period.`,
+          `**All content units collected so far**: median ${pct(channel.median)}, middle half ${formatIqrRange(channel)} (IQR), n = ${count(channel.n)} content units with recorded views. This window is part of that set, and the gap between the two medians has not been tested, so it does not show a better or worse period.`,
         ]
       : []),
     "**Account views** in the band above are the whole account's daily views as Threads reports them, not the sum of the content units' views.",

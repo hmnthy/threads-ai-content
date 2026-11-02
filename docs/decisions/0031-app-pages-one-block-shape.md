@@ -33,7 +33,7 @@
 3. **Chữ gốc không đứng một mình**: mỗi content unit trong danh sách / bảng có dòng ngữ cảnh tiếng Anh nằm trên chữ
    gốc (`UnitText`, `AppBlock.tsx:201#UnitText` — "Topic: X · original language" / "Unclustered: fits none of the N topics" /
    "Published after the latest topic run"; "Unclustered" cùng tên với trang Topics). Tên topic ghép phía server từ `/content-units` + `/topics`
-   (`src/dashboard/src/lib/load.ts:41#loadAppContext`), không đổi API. Bảng dùng chữ 13px, danh sách 15px.
+   (`src/dashboard/src/lib/load.ts:46#loadAppContext`), không đổi API. Bảng dùng chữ 13px, danh sách 15px.
 4. **Câu trả lời nêu số mô tả, kèm "chưa kiểm định"**: Analytics 01 nêu khoảng của top N theo tỉ lệ đang chọn và
    median toàn kênh của đúng tỉ lệ đó; Analytics 02 nêu khoảng median của các ô đọc được, không nêu tên ô cao nhất;
    Overview 01 nêu median engagement rate của cửa sổ kèm median của mọi content unit đã thu, ghi "(not tested)".

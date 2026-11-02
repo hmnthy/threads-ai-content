@@ -53,7 +53,7 @@
    theo).
 6. **Overview (đi kèm, Thy 2026-11-01 khi duyệt PR 2b)**: biểu đồ views theo ngày + thanh kéo nằm ngay dưới đầu khối 01
    (`src/dashboard/src/components/OverviewDashboard.tsx:113#TimelineBrush`), dải hero + câu trả lời ở dưới — kéo tới đâu số đổi ngay
-   bên dưới; chuỗi bắt đầu từ ngày có content unit đầu tiên (`firstPostDate`, `src/dashboard/src/lib/load.ts:72#firstPostDate`), đoạn
+   bên dưới; chuỗi bắt đầu từ ngày có content unit đầu tiên (`firstPostDate`, `src/dashboard/src/lib/load.ts:77#firstPostDate`), đoạn
    trước đó không hiện (thiếu ngày đầu hoặc còn < 2 điểm thì giữ cả chuỗi). Tạm cắt từ ngày đầu − 1 ngày: code-reviewer
    phát hiện (đã kiểm lại trên data thật) backend gắn nhãn chuỗi views sớm 1 ngày — 8/10 bài đăng riêng lẻ có đỉnh views
    ở ngày trước khi đăng; Thy chọn sửa tận gốc ở PR riêng có ADR (sửa `src/api/endpoints.py`, dời nhãn dữ liệu đã lưu,

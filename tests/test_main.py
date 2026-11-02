@@ -472,6 +472,49 @@ def test_analytics_window_computes_median_stats_and_views_from_daily_series(
     assert data["top_content_units"][0]["id"] == "post-in"
 
 
+def test_analytics_window_dates_content_units_by_paris_day(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # ADR-0034: bài đăng 00:30 giờ Paris ngày 14/8 (UTC vẫn là 13/8) thuộc cửa sổ bắt đầu 14/8;
+    # bài 23:30 giờ Paris ngày 20/8 vẫn trong cửa sổ; bài 00:30 Paris ngày 21/8 thì không
+    db_path = tmp_path / "window-paris.db"
+    monkeypatch.setattr(main_module, "DEFAULT_DB_PATH", db_path)
+    conn = connect(db_path)
+    create_schema(conn)
+    stamps = {
+        "after-paris-midnight": datetime(2026, 8, 13, 22, 30, tzinfo=UTC),
+        "late-last-day": datetime(2026, 8, 20, 21, 30, tzinfo=UTC),
+        "next-paris-day": datetime(2026, 8, 20, 22, 30, tzinfo=UTC),
+    }
+    for post_id, ts in stamps.items():
+        post = ThreadsPost(id=post_id, text=post_id, timestamp=ts, media_type=MediaType.TEXT_POST)
+        upsert_post(conn, post)
+        upsert_content_unit(conn, ContentUnit(root=post, full_text=post_id))
+        insert_insight_snapshot(
+            conn,
+            InsightSnapshot(
+                post_id=post_id,
+                fetched_at=datetime(2026, 8, 30, tzinfo=UTC),
+                views=100,
+                likes=1,
+                replies=0,
+                reposts=0,
+                quotes=0,
+            ),
+        )
+    conn.commit()
+    conn.close()
+
+    with TestClient(main_module.app) as test_client:
+        response = test_client.get(
+            "/analytics/window", params={"start": "2026-08-14", "end": "2026-08-20"}
+        )
+
+    assert response.status_code == 200
+    ids = {unit["id"] for unit in response.json()["top_content_units"]}
+    assert ids == {"after-paris-midnight", "late-last-day"}
+
+
 def test_analytics_window_empty_range_returns_zeroed_stats(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -52,7 +52,7 @@ export function TopContentList({
                 <span className="flex min-w-0 flex-col gap-1">
                   <UnitText text={entry.text} topic={topicOfUnit(topicOf, entry.id)} topicCount={topicCount} />
                   <span className="font-mono text-[12.5px] tabular-nums text-text-muted">
-                    {formatPostDateParis(entry.timestamp)}
+                    {formatPostDateParis(entry.timestamp)} · Paris time
                   </span>
                 </span>
                 <span aria-hidden="true" className="col-start-2 h-2 overflow-hidden rounded-full bg-bg-surface sm:col-start-auto">

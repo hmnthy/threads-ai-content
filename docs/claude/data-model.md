@@ -75,6 +75,42 @@ POST /me/threads                         # Đăng bài — KHÔNG dùng: dự á
 
 `children` (field của post, dùng cho carousel album) cũng là dạng edge: `{"data": [{"id": ...}, ...]}`, không phải `list[str]` phẳng — `ThreadsPost` đã có validator tự flatten (`src/api/models.py`).
 
+### Methodology log: nhãn ngày của chuỗi views theo ngày (ADR-0034, verify live 2026-11-01)
+
+Chuỗi `account_daily_views` (`threads_insights?metric=views&period=day`) chỉ có TỔNG mỗi ngày, ranh giới ngày do Meta
+đặt lúc nửa đêm giờ Pacific. Docs Meta (trang Threads Insights) chỉ có ví dụ `"end_time": "2024-07-12T08:00:00+0000"`,
+không nói `end_time` là đầu hay cuối ngày, cũng không nói múi giờ → quyết bằng data.
+
+- **Gọi thật** (730 điểm, 2024-11-01 → 2026-10-31): `end_time` = `07:00Z` ở 478 điểm (Pacific giờ mùa hè, UTC-7) và
+  `08:00Z` ở 252 điểm (giờ mùa đông, UTC-8: 2024-11-04 → 2025-03-09 và 2025-11-03 → 2026-03-08).
+- **Bằng chứng mạnh nhất**: bài gốc đầu tiên của kênh đăng 2025-04-14 lúc 13:49 giờ Pacific. Theo ngày Pacific của
+  `end_time`, chuỗi là 0, 0, 0, 0 rồi 339 đúng ngày 04-14. Cách cũ (coi `end_time` là cuối ngày) đặt 339 views vào
+  04-13, khi kênh chưa có bài nào.
+- **Đo trên bài đăng riêng lẻ** (không bài gốc nào khác trong ±3 ngày): n = 14 trên 169 bài gốc. CI = khoảng tin cậy
+  95% Wilson.
+
+  | Cách gắn nhãn | Ngày tăng mạnh nhất = ngày đăng | Đỉnh views = ngày đăng |
+  |---|---|---|
+  | Ngày Pacific của `end_time` (`end_time` = đầu ngày) | 11/14 = 79% [52–92%] | 8/14 = 57% [33–79%] |
+  | Lùi 1 ngày (`end_time` = cuối ngày) | 1/14 = 7% [1–31%] (11/14 lệch −1) | 2/14 = 14% [4–40%] |
+  | Code cũ (lùi 1 ngày chỉ khi giờ "07") | — | 3/14 = 21% [8–48%] (8/14 lệch −1) |
+
+  "Ngày tăng mạnh nhất" = views[d] − views[d−1] lớn nhất trong ngày đăng ±3. Chỉ số này ít bị nhiễu bởi đuôi views của
+  bài trước hơn là đỉnh views (3/14 bài có đỉnh ở −3 ngày, do một bài đột biến — breakout post — trước đó). Ngày đăng tính theo UTC, Pacific
+  hay Paris cho cùng kết quả trên 14 bài này; trên 169 bài gốc chỉ 1 bài có ngày đăng Pacific khác ngày Paris.
+- **Lỗi của code cũ** (`end_time[11:13] == "07"` → lùi 1 ngày): ngày mùa hè sớm 1 ngày, ngày mùa đông đúng. <!-- consistency: allow ADR0034-old-day-label — mô tả code cũ -->
+  Lúc đổi giờ: 2 ngày trống (2024-11-03, 2025-11-02) và 2 ngày trùng nhãn (2025-03-09, 2026-03-08), trong đó điểm sau
+  ghi đè điểm trước nên mất views của 1 ngày.
+- **Quy ước từ ADR-0034**:
+  - Nhãn = ngày Pacific của chính `end_time`, tính bằng tzdata (`src/models/days.py:30#meta_day_of_end_time`), không
+    gõ cứng giờ. Nếu `end_time` không rơi đúng nửa đêm Pacific thì ghi cảnh báo.
+  - Ngày đăng bài = ngày giờ Paris (`src/models/days.py:56#author_day`), dùng cho bộ lọc bài của `/analytics/window`
+    (`src/db/schema.py:538#author_day`) và `firstPostDate` của dashboard.
+  - Dữ liệu đã lưu được dời nhãn một lần trong `_migrate` (`src/db/schema.py:385#_relabel_daily_views_to_meta_day`),
+    có dấu trong bảng `data_migrations`. Lần lấy chuỗi kế tiếp tải lại đủ 729 ngày một lần
+    (`src/pipeline/daily_views.py:51#DAILY_VIEWS_REFETCH_MIGRATION`).
+  - Kiểm trên bản sao DB thật: 728/728 ngày trùng giá trị live, tổng views không đổi; chỉ thiếu đúng 2 ngày đã mất.
+
 ### Auth
 
 - OAuth 2.0, token lưu trong `.env` (không commit)
@@ -585,7 +621,7 @@ Sau khi bỏ câu trả lời follower khỏi `full_text`, chạy lại đúng t
 ### Storage
 
 - `data/raw/` — archive JSON vĩnh viễn (KHÁC `data/cache/` hiện có, TTL 6h) — cho phép rerun pipeline từ đầu khi model NLP tốt hơn, không cần crawl lại
-- SQLite: `posts`, `content_units`, `insights_snapshots` (time-series), `account_daily_views`, `topics` (id `topic_N` bền, label_en, description_en, method — chỉ "cluster", centroid_embedding_json, keywords_json, representative_ids_json, labeled_at, label_model, label_prompt_version, label_anchor_json = bản neo thành viên lúc đặt tên — ADR-0018), `topic_label_history` (mỗi lần đặt tên 1 dòng: lý do, topic nguồn), `post_topic_labels` (post_id, topic_id, method, confidence = cosine tới tâm cụm), `embeddings` (vector theo `content_hash`), `cluster_runs` (DBCV, nhiễu, ARI, sự kiện topic mỗi lần gom cụm) — ADR-0004; `topic_comparison_runs` + `topic_comparisons` (so sánh topic vs phần còn lại của kênh mỗi lần gom cụm: mô tả + δ, CI, p, p Holm — ADR-0023)
+- SQLite: `posts`, `content_units`, `insights_snapshots` (time-series), `account_daily_views`, `topics` (id `topic_N` bền, label_en, description_en, method — chỉ "cluster", centroid_embedding_json, keywords_json, representative_ids_json, labeled_at, label_model, label_prompt_version, label_anchor_json = bản neo thành viên lúc đặt tên — ADR-0018), `topic_label_history` (mỗi lần đặt tên 1 dòng: lý do, topic nguồn), `post_topic_labels` (post_id, topic_id, method, confidence = cosine tới tâm cụm), `embeddings` (vector theo `content_hash`), `cluster_runs` (DBCV, nhiễu, ARI, sự kiện topic mỗi lần gom cụm) — ADR-0004; `topic_comparison_runs` + `topic_comparisons` (so sánh topic vs phần còn lại của kênh mỗi lần gom cụm: mô tả + δ, CI, p, p Holm — ADR-0023); `data_migrations` (name, applied_at — dấu migration dữ liệu chạy một lần, VD dời nhãn ngày chuỗi views — ADR-0034)
 - **Đã có (ADR-0004)**: embedding lưu trong SQLite (bảng `embeddings`, kèm `content_hash` để chỉ embed lại khi nội dung đổi). **Kế hoạch (Phase E)**: knowledge base cũng trong cùng file SQLite (`kb_documents`, `kb_chunks`, FTS5 cho BM25). Không dùng vector store riêng ngoài SQLite — lý do sẽ ghi tại ADR-0006 khi triển khai.
 
 ### Knowledge base + RAG (Retrieval-Augmented Generation)

@@ -25,6 +25,7 @@ export default async function OverviewPage() {
           topicCount={context.topicCount}
           channelEngagement={context.channelEngagement}
           firstPostDate={context.firstPostDate}
+          dayMismatch={context.dayMismatch}
         />
       </main>
     </div>

@@ -27,11 +27,11 @@ threads-ai-content/
 │   ├── design/ (handoff, brief, ui-contract — ADR-0020) · screenshots/
 ├── src/
 │   ├── api/                   # Threads Graph API client (httpx async, pydantic, cache TTL 6h, pagination)
-│   ├── models/                # ContentUnit, InsightSnapshot
+│   ├── models/                # ContentUnit, InsightSnapshot, days (quy ước ngày: Pacific của Meta / Paris — ADR-0034)
 │   ├── processing/            # thread_reconstruction (root + continuation), text (NFC, dấu thanh)
 │   ├── nlp/                   # language (CMI + LID cấp từ), embeddings (bge-m3), topics (UMAP+HDBSCAN+Claude label), topic_profile (c-TF-IDF trên từ tách bằng underthesea, bài đại diện, ARI), stopwords (stopword từ khoá có nhãn, ADR-0022), topic_identity (danh tính cụm bền, ADR-0018)
 │   ├── analysis/              # 6 index (share_rate…) + reach (tầng, ADR-0012) + stats/significance/topic_comparison/reply_thread/topic_affinity
-│   ├── db/schema.py           # SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs, topic_label_history, topic_comparison_runs, topic_comparisons
+│   ├── db/schema.py           # SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs, topic_label_history, topic_comparison_runs, topic_comparisons, data_migrations
 │   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job + nlp_cluster_job (cron, pythonw — ADR-0013), job_log, cầu nối clustering Win↔WSL2 (bỏ ở Phase C), compare_topics (bước cuối job NLP, ADR-0023)
 │   ├── main.py                # FastAPI — chỉ đọc SQLite, không load model trong request
 │   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;

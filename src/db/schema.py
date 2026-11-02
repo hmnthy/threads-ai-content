@@ -1,7 +1,8 @@
 """SQLite schema — `posts`, `content_units`, `insights_snapshots`, `topics`,
 `post_topic_labels`, `account_daily_views`, `embeddings`, `cluster_runs` (2 bảng từ
 ADR-0004), `topic_label_history` (ADR-0018), `topic_comparison_runs` + `topic_comparisons`
-(ADR-0023), theo đúng spec tại docs/claude/data-model.md mục "Storage".
+(ADR-0023), `data_migrations` (dấu migration dữ liệu, ADR-0034), theo đúng spec tại
+docs/claude/data-model.md mục "Storage".
 
 Cột `umap_x/y/z` + `language_primary`/`language_mix_score` nằm thẳng trong
 `content_units` (không phải bảng riêng) để dashboard Topic Explorer đọc trực tiếp toạ độ
@@ -18,10 +19,14 @@ import json
 import sqlite3
 import struct
 from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
+from datetime import date as date_cls
 from pathlib import Path
+from typing import Final
 
 from src.api.models import PostInsights, ThreadsPost
 from src.models.content_unit import ContentUnit
+from src.models.days import author_day, is_meta_summer_time
 from src.models.insight_snapshot import InsightSnapshot
 
 DEFAULT_DB_PATH = Path("data/threads.db")
@@ -208,14 +213,21 @@ CREATE TABLE IF NOT EXISTS topic_comparisons (
 -- Account-level daily views (Threads `threads_insights?metric=views&period=day`,
 -- verify live 2026-09-03: trả breakdown thật theo ngày, cap 2 năm lookback, gồm cả
 -- views phát sinh từ replies — KHÁC `insights_snapshots` (lifetime cumulative theo
--- 1 post cụ thể). `date` lấy từ `end_time` trừ 7h rồi lấy phần ngày (Meta trả
--- end_time cố định "07:00:00+0000" mỗi điểm — ranh giới ngày kiểu Pacific time,
--- không phải UTC midnight). Dùng UPSERT vì Meta có thể backfill/sửa vài ngày gần
--- nhất sau khi đã fetch lần đầu.
+-- 1 post cụ thể). `date` = ngày lịch Pacific mà điểm đo: Meta đặt ranh giới ngày lúc nửa
+-- đêm Pacific và `end_time` là nửa đêm ĐẦU ngày ("07:00:00+0000" giờ mùa hè, "08:00:00+0000"
+-- giờ mùa đông) → `date` = ngày Pacific của `end_time` (ADR-0034, `src/models/days.py`).
+-- Dùng UPSERT vì Meta có thể backfill/sửa vài ngày gần nhất sau khi đã fetch lần đầu.
 CREATE TABLE IF NOT EXISTS account_daily_views (
     date TEXT PRIMARY KEY,
     views INTEGER NOT NULL,
     fetched_at TEXT NOT NULL
+);
+
+-- Dấu của migration DỮ LIỆU chạy một lần (ADR-0034): sửa giá trị đã lưu (VD dời nhãn ngày)
+-- không tự idempotent như ALTER TABLE, nên ghi dấu trong CÙNG transaction với phần sửa.
+CREATE TABLE IF NOT EXISTS data_migrations (
+    name TEXT PRIMARY KEY,
+    applied_at TEXT NOT NULL
 );
 """
 )
@@ -349,6 +361,63 @@ def _restore_interrupted_rebuild(conn: sqlite3.Connection) -> None:
     _in_one_transaction(conn, statements)
 
 
+# ADR-0034 — dấu trong `data_migrations`. RELABEL: dời nhãn chuỗi views đã lưu sang ngày Pacific
+# đúng (chạy trong `_migrate`). REFETCH: lần lấy chuỗi views kế tiếp tải lại đủ lịch sử Meta còn
+# giữ, một lần (`src/pipeline/daily_views.py`) — lấp ngày mà quy ước cũ làm mất và ghi đè mọi
+# dòng mà một job còn chạy code cũ có thể ghi chen sau khi dời nhãn.
+DAILY_VIEWS_RELABEL_MIGRATION: Final = "0034_daily_views_meta_day_relabel"
+DAILY_VIEWS_REFETCH_MIGRATION: Final = "0034_daily_views_meta_day_refetch"
+
+
+def migration_applied(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute("SELECT 1 FROM data_migrations WHERE name = ?", (name,)).fetchone()
+    return row is not None
+
+
+def mark_migration_applied(conn: sqlite3.Connection, name: str) -> None:
+    """Ghi dấu — người gọi commit cùng transaction với phần sửa dữ liệu."""
+    conn.execute(
+        "INSERT OR IGNORE INTO data_migrations (name, applied_at) VALUES (?, ?)",
+        (name, datetime.now(UTC).isoformat()),
+    )
+
+
+def _relabel_daily_views_to_meta_day(conn: sqlite3.Connection) -> None:
+    """Dời nhãn `account_daily_views` đã lưu theo quy ước cũ sang ngày Pacific đúng (ADR-0034).
+
+    Quy ước cũ: điểm có `end_time` giờ "07" (Pacific giờ mùa hè) bị gắn ngày Pacific − 1; giờ "08"
+    (giờ mùa đông) giữ đúng ngày. Đảo ngược: dòng nhãn L là điểm của ngày L + 1 khi nửa đêm đầu
+    ngày L + 1 ở giờ mùa hè; còn lại là ngày L. Hai nhãn cũ không bao giờ về cùng 1 ngày mới.
+    Ngày chuyển sang giờ mùa hè (VD 2026-03-08) bị quy ước cũ ghi đè bởi ngày sau → sau khi dời
+    thành ngày trống; lần tải lại REFETCH lấp nó (trong 729 ngày Meta còn giữ).
+
+    `BEGIN IMMEDIATE` giành khoá ghi trước khi đọc, rồi kiểm dấu lại bên trong transaction: 2 job
+    cron cùng gọi `create_schema()` thì job sau chờ khoá, thấy dấu và bỏ qua — không dời 2 lần."""
+    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if not migration_applied(conn, DAILY_VIEWS_RELABEL_MIGRATION):
+            rows = conn.execute(
+                "SELECT date, views, fetched_at FROM account_daily_views"
+            ).fetchall()
+            moved = []
+            for row in rows:
+                old = date_cls.fromisoformat(row["date"])
+                nxt = old + timedelta(days=1)
+                new = nxt if is_meta_summer_time(nxt) else old
+                moved.append((new.isoformat(), row["views"], row["fetched_at"]))
+            conn.execute("DELETE FROM account_daily_views")
+            conn.executemany(
+                "INSERT INTO account_daily_views (date, views, fetched_at) VALUES (?, ?, ?)", moved
+            )
+            mark_migration_applied(conn, DAILY_VIEWS_RELABEL_MIGRATION)
+        conn.execute("COMMIT")
+    except Exception:
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
+        raise
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Đưa DB cũ lên schema hiện tại — idempotent, chạy ở MỌI `create_schema()` (job
     cron gọi hàm này mỗi lần chạy). `CREATE TABLE IF NOT EXISTS` không sửa bảng đã có,
@@ -405,6 +474,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
             ],
         )
 
+    # ADR-0034: nhãn ngày chuỗi views — kiểm dấu nhanh ngoài transaction, hàm kiểm lại bên trong
+    if not migration_applied(conn, DAILY_VIEWS_RELABEL_MIGRATION):
+        _relabel_daily_views_to_meta_day(conn)
+
 
 # --- posts -------------------------------------------------------------------
 
@@ -457,13 +530,12 @@ def list_root_posts(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 
 def list_root_posts_in_range(conn: sqlite3.Connection, start: str, end: str) -> list[sqlite3.Row]:
-    """`list_root_posts()` lọc thêm theo `timestamp` (so sánh chuỗi ISO, an toàn vì
-    format cố định) trong [start, end] (start/end dạng "YYYY-MM-DD", inclusive cả
-    2 đầu — so `timestamp[:10]` chứ không so nguyên chuỗi ISO có giờ). Lọc Python-side
-    sau khi lấy toàn bộ root post — quy mô hiện tại (~141 content unit) chưa cần
-    SQL WHERE riêng, nhưng đặt tên hàm rõ để nơi gọi (`main.py`) không tự parse ngày
-    inline."""
-    return [row for row in list_root_posts(conn) if start <= row["timestamp"][:10] <= end]
+    """`list_root_posts()` lọc thêm theo NGÀY ĐĂNG GIỜ PARIS (`author_day`, ADR-0034 — khớp ngày
+    in trên thẻ bài) trong [start, end] (start/end dạng "YYYY-MM-DD", inclusive cả 2 đầu). Không
+    cắt 10 ký tự đầu của timestamp: đó là ngày UTC, lệch ngày Paris với bài đăng 0h–2h sáng. Lọc
+    Python-side sau khi lấy toàn bộ root post — quy mô hiện tại (~170 content unit) chưa cần SQL
+    WHERE riêng, nhưng đặt tên hàm rõ để nơi gọi (`main.py`) không tự parse ngày inline."""
+    return [row for row in list_root_posts(conn) if start <= author_day(row["timestamp"]) <= end]
 
 
 # --- content_units -------------------------------------------------------------

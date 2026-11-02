@@ -117,8 +117,8 @@ class DailyViewPoint(BaseModel):
     """1 điểm trong breakdown `threads_insights?metric=views&period=day` — verify
     live 2026-09-03: mỗi điểm gồm views của ĐÚNG 1 ngày (không phải tổng cộng dồn),
     account-level (gồm cả views phát sinh từ replies) — khác `PostInsights.views`
-    (per-post, cumulative). `date` = "YYYY-MM-DD", đã quy đổi từ `end_time` (xem
-    `src/api/endpoints.get_account_daily_views` cho chi tiết quy đổi)."""
+    (per-post, cumulative). `date` = "YYYY-MM-DD", ngày lịch Pacific mà điểm đo — ngày Pacific
+    của `end_time` (ADR-0034, `src/models/days.py`)."""
 
     date: str
     views: int

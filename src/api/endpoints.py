@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from datetime import date as date_cls
-from datetime import timedelta
 from typing import Any, Final
 
 import httpx
@@ -10,6 +9,7 @@ import httpx
 from src.api.cache import Cache
 from src.api.client import ThreadsAPIError, ThreadsClient
 from src.api.models import AccountInsights, DailyViewPoint, PostInsights, ThreadsPost, UserInfo
+from src.models.days import meta_day_of_end_time, warn_if_not_pacific_midnight
 
 # Job chạy định kỳ trỏ stderr vào file log (`job_log.redirect_output`), nên cảnh báo ở đây
 # vào `data/logs/scheduled_job.log` cùng kết quả job.
@@ -286,17 +286,13 @@ async def get_account_daily_views(
         },
     )
     raw_values = data.get("data", [{}])[0].get("values", [])
-    points: list[DailyViewPoint] = []
-    for item in raw_values:
-        end_time = item["end_time"]  # "YYYY-MM-DDTHH:MM:SS+0000", luôn "07:00:00"
-        end_date = date_cls.fromisoformat(end_time[:10])
-        # "D 07:00 UTC" = "D 00:00" giờ Pacific (UTC-7) — mốc KẾT THÚC ngày lịch
-        # Pacific (D-1), nên bucket này đại diện ngày (D-1), không phải ngày D.
-        # Chỉ áp dụng quy đổi khi khớp đúng giả định đã verify (07:00 UTC); nếu
-        # Meta đổi giờ boundary trong tương lai, giữ nguyên end_date thay vì đoán.
-        bucket_date = end_date - timedelta(days=1) if end_time[11:13] == "07" else end_date
-        points.append(DailyViewPoint(date=bucket_date.isoformat(), views=item["value"]))
-    return points
+    # `end_time` = nửa đêm Pacific ĐẦU ngày được đo ("07:00Z" giờ mùa hè, "08:00Z" giờ mùa đông)
+    # → nhãn = ngày Pacific của chính end_time (ADR-0034, `src/models/days.py`)
+    warn_if_not_pacific_midnight([item["end_time"] for item in raw_values])
+    return [
+        DailyViewPoint(date=meta_day_of_end_time(item["end_time"]).isoformat(), views=item["value"])
+        for item in raw_values
+    ]
 
 
 async def get_follower_demographics(

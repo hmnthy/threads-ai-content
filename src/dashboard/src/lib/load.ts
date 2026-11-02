@@ -10,6 +10,7 @@ import {
   type DistributionStats,
   type TopicComparisons,
 } from "@/lib/api";
+import { pacificDay, parisDay } from "@/lib/dates";
 import { buildLandingData, type LandingData } from "@/lib/landing";
 
 export interface TopicPageData {
@@ -32,10 +33,14 @@ export interface AppContext {
   // Engagement rate của mọi content unit đã thu (không cửa sổ thời gian) — mốc so cho câu trả lời khối 01 Overview
   // (Thy 2026-11-01: nêu kèm, ghi "not tested"); chỉ nạp khi trang cần (`withChannel`)
   channelEngagement: DistributionStats | null;
-  // Ngày UTC (YYYY-MM-DD, cùng quy ước với bộ lọc bài của /analytics/window: timestamp[:10]) của content unit đăng sớm
-  // nhất — biểu đồ Overview bắt đầu từ đây (chuỗi views dùng ngày Pacific và đang lệch nhãn 1 ngày: xem OverviewDashboard)
-  // (Thy 2026-11-01: đoạn trước bài đầu tiên không có bài, không hiện); null = không đọc được danh sách content unit
+  // Ngày đăng giờ Paris (YYYY-MM-DD, cùng quy ước với bộ lọc bài của /analytics/window — ADR-0034) của content unit
+  // đăng sớm nhất — biểu đồ Overview bắt đầu từ đây (Thy 2026-11-01: đoạn trước bài đầu tiên không có bài, không
+  // hiện); null = không đọc được danh sách content unit
   firstPostDate: string | null;
+  // Số content unit có ngày đăng Paris khác ngày Pacific (đăng giữa nửa đêm Paris và nửa đêm Pacific — 9h sáng Paris
+  // phần lớn năm, 8h trong vài tuần đổi giờ lệch) / tổng có timestamp — cỡ của giới hạn ADR-0034 ở Limits của
+  // Overview; null = không đọc được danh sách content unit, hoặc trang không cần (`withChannel` tắt)
+  dayMismatch: { count: number; total: number } | null;
 }
 
 export async function loadAppContext(page: string, { withChannel = false } = {}): Promise<AppContext> {
@@ -70,11 +75,18 @@ export async function loadAppContext(page: string, { withChannel = false } = {})
     minPosts: summaryData?.min_posts_to_compare ?? null,
     channelEngagement: ok(overview)?.engagement ?? null,
     firstPostDate:
-      unitList?.reduce<string | null>(
-        (min, unit) => (unit.timestamp && (min === null || unit.timestamp.slice(0, 10) < min) ? unit.timestamp.slice(0, 10) : min),
-        null,
-      ) ?? null,
+      unitList?.reduce<string | null>((min, unit) => {
+        const day = unit.timestamp ? parisDay(unit.timestamp) : "";
+        if (!day) return min;
+        return min === null || day < min ? day : min;
+      }, null) ?? null,
+    dayMismatch: withChannel && unitList ? countDayMismatch(unitList) : null,
   };
+}
+
+function countDayMismatch(units: ContentUnit[]): { count: number; total: number } {
+  const stamps = units.flatMap((unit) => (unit.timestamp && parisDay(unit.timestamp) ? [unit.timestamp] : []));
+  return { count: stamps.filter((ts) => parisDay(ts) !== pacificDay(ts)).length, total: stamps.length };
 }
 
 export async function loadTopicPageData(page: string): Promise<TopicPageData | null> {
