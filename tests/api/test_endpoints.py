@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import httpx
@@ -20,6 +20,7 @@ from src.api.endpoints import (
     get_replies,
     get_user_info,
 )
+from src.models.days import author_day
 
 BASE = "https://graph.threads.net/v1.0"
 
@@ -595,34 +596,94 @@ async def test_get_follower_demographics_rejects_invalid_breakdown() -> None:
     await client.aclose()
 
 
-@respx.mock
-async def test_get_account_daily_views_keeps_each_day_separate_and_converts_end_time() -> None:
-    # Shape confirmed live against the real API 2026-09-03: end_time always lands on
-    # "07:00:00+0000" — a Pacific-time day boundary, one calendar day AHEAD of the
-    # day the value actually belongs to (see get_account_daily_views docstring).
+def _mock_daily_views(values: list[dict[str, object]]) -> None:
     respx.get(f"{BASE}/999/threads_insights").mock(
         return_value=Response(
-            200,
-            json={
-                "data": [
-                    {
-                        "name": "views",
-                        "period": "day",
-                        "values": [
-                            {"value": 18, "end_time": "2025-07-29T07:00:00+0000"},
-                            {"value": 6, "end_time": "2025-07-30T07:00:00+0000"},
-                        ],
-                    }
-                ]
-            },
+            200, json={"data": [{"name": "views", "period": "day", "values": values}]}
         )
+    )
+
+
+@respx.mock
+async def test_get_account_daily_views_labels_each_point_with_its_pacific_day() -> None:
+    # Verify live 2026-11-01 (ADR-0034): end_time = nửa đêm Pacific ĐẦU ngày được đo — "07:00Z"
+    # khi giờ mùa hè, "08:00Z" khi giờ mùa đông → nhãn = ngày Pacific của chính end_time
+    _mock_daily_views(
+        [
+            {"value": 18, "end_time": "2025-07-29T07:00:00+0000"},
+            {"value": 6, "end_time": "2025-07-30T07:00:00+0000"},
+            {"value": 9, "end_time": "2026-01-15T08:00:00+0000"},
+        ]
     )
     client = ThreadsClient(access_token="tok")
 
-    points = await get_account_daily_views(client, "999", date(2025, 7, 28), date(2025, 7, 29))
+    points = await get_account_daily_views(client, "999", date(2025, 7, 28), date(2026, 1, 16))
 
-    assert [p.date for p in points] == ["2025-07-28", "2025-07-29"]
-    assert [p.views for p in points] == [18, 6]
+    assert [p.date for p in points] == ["2025-07-29", "2025-07-30", "2026-01-15"]
+    assert [p.views for p in points] == [18, 6, 9]
+    await client.aclose()
+
+
+@respx.mock
+async def test_get_account_daily_views_has_one_label_per_day_across_dst_changes() -> None:
+    # Quy ước cũ (lùi 1 ngày chỉ khi "07") tạo 1 ngày trống khi Pacific về giờ mùa đông và 2 điểm
+    # cùng nhãn khi sang giờ mùa hè (điểm sau ghi đè điểm trước khi upsert)
+    _mock_daily_views(
+        [
+            {"value": 1, "end_time": "2025-11-01T07:00:00+0000"},
+            {"value": 2, "end_time": "2025-11-02T07:00:00+0000"},
+            {"value": 3, "end_time": "2025-11-03T08:00:00+0000"},
+            {"value": 4, "end_time": "2026-03-08T08:00:00+0000"},
+            {"value": 5, "end_time": "2026-03-09T07:00:00+0000"},
+        ]
+    )
+    client = ThreadsClient(access_token="tok")
+
+    points = await get_account_daily_views(client, "999", date(2025, 11, 1), date(2026, 3, 10))
+
+    assert [p.date for p in points] == [
+        "2025-11-01",
+        "2025-11-02",
+        "2025-11-03",
+        "2026-03-08",
+        "2026-03-09",
+    ]
+    await client.aclose()
+
+
+# Invariant ADR-0034 trên số thật (views tài khoản quanh 3 bài đăng riêng lẻ — không bài nào khác
+# trong ±3 ngày; giờ đăng giờ Paris, đủ cả giờ mùa hè lẫn mùa đông): ngày views tăng mạnh nhất
+# trùng ngày đăng. Quy ước cũ đặt bước tăng sớm 1 ngày ở 2 bài mùa hè.
+_ISOLATED_POSTS = [
+    # (giờ đăng UTC, ngày Pacific đầu chuỗi, 7 giá trị từ ngày đăng −3 tới +3, giờ end_time)
+    ("2025-04-14T20:49:33+00:00", date(2025, 4, 11), [0, 0, 0, 339, 607, 10, 16], "07"),
+    ("2025-07-22T08:49:12+00:00", date(2025, 7, 19), [486, 30, 92, 32973, 4902, 115, 67], "07"),
+    (
+        "2026-03-03T10:00:24+00:00",
+        date(2026, 2, 28),
+        [256, 214, 174, 32460, 2489, 205, 11068],
+        "08",
+    ),
+]
+
+
+@pytest.mark.parametrize(("posted_at", "first_day", "values", "hour"), _ISOLATED_POSTS)
+@respx.mock
+async def test_daily_views_jump_lands_on_the_post_day(
+    posted_at: str, first_day: date, values: list[int], hour: str
+) -> None:
+    _mock_daily_views(
+        [
+            {"value": v, "end_time": f"{first_day + timedelta(days=k)}T{hour}:00:00+0000"}
+            for k, v in enumerate(values)
+        ]
+    )
+    client = ThreadsClient(access_token="tok")
+
+    points = await get_account_daily_views(client, "999", first_day, first_day + timedelta(days=6))
+
+    jumps = [(b.views - a.views, b.date) for a, b in zip(points, points[1:], strict=False)]
+    assert max(jumps)[1] == author_day(posted_at)
     await client.aclose()
 
 

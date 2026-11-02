@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -240,18 +240,24 @@ def test_get_post_topic_label_returns_none_when_untagged(tmp_path: Path) -> None
     assert get_post_topic_label(conn, "post-1", method="cluster") is None
 
 
-def test_list_root_posts_in_range_filters_inclusive_by_calendar_day(tmp_path: Path) -> None:
+def test_list_root_posts_in_range_filters_inclusive_by_paris_calendar_day(tmp_path: Path) -> None:
+    # ADR-0034: ngày đăng = ngày giờ Paris (tháng 8 = UTC+2). Hai bài biên nằm ở ngày UTC khác
+    # ngày Paris — bộ lọc cắt `timestamp[:10]` (ngày UTC) sẽ lấy sai cả hai
     conn = connect(tmp_path / "test.db")
     create_schema(conn)
 
     def _post_at(post_id: str, ts: datetime) -> ThreadsPost:
         return ThreadsPost(id=post_id, timestamp=ts, media_type=MediaType.TEXT_POST)
 
-    upsert_post(conn, _post_at("before", datetime(2026, 8, 9, 23, 59, tzinfo=UTC)))
-    upsert_post(conn, _post_at("start-boundary", datetime(2026, 8, 10, 0, 0, tzinfo=UTC)))
+    # 23:59 Paris ngày 9
+    upsert_post(conn, _post_at("before", datetime(2026, 8, 9, 21, 59, tzinfo=UTC)))
+    # 00:00 Paris ngày 10 (UTC vẫn là ngày 9)
+    upsert_post(conn, _post_at("start-boundary", datetime(2026, 8, 9, 22, 0, tzinfo=UTC)))
     upsert_post(conn, _post_at("inside", datetime(2026, 8, 15, 12, 0, tzinfo=UTC)))
-    upsert_post(conn, _post_at("end-boundary", datetime(2026, 8, 20, 23, 59, tzinfo=UTC)))
-    upsert_post(conn, _post_at("after", datetime(2026, 8, 21, 0, 0, tzinfo=UTC)))
+    # 23:59 Paris ngày 20
+    upsert_post(conn, _post_at("end-boundary", datetime(2026, 8, 20, 21, 59, tzinfo=UTC)))
+    # 00:00 Paris ngày 21 (UTC vẫn là ngày 20)
+    upsert_post(conn, _post_at("after", datetime(2026, 8, 20, 22, 0, tzinfo=UTC)))
     conn.commit()
 
     rows = list_root_posts_in_range(conn, "2026-08-10", "2026-08-20")
@@ -502,3 +508,137 @@ def test_connect_waits_for_another_writer_longer_than_the_sqlite_default(
     conn.close()
     assert busy_ms == schema_module.LOCK_WAIT_S * 1000
     assert busy_ms > 5_000
+
+
+# --- ADR-0034: nhãn ngày chuỗi views ---------------------------------------------------------
+
+# end_time thật (shape verify live 2026-11-01) quanh 2 lần đổi giờ của Pacific: "07:00Z" = nửa đêm
+# giờ mùa hè, "08:00Z" = nửa đêm giờ mùa đông. Ngày đúng = ngày Pacific của chính end_time.
+_DST_END_TIMES = [
+    ("2025-07-22T07:00:00+0000", 32973, "2025-07-22"),
+    ("2025-11-01T07:00:00+0000", 11, "2025-11-01"),
+    ("2025-11-02T07:00:00+0000", 12, "2025-11-02"),  # ngày Pacific trở về giờ mùa đông
+    ("2025-11-03T08:00:00+0000", 13, "2025-11-03"),
+    ("2026-01-15T08:00:00+0000", 14, "2026-01-15"),
+    ("2026-03-07T08:00:00+0000", 15, "2026-03-07"),
+    ("2026-03-08T08:00:00+0000", 16, "2026-03-08"),  # ngày Pacific sang giờ mùa hè
+    ("2026-03-09T07:00:00+0000", 17, "2026-03-09"),
+    ("2026-03-10T07:00:00+0000", 18, "2026-03-10"),
+]
+
+
+def _old_label(end_time: str) -> str:
+    """Quy ước cũ (trước ADR-0034, `src/api/endpoints.py`): lùi 1 ngày chỉ khi giờ là "07"."""
+    day = datetime.strptime(end_time[:10], "%Y-%m-%d").date()
+    # consistency: allow ADR0034-old-day-label — dựng lại dữ liệu theo quy ước cũ để test migration
+    return (day - timedelta(days=1) if end_time[11:13] == "07" else day).isoformat()
+
+
+def _db_with_old_daily_view_labels(db_path: Path) -> sqlite3.Connection:
+    conn = connect(db_path)
+    create_schema(conn)
+    conn.execute("DELETE FROM data_migrations")  # DB trước bản này: chưa có dấu
+    for end_time, views, _ in _DST_END_TIMES:  # thứ tự như API trả: điểm sau ghi đè điểm trước
+        upsert_daily_views(conn, date=_old_label(end_time), views=views, fetched_at="x")
+    conn.commit()
+    return conn
+
+
+def _daily(conn: sqlite3.Connection) -> dict[str, int]:
+    return {row["date"]: row["views"] for row in list_daily_views(conn)}
+
+
+def test_old_labels_fixture_reproduces_the_bug(tmp_path: Path) -> None:
+    # Dữ liệu test chạm đúng lỗi: ngày mùa hè sớm 1 ngày, 1 ngày trống, 1 ngày bị ghi đè
+    conn = _db_with_old_daily_view_labels(tmp_path / "t.db")
+    old = _daily(conn)
+    assert old["2025-07-21"] == 32973
+    assert "2025-11-02" not in old
+    assert old["2026-03-08"] == 17  # giá trị của 03-09 đè lên 03-08
+    conn.close()
+
+
+def test_daily_views_relabel_migration_moves_rows_to_their_pacific_day(tmp_path: Path) -> None:
+    conn = _db_with_old_daily_view_labels(tmp_path / "t.db")
+
+    create_schema(conn)
+
+    truth = {day: views for _, views, day in _DST_END_TIMES}
+    # Ngày sang giờ mùa hè (03-08) đã mất ở quy ước cũ → trống, lần tải lại REFETCH lấp
+    del truth["2026-03-08"]
+    assert _daily(conn) == truth
+    assert schema_module.migration_applied(conn, schema_module.DAILY_VIEWS_RELABEL_MIGRATION)
+    conn.close()
+
+
+def test_daily_views_relabel_migration_runs_once(tmp_path: Path) -> None:
+    conn = _db_with_old_daily_view_labels(tmp_path / "t.db")
+    create_schema(conn)
+    once = _daily(conn)
+
+    create_schema(conn)  # job cron gọi mỗi lần chạy
+    schema_module._relabel_daily_views_to_meta_day(conn)  # gọi thẳng: kiểm dấu trong transaction
+
+    assert _daily(conn) == once
+    conn.close()
+
+
+def test_daily_views_relabel_migration_on_fresh_db_only_sets_the_marker(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "t.db")
+    create_schema(conn)
+    assert list_daily_views(conn) == []
+    assert schema_module.migration_applied(conn, schema_module.DAILY_VIEWS_RELABEL_MIGRATION)
+    # Dòng ghi theo quy ước mới sau đó không bị dời ở lần create_schema kế tiếp
+    upsert_daily_views(conn, date="2026-07-01", views=5, fetched_at="x")
+    conn.commit()
+    create_schema(conn)
+    assert _daily(conn) == {"2026-07-01": 5}
+    conn.close()
+
+
+def test_daily_views_relabel_migration_failure_rolls_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = _db_with_old_daily_view_labels(tmp_path / "t.db")
+    before = _daily(conn)
+
+    def _boom(_day: object) -> bool:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(schema_module, "is_meta_summer_time", _boom)
+    with pytest.raises(RuntimeError, match="boom"):
+        create_schema(conn)
+
+    assert not conn.in_transaction
+    assert _daily(conn) == before
+    assert not schema_module.migration_applied(conn, schema_module.DAILY_VIEWS_RELABEL_MIGRATION)
+    conn.close()
+
+
+def test_daily_views_relabel_migration_waits_for_another_writer(tmp_path: Path) -> None:
+    # Cron chạy giữa chừng: job khác đang giữ khoá ghi → migration giành khoá TRƯỚC khi đọc bảng
+    # (BEGIN IMMEDIATE); với timeout 0 nó báo bận thay vì dời trên dữ liệu đang đổi
+    db_path = tmp_path / "t.db"
+    _db_with_old_daily_view_labels(db_path).close()
+    holder = sqlite3.connect(db_path)
+    holder.execute("BEGIN IMMEDIATE")
+    impatient = sqlite3.connect(db_path, timeout=0)
+    impatient.row_factory = sqlite3.Row
+    statements: list[str] = []
+    impatient.set_trace_callback(statements.append)
+    try:
+        with pytest.raises(sqlite3.OperationalError, match="locked"):
+            schema_module._relabel_daily_views_to_meta_day(impatient)
+    finally:
+        holder.rollback()
+        holder.close()
+    impatient.set_trace_callback(None)
+    # BEGIN hoãn (deferred) cũng báo "locked" — nhưng ở lệnh DELETE, sau khi đã đọc bảng; 2 job
+    # cùng đọc "chưa có dấu" rồi cùng xin nâng khoá thì 1 job lỗi ngay (SQLite không chờ khi
+    # kẹt chéo khoá)
+    began = [sql for sql in statements if sql.startswith("BEGIN")]
+    assert began == ["BEGIN IMMEDIATE"]
+    assert not any("account_daily_views" in sql for sql in statements)
+    marker = schema_module.DAILY_VIEWS_RELABEL_MIGRATION
+    assert not schema_module.migration_applied(impatient, marker)
+    impatient.close()

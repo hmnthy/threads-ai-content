@@ -508,14 +508,16 @@ export function TermMore({ term, children }: { term: string; children: ReactNode
 // Công thức 1 dòng: viết chỉ số kiểu LaTeX nhẹ — `x_i`, `x_(i)`, `x_{0.025}`, `R^d` — và component
 // vẽ thành <sub>/<sup> thật. Không dùng ký tự chỉ số Unicode (ₙ, ᵢ…): IBM Plex Mono không có glyph,
 // trình duyệt rơi về font khác, khó đọc ở 12.5px. Chỉ số không phải chữ/số (+, −) viết trong {}.
-const SCRIPT = /([_^])(\{([^}]*)\}|\(([^)]*)\)|([\p{L}\p{N}]+))/gu;
+// `\_` / `\^` = ký tự thật, không phải chỉ số (VD tên múi giờ `America/Los\_Angeles`).
+const SCRIPT = /(?<!\\)([_^])(\{([^}]*)\}|\(([^)]*)\)|([\p{L}\p{N}]+))/gu;
+const literal = (text: string) => text.replace(/\\([_^])/g, "$1");
 
 export function Formula({ children }: { children: string }) {
   const parts: ReactNode[] = [];
   let last = 0;
   for (const match of children.matchAll(SCRIPT)) {
     const at = match.index ?? 0;
-    if (at > last) parts.push(children.slice(last, at));
+    if (at > last) parts.push(literal(children.slice(last, at)));
     const body = match[3] ?? (match[4] !== undefined ? `(${match[4]})` : match[5]);
     parts.push(
       match[1] === "_" ? (
@@ -530,7 +532,7 @@ export function Formula({ children }: { children: string }) {
     );
     last = at + match[0].length;
   }
-  if (last < children.length) parts.push(children.slice(last));
+  if (last < children.length) parts.push(literal(children.slice(last)));
   return <code className={`${TYPE.mono} whitespace-pre-wrap text-text-primary`}>{parts}</code>;
 }
 

@@ -259,7 +259,7 @@ export function TimelineBrush({ points, onWindowCommit }: TimelineBrushProps) {
           <h3 className={`m-0 ${TYPE.h3}`}>
             Daily views, whole account
           </h3>
-          <span className="text-[13px] leading-[1.55] text-text-secondary">As Threads reports them. Drag the window or pick a preset.</span>
+          <span className="text-[13px] leading-[1.55] text-text-secondary">As Threads reports them: one total per day, with days in Pacific time.</span>
           <span className="font-mono text-[12.5px] tabular-nums text-text-muted">
             {formatFullDate(startDate)} → {formatFullDate(endDate)} · {spanDays} days
           </span>

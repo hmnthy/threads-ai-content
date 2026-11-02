@@ -34,7 +34,7 @@ số liệu cho bản công khai.
    danh sách thư viện riêng.
 4. **DB:** `data/threads.db` 8,5 MB, `journal_mode = delete` (mở chỉ-đọc được, không cần file `-wal`/`-shm`). Không
    chứa token (token lưu riêng, gitignored). `connect()` hiện mở đọc-ghi và tạo thư mục cha
-   (`src/db/schema.py:233-241#connect`) — trên Vercel chỉ ghi được thư mục tạm.
+   (`src/db/schema.py:245-253#connect`) — trên Vercel chỉ ghi được thư mục tạm.
 5. **Phép tính theo khoảng ngày tuỳ chọn:** `GET /analytics/window?start&end` (`src/main.py`, `get_analytics_window`)
    tính lại cho khoảng bất kỳ do thanh thời gian chọn; `account_daily_views` có 775 ngày (2024-09-02 → 2026-10-18) →
    ~300.000 cặp ngày, không tính sẵn được.

@@ -1119,3 +1119,24 @@ pattern = 'Khối CTA landing: `mark` 52px|CTA mark 52px|`mark` ở khối CTA'
 why = "Từ ADR-0032 mục 5b: khối CTA cuối landing không có logo"
 fix = "Ghi 'khối CTA không logo (ADR-0032 mục 5b)'"
 paths = ["docs/claude/**", "docs/design/**", "src/**"]
+
+[[forbid]]
+id = "ADR0034-old-day-label"
+adr = "0034"
+# Quy ước cũ của chuỗi views theo ngày: "end_time luôn 07:00" + lùi 1 ngày theo giờ "07", và phần bù 1 ngày tạm ở
+# Overview. Meta trả cả "08:00Z" (giờ mùa đông) và end_time là ĐẦU ngày → nhãn = ngày Pacific của end_time
+pattern = 'end_time\[11:13\] == "07"|luôn "07:00:00"|end_time cố định|trừ 7h rồi lấy phần ngày|addDays\(firstPostDate, -1\)|always lands on\s+"07:00|end_time[^.\n]{0,40}luôn[^.\n]{0,15}0?7:00'
+why = "Từ ADR-0034: end_time là nửa đêm Pacific ĐẦU ngày (07:00Z giờ mùa hè, 08:00Z giờ mùa đông); nhãn = ngày Pacific của end_time, không lùi ngày"
+fix = "Gọi meta_day_of_end_time (src/models/days.py); mô tả: 'ngày Pacific của end_time (ADR-0034)'"
+paths = ["docs/**", "src/**", "tests/**"]
+allow = ["docs/decisions/0034-*.md", "docs/decisions/legacy-log.md"]
+
+[[forbid]]
+id = "ADR0034-utc-post-day"
+adr = "0034"
+# Ngày đăng bài = ngày giờ Paris; cắt 10 ký tự đầu của timestamp cho ra ngày UTC, lệch ngày Paris với bài đăng sau
+# nửa đêm Paris
+pattern = 'timestamp\W{0,4}(\[:10\]|\[0:10\]|\.(slice|substring)\(0, ?10\)|\.split\(.T.\)\[0\])'
+why = "Từ ADR-0034: ngày đăng bài theo giờ Paris (author_day / parisDay), không phải ngày UTC"
+fix = "Dùng author_day (src/models/days.py) hoặc parisDay (src/dashboard/src/lib/dates.ts)"
+paths = ["src/**", "docs/claude/**", "docs/design/**"]

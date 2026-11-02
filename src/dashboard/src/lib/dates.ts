@@ -10,12 +10,6 @@ export function daysBetweenInclusive(start: string, end: string): number {
   return Math.round((b - a) / DAY_MS) + 1;
 }
 
-export function addDays(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 // Nhãn trục của chart nhiều năm: "Sep 2024" — "Sep 02" thiếu năm từng làm trục
 // 2 năm đọc như nhảy tháng (Sep → Mar → Sep)
 export function formatMonthYear(date: string): string {
@@ -50,6 +44,41 @@ const PARIS_DATE_TIME = new Intl.DateTimeFormat("en-US", {
 
 export function formatPostDateParis(iso: string): string {
   return PARIS_DATE.format(new Date(iso));
+}
+
+// Ngày đăng "YYYY-MM-DD" theo giờ Paris — cùng quy ước với bộ lọc bài của /analytics/window
+// (`author_day`, src/models/days.py, ADR-0034); không cắt `slice(0, 10)` (ngày UTC)
+const PARIS_DAY_PARTS = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Europe/Paris",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+// Ngày Pacific — ranh giới ngày của chuỗi views theo ngày (Meta, ADR-0034); chỉ dùng để đếm bài có ngày Paris khác
+// ngày Pacific (đăng trước 9h sáng Paris), không dùng để lọc bài
+const PACIFIC_DAY_PARTS = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Los_Angeles",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+// "" khi timestamp không đọc được — người gọi bỏ qua bài đó, không làm hỏng cả trang (code-reviewer)
+function dayIn(format: Intl.DateTimeFormat, iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = format.formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export function parisDay(iso: string): string {
+  return dayIn(PARIS_DAY_PARTS, iso);
+}
+
+export function pacificDay(iso: string): string {
+  return dayIn(PACIFIC_DAY_PARTS, iso);
 }
 
 export function formatPostDateTimeParis(iso: string): string {
