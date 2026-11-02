@@ -763,6 +763,9 @@ _ANCHOR_EDGE = r"[\w$-]"
 # Trông như tham chiếu code (`x.py:3`, `x.py:L3`, `x.py:3 #f`, `x.py:3#a.b`, `:3`): `_REF` không đọc
 # được thì BÁO LỖI, không bỏ qua — bộ kiểm không được im lặng khi gặp thứ nó không hiểu
 _LOOSE_REF = re.compile(r"^(?:[\w./()\[\]-]+\.[A-Za-z]\w*)?:L?\d")
+# `:` + chỉ chữ số (VD phút `:05`, khoảng `:05-07`): không ngữ cảnh file thì không phải tham chiếu,
+# xử lý như `:15` / `:15-17`
+_BARE_NUMBER = re.compile(r"^:[0-9]+(?:-[0-9]+)?$")
 # Tên file / đường dẫn nhắc trong câu (không số dòng) — ngữ cảnh cho `:N` trần phía sau
 _FILE_LIKE = re.compile(r"^[\w./()\[\]-]+\.[A-Za-z]\w*$")
 _FENCE = re.compile(r"^\s*(?:```|~~~)")
@@ -826,7 +829,10 @@ def _md_blocks(lines: list[str]) -> list[list[int]]:
 
 
 def iter_code_refs(
-    lines: list[str], known: frozenset[str], by_base: dict[str, list[str]]
+    lines: list[str],
+    known: frozenset[str],
+    by_base: dict[str, list[str]],
+    public: bool = True,  # tài liệu ngoài `.claude/` — không được trỏ vào harness riêng tư
 ) -> list[CodeRef]:
     refs: list[CodeRef] = []
     for block in _md_blocks(lines):
@@ -847,6 +853,8 @@ def iter_code_refs(
             line, col = block[k], offset - starts[k]
             r = _REF.match(span)
             if r is None:
+                if context is None and _BARE_NUMBER.match(span):
+                    continue  # `:05` trần không ngữ cảnh — cùng cách xử lý `:15` ở dưới
                 if _LOOSE_REF.match(span):
                     refs.append(_bad(line, col, span, f"không đọc được tham chiếu `{span}`"))
                 elif " " not in span and _FILE_LIKE.match(_clean_candidate(span) or ""):
@@ -862,8 +870,13 @@ def iter_code_refs(
                     refs.append(_bad(line, col, span, f"`{path}` khớp {len(cands)} file"))
                     continue
                 if context is None:
-                    # Đường dẫn đủ không có → dead_path đã báo; tên ngắn không có → báo ở đây
-                    if "/" not in path and _FILE_LIKE.match(path):
+                    # Đường dẫn đủ không có → dead_path đã báo; tên ngắn không có → báo ở đây.
+                    # Riêng `.claude/…`: dead_path --all cho qua (file harness có trên máy, hoặc
+                    # known_untracked) nên báo ở đây — tài liệu công khai không trỏ vào harness
+                    if public and path.startswith(HARNESS_DIR + "/"):
+                        message = f"không có `{path}` — tài liệu công khai không trỏ vào harness"
+                        refs.append(_bad(line, col, span, message))
+                    elif "/" not in path and _FILE_LIKE.match(path):
                         refs.append(_bad(line, col, span, f"không có file `{path}`"))
                     continue  # còn lại không phải tham chiếu code (VD `127.0.0.1:8000`)
             elif context is None:
@@ -955,9 +968,18 @@ def _code_lines(root: Path, rel: str, cache: dict[str, list[str] | None]) -> lis
 
 
 def check_ref_anchors(
-    root: Path, files: list[str], known: list[str], cfg: Config
+    root: Path,
+    files: list[str],
+    known: list[str],
+    cfg: Config,
+    harness: Sequence[str] = (),
 ) -> list[Violation]:
-    index, by_base = _file_index(known)
+    """`known` = file đích của tài liệu công khai; `harness` = file harness trên máy, chỉ là đích
+    của tài liệu nằm TRONG harness. Tài liệu công khai không trỏ được vào harness riêng tư (clone
+    công khai không có nó) — nhờ vậy tên file ngắn phân giải như nhau ở `--all`, `--commit`, CI."""
+    public = _file_index(known)
+    listed = set(known)
+    private = _file_index(list(known) + [f for f in harness if f not in listed])
     cache: dict[str, list[str] | None] = {}
     out: list[Violation] = []
     for rel in files:
@@ -967,7 +989,9 @@ def check_ref_anchors(
         if text is None:
             continue
         lines = text.split("\n")
-        for ref in iter_code_refs(lines, index, by_base):
+        in_harness = rel.startswith(HARNESS_DIR + "/")
+        index, by_base = private if in_harness else public
+        for ref in iter_code_refs(lines, index, by_base, public=not in_harness):
             code = [] if ref.error else _code_lines(root, ref.file, cache)
             if code is None:
                 continue  # file nhị phân / quá lớn — không phải code đọc được
@@ -1106,10 +1130,11 @@ def run(root: Path, mode: str, with_pytest: bool = True) -> list[Violation]:
         files += [f for f in harness_files(root) if f not in listed]
     else:  # commit: file chưa track không thuộc commit (pre-commit không cất chúng đi)
         files = tracked
-    # --all: cả file harness trên máy (tên ngắn của file harness phân giải được)
-    known = tracked + untracked_files(root) + harness_files(root) if mode == "all" else tracked
+    # --all: thêm file chưa track; file harness trên máy chỉ là đích của tài liệu harness
+    known = tracked + untracked_files(root) if mode == "all" else tracked
+    harness = harness_files(root) if mode == "all" else []
     violations = check_forbid(root, files, cfg)
-    violations += check_ref_anchors(root, files, known, cfg)
+    violations += check_ref_anchors(root, files, known, cfg, harness)
     # Cả --all: CI chỉ chạy --all — lưới thứ hai khi commit lọt pre-commit
     # (--no-verify, clone chưa cài hook)
     violations += check_harness_not_tracked((staged or []) if mode == "staged" else tracked)
@@ -1151,6 +1176,12 @@ def format_report(violations: list[Violation]) -> str:
         lines.append(
             f"\nNgoại lệ có chủ đích: thêm '{ALLOW_MARK} <rule-id>' trên dòng đó hoặc dòng trước."
         )
+        if any(v.rule == REF_RULE for v in errors):
+            # `_ref_allowed`: allow cuối 1 dòng có chữ không miễn tham chiếu ở dòng sau
+            lines.append(
+                f"Riêng {REF_RULE}: allow ở dòng trước chỉ tính khi dòng đó CHỈ có chú thích "
+                f"<!-- {ALLOW_MARK} {REF_RULE} — lý do -->."
+            )
     if warnings:
         lines.append(
             f"\nCảnh báo mockup (không chặn commit — Claude Design sửa, ghi audit, ADR-0020): "

@@ -96,8 +96,9 @@ không nói `end_time` là đầu hay cuối ngày, cũng không nói múi giờ
   | Code cũ (lùi 1 ngày chỉ khi giờ "07") | — | 3/14 = 21% [8–48%] (8/14 lệch −1) |
 
   "Ngày tăng mạnh nhất" = views[d] − views[d−1] lớn nhất trong ngày đăng ±3. Chỉ số này ít bị nhiễu bởi đuôi views của
-  bài trước hơn là đỉnh views (3/14 bài có đỉnh ở −3 ngày, do một bài đột biến — breakout post — trước đó). Ngày đăng tính theo UTC, Pacific
-  hay Paris cho cùng kết quả trên 14 bài này; trên 169 bài gốc chỉ 1 bài có ngày đăng Pacific khác ngày Paris.
+  bài trước hơn là đỉnh views (3/14 bài có đỉnh ở −3 ngày, do một bài đột biến — breakout post — trước đó). Phép đo này không phân biệt
+  được các múi giờ của ngày đăng: tính theo UTC, Pacific hay Paris đều ra cùng kết quả trên 14 bài (trên 169 bài gốc chỉ 1
+  bài có ngày đăng Pacific khác ngày Paris). Quy ước đã chốt cho ngày đăng là giờ Paris — xem mục dưới.
 - **Lỗi của code cũ** (`end_time[11:13] == "07"` → lùi 1 ngày): ngày mùa hè sớm 1 ngày, ngày mùa đông đúng. <!-- consistency: allow ADR0034-old-day-label — mô tả code cũ -->
   Lúc đổi giờ: 2 ngày trống (2024-11-03, 2025-11-02) và 2 ngày trùng nhãn (2025-03-09, 2026-03-08), trong đó điểm sau
   ghi đè điểm trước nên mất views của 1 ngày.

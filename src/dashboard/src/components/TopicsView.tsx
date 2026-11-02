@@ -552,9 +552,10 @@ function UnitTable({
               <col className="w-[96px]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-rule">
+              {/* align-bottom: tiêu đề 1 dòng và 2 dòng chung đường chân, sát hàng số liệu (ux-reviewer L3) */}
+              <tr className="border-b border-rule align-bottom">
                 <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Content unit: topic in English, then the first line as written</th>
-                <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Published</th>
+                <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Published (Paris time)</th>
                 <th scope="col" className={`px-3 py-2 text-right ${TYPE.th}`}>Parts</th>
                 <th scope="col" className={`px-3 py-2 text-right ${TYPE.th}`}>
                   <TermLink term="rates">Engagement rate</TermLink>
@@ -584,17 +585,22 @@ function UnitTable({
             {shown.map((unit) => (
               <li key={unit.id} className="flex flex-col gap-1 border-b border-bg-surface py-3">
                 <UnitText text={firstLine(unit.full_text)} topic={topicOf(unit)} topicCount={topicCount} size="cell" />
-                {/* cặp nhãn + giá trị không tách khi xuống dòng (ux-reviewer P2) */}
+                {/* cặp nhãn + giá trị không tách khi xuống dòng (ux-reviewer P2); đuôi "· Paris time" là khối nowrap
+                    riêng nên màn 320px chỉ ngắt trước nó, không tràn mép thẻ (ux-reviewer 2026-11-02) */}
                 <span className="flex flex-wrap gap-x-3 gap-y-0.5">
                   {[
-                    ["published", unit.timestamp ? dayMonthYear(unit.timestamp) : "—"],
-                    ["parts", `${unit.continuation_count + 1}`],
-                    ["engagement rate", rate(unit)],
-                    ["similarity", sim(unit)],
-                  ].map(([label, value]) => (
-                    <span key={label} className="whitespace-nowrap">
-                      <span className={TYPE.label}>{label} </span>
-                      <span className={`${TYPE.mono} text-text-secondary`}>{value}</span>
+                    ["published", unit.timestamp ? dayMonthYear(unit.timestamp) : "—", unit.timestamp ? "· Paris time" : ""],
+                    ["parts", `${unit.continuation_count + 1}`, ""],
+                    ["engagement rate", rate(unit), ""],
+                    ["similarity", sim(unit), ""],
+                  ].map(([label, value, suffix]) => (
+                    <span key={label}>
+                      <span className="whitespace-nowrap">
+                        <span className={TYPE.label}>{label} </span>
+                        <span className={`${TYPE.mono} text-text-secondary`}>{value}</span>
+                      </span>
+                      {/* dấu cách ở NGOÀI khối nowrap — chỗ duy nhất được ngắt dòng */}
+                      {suffix ? <>{" "}<span className={`whitespace-nowrap ${TYPE.mono} text-text-secondary`}>{suffix}</span></> : null}
                     </span>
                   ))}
                 </span>

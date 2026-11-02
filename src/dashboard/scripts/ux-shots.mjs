@@ -479,77 +479,85 @@ if (process.argv[1] && realpathSync.native(fileURLToPath(import.meta.url)) === r
     const slug = route.replace(/\W+/g, "_").replace(/^_|_$/g, "") || "landing";
     const dir = path.join(ROOT, slug);
     mkdirSync(dir, { recursive: true });
-    const entry = { tier, files: [], consoleErrors: [], checks: {} };
+    // `runErrors`: khổ không đo xong (server tắt / trang treo giữa chừng) — ghi vào báo cáo và tính là lỗi của gate,
+    // không ném ra ngoài: trước đây 1 lần goto lỗi làm mất cả report.json của các trang đã đo xong
+    const entry = { tier, files: [], consoleErrors: [], runErrors: [], checks: {} };
     for (const width of WIDTHS) {
-      const ctx = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
-      const page = await ctx.newPage();
-      page.on("pageerror", (e) => entry.consoleErrors.push(`${width}px: ${e}`));
-      page.on("console", (m) => m.type() === "error" && entry.consoleErrors.push(`${width}px: ${m.text()}`));
-      await page.goto(BASE_URL + route, { waitUntil: "networkidle", timeout: 120_000 });
-      await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
-      await page.waitForTimeout(1200);
-      for (const state of ["as-loaded", "expanded"]) {
-        if (state === "expanded") {
-          // Bấm lần lượt nút ĐẦU TIÊN còn đóng: danh sách `.all()` gom 1 lần bị lệch chỉ số sau mỗi
-          // lần bấm (nút vừa mở rời khỏi bộ chọn) nên bỏ sót nút (ux-reviewer 2026-10-29)
-          // Chỉ nút trong <main>: nút dev-tools của Next (đã ẩn ở trên) cũng có aria-expanded, bấm vào nút
-          // ẩn thì chờ hết timeout mỗi lần — vòng lặp treo hàng chục phút
-          const closed = page.locator('main button[aria-expanded="false"]');
-          for (let guard = 0; guard < 50; guard++) {
-            const before = await closed.count();
-            if (before === 0) break;
-            await closed.first().click({ timeout: 3000 }).catch(() => {});
-            await page.waitForTimeout(100);
-            if ((await closed.count()) >= before) break; // nút không mở được — dừng, không bấm lại 50 lần
+      let ctx;
+      try {
+        ctx = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
+        const page = await ctx.newPage();
+        page.on("pageerror", (e) => entry.consoleErrors.push(`${width}px: ${e}`));
+        page.on("console", (m) => m.type() === "error" && entry.consoleErrors.push(`${width}px: ${m.text()}`));
+        await page.goto(BASE_URL + route, { waitUntil: "networkidle", timeout: 120_000 });
+        await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+        await page.waitForTimeout(1200);
+        for (const state of ["as-loaded", "expanded"]) {
+          if (state === "expanded") {
+            // Bấm lần lượt nút ĐẦU TIÊN còn đóng: danh sách `.all()` gom 1 lần bị lệch chỉ số sau mỗi
+            // lần bấm (nút vừa mở rời khỏi bộ chọn) nên bỏ sót nút (ux-reviewer 2026-10-29)
+            // Chỉ nút trong <main>: nút dev-tools của Next (đã ẩn ở trên) cũng có aria-expanded, bấm vào nút
+            // ẩn thì chờ hết timeout mỗi lần — vòng lặp treo hàng chục phút
+            const closed = page.locator('main button[aria-expanded="false"]');
+            for (let guard = 0; guard < 50; guard++) {
+              const before = await closed.count();
+              if (before === 0) break;
+              await closed.first().click({ timeout: 3000 }).catch(() => {});
+              await page.waitForTimeout(100);
+              if ((await closed.count()) >= before) break; // nút không mở được — dừng, không bấm lại 50 lần
+            }
+            await page.waitForTimeout(400);
           }
-          await page.waitForTimeout(400);
-        }
-        // Chromium không chụp quá 16,384px một ảnh (phần sau lặp lại đầu trang) — trang dài hơn thì chụp
-        // thành nhiều phần `-full-partN.png` (ux-reviewer 2026-10-29)
-        const height = await page.evaluate(() => document.documentElement.scrollHeight);
-        const SLICE = 12_000;
-        if (height <= 16_000) {
-          const full = path.join(dir, `${width}-${state}-full.png`);
-          await page.screenshot({ path: full, fullPage: true });
-          entry.files.push(full);
-        } else {
-          for (let y = 0, part = 1; y < height; y += SLICE, part++) {
-            const file = path.join(dir, `${width}-${state}-full-part${part}.png`);
-            await page.screenshot({ path: file, fullPage: true, clip: { x: 0, y, width, height: Math.min(SLICE, height - y) } });
-            entry.files.push(file);
+          // Chromium không chụp quá 16,384px một ảnh (phần sau lặp lại đầu trang) — trang dài hơn thì chụp
+          // thành nhiều phần `-full-partN.png` (ux-reviewer 2026-10-29)
+          const height = await page.evaluate(() => document.documentElement.scrollHeight);
+          const SLICE = 12_000;
+          if (height <= 16_000) {
+            const full = path.join(dir, `${width}-${state}-full.png`);
+            await page.screenshot({ path: full, fullPage: true });
+            entry.files.push(full);
+          } else {
+            for (let y = 0, part = 1; y < height; y += SLICE, part++) {
+              const file = path.join(dir, `${width}-${state}-full-part${part}.png`);
+              await page.screenshot({ path: file, fullPage: true, clip: { x: 0, y, width, height: Math.min(SLICE, height - y) } });
+              entry.files.push(file);
+            }
+          }
+          if (width === WIDTHS[0]) {
+            const blocks = await page.locator("main > div > *, main > section").all();
+            let i = 1;
+            for (const block of blocks) {
+              const file = path.join(dir, `${width}-${state}-block${String(i).padStart(2, "0")}.png`);
+              await block.screenshot({ path: file }).catch(() => {});
+              entry.files.push(file);
+              i++;
+            }
           }
         }
-        if (width === WIDTHS[0]) {
-          const blocks = await page.locator("main > div > *, main > section").all();
-          let i = 1;
-          for (const block of blocks) {
-            const file = path.join(dir, `${width}-${state}-block${String(i).padStart(2, "0")}.png`);
-            await block.screenshot({ path: file }).catch(() => {});
-            entry.files.push(file);
-            i++;
-          }
+        // Máy đo ở trạng thái đã mở hết
+        const checks = await page.evaluate(measure, { tier, rules: RULES });
+        // A1: axe-core theo WCAG 2.x A/AA — serious/critical là vi phạm, mức nhẹ hơn là gợi ý
+        const axe = await new AxeBuilder({ page })
+          .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+          .exclude("nextjs-portal")
+          .analyze()
+          .catch((e) => ({ error: String(e), violations: [] }));
+        if (axe.error) checks.warnings.push({ rule: "A1", detail: `axe-core không chạy được: ${axe.error}`, key: "A1|error" });
+        for (const v of axe.violations) {
+          const list = v.impact === "serious" || v.impact === "critical" ? checks.violations : checks.warnings;
+          const targets = v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(" | ");
+          list.push({ rule: "A1", detail: `axe ${v.id} (${v.impact}) · ${v.nodes.length} chỗ · ${v.help} · VD ${targets}`, key: `A1|${v.id}` });
         }
+        entry.checks[width] = checks;
+      } catch (e) {
+        entry.runErrors.push(`${width}px: ${String(e).split("\n")[0]}`);
+      } finally {
+        await ctx?.close().catch(() => {});
       }
-      // Máy đo ở trạng thái đã mở hết
-      const checks = await page.evaluate(measure, { tier, rules: RULES });
-      // A1: axe-core theo WCAG 2.x A/AA — serious/critical là vi phạm, mức nhẹ hơn là gợi ý
-      const axe = await new AxeBuilder({ page })
-        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-        .exclude("nextjs-portal")
-        .analyze()
-        .catch((e) => ({ error: String(e), violations: [] }));
-      if (axe.error) checks.warnings.push({ rule: "A1", detail: `axe-core không chạy được: ${axe.error}`, key: "A1|error" });
-      for (const v of axe.violations) {
-        const list = v.impact === "serious" || v.impact === "critical" ? checks.violations : checks.warnings;
-        const targets = v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(" | ");
-        list.push({ rule: "A1", detail: `axe ${v.id} (${v.impact}) · ${v.nodes.length} chỗ · ${v.help} · VD ${targets}`, key: `A1|${v.id}` });
-      }
-      entry.checks[width] = checks;
-      await ctx.close();
     }
     report[route] = entry;
   }
-  await browser.close();
+  await browser.close().catch(() => {});
 
   // T3 giữa các trang: cùng vai phải cùng cỡ, độ đậm, màu (đo ở khổ rộng nhất). Vai display chỉ có ở landing.
   // Trên dải tối (X2, `.on-dark`) màu chữ khác là được phép — chỉ so cỡ + độ đậm
@@ -582,6 +590,7 @@ if (process.argv[1] && realpathSync.native(fileURLToPath(import.meta.url)) === r
   console.log(`Ảnh + report.json: ${ROOT}`);
   // Đếm lỗi riêng: cùng `key` (luật + vị trí) ở nhiều khổ màn hình chỉ tính 1 lần
   let total = crossRoute.length;
+  let unfinished = 0; // khổ không đo xong (`runErrors`) — gate FAIL, đếm riêng với vi phạm luật
   for (const [route, e] of Object.entries(report)) {
     const unique = new Map();
     const warns = new Set();
@@ -592,9 +601,12 @@ if (process.argv[1] && realpathSync.native(fileURLToPath(import.meta.url)) === r
     const byRule = {};
     for (const rule of unique.values()) byRule[rule] = (byRule[rule] ?? 0) + 1;
     total += unique.size;
+    unfinished += e.runErrors.length;
     const rules = Object.entries(byRule).map(([r, k]) => `${r}×${k}`).join(" ") || "—";
     console.log(`${route}: ${e.files.length} ảnh · lỗi console ${e.consoleErrors.length} · vi phạm ${unique.size} (${rules}) · gợi ý ${warns.size}`);
+    for (const err of e.runErrors) console.log(`  không đo xong ${err}`);
   }
   if (crossRoute.length) console.log(`Giữa các trang (T3): ${crossRoute.length} vai khác kiểu`);
-  console.log(`UX gate (máy): ${total === 0 ? "PASS" : `FAIL · ${total} vi phạm riêng (gộp 3 khổ)`} — chi tiết trong report.json`);
+  const failure = [total && `${total} vi phạm riêng (gộp 3 khổ)`, unfinished && `${unfinished} khổ không đo xong`].filter(Boolean).join(" + ");
+  console.log(`UX gate (máy): ${failure ? `FAIL · ${failure}` : "PASS"} — chi tiết trong report.json`);
 }

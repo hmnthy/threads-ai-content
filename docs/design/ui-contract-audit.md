@@ -365,3 +365,42 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
     (thay "Which topics get a higher engagement rate than the rest of the channel?").
   - Ghi chú ARI (panel độ bền, cả /topics): "On content units with a topic in both runs. 1 = identical grouping. Same
     seed every run, so 1.00 shows reproducibility, not stability."
+
+### ADR-0034 — nhãn ngày của chuỗi views theo ngày (Thy duyệt 2026-11-01 cùng OK commit PR #34; `ux-reviewer` + `copy-reviewer`)
+
+- Mockup chưa có các chữ dưới (vòng thiết kế kế tiếp theo `UI-0034-meta-day` + `UI-0034-paris-post-day`):
+  - Phụ đề biểu đồ khối 01 Overview: "As Threads reports them: one total per day, with days in Pacific time."
+  - Bước Method "Which day": "The Threads API gives the account's views only as one total per day, and its days run on
+    Pacific time (California). So each chart day starts at midnight Pacific, which is 9 am in Paris for most of the
+    year. A content unit falls in a window by the day it was published in Paris time: the date printed under it in
+    block 02." + 3 dòng công thức: "chart day = calendar date in America/Los_Angeles", "content unit day = publish date
+    in Europe/Paris", "unit in window when start ≤ content unit day ≤ end (start, end = chart days at the two handles)".
+  - Limits: "A content unit published between midnight and 9 am Paris time (8 am for a few weeks a year) is counted on
+    its Paris date, but the account's views from those first hours land on the chart day before. This only matters at
+    the edges of a window." + câu đếm lúc chạy "So far, it applies to N of the M content units collected, with or
+    without recorded views."
+  - Ngày dưới mỗi bài ở khối 02: "Oct 2, 2026 · Paris time"; "What to know": "n = N content units with recorded views."
+- PR nợ nhỏ sau ADR-0034 (`copy-reviewer` + `ux-reviewer` 2 lượt; Thy chọn 2026-11-02, câu cuối duyệt cùng OK commit):
+  - Một động từ "Published" cho cột ngày đăng: /topics và /analytics cùng ghi "Published (Paris time)" (/analytics trước
+    là "Posted (Paris time)"). Thẻ màn hẹp của /topics: "published Oct 2, 2026 · Paris time" (múi giờ sau ngày, như khối
+    02 Overview). Tiêu đề bảng căn đáy (`align-bottom`) để tiêu đề 1 dòng và 2 dòng chung đường chân.
+  - Heatmap /analytics, bước "Readable cells": "A cell is readable (coloured, and counted in the ranges at the top of this
+    section) only when it rests on at least N content units, the same minimum every comparison on this dashboard uses. The
+    colour scale runs only across those cells." (trước: "A cell is read only when…", dễ đọc thành "read-only" và sai — ô n < N
+    vẫn có median trong hover và bảng). Công thức 3 dòng "n ≥ N → coloured" / "1 ≤ n < N → hatched" / "n = 0 → plain, no
+    n" ("plain", không "grey": nền ô n = 0 gần trắng, ô sọc mới trông xám) (thay "readable ⇔ n ≥ N" — ký hiệu lạ với người không chuyên; 3 nhánh khớp `cellStyle` và 3 dòng chú giải).
+    Còn mở (toàn sản phẩm, ux-reviewer 2026-11-02): `next/font` chỉ nạp bộ ký tự `latin` của IBM Plex Mono nên → ≤ ≥ ⇔
+    (và các ký hiệu toán ở `/topics`) rơi xuống font dự phòng, rộng hơn ký tự mono khác.
+  - Cùng khối, sửa câu sai sự thật có từ trước: "What to know" — "…are **hatched** instead of coloured; their median
+    appears only in the hover text and the table below." (trước: "only in the table below", nhưng hover cũng hiện
+    median); chú giải "too few content units (n < N): hatched, not coloured" (trước: "not coloured", lẫn với ô n = 0).
+  - Bước "Median per cell": "n = their count" tách thành dòng công thức riêng (màn hẹp ngắt giữa biểu thức).
+  - Một cách ghi múi giờ (Thy chọn 2026-11-02): tiêu đề bảng "(Paris time)", mọi dòng dữ liệu "<ngày> · Paris time" —
+    gồm danh sách màn hẹp của /analytics: "6,365 views · May 14, 2026, 12:52 PM · Paris time". Chip "data as of … Paris
+    time" và câu mốc kiểm định "(Paris time)" của landing không phải dòng dữ liệu, giữ nguyên.
+  - Heatmap, ô n = 0 (sửa câu sai có từ trước, copy-reviewer 2026-11-02): chú giải "no n: no content units with
+    recorded views in that hour or weekday" (trước: "no content unit published then" — sai khi giờ đó chỉ có bài chưa ghi
+    được views, VD 08:00 Paris trên dữ liệu 2026-11-02); hover / aria "… · no content units with recorded views" (hằng
+    `NO_POSTS` chung). Dòng dữ liệu /analytics màn hẹp giữ "· Paris time" thành một khối không ngắt (như /topics).
+  - Khổ 320px (Thy chọn: sửa 2 chỗ tràn ngang, chưa thêm 320px vào máy đo): navbar landing thu khoảng cách + lề trong
+    dưới `sm` (nút "View live dashboard" không còn tràn khỏi pill); thang màu heatmap xuống dòng (`flex-wrap`).
