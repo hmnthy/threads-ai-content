@@ -33,6 +33,9 @@ export const TYPE = {
   // Nút chính của trang giới thiệu (hero + CTA cuối của landing) — vai riêng 15px w600 (Thy 2026-11-01, ADR-0032):
   // nút 13px trông yếu trên landing; mọi nút / tab / pill khác vẫn là control 13px
   cta: "text-[15px] font-semibold",
+  // control 13px w600 — chữ trên nút / tab / pill bấm được (§3 "note · cell · control"); kiểu nút dùng chung ở
+  // `ActionButton` của AppBlock.tsx
+  control: "text-[13px] font-semibold",
   // eyebrow có số, amber (số khối, "01 · Problem" của section landing) — chỉ mono 12.5
   eyebrowNum: "font-mono text-[12.5px] font-semibold",
   // Thy 2026-10-29: chữ chạy hết bề rộng khung chứa — không chừa khoảng trắng bên phải (bỏ giới hạn 72ch)

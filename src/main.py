@@ -235,6 +235,10 @@ class TopicOut(BaseModel):
     # (so với phần còn lại + Holm: `GET /topics/comparisons`, ADR-0023); `insufficient_data`
     # là cờ n nhỏ duy nhất của dự án (`MIN_N_PER_BUCKET`, UI-L20260903-small-n-flag)
     engagement: DistributionStatsOut
+    # cùng tập bài đo được, 2 tỉ lệ còn lại (công thức như `/analytics/overview`) — mốc so
+    # "cùng topic" cho khối "một content unit so với kênh" của /analytics; mô tả, không kiểm định
+    share_rate: DistributionStatsOut
+    conversation: DistributionStatsOut
     excluded_no_views: int
     # ADR-0018 + ADR-0023 1e: tên đặt lúc nào, bằng model/phiên bản prompt nào; null với topic
     # chưa được đặt tên lại từ ADR-0018 (`docs/design/topics-data-audit.md` mục 3)
@@ -416,6 +420,8 @@ def get_topics() -> list[TopicOut]:
                         conn, json.loads(topic["representative_ids_json"] or "[]"), similarity
                     ),
                     engagement=_to_stats_out(window_stats(insights, lambda i: i.engagement_rate)),
+                    share_rate=_to_stats_out(window_stats(insights, share_rate)),
+                    conversation=_to_stats_out(window_stats(insights, conversation_rate)),
                     excluded_no_views=excluded,
                     labeled_at=topic["labeled_at"],
                     label_model=topic["label_model"],
@@ -1017,6 +1023,26 @@ class ClusterRunOut(BaseModel):
     dbcv: float | None
     ari_vs_previous: float | None
     ari_clustered_only: float | None
+    # n của 2 số ARI (landing hứa "every figure says how many content units it rests on"):
+    # số unit có ở cả 2 lần chạy, và số unit có cụm ở cả 2 lần — đọc từ `transitions_json`
+    # (cùng phép đếm `compare_with_previous` dùng để tính ARI); null khi lần chạy không lưu bảng
+    # chuyển. Lần gom cụm đầu tiên (chưa có lần trước) cho 0 / 0, đi cùng ARI null
+    ari_n_common: int | None
+    ari_n_clustered_both: int | None
+
+
+def _ari_counts(transitions_json: str | None) -> tuple[int | None, int | None]:
+    """(unit có ở cả 2 lần, unit có cụm ở cả 2 lần) từ bảng chuyển của 1 lần gom cụm.
+
+    `common` = 4 ô chuyển (cụm/nhiễu → cụm/nhiễu), không gồm `new_units`; `both` = ô
+    cụm→cụm — đúng 2 tập mà `clustering_import.compare_with_previous` đưa vào ARI."""
+    if transitions_json is None:
+        return None, None
+    moves: dict[str, int] = json.loads(transitions_json)
+    cells = ("cluster_to_cluster", "cluster_to_noise", "noise_to_cluster", "noise_to_noise")
+    if not all(cell in moves for cell in cells):
+        return None, None
+    return sum(moves[cell] for cell in cells), moves["cluster_to_cluster"]
 
 
 class PipelineSummaryOut(BaseModel):
@@ -1051,6 +1077,7 @@ def get_pipeline_summary() -> PipelineSummaryOut:
         if run is not None:
             labels: dict[str, int] = json.loads(run["labels_json"])
             noise_ids = [unit_id for unit_id, label in labels.items() if label == -1]
+            n_common, n_clustered_both = _ari_counts(run["transitions_json"])
             run_out = ClusterRunOut(
                 run_at=run["run_at"],
                 model_id=run["model_id"],
@@ -1063,6 +1090,8 @@ def get_pipeline_summary() -> PipelineSummaryOut:
                 dbcv=run["dbcv"],
                 ari_vs_previous=run["ari_vs_previous"],
                 ari_clustered_only=run["ari_clustered_only"],
+                ari_n_common=n_common,
+                ari_n_clustered_both=n_clustered_both,
             )
             _, insights, noise_excluded = split_measurable(
                 *_load_posts_with_insights(conn, noise_ids)

@@ -149,7 +149,8 @@ formula script    0.8em (≈10px)               —              `sub`/`sup`    
 
 Tập cỡ hợp lệ (px): **12 · 12.5 · 13 · 15 · 17 · 18 · 20 · 26 · 28 · 40 · 56**, cộng 2 khoảng display trên h1/h2 của
 landing. Tag landing lệch 1 cấp so với app vì landing có thêm tầng section (display-2 là `h2`): cùng **vai** thì cùng
-cỡ, độ đậm, màu, dù tag khác. Chữ trong SVG biểu đồ cũng thuộc thang (nhãn trục 12px). Cỡ fluid (`clamp`) chỉ dành
+cỡ, độ đậm, màu, dù tag khác. Chữ trong biểu đồ cũng thuộc thang (nhãn trục 12px), dù biểu đồ dựng bằng HTML/CSS hay SVG (SVG chỉ có ở biểu đồ
+views theo ngày và sơ đồ "How it works" — ADR-0035). Cỡ fluid (`clamp`) chỉ dành
 cho display-1/2 — mọi vai khác cố định, kể cả trên 375px (body 15px ≥ 14px tối thiểu của §12).
 
 Khoảng cách: khối cách nhau 40px; trong khối, mục h3 cách nhau 28px có kẻ mảnh. Chữ chạy hết bề rộng khung chứa —

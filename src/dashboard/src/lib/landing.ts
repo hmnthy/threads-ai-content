@@ -29,6 +29,24 @@ export interface Noun {
 export const POST_NOUN: Noun = { one: "post", many: "posts" };
 export const UNIT_NOUN: Noun = { one: "content unit", many: "content units" };
 
+// 3 tỉ lệ trên 100 views của bài mở đầu — tên, trường API và công thức một nguồn cho khối "một content unit so với
+// kênh" (`UnitVsChannel`); `digits` theo quy ước của trang (2 cho engagement, 3 cho share + conversation)
+export type RateKey = "engagement" | "share" | "conversation";
+export const RATE_INFO: Record<
+  RateKey,
+  { label: string; field: "engagement_rate" | "share_rate" | "conversation_rate"; formula: string; digits: number }
+> = {
+  engagement: { label: "Engagement rate", field: "engagement_rate", formula: "(likes + replies + reposts + quotes) ÷ views × 100", digits: 2 },
+  share: { label: "Share rate", field: "share_rate", formula: "(reposts + quotes) ÷ views × 100", digits: 3 },
+  conversation: { label: "Conversation rate", field: "conversation_rate", formula: "replies ÷ views × 100", digits: 3 },
+};
+
+// Một tập so: tỉ lệ của từng bài đo được (chấm) + median/IQR/n do backend tính (không tính lại ở client)
+export interface RateSet {
+  rates: number[];
+  stats: DistributionStats;
+}
+
 export interface TopicView {
   id: string;
   name: string;
@@ -39,6 +57,7 @@ export interface TopicView {
   stats: DistributionStats;
   excluded: number;
   rates: number[]; // engagement % của các bài đo được trong topic (chấm trên strip)
+  byRate: Record<RateKey, RateSet>; // cả 3 tỉ lệ (engagement = `rates` + `stats`)
   // ADR-0018 + ADR-0023 1e: ngày đặt tên (UTC) + số lần gom cụm liền gần nhất giữ tên
   labeledAt: string | null;
   labelModel: string | null;
@@ -62,6 +81,7 @@ export interface LandingData {
     stats: DistributionStats;
     excluded: number;
     total: number; // bài đo được + bài bị loại (mẫu số của dòng loại)
+    byRate: Record<RateKey, RateSet>; // cả 3 tỉ lệ (engagement = `rates` + `stats`)
   };
   hero: HeroPost | null;
   heroFound: boolean; // bài hero có trong DB (dù chưa có views) — để báo đúng lý do khi trống
@@ -384,8 +404,12 @@ export function buildLandingData(
 ): LandingData {
   const measurable = units.filter((unit) => unit.metrics !== null);
   const rateOf = new Map(measurable.map((unit) => [unit.id, unit.metrics!.engagement_rate]));
-  const ratesWhere = (keep: (unit: ContentUnit) => boolean) =>
-    measurable.filter(keep).map((unit) => unit.metrics!.engagement_rate);
+  const ratesWhere = (keep: (unit: ContentUnit) => boolean, rate: RateKey = "engagement") =>
+    measurable.filter(keep).map((unit) => unit.metrics![RATE_INFO[rate].field]);
+  const setsWhere = (keep: (unit: ContentUnit) => boolean, stats: Record<RateKey, DistributionStats>) =>
+    Object.fromEntries(
+      (Object.keys(RATE_INFO) as RateKey[]).map((rate) => [rate, { rates: ratesWhere(keep, rate), stats: stats[rate] }]),
+    ) as Record<RateKey, RateSet>;
 
   const topicViews: TopicView[] = topics
     .filter((topic) => topic.method === "cluster")
@@ -406,6 +430,11 @@ export function buildLandingData(
       stats: topic.engagement,
       excluded: topic.excluded_no_views,
       rates: ratesWhere((unit) => unit.topic?.topic_id === topic.id),
+      byRate: setsWhere((unit) => unit.topic?.topic_id === topic.id, {
+        engagement: topic.engagement,
+        share: topic.share_rate,
+        conversation: topic.conversation,
+      }),
     }))
     .sort((a, b) => b.postCount - a.postCount);
 
@@ -460,6 +489,11 @@ export function buildLandingData(
       stats: overview.engagement,
       excluded: overview.excluded_no_views,
       total: overview.post_count + overview.excluded_no_views,
+      byRate: setsWhere(() => true, {
+        engagement: overview.engagement,
+        share: overview.share_rate,
+        conversation: overview.conversation,
+      }),
     },
     hero,
     heroFound: heroUnit !== undefined,
@@ -542,6 +576,23 @@ export function rowSwarm(
 
 export function axisPct(value: number, axisMax: number): string {
   return `${(value / axisMax) * 100}%`;
+}
+
+// Trục của một tập tỉ lệ bất kỳ (share / conversation rate thường < 1%, vạch nguyên 0–1% không đọc được): chọn bước
+// nhỏ nhất trong dãy "đẹp" sao cho trục có ≤ 8 khoảng; biên phải = bội của bước, lớn hơn bài cao nhất ít nhất 4%
+// của nó để chấm cuối không chạm mép. Lựa chọn trình bày, không phải số liệu
+const AXIS_STEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5];
+export function rateAxis(values: number[]): { max: number; ticks: number[]; decimals: number } {
+  const top = Math.max(...values, 0.01) * 1.04;
+  const step = AXIS_STEPS.find((s) => Math.ceil(top / s) <= 8) ?? AXIS_STEPS[AXIS_STEPS.length - 1];
+  const count = Math.ceil(top / step);
+  const decimals = step >= 1 ? 0 : step >= 0.1 && Number.isInteger(step * 10) ? 1 : 2;
+  return {
+    // làm tròn như vạch: 0.1 × 3 = 0.30000000000000004 ≠ vạch 0.3 (code-reviewer 2026-11-02 — so tick >= max)
+    max: Number((count * step).toFixed(decimals)),
+    ticks: Array.from({ length: count + 1 }, (_, i) => Number((i * step).toFixed(decimals))),
+    decimals,
+  };
 }
 
 export function ticks(axisMax: number): number[] {

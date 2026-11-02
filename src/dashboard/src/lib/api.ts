@@ -46,6 +46,9 @@ export interface Topic {
   representatives: RepresentativePost[];
   // mô tả, không kiểm định; cờ insufficient_data đọc thẳng từ backend
   engagement: DistributionStats;
+  // cùng tập bài đo được, 2 tỉ lệ còn lại — mốc "cùng topic" của khối một content unit ở /analytics
+  share_rate: DistributionStats;
+  conversation: DistributionStats;
   excluded_no_views: number;
   // ADR-0018 + ADR-0023 1e: ngày đặt tên (UTC) + số lần gom cụm liền gần nhất giữ tên
   labeled_at: string | null;
@@ -150,6 +153,10 @@ export interface ClusterRun {
   dbcv: number | null; // validity_index
   ari_vs_previous: number | null;
   ari_clustered_only: number | null;
+  // n của 2 số ARI: unit có ở cả 2 lần chạy (ARI tính cả unclustered) · unit có topic ở cả 2 lần (ARI chỉ topic);
+  // null khi lần chạy không lưu bảng chuyển
+  ari_n_common: number | null;
+  ari_n_clustered_both: number | null;
 }
 
 export interface PipelineSummary {

@@ -1533,6 +1533,79 @@ LEARNED_RULES = [
         '                <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Topic (English)</th>',
         '                <th scope="col" className={`px-3 py-2 ${TYPE.th}`}>Content unit</th>',
     ),
+    (
+        "ADR0035-old-chart-tech",
+        "README.md",
+        "| Dashboard | Next.js 16, hand-built SVG charts + Plotly (topic map) | Live |",
+        "| Dashboard | Next.js 16, hand-built HTML/CSS charts (SVG for the daily-views chart) |",
+    ),
+    (
+        "ADR0035-old-chart-tech",
+        "docs/claude/architecture.md",
+        "| Dashboard | Next.js 16 + chart SVG tự dựng + Plotly (bản đồ topic) |",
+        "| Dashboard | Next.js 16 + chart HTML/CSS tự dựng (SVG cho biểu đồ views theo ngày) |",
+    ),
+    (
+        "ADR0035-old-analytics-shape",
+        "src/dashboard/src/app/(app)/analytics/page.tsx",
+        '        eyebrow="Measure · Rankings and posting time"',
+        '        eyebrow="Measure · Rankings, one content unit, posting time"',
+    ),
+    (
+        "ADR0035-old-analytics-shape",
+        "docs/design/ui-contract.md",
+        "Analytics: 01 xếp hạng → 02 giờ đăng (`:10-13#ANALYTICS_SECTIONS`)",
+        "Analytics: 01 xếp hạng → 02 một content unit so với kênh → 03 giờ đăng",
+    ),
+    (
+        "ADR0035-old-chart-tech",
+        "docs/claude/design-system.md",
+        "Dashboard charts are hand-made SVG, built without a chart library.",
+        "Dashboard charts are hand-made in HTML/CSS; SVG only for the daily-views chart.",
+    ),
+    # Câu đúng dùng cùng từ khoá không bị bắt (code-reviewer 2026-11-02: mẫu quá rộng chặn câu thật)
+    (
+        "ADR0035-old-chart-tech",
+        "docs/claude/design-system.md",
+        "Charts are hand-built SVG; the topic map uses Plotly.",
+        "The daily-views chart is a hand-built SVG line.",
+    ),
+    (
+        "ADR0035-old-analytics-shape",
+        "docs/claude/architecture.md",
+        "- Analytics: xếp hạng và giờ đăng (2 khối).",
+        "- Analytics: Rankings, one content unit, posting time (3 khối).",
+    ),
+    (
+        "ADR0035-old-analytics-shape",
+        "docs/claude/architecture.md",
+        "- Analytics: ranking → posting time.",
+        "Block 02 sits between rankings and posting time.",
+    ),
+    (
+        "ADR0035-old-refresh-limit",
+        "src/dashboard/src/components/OverviewDashboard.tsx",
+        '"Views and interactions are re-read from Threads every 4 hours, so numbers can lag.",',
+        '"Views are re-read every 4 hours, only while the collecting laptop is awake.",',
+    ),
+    (
+        "ADR0035-old-refresh-limit",
+        "src/dashboard/src/components/OverviewDashboard.tsx",
+        '"Counts are re-read every 4 hours.",',
+        '"While the collecting laptop is awake, views are re-read every 4 hours.",',
+    ),
+    (
+        "ADR0035-old-refresh-limit",
+        "src/dashboard/src/components/LandingTechStack.tsx",
+        '"The job re-reads views every 4 hours.",',
+        '"Views are re-read every 4 hours while the machine is awake.",',
+    ),
+    (
+        "ADR0035-old-refresh-limit",
+        "src/dashboard/src/components/LandingHero.tsx",
+        '"Rates use the **latest counts** (re-read every 4 hours), so newer content units…",',
+        '"Rates use the **latest counts**, re-read every 4 hours while the laptop is awake.",',
+    ),
 ]
 
 

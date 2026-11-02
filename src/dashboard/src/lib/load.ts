@@ -41,14 +41,21 @@ export interface AppContext {
   // phần lớn năm, 8h trong vài tuần đổi giờ lệch) / tổng có timestamp — cỡ của giới hạn ADR-0034 ở Limits của
   // Overview; null = không đọc được danh sách content unit, hoặc trang không cần (`withChannel` tắt)
   dayMismatch: { count: number; total: number } | null;
+  // Dữ liệu khối "một content unit so với kênh" của /analytics (`UnitVsChannel`) — dựng bằng chính hàm của landing
+  // (`buildLandingData`) từ các endpoint trang đã gọi, nên khối đọc cùng bộ số với panel hero; null = trang không cần
+  // (`withComparison` tắt) hoặc thiếu 1 trong 4 nguồn
+  comparison: TopicPageData | null;
 }
 
-export async function loadAppContext(page: string, { withChannel = false } = {}): Promise<AppContext> {
+export async function loadAppContext(
+  page: string,
+  { withChannel = false, withComparison = false } = {},
+): Promise<AppContext> {
   const [units, topics, summary, overview] = await Promise.allSettled([
     getContentUnits(),
     getTopics(),
     getPipelineSummary(),
-    withChannel ? getAnalyticsOverview() : Promise.resolve(null),
+    withChannel || withComparison ? getAnalyticsOverview() : Promise.resolve(null),
   ]);
   for (const result of [units, topics, summary, overview]) {
     if (result.status === "rejected") console.error(`${page}: could not load part of the page context`, result.reason);
@@ -57,6 +64,7 @@ export async function loadAppContext(page: string, { withChannel = false } = {})
   const unitList = ok(units);
   const topicList = ok(topics);
   const summaryData = ok(summary);
+  const overviewData = ok(overview);
   // Thông tin topic cần đủ 3 nguồn: thiếu summary thì không biết đã gom cụm chưa → coi cả map là "không biết"
   let topicOf: Record<string, string | null> | null = null;
   if (unitList && topicList && summaryData) {
@@ -73,7 +81,7 @@ export async function loadAppContext(page: string, { withChannel = false } = {})
     topicCount: topicOf ? (summaryData?.latest_cluster_run?.n_clusters ?? null) : null,
     latestSnapshotAt: summaryData?.latest_snapshot_at ?? null,
     minPosts: summaryData?.min_posts_to_compare ?? null,
-    channelEngagement: ok(overview)?.engagement ?? null,
+    channelEngagement: withChannel ? (overviewData?.engagement ?? null) : null,
     firstPostDate:
       unitList?.reduce<string | null>((min, unit) => {
         const day = unit.timestamp ? parisDay(unit.timestamp) : "";
@@ -81,6 +89,10 @@ export async function loadAppContext(page: string, { withChannel = false } = {})
         return min === null || day < min ? day : min;
       }, null) ?? null,
     dayMismatch: withChannel && unitList ? countDayMismatch(unitList) : null,
+    comparison:
+      withComparison && unitList && topicList && summaryData && overviewData
+        ? { data: buildLandingData(unitList, topicList, overviewData, summaryData), units: unitList }
+        : null,
   };
 }
 

@@ -9,7 +9,8 @@ export const OVERVIEW_SECTIONS = [
 
 export const ANALYTICS_SECTIONS = [
   ["ranking", "01", "Top by rate"],
-  ["posting-time", "02", "Posting time"],
+  ["unit", "02", "One content unit"],
+  ["posting-time", "03", "Posting time"],
 ] as const;
 
 // Định nghĩa đơn vị đếm dưới câu hỏi đầu trang Overview + Analytics (Thy 2026-10-31: một tên "content units" cho mọi
