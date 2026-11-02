@@ -249,7 +249,9 @@ function TopTable({
             </span>
             <UnitText text={row.text} topic={row.topic} topicCount={topicCount} size="cell" />
             <span className={`${TYPE.mono} text-text-secondary`}>
-              {count(row.entry.metrics.popularity_index)} views · {formatPostDateTimeParis(row.entry.timestamp)} Paris time
+              {/* "· Paris time" như mọi dòng dữ liệu; tiêu đề bảng dùng "(Paris time)" (Thy 2026-11-02) */}
+              {count(row.entry.metrics.popularity_index)} views · {formatPostDateTimeParis(row.entry.timestamp)}{" "}
+              <span className="whitespace-nowrap">· Paris time</span>
             </span>
           </li>
         ))}
@@ -263,12 +265,13 @@ function TopTable({
       >
         <table className="w-full min-w-[640px] border-collapse">
           <thead>
-            <tr className="border-b border-border-hairline text-left">
+            {/* align-bottom: tiêu đề 1 dòng và 2 dòng chung đường chân, sát hàng số liệu (ux-reviewer L3) */}
+            <tr className="border-b border-border-hairline text-left align-bottom">
               <th scope="col" className={`py-2.5 pr-3 ${TYPE.th}`}>#</th>
               <th scope="col" className={`py-2.5 pr-4 ${TYPE.th}`}>{rateLabel}</th>
               <th scope="col" className={`py-2.5 pr-4 ${TYPE.th}`}>Content unit</th>
               <th scope="col" className={`py-2.5 pr-4 text-right ${TYPE.th}`}>Views</th>
-              <th scope="col" className={`py-2.5 ${TYPE.th}`}>Posted (Paris time)</th>
+              <th scope="col" className={`py-2.5 ${TYPE.th}`}>Published (Paris time)</th>
             </tr>
           </thead>
           <tbody>

@@ -208,9 +208,59 @@ def test_ref_anchor_inline_allow(tmp_path: Path) -> None:
 
 def test_ref_anchor_skips_spans_that_are_not_code_refs(tmp_path: Path) -> None:
     # Địa chỉ mạng, giờ, `:N` trần không tên neo/ngữ cảnh; đường dẫn đủ không có → dead_path báo
-    content = "`127.0.0.1:8000` `12:30` `:15` `docs/missing.py:3`\n"
+    content = "`127.0.0.1:8000` `12:30` `:15` `:05` `:05-07` `docs/missing.py:3`\n"
     root = make_repo(tmp_path, {"docs/a.md": content, "src/x.py": CODE})
     assert run_refs(root) == []
+
+
+def test_ref_anchor_bare_leading_zero_is_a_ref_only_after_a_file(tmp_path: Path) -> None:
+    # Không ngữ cảnh: `:05` là phút, như `:15`; sau 1 tên file: `:05` là tham chiếu viết sai
+    content = "- the job runs at `:05` past the hour\n- `src/x.py` at `:04#load`\n"
+    root = make_repo(tmp_path, {"docs/a.md": content, "src/x.py": CODE})
+    assert [(v.line, v.message) for v in run_refs(root)] == [
+        (2, "không đọc được tham chiếu `:04#load`")
+    ]
+
+
+def test_ref_anchor_public_docs_never_resolve_to_private_harness(tmp_path: Path) -> None:
+    # Tên ngắn `x.py` trùng 1 file harness: tài liệu công khai vẫn phân giải về file công khai ở
+    # MỌI chế độ (trước: --all báo "khớp 2 file", --commit thì qua); tài liệu harness thấy cả hai
+    files = {
+        ".gitignore": ".claude/\n",
+        "docs/a.md": "`x.py:4#load`\n",
+        "src/x.py": CODE,
+        ".claude/hooks/x.py": CODE,
+        ".claude/rules/r.md": "`.claude/hooks/x.py:4#load` and `x.py:4#load`\n",
+    }
+    root = make_repo(tmp_path, files)
+    got = [(v.path, v.message) for v in check.run(root, "all", with_pytest=False)]
+    assert got == [(".claude/rules/r.md", "`x.py` khớp 2 file")]
+    assert check.run(root, "commit", with_pytest=False) == []
+
+
+def test_ref_anchor_public_doc_pointing_into_harness_is_reported(tmp_path: Path) -> None:
+    # dead_path --all cho `.claude/…` qua (file có trên máy / known_untracked ở CI) → ref_anchor
+    # phải báo, không bỏ qua im lặng, ở MỌI chế độ (--commit: dead_path chặt báo thêm); tài liệu
+    # harness thì trỏ vào harness được
+    files = {
+        ".gitignore": ".claude/\n",
+        "docs/a.md": "`.claude/hooks/g.py:4#load`\n",
+        ".claude/hooks/g.py": CODE,
+        ".claude/rules/r.md": "`.claude/hooks/g.py:4#load`\n`.claude/hooks/gone.py:4#load`\n",
+    }
+    root = make_repo(tmp_path, files)
+    all_mode = sorted((v.path, v.rule) for v in check.run(root, "all", with_pytest=False))
+    # file harness đã xoá, nhắc trong tài liệu harness: dead_path báo, không phải lỗi "công khai"
+    assert all_mode == [(".claude/rules/r.md", "dead-path"), ("docs/a.md", check.REF_RULE)]
+    commit = {(v.path, v.rule) for v in check.run(root, "commit", with_pytest=False)}
+    assert commit == {("docs/a.md", check.REF_RULE), ("docs/a.md", "dead-path")}
+
+
+def test_report_explains_comment_only_allow_for_ref_anchor() -> None:
+    v = check.Violation("ref_anchor", check.REF_RULE, "docs/a.md", 1, "thiếu tên neo", "", "0033")
+    assert "CHỈ có chú thích" in check.format_report([v])
+    other = check.Violation("forbid", "R-phase", "README.md", 1, "x", "", "0001")
+    assert "CHỈ có chú thích" not in check.format_report([other])
 
 
 def test_ref_anchor_reports_what_it_cannot_read_instead_of_skipping(tmp_path: Path) -> None:

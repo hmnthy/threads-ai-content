@@ -6,6 +6,7 @@ import { AnswerRow, MethodSection, SubSection, ToggleGroup, TYPE } from "@/compo
 import { WEEKDAY_LABELS, type DistributionStats, type TimezoneEngagement } from "@/lib/api";
 import {
   Iqr,
+  NO_POSTS,
   TOO_FEW_POSTS,
   distributionCaptionText,
   formatIqrRange,
@@ -39,7 +40,8 @@ function pct(value: number): string {
 }
 
 function describe(prefix: string, stats: DistributionStats | null): string {
-  if (stats === null || stats.n === 0) return `${prefix} · no content units`;
+  // n chỉ đếm content unit CÓ views: ô n = 0 vẫn có thể có bài đăng giờ đó mà chưa ghi được views (copy-reviewer)
+  if (stats === null || stats.n === 0) return `${prefix} · ${NO_POSTS}`;
   return `${prefix} · median ${pct(stats.median)} · ${distributionCaptionText(stats)}`;
 }
 
@@ -180,7 +182,8 @@ export function PostingTimeHeatmap({
     (c) => c.stats !== null && c.stats.n > 0 && !c.stats.insufficient_data,
   );
 
-  const tooFew = minPosts === null ? "too few content units" : `too few content units (n < ${minPosts})`;
+  //  : bất đẳng thức không bị ngắt dòng giữa chừng ("(n <" / "5)") ở màn hẹp (ux-reviewer 2026-11-02)
+  const tooFew = minPosts === null ? "too few content units" : `too few content units (n < ${minPosts})`;
   // Câu trả lời mô tả (Thy 2026-10-31): khoảng median của các ô đọc được theo giờ và theo thứ, trên đồng hồ đang chọn —
   // không nêu tên ô cao nhất (tránh đọc thành "giờ tốt nhất"), kèm "chưa kiểm định" ngay trong câu
   // Khoảng median của các ô đọc được; nhánh riêng cho 1 ô và cho min = max (code-reviewer: không "from X to X")
@@ -222,7 +225,7 @@ export function PostingTimeHeatmap({
         points={[
           "Each cell shows the **median engagement rate** (%) of the content units published in that hour or on that weekday, rounded to one decimal.",
           "Below it, **n** is how many content units that median rests on; the table gives two decimals.",
-          `Cells with ${tooFew} are **hatched** instead of coloured; their median is only in the table below.`,
+          `Cells with ${tooFew} are **hatched** instead of coloured; their median appears only in the hover text and the table below.`,
           // Chuỗi chuẩn UI-0011-excluded
           excludedNoViews > 0 ? `${excludedNoViews} of ${totalUnits} excluded: no views recorded; they are in no cell.` : null,
         ]}
@@ -263,7 +266,7 @@ export function PostingTimeHeatmap({
         {!hasScale ? (
           <span>No hour or weekday has enough content units to read yet.</span>
         ) : hi <= lo ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span
               aria-hidden="true"
               className="h-3 w-5 rounded-[3px] border border-border-hairline"
@@ -273,7 +276,8 @@ export function PostingTimeHeatmap({
             <span>median engagement rate (all readable cells)</span>
           </div>
         ) : (
-        <div className="flex items-center gap-2">
+        // flex-wrap: ở 320px chữ "median engagement rate" xuống dòng thay vì tràn mép (ux-reviewer 2026-11-02)
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-mono tabular-nums">{pct(lo)}</span>
           <span
             aria-hidden="true"
@@ -288,12 +292,12 @@ export function PostingTimeHeatmap({
         )}
         <div className="flex items-center gap-2">
           <span aria-hidden="true" className="h-3 w-5 rounded-[3px] border border-border-hairline" style={cellStyle(null, true)} />
-          <span>{tooFew}: not coloured</span>
+          <span>{tooFew}: hatched, not coloured</span>
         </div>
         {/* Ô không có content unit nào: không sọc, không n (ux-reviewer lượt 4 N3 — chú giải phải nói đủ mọi kiểu ô) */}
         <div className="flex items-center gap-2">
           <span aria-hidden="true" className="h-3 w-5 rounded-[3px] border border-border-hairline" style={cellStyle(null, false)} />
-          <span>no n: no content unit published then</span>
+          <span>no n: {NO_POSTS} in that hour or weekday</span>
         </div>
       </div>
 
@@ -350,13 +354,19 @@ export function PostingTimeHeatmap({
             plain: "The cell shows the median engagement rate of its content units, with the middle half (IQR) and n in the hover text and the table.",
             formula: [
               "engagement rate = (likes + replies + reposts + quotes) ÷ views × 100",
-              "cell value = median{ engagement rate of the cell's content units },  n = their count",
+              "cell value = median{ engagement rate of the cell's content units }",
+              "n = their count",
             ],
           },
           {
             title: "Readable cells",
-            plain: `A cell is read only when it rests on at least ${minPosts ?? "a minimum number of"} content units, the same threshold every comparison on this dashboard uses; the colour scale spans readable cells only.`,
-            formula: minPosts === null ? undefined : `readable ⇔ n ≥ ${minPosts}`,
+            plain: `A cell is readable (coloured, and counted in the ranges at the top of this section) only when it rests on ${minPosts === null ? "enough" : `at least ${minPosts}`} content units, the same minimum every comparison on this dashboard uses. The colour scale runs only across those cells.`,
+            // 3 nhánh khớp `cellStyle` + chú giải: ô n = 0 nền `--bg-sunken` (gần trắng — "plain", không gọi "grey"
+            // vì ô sọc mới trông xám), không sọc, không ghi n ("no n")
+            formula:
+              minPosts === null
+                ? undefined
+                : [`n ≥ ${minPosts} → coloured`, `1 ≤ n < ${minPosts} → hatched`, "n = 0 → plain, no n"],
           },
         ]}
         limits={[

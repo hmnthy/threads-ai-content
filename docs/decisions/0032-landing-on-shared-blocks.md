@@ -30,7 +30,7 @@
    /topics (`TermMore`, `:497#TermMore`), số + tên ngắn của khối theo id. Section Proof (`LandingProofSection.tsx:23#LandingProof`) = 3 khối
    của /topics: chủ đề + bản đồ 3D nhiều màu (`TopicProfilePanel`, bỏ bảng mọi content unit, `TopicsView.tsx:151#TopicProfilePanel`),
    topic so với kênh (`TopicEngagementPanel`, `LandingProof.tsx:39#TopicEngagementPanel` — câu hỏi "differ" như /topics), độ bền
-   (`StabilityPanel`, `TopicsView.tsx:621#StabilityPanel`). Bản landing riêng của panel engagement và panel cấu trúc bỏ.
+   (`StabilityPanel`, `TopicsView.tsx:627#StabilityPanel`). Bản landing riêng của panel engagement và panel cấu trúc bỏ.
 2. **Panel hero theo khuôn khối chung**: tiêu đề = chính câu hỏi (h3 26px), câu trả lời trong khung ANSWER trải hết bề
    rộng, không hộp Key numbers (dải 4 số phía trên đã đủ), nút chọn tập so sánh là `ToggleGroup` "Compare with", Method
    có từng bước + công thức (`LandingHero.tsx:232#example`).
