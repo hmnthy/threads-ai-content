@@ -1,43 +1,83 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { getAnalyticsOverview, type AnalyticsOverview, type TopPostEntry } from "@/lib/api";
-import { AnswerRow, LoadError, MethodSection, Section, SubSection, ToggleGroup, topicOfUnit, TYPE, UnitText, type KeyNumber } from "@/components/AppBlock";
+import {
+  ActionButton,
+  AnswerRow,
+  LoadError,
+  MethodSection,
+  Section,
+  SubSection,
+  ToggleGroup,
+  topicOfUnit,
+  TYPE,
+  UnitText,
+  type KeyNumber,
+} from "@/components/AppBlock";
 import { hasPosts, rateNote } from "@/components/DistributionCaption";
 import { PostingTimeHeatmap } from "@/components/PostingTimeHeatmap";
+import { UnitPicker } from "@/components/UnitPicker";
+import { UnitVsChannel, type PickableUnit } from "@/components/UnitVsChannel";
 import { ANALYTICS_SECTIONS, shortOf } from "@/lib/appSections";
 import { formatPostDateTimeParis } from "@/lib/dates";
-import { count, pct } from "@/lib/landing";
+import { count, HERO_ENGLISH, HERO_POST_ID, pct, RATE_INFO, type LandingData, type RateKey } from "@/lib/landing";
 
-type MetricKey = "engagement" | "share" | "conversation";
+type MetricKey = RateKey;
 
-// Mỗi tab = 1 tỉ lệ; tên tab, tên cột và công thức cùng một nguồn (copy-reviewer 2026-10-31: tab/cột/KPI gọi 3 kiểu)
-// `digits`: 2 cho engagement, 3 cho share + conversation (cùng quy ước bảng so sánh của /topics)
-const RATES: { key: MetricKey; label: string; field: keyof TopPostEntry["metrics"]; formula: string; digits: number }[] = [
-  { key: "engagement", label: "Engagement rate", field: "engagement_rate", formula: "(likes + replies + reposts + quotes) ÷ views × 100", digits: 2 },
-  { key: "share", label: "Share rate", field: "share_rate", formula: "(reposts + quotes) ÷ views × 100", digits: 3 },
-  { key: "conversation", label: "Conversation rate", field: "conversation_rate", formula: "replies ÷ views × 100", digits: 3 },
-];
+// Mỗi tab = 1 tỉ lệ; tên tab, tên cột và công thức MỘT nguồn với khối 02 (`RATE_INFO` — code-reviewer 2026-11-02: 2
+// bảng định nghĩa sẽ lệch nhau; copy-reviewer 2026-10-31: tab/cột/KPI từng gọi 3 kiểu). `digits`: 2 cho engagement, 3
+// cho share + conversation (cùng quy ước bảng so sánh của /topics)
+const RATES = (Object.keys(RATE_INFO) as RateKey[]).map((key) => ({ key, ...RATE_INFO[key] }));
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
-// Trang /analytics theo khuôn khối chung (Thy 2026-10-31): 01 xếp hạng theo tỉ lệ (không phải kiểm định), 02 giờ và
-// ngày đăng (mô tả). Bảng xếp hạng chỉ gồm content unit có views ≥ sàn (ADR-0023 1f, sàn tính ở backend)
+// Trang /analytics theo khuôn khối chung (Thy 2026-10-31): 01 xếp hạng theo tỉ lệ (không phải kiểm định), 02 một content
+// unit so với kênh (Thy 2026-11-02, mô tả), 03 giờ và ngày đăng (mô tả). Bảng xếp hạng chỉ gồm content unit có views ≥
+// sàn (ADR-0023 1f, sàn tính ở backend)
 export function AnalyticsBreakdown({
   topicOf,
   topicCount,
   minPosts,
+  comparison,
 }: {
   topicOf: Record<string, string | null> | null;
   topicCount: number | null;
   minPosts: number | null;
+  // Khối 02: dữ liệu dựng phía server (cùng hàm với landing); null = không đọc được lúc tải trang
+  comparison: { data: LandingData; units: PickableUnit[] } | null;
 }) {
   const [data, setData] = useState<AnalyticsOverview | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [active, setActive] = useState<MetricKey>("engagement");
+  // Bài mặc định = bài mẫu của panel hero landing (cùng câu trả lời ở 2 nơi), không có thì bài mới nhất. Tính khi render,
+  // không trong useState: `comparison` có thể đổi từ null sang có dữ liệu sau "Try again" (router.refresh — code-reviewer)
+  const [picked, setPicked] = useState<string | null>(null);
+  const units = comparison?.units ?? [];
+  const pickedId = picked ?? (units.find((unit) => unit.id === HERO_POST_ID) ?? units[0])?.id ?? null;
+  // Link "#unit" (từ landing): khối 02 có sẵn trong HTML server nên trình duyệt cuộn tới ngay, nhưng khối 01 tải sau sẽ
+  // đẩy nó xuống — cuộn lại một lần khi khối 01 đã hiện (code-reviewer 2026-11-02)
+  const hashScrolled = useRef(false);
+  // Tỉ lệ của khối 02 (Thy 2026-11-02: cả 3 tỉ lệ) — riêng với tab của bảng top, nhưng nút "Compare" mang tab đang
+  // xem sang, để khối 02 so đúng thước đo người đọc vừa nhìn
+  const [unitRate, setUnitRate] = useState<MetricKey>("engagement");
+  const pickable = new Set(comparison?.units.map((unit) => unit.id) ?? []);
+  // Nút "Compare" của bảng top: chọn bài + tỉ lệ, cuộn tới khối 02 (tức thời — hợp reduced-motion) và chuyển focus
+  // vào tiêu đề khối, để phím Tab tiếp theo đi tiếp trong khối 02 chứ không kéo trang về bảng (ux-reviewer A2)
+  const compare = (id: string) => {
+    setPicked(id);
+    setUnitRate(active);
+    document.getElementById("unit")?.scrollIntoView({ block: "start" });
+    const title = document.getElementById("unit-title");
+    if (title) {
+      title.setAttribute("tabindex", "-1");
+      title.focus({ preventScroll: true });
+    }
+  };
 
   useEffect(() => {
     getAnalyticsOverview()
@@ -51,12 +91,60 @@ export function AnalyticsBreakdown({
       });
   }, [attempt]);
 
-  if (failed) {
-    // Câu cho người xem + nút thử lại (ux-reviewer S12, N9)
-    return <LoadError onRetry={() => setAttempt((n) => n + 1)} />;
-  }
-  if (data === null) {
-    return <div className="rounded-xl border border-border-hairline bg-bg-card p-6 text-[15px] text-text-secondary">Loading analytics…</div>;
+  // Người đọc đã tự cuộn / gõ phím trong lúc khối 01 còn tải → không kéo trang về khối 02 nữa (code-reviewer)
+  useEffect(() => {
+    const stop = () => {
+      hashScrolled.current = true;
+    };
+    const events = ["wheel", "touchmove", "keydown"] as const;
+    for (const name of events) window.addEventListener(name, stop, { once: true, passive: true });
+    return () => {
+      for (const name of events) window.removeEventListener(name, stop);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (data === null || hashScrolled.current) return;
+    hashScrolled.current = true;
+    if (window.location.hash === "#unit") document.getElementById("unit")?.scrollIntoView({ block: "start" });
+  }, [data]);
+
+  // Khối 02 chỉ cần dữ liệu phía server → luôn hiện, kể cả khi khối 01 + 03 (dữ liệu tải ở trình duyệt) đang tải hay lỗi.
+  // `key` cố định: React giữ nguyên khối (ô tìm, tập so, bề rộng biểu đồ) khi trang đổi từ nhánh đang tải sang nhánh đủ
+  // dữ liệu, không phụ thuộc vị trí của khối giữa các anh em (code-reviewer 2026-11-02)
+  const unitSection = (
+    <Section
+      key="unit"
+      id="unit"
+      n="02"
+      short={shortOf(ANALYTICS_SECTIONS, "unit")}
+      title="Did the content unit you pick do better than the channel's usual content unit?"
+      purpose="Pick a content unit with recorded views. It is ranked on the rate you choose, against the rest of the channel or the rest of its own topic."
+    >
+      <UnitBlock
+        comparison={comparison}
+        picked={pickedId}
+        onPick={setPicked}
+        rate={unitRate}
+        onRate={setUnitRate}
+        topicOf={topicOf}
+        topicCount={topicCount}
+      />
+    </Section>
+  );
+
+  if (failed || data === null) {
+    return (
+      <div className="flex flex-col gap-10">
+        {failed ? (
+          // Câu cho người xem + nút thử lại (ux-reviewer S12, N9)
+          <LoadError onRetry={() => setAttempt((n) => n + 1)} />
+        ) : (
+          <div className={`rounded-xl border border-border-hairline bg-bg-card p-6 ${TYPE.body}`}>Loading analytics…</div>
+        )}
+        {unitSection}
+      </div>
+    );
   }
 
   const rate = RATES.find((item) => item.key === active)!;
@@ -147,6 +235,8 @@ export function AnalyticsBreakdown({
             maxValue={maxValue}
             topicOf={topicOf}
             topicCount={topicCount}
+            onCompare={compare}
+            canCompare={(id) => pickable.has(id)}
           />
         </SubSection>
         <MethodSection
@@ -180,12 +270,14 @@ export function AnalyticsBreakdown({
         />
       </Section>
 
+      {unitSection}
+
       <Section
         id="posting-time"
-        n="02"
+        n="03"
         short={shortOf(ANALYTICS_SECTIONS, "posting-time")}
         title="How does engagement rate vary with posting hour and weekday?"
-        purpose="The same content units placed on a Paris or a Vietnam clock; every cell shows a median and how many content units it rests on."
+        purpose="All content units with recorded views, placed on a Paris or a Vietnam clock; every cell shows a median and how many content units it rests on."
       >
         <PostingTimeHeatmap
           timezones={data.timezones}
@@ -198,6 +290,78 @@ export function AnalyticsBreakdown({
   );
 }
 
+// Khối 02: ô chọn bài + dòng bài đang chọn (tên topic tiếng Anh trên chữ gốc, B2) + phần thân dùng chung với panel
+// hero của landing (`UnitVsChannel`)
+function UnitBlock({
+  comparison,
+  picked,
+  onPick,
+  rate,
+  onRate,
+  topicOf,
+  topicCount,
+}: {
+  comparison: { data: LandingData; units: PickableUnit[] } | null;
+  picked: string | null;
+  onPick: (id: string) => void;
+  rate: MetricKey;
+  onRate: (rate: MetricKey) => void;
+  topicOf: Record<string, string | null> | null;
+  topicCount: number | null;
+}) {
+  const router = useRouter();
+  if (comparison === null) {
+    // Dữ liệu khối dựng phía server → thử lại = tải lại dữ liệu server của trang (C5: lỗi có nút thử lại)
+    return <LoadError what="This block's data could not be loaded." onRetry={() => router.refresh()} />;
+  }
+  const unit = comparison.units.find((item) => item.id === picked) ?? null;
+  if (unit === null) {
+    return <p className={`m-0 ${TYPE.body}`}>No content unit has recorded views yet.</p>;
+  }
+  return (
+    <>
+      <div className="flex flex-col gap-4">
+        <UnitPicker
+          units={comparison.units}
+          value={unit.id}
+          onChange={onPick}
+          rate={rate}
+          topicOf={topicOf}
+          topicCount={topicCount}
+        />
+        {/* Không viền: card của khối đã là hộp (§3 — không hộp viền lồng trong hộp) */}
+        <div className="flex flex-col gap-1.5">
+          <span className={TYPE.eyebrow}>SELECTED CONTENT UNIT</span>
+          <UnitText text={unit.text} topic={topicOfUnit(topicOf, unit.id)} topicCount={topicCount} />
+          {/* Bài mẫu của landing có sẵn nghĩa tiếng Anh đã duyệt (B2) — nói rõ vì sao nó được chọn sẵn */}
+          {unit.id === HERO_POST_ID ? (
+            <span className={TYPE.note}>Preselected: the example from the home page (&ldquo;{HERO_ENGLISH}&rdquo;).</span>
+          ) : null}
+          <span className={`${TYPE.mono} text-text-secondary`}>
+            {RATES.map((item) => `${pct(unit.rates[item.key], item.digits)} ${item.label.toLowerCase()}`).join(" · ")} ·{" "}
+            {count(unit.views)} views
+            {unit.timestamp ? ` · published ${formatPostDateTimeParis(unit.timestamp)} Paris time` : ""}
+          </span>
+        </div>
+      </div>
+      {/* Đổi bài / tỉ lệ giữ nguyên tập so người đọc đã chọn; bài không có topic tự về "All content units" */}
+      <UnitVsChannel
+        data={comparison.data}
+        topicId={unit.topicId}
+        value={unit.rates[rate]}
+        rate={rate}
+        keyNumbers
+        controls={
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={TYPE.label}>Rate</span>
+            <ToggleGroup label="Rate to compare" options={RATES} value={rate} onChange={onRate} />
+          </div>
+        }
+      />
+    </>
+  );
+}
+
 function TopTable({
   entries,
   field,
@@ -206,6 +370,8 @@ function TopTable({
   maxValue,
   topicOf,
   topicCount,
+  onCompare,
+  canCompare,
 }: {
   entries: TopPostEntry[];
   field: keyof TopPostEntry["metrics"];
@@ -214,7 +380,22 @@ function TopTable({
   maxValue: number;
   topicOf: Record<string, string | null> | null;
   topicCount: number | null;
+  onCompare: (id: string) => void;
+  canCompare: (id: string) => boolean;
 }) {
+  // Nút đưa 1 dòng sang khối 02 (nút chung `ActionButton`, C2); tên đọc được nói rõ bài nào, so theo tỉ lệ nào, đi
+  // đâu (A1) — hạng đọc thành số ("3", không "zero three")
+  const compareButton = (entry: TopPostEntry, rank: string) =>
+    canCompare(entry.id) ? (
+      <ActionButton
+        onClick={() => onCompare(entry.id)}
+        // không nói "with the channel": khối 02 có thể đang so trong topic (code-reviewer 2026-11-02)
+        aria-label={`Compare content unit ${Number(rank)} by ${rateLabel.toLowerCase()}, in block 02`}
+        className="self-start"
+      >
+        Compare ↓
+      </ActionButton>
+    ) : null;
   if (entries.length === 0) {
     return <p className={`m-0 ${TYPE.body}`}>No content unit has recorded views yet.</p>;
   }
@@ -253,6 +434,7 @@ function TopTable({
               {count(row.entry.metrics.popularity_index)} views · {formatPostDateTimeParis(row.entry.timestamp)}{" "}
               <span className="whitespace-nowrap">· Paris time</span>
             </span>
+            {compareButton(row.entry, row.rank)}
           </li>
         ))}
       </ol>
@@ -271,7 +453,10 @@ function TopTable({
               <th scope="col" className={`py-2.5 pr-4 ${TYPE.th}`}>{rateLabel}</th>
               <th scope="col" className={`py-2.5 pr-4 ${TYPE.th}`}>Content unit</th>
               <th scope="col" className={`py-2.5 pr-4 text-right ${TYPE.th}`}>Views</th>
-              <th scope="col" className={`py-2.5 ${TYPE.th}`}>Published (Paris time)</th>
+              <th scope="col" className={`py-2.5 pr-4 ${TYPE.th}`}>Published (Paris time)</th>
+              <th scope="col" className={`py-2.5 ${TYPE.th}`}>
+                <span className="sr-only">Compare in block 02</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -290,9 +475,11 @@ function TopTable({
                 <td className={`py-3 pr-4 text-right ${TYPE.mono} text-text-secondary`}>
                   {count(row.entry.metrics.popularity_index)}
                 </td>
-                <td className={`whitespace-nowrap py-3 ${TYPE.mono} text-text-secondary`}>
+                <td className={`whitespace-nowrap py-3 pr-4 ${TYPE.mono} text-text-secondary`}>
                   {formatPostDateTimeParis(row.entry.timestamp)}
                 </td>
+                {/* pr-1: vòng focus 2px của nút không bị khung cuộn ngang của bảng cắt (ux-reviewer A2) */}
+                <td className="py-1.5 pr-1 text-right align-top">{compareButton(row.entry, row.rank)}</td>
               </tr>
             ))}
           </tbody>

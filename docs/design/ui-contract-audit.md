@@ -404,3 +404,36 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
     `NO_POSTS` chung). Dòng dữ liệu /analytics màn hẹp giữ "· Paris time" thành một khối không ngắt (như /topics).
   - Khổ 320px (Thy chọn: sửa 2 chỗ tràn ngang, chưa thêm 320px vào máy đo): navbar landing thu khoảng cách + lề trong
     dưới `sm` (nút "View live dashboard" không còn tràn khỏi pill); thang màu heatmap xuống dòng (`flex-wrap`).
+
+### Promise-audit 2026-11-02 — một content unit so với kênh, n của ARI, giờ gom cụm (Thy duyệt toàn bộ chữ 2026-11-02; `ux-reviewer` 3 lượt, `copy-reviewer` 2 lượt)
+
+- Thy chọn 2026-11-02 (câu hỏi bật ra): khối mới 02 ở `/analytics` (giờ đăng thành 03); chọn bài bằng ô tìm kiếm + nút
+  "Compare ↓" trên từng dòng bảng top (mang tỉ lệ của tab đang xem sang); so được cả 3 tỉ lệ (API `/topics` thêm
+  `share_rate` + `conversation` theo topic); hộp Key numbers chỉ ở `/analytics` (panel hero landing giữ nguyên); link
+  mới dưới panel hero landing tới `/analytics#unit`; nhiều bài trùng một giá trị (VD 37/163 bài share rate 0%) → cột vẽ
+  gọn trong khung + nhãn đếm "37 content units at 0.000%" (phương án a, chiều cao biểu đồ giữ nguyên giữa 3 tỉ lệ).
+- Mockup chưa có (vòng thiết kế kế tiếp):
+  - Đầu trang `/analytics`: eyebrow "Measure · Rankings, one content unit, posting time"; câu hỏi "Which content units
+    rank highest on each rate, how does any single content unit compare with the rest of the channel, and how does
+    engagement rate vary with posting hour and weekday?".
+  - Khối 02 "One content unit": tiêu đề "Did the content unit you pick do better than the channel's usual content
+    unit?"; mục đích "Pick a content unit with recorded views. It is ranked on the rate you choose, against the rest of
+    the channel or the rest of its own topic."; nhãn ô "Content unit to compare (N with recorded views, newest first)",
+    gợi ý "Search first line or topic", không khớp "No content unit matches "…". Try a word from an English topic
+    name."; "SELECTED CONTENT UNIT" + "Preselected: the example from the home page ("8 lessons from 8 years in
+    France")."; 4 gạch "What to know" (tập đang so + nút đổi được gì · "Yes" = trên median · thứ hạng chỉ đếm bài thấp
+    hơn hẳn · mô tả, không kiểm định); Key numbers 3 số (tỉ lệ của bài · "k of n other content units with a lower rate"
+    + thanh "N% of the n others" · median + IQR + n của tập so); câu trả lời thêm nhánh "the highest in the channel",
+    "the lowest in the channel, tied with N other content units", "higher than only k of the channel's n other content
+    units" (thay "<1%"); Limits tách đôi ("…re-read every 4 hours while the collecting laptop is awake, so they are
+    usually less than a day old." · "Newer content units have had less time…") + câu đếm số bài 0% cho share /
+    conversation; bước Rank tách 3 câu, "strictly lower rate (equal rates do not count as lower)".
+  - Khối 03: mục đích bắt đầu "All content units with recorded views, placed on a Paris or a Vietnam clock; …".
+  - Landing: link "Compare any other content unit by engagement, share or conversation rate, on the Analytics page →";
+    node "Dashboard · Landing" sửa câu sai kỹ thuật (promise-audit 2b): "Charts are hand-built in HTML/CSS; the
+    daily-views chart on Overview and this diagram are SVG, and the 3D topic map uses Plotly (WebGL)." + stack
+    "charts · HTML/CSS · SVG · Plotly (WebGL)" (trước: "Charts are hand-built SVG").
+  - Khối độ bền (`/topics` + landing): "Clustered on <ngày> at <giờ> (Paris time), from the N content units that had
+    text when it ran."; ghi chú ARI có n ("On the 110 content units with a topic in both runs." / "On the 163 content
+    units present in both runs."), cảnh báo seed cho cả 2 ARI; DBCV "Weighted over all N content units; the M
+    unclustered pull it toward 0." (bài unclustered chỉ vào mẫu số trọng số |t|/n).

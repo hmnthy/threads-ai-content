@@ -24,7 +24,7 @@ import { TopicComparisonTable } from "@/components/TopicComparisonTable";
 import { TopicMap3D } from "@/components/TopicMap3D";
 import { TopicMethods } from "@/components/TopicMethods";
 import type { ContentUnit } from "@/lib/api";
-import { count, dayMonthYear, firstLine, parisDate, partOfWhole, pct, UNIT_NOUN, type LandingData } from "@/lib/landing";
+import { count, dayMonthYear, firstLine, parisDate, partOfWhole, pct, testTimes, UNIT_NOUN, type LandingData } from "@/lib/landing";
 import { topicMark } from "@/lib/topicColors";
 import { sectionShort } from "@/lib/topicSections";
 
@@ -628,6 +628,13 @@ export function StabilityPanel({ data }: { data: LandingData }) {
   const run = data.summary.latest_cluster_run;
   const history = data.topicTests?.history ?? null;
   const fmt = (value: number | null | undefined) => (value === null || value === undefined ? "—" : value.toFixed(2));
+  // n của từng số (landing: "Every figure says how many content units it rests on"): ARI chỉ tính trên unit có ở cả 2
+  // lần chạy, nên n của nó khác n của lần chạy; null = lần chạy không lưu bảng chuyển → không ghi số
+  const unitsOf = (n: number | null | undefined) => (n === null || n === undefined ? null : `${count(n)} ${n === 1 ? UNIT_NOUN.one : UNIT_NOUN.many}`);
+  // Chỉ ghép n khi có ARI: lần gom cụm đầu tiên lưu bảng chuyển toàn 0 nhưng ARI null ("On the 0 …" cạnh "—" sai nghĩa)
+  const nClustered = run?.ari_clustered_only == null ? null : unitsOf(run.ari_n_clustered_both);
+  const nCommon = run?.ari_vs_previous == null ? null : unitsOf(run.ari_n_common);
+  const nRun = unitsOf(run?.n_units);
   // Câu trả lời không tự đặt ngưỡng "ổn định" (UI-0004-ari-two-ways, ADR-0024): luật bền vẫn để mở
   // → mọi phép so là gợi ý. Không suy "cùng cách chia" từ ARI = 1: ARI chỉ tính trên unit có mặt ở
   // cả 2 lần (ADR-0024 bằng chứng 1, .claude/rules/pipeline-db.md)
@@ -639,7 +646,7 @@ export function StabilityPanel({ data }: { data: LandingData }) {
           meaning:
             run.ari_clustered_only === null
               ? "Not computed: no previous run, or fewer than 2 content units to compare."
-              : "Do the content units that had a topic both times stay grouped the same way? 1 = identical grouping, about 0 = chance.",
+              : `Do the content units that had a topic both times stay grouped the same way? 1 = identical grouping, about 0 = chance.${nClustered ? ` Computed on the ${nClustered} with a topic in both runs.` : ""}`,
           missing: run.ari_clustered_only === null,
         },
         {
@@ -648,7 +655,7 @@ export function StabilityPanel({ data }: { data: LandingData }) {
           meaning:
             run.ari_vs_previous === null
               ? "Not computed: no previous run, or fewer than 2 content units to compare."
-              : "Same question, counting moves into and out of the unclustered group as changes too.",
+              : `Same question, counting moves into and out of the unclustered group as changes too.${nCommon ? ` Computed on the ${nCommon} present in both runs.` : ""}`,
           missing: run.ari_vs_previous === null,
         },
         {
@@ -657,7 +664,7 @@ export function StabilityPanel({ data }: { data: LandingData }) {
           meaning:
             run.dbcv === null
               ? "Not computed: fewer than 2 topics."
-              : "From −1 to 1: higher means denser topics, better separated. There is no standard pass mark, and this page shows only the latest run.",
+              : `From −1 to 1: higher means denser topics, better separated. There is no standard pass mark, and this page shows only the latest run.${nRun ? ` Weighted over all ${nRun} of this run, unclustered included, so a large unclustered share pulls it toward 0.` : ""}`,
           missing: run.dbcv === null,
         },
         {
@@ -696,7 +703,7 @@ export function StabilityPanel({ data }: { data: LandingData }) {
                   label: "ARI vs the previous run, topics only",
                   // Cảnh báo seed ở lớp đầu (Thy 2026-11-01): cùng seed thì 1.00 là lặp lại được, chưa phải bền.
                   // So trên số đã làm tròn: 0.996 cũng hiện "1.00" và cũng cần câu này (code-reviewer)
-                  note: `On content units with a topic in both runs. 1 = identical grouping.${
+                  note: `On ${nClustered ? `the ${nClustered}` : "content units"} with a topic in both runs. 1 = identical grouping.${
                     run.params.umap_random_state != null && fmt(run.ari_clustered_only) === "1.00"
                       ? " Same seed every run, so 1.00 shows reproducibility, not stability."
                       : ""
@@ -706,10 +713,23 @@ export function StabilityPanel({ data }: { data: LandingData }) {
                 {
                   value: fmt(run.ari_vs_previous),
                   label: "ARI vs the previous run, all content units",
-                  note: "Moves into or out of unclustered count as changes.",
+                  // Cùng cảnh báo seed với ô trên: số này cũng 1.00 khi dữ liệu không đổi (copy-reviewer 2026-11-02)
+                  note: `On ${nCommon ? `the ${nCommon}` : "content units"} present in both runs. Moves into or out of unclustered count as changes.${
+                    run.params.umap_random_state != null && fmt(run.ari_vs_previous) === "1.00"
+                      ? " Same seed every run, so 1.00 shows reproducibility, not stability."
+                      : ""
+                  }`,
                   term: "ari",
                 },
-                { value: run.dbcv === null ? "—" : run.dbcv.toFixed(3), label: "DBCV of this run", note: "From −1 to 1, higher = better separated topics.", term: "dbcv" },
+                {
+                  value: run.dbcv === null ? "—" : run.dbcv.toFixed(3),
+                  label: "DBCV of this run",
+                  note: `From −1 to 1, higher = better separated topics.${
+                    // bài unclustered chỉ vào mẫu số của trọng số |t|/n → kéo DBCV về 0 (xuống khi dương)
+                    nRun ? ` Weighted over all ${nRun}; the ${count(run.n_noise)} unclustered pull it toward 0.` : ""
+                  }`,
+                  term: "dbcv",
+                },
                 ...(history && history.clusterings_compared > 0
                   ? [
                       {
@@ -727,7 +747,14 @@ export function StabilityPanel({ data }: { data: LandingData }) {
 
       {run ? (
         <div className="flex flex-col gap-3 border-t border-border-hairline pt-7">
-          <H level={3} className={TYPE.h3}>Measures of the latest clustering run</H>
+          <div className="flex flex-col gap-1">
+            <H level={3} className={TYPE.h3}>Measures of the latest clustering run</H>
+            {/* Mốc giờ của lần gom cụm ngay trong khối (landing từng ghi "clustered … Paris time" ở Proof — promise-audit
+                2026-11-02, gói 3); cùng kiểu câu với mốc kiểm định */}
+            <p className={`m-0 ${TYPE.note}`}>
+              Clustered on {testTimes(run.run_at, null)}{nRun ? `, from the ${nRun} that had text when it ran` : ""}.
+            </p>
+          </div>
           {/* 1 lưới chung cho mọi hàng (subgrid) — cột giá trị và cột nghĩa thẳng hàng từ trên xuống */}
           <dl className="m-0 flex flex-col md:grid md:grid-cols-[max-content_max-content_minmax(0,1fr)] md:gap-x-8">
             {rows.map((row, i) => (

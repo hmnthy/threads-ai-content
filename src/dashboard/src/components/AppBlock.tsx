@@ -231,18 +231,38 @@ export function UnitText({
   );
 }
 
+// Nút hành động — MỘT kiểu cho mọi nút không phải toggle (C2/C3, ux-reviewer 2026-11-02: kiểu nút từng được viết lại
+// ở 3 chỗ): viền mảnh + nền xám nhạt, chữ control 13px w600, vùng chạm 44px (C4), hover amber
+export function ActionButton({
+  onClick,
+  children,
+  className = "",
+  ...aria
+}: {
+  onClick: () => void;
+  children: ReactNode;
+  className?: string;
+  "aria-label"?: string;
+  "aria-expanded"?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      {...aria}
+      className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 whitespace-nowrap rounded-full border border-border-hairline bg-bg-surface px-4 ${TYPE.control} text-text-primary hover:border-amber-600 hover:text-amber-700 ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 // Lỗi tải dữ liệu — câu cho người xem + nút thử lại (§9: error = message + retry; ux-reviewer N9). Chi tiết ở console
 export function LoadError({ onRetry, what = "The data service is not reachable right now." }: { onRetry: () => void; what?: string }) {
   return (
     <div role="alert" className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border-hairline bg-bg-card p-6">
       <p className={`m-0 ${TYPE.body}`}>{what}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="inline-flex min-h-[44px] cursor-pointer items-center rounded-full border border-border-hairline bg-bg-surface px-4 text-[13px] font-semibold text-text-primary hover:border-amber-600 hover:text-amber-700"
-      >
-        Try again
-      </button>
+      <ActionButton onClick={onRetry}>Try again</ActionButton>
     </div>
   );
 }
@@ -562,19 +582,14 @@ export function MethodSection({
       title="Method and limits"
       note="How the numbers in this block are computed, and what they cannot tell."
       action={
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          aria-expanded={open}
-          className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-full border border-border-hairline bg-bg-surface px-4 text-[13px] font-semibold text-text-primary hover:border-amber-600 hover:text-amber-700"
-        >
+        <ActionButton onClick={() => setOpen((value) => !value)} aria-expanded={open}>
           <CaretDown
             size={16}
             aria-hidden="true"
             className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`}
           />
           {open ? "Hide method and limits" : "Show method and limits"}
-        </button>
+        </ActionButton>
       }
     >
       {open ? (

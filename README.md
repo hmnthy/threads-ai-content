@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-954%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-957%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -40,7 +40,7 @@ The product in four steps — from the pitch to the discovered topics and how ea
 
 <p align="center">
   <img src="docs/screenshots/analytics.png" alt="Analytics tab: top content units and posting-time breakdown" width="820"><br>
-  <sub><b>3. Analytics</b> — top content units by engagement/share rate/conversation, and posting-time performance broken down by both Europe/Paris and Asia/Ho_Chi_Minh.</sub>
+  <sub><b>3. Analytics</b> — top content units by engagement/share rate/conversation, any one content unit placed against the channel or its own topic, and posting-time performance broken down by both Europe/Paris and Asia/Ho_Chi_Minh.</sub>
 </p>
 
 <p align="center">
@@ -98,7 +98,7 @@ Shown as it actually stands today — nothing implied that isn't built yet.
 | Threads API client | httpx (async) | Live |
 | Validation | Pydantic v2 | Live |
 | AI / LLM | Claude API (`claude-sonnet-5-5`, cluster labeling) | Live |
-| Dashboard | Next.js 16 + Tailwind v4, hand-built SVG charts + Plotly (topic map) | Live |
+| Dashboard | Next.js 16 + Tailwind v4, hand-built HTML/CSS charts (SVG for the daily-views chart) + Plotly (3D topic map) | Live |
 | Database | SQLite — one file, one writer; the knowledge base will live in it too | Live |
 | Metric scoring | 6-index architecture (popularity/engagement/share rate/conversation/velocity/longevity) | Live |
 | Language ID | lingua-py + Code-Mixing Index | Live |

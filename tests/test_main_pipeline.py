@@ -27,12 +27,20 @@ from src.db.schema import (
 )
 from src.models.content_unit import ContentUnit
 from src.models.insight_snapshot import InsightSnapshot
+from src.pipeline.clustering_import import compare_with_previous
 from src.pipeline.compare_topics import run_compare
 from tests.pipeline.test_compare_topics import seed_clustered_channel
 
 
 def _root(
-    conn: sqlite3.Connection, post_id: str, text: str, *, views: int | None, likes: int = 0
+    conn: sqlite3.Connection,
+    post_id: str,
+    text: str,
+    *,
+    views: int | None,
+    likes: int = 0,
+    replies: int = 0,
+    reposts: int = 0,
 ) -> None:
     post = ThreadsPost(
         id=post_id,
@@ -50,8 +58,8 @@ def _root(
                 fetched_at=datetime(2026, 10, 1, 12, 0, tzinfo=UTC),
                 views=views,
                 likes=likes,
-                replies=0,
-                reposts=0,
+                replies=replies,
+                reposts=reposts,
                 quotes=0,
             ),
         )
@@ -135,6 +143,32 @@ def test_topics_report_profile_and_engagement_of_measurable_members(db_path: Pat
     assert topic["engagement"]["insufficient_data"] is False
 
 
+def test_topics_report_share_and_conversation_rate_of_the_same_measurable_members(
+    db_path: Path,
+) -> None:
+    # share = reposts / views × 100, conversation = replies / views × 100; bài views = 0 bị loại
+    # như ở engagement (cùng tập bài đo được — mốc "cùng topic" cho cả 3 tỉ lệ)
+    conn = connect(db_path)
+    for i in range(1, 6):
+        _root(conn, f"p{i}", f"post {i}", views=1000, reposts=i, replies=2 * i)
+    _root(conn, "p0", "no views yet", views=0)
+    upsert_topic(conn, topic_id="topic_1", label_en="Work", description_en=None, method="cluster")
+    for post_id in ["p0", "p1", "p2", "p3", "p4", "p5"]:
+        upsert_post_topic_label(
+            conn, post_id=post_id, topic_id="topic_1", method="cluster", confidence=None
+        )
+    conn.commit()
+    conn.close()
+
+    (topic,) = TestClient(main_module.app).get("/topics").json()
+
+    assert topic["share_rate"]["n"] == topic["conversation"]["n"] == 5
+    assert topic["share_rate"]["median"] == pytest.approx(0.3)
+    assert topic["share_rate"]["iqr_low"] == pytest.approx(0.2)
+    assert topic["conversation"]["median"] == pytest.approx(0.6)
+    assert topic["conversation"]["iqr_high"] == pytest.approx(0.8)
+
+
 def test_topic_without_profile_has_empty_keywords_and_small_n_flag(db_path: Path) -> None:
     conn = connect(db_path)
     for i in range(1, 5):
@@ -216,12 +250,73 @@ def test_pipeline_summary_counts_units_roles_and_reads_latest_run(db_path: Path)
     assert run["dbcv"] == pytest.approx(0.3)
     assert run["ari_vs_previous"] == pytest.approx(0.2)
     assert run["ari_clustered_only"] == pytest.approx(0.8)
+    # lần chạy không lưu bảng chuyển → không đoán n của ARI
+    assert (run["ari_n_common"], run["ari_n_clustered_both"]) == (None, None)
     # bài nhiễu: "b" đo được, "c" views = 0 → loại và báo số
     assert data["noise_engagement"]["n"] == 1
     assert data["noise_engagement"]["median"] == pytest.approx(1.0)
     assert data["noise_excluded_no_views"] == 1
     # UI ghi đúng ngưỡng của backend, không tự đặt ngưỡng thứ hai
     assert data["min_posts_to_compare"] == MIN_N_PER_BUCKET
+
+
+def test_pipeline_summary_ari_n_matches_the_units_the_ari_was_computed_on(db_path: Path) -> None:
+    # n của 2 số ARI = đúng 2 tập mà compare_with_previous đưa vào ARI: unit có ở cả 2 lần
+    # (không tính unit mới) và unit có cụm ở cả 2 lần
+    previous = {"a": 0, "b": 0, "c": 1, "d": -1, "e": -1}
+    current = {"a": 0, "b": -1, "c": 1, "d": 0, "e": -1, "new": 1}
+    ari, ari_clustered, transitions = compare_with_previous(previous, current)
+    conn = connect(db_path)
+    insert_cluster_run(
+        conn,
+        run_at="2026-10-02T11:30:00+00:00",
+        model_id="BAAI/bge-m3",
+        params={},
+        n_units=len(current),
+        n_clusters=2,
+        noise_ratio=2 / 6,
+        dbcv=None,
+        ari_vs_previous=ari,
+        ari_clustered_only=ari_clustered,
+        transitions=transitions,
+        labels=current,
+    )
+    conn.commit()
+    conn.close()
+
+    run = TestClient(main_module.app).get("/pipeline/summary").json()["latest_cluster_run"]
+
+    # common = a, b, c, d, e (không gồm "new"); có cụm cả 2 lần = a, c
+    assert run["ari_n_common"] == 5
+    assert run["ari_n_clustered_both"] == 2
+
+
+def test_pipeline_summary_first_run_has_zero_ari_n_and_no_ari(db_path: Path) -> None:
+    # Lần gom cụm đầu tiên: không có lần trước → ARI null, n = 0 (UI chỉ ghép n khi có ARI)
+    current = {"a": 0, "b": 0, "c": -1}
+    ari, ari_clustered, transitions = compare_with_previous({}, current)
+    conn = connect(db_path)
+    insert_cluster_run(
+        conn,
+        run_at="2026-10-02T11:30:00+00:00",
+        model_id="BAAI/bge-m3",
+        params={},
+        n_units=3,
+        n_clusters=1,
+        noise_ratio=1 / 3,
+        dbcv=None,
+        ari_vs_previous=ari,
+        ari_clustered_only=ari_clustered,
+        transitions=transitions,
+        labels=current,
+    )
+    conn.commit()
+    conn.close()
+
+    run = TestClient(main_module.app).get("/pipeline/summary").json()["latest_cluster_run"]
+
+    assert (run["ari_vs_previous"], run["ari_clustered_only"]) == (None, None)
+    assert (run["ari_n_common"], run["ari_n_clustered_both"]) == (0, 0)
 
 
 def test_pipeline_summary_before_any_cluster_run(db_path: Path) -> None:
