@@ -598,3 +598,10 @@ export function rateAxis(values: number[]): { max: number; ticks: number[]; deci
 export function ticks(axisMax: number): number[] {
   return Array.from({ length: Math.floor(axisMax) + 1 }, (_, i) => i);
 }
+
+// Trạng thái rỗng khi lần gom cụm mới nhất không ra topic nào — một câu cho cả /topics và landing (Thy duyệt
+// 2026-11-04, copy-reviewer: nêu n + nguyên nhân thay "left unclustered" trần). n nhỏ hơn min_cluster_size / 0 chưa
+// có câu riêng — để PR trạng thái lỗi / rỗng (code-reviewer 2026-11-04)
+export function noTopicsSentence(nUnits: number): string {
+  return `The latest clustering run found no topics: none of its ${count(nUnits)} ${UNIT_NOUN.many} grouped densely enough with others, so all of them stay unclustered.`;
+}

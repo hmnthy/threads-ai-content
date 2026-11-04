@@ -65,7 +65,7 @@ function groups(run: ClusterRun | null, method: ComparisonMethod | null, minPost
           id: "content-unit",
           term: "Content unit",
           plain:
-            "One post as the author published it: the opening post plus the follow-up parts the author added under it in the same thread. Follow-up parts come from Threads' reply links, never from posting time. Replies to followers are left out. The landing page calls a content unit a “post”.",
+            "One post as the author published it: the opening post plus the follow-up parts the author added under it in the same thread. Follow-up parts come from Threads' reply links, never from posting time. Replies to followers are left out.",
         },
         {
           id: "snapshot",
@@ -268,7 +268,7 @@ function groups(run: ClusterRun | null, method: ComparisonMethod | null, minPost
           id: "dbcv",
           term: "DBCV (density-based clustering validation)",
           plain:
-            "Density-Based Clustering Validation: for each topic, compares how loose the topic is inside with how far it sits from the nearest other topic. Unclustered content units count in the total, so a lot of noise lowers the score.",
+            "Density-Based Clustering Validation: for each topic, compares how loose the topic is inside with how far it sits from the nearest other topic. Unclustered content units count in the total with weight 0, so a large unclustered share pulls the score toward 0.",
           formula: ["V(t) = (sep(t) − spread(t)) ÷ max(sep(t), spread(t))", "DBCV = Σ_t (|t| ÷ n) · V(t)"],
           where: [
             <>
