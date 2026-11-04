@@ -97,7 +97,7 @@ export function TopicComparisonTable({ data, noun }: { data: LandingData; noun: 
   const expectedText = Number.isInteger(expected) ? `${expected}` : expected.toFixed(1);
   const breakdown = familyBreakdown(tests, data.topics.length);
 
-  // ADR-0024: chưa có luật bền → chỉ "For now …", không câu khẳng định
+  // ADR-0024: luật bền chốt ở ADR-0036, chưa áp → chỉ "For now …", không câu khẳng định
   const answer =
     conclusive === 0
       ? `Not yet: every topic has fewer than ${minPosts} ${noun.many} with recorded views, too few to conclude.`

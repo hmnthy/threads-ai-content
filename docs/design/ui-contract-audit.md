@@ -455,3 +455,32 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
 - Lỗi tải `/topics`: dùng `LoadError` chung (câu "The data service is not reachable right now." + nút "Try again" 44px,
   thử lại = tải lại dữ liệu server của trang) thay link gạch chân tự viết; chữ trạng thái rỗng theo thang `body` 15px
   (ux-reviewer 2026-11-04: C2, C3, T1).
+
+### ADR-0036 — luật bền chốt trước RQ-01 (Thy duyệt bộ chữ cuối 2026-11-04, sau 3 vòng `copy-reviewer` / `ux-reviewer` / `code-reviewer`)
+
+- Khối Stability (`/topics` khối 05, landing panel 03), câu trả lời: "Stability across random seeds is not measured yet,
+  so a topic that stands out on this page is at most a lead, not a finding." (trước: "No stability rule is set yet, so …").
+- Gạch đầu dòng: "The rule a lead must pass is **fixed in advance**: it must hold on reruns with other random seeds and a
+  few content units left out. Those reruns have not been done yet." (trước: "The rule will come from …").
+- Hàng "Stability across random seeds" (Thy giữ tên): "Re-clustering the content units with other seeds, a few left out
+  each time, measures how much the topics depend on chance and on small changes in the data. A result becomes a finding
+  only if it passes a rule fixed in advance on those reruns." — "rule fixed in advance" là link tới "Lead vs finding".
+- Limits khối 01 `/topics`: "…measuring that is planned, and the reruns have not been done yet (see the stability block
+  below)." · bảng công thức, "Random seed": "…measuring that (stability across seeds) is planned: the rule is fixed in
+  advance and the reruns have not been done yet." (trước: "… is still research").
+- Landing panel Proof, Limits: "A result becomes a finding only after it passes **a stability rule across random seeds**.
+  That rule is fixed in advance, but it has not been applied yet: the reruns with other seeds have not been done."
+- Khối Stability, Limits: "Comparing with the previous run mixes two changes: new content units, and the re-drawing they
+  cause. The planned reruns separate them: some keep the same content units with other seeds (chance alone), others also
+  leave 3% out at random (small changes in the data). They have not been done yet." (trước: "… would measure the chance
+  part alone (same content units, other seeds); it is not measured yet.")
+- Bảng công thức, "Lead vs finding" (plain + formula + where): "A lead is a result marked ▲ or ▼ on today's topics:
+  corrected p below 0.05 with enough content units to test. A finding is a lead that also passes a stability rule fixed in
+  advance. The reruns that apply the rule have not been done yet, so a result here is at most a lead." · công thức
+  "finding = lead today and kept in ≥ 75 of K = 100 reruns" · "J(t, c) = |t ∩ c| ÷ |(t ∩ S) ∪ c|" · "found again: max over
+  c of J(t, c) > 0.5" · "Rerun: today's content units clustered again with another UMAP seed and a shuffled order, with 3%
+  of them left out at random." · "t: today's topic; c: a topic of the rerun; S: the content units kept in that rerun; |·|:
+  number of content units; J: Jaccard overlap, 0.5 being the convention of the R package fpc (clusterboot). Unclustered
+  is not a topic." · "Kept: the topic is found again (J above 0.5), has enough content units to
+  test, and stands out again with corrected p below 0.05 in the same direction (▲ or ▼)." · "A rerun where the topic is
+  missing or cannot be tested counts as not kept; the count is always out of 100."

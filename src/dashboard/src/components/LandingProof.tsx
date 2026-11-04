@@ -72,7 +72,7 @@ export function TopicEngagementPanel({ data, noun }: { data: LandingData; noun: 
     tests && holmBreakdown(tests, data.topics.length)
       ? `: ${data.topics.length} topics × 3 rates (engagement, share and conversation rate)`
       : "";
-  // ADR-0024: kết quả đạt p Holm vẫn chỉ là gợi ý (chưa có luật bền qua các cách chia cụm) — "for now
+  // ADR-0024: kết quả đạt p Holm vẫn chỉ là gợi ý (luật bền chốt ở ADR-0036, chưa áp) — "for now
   // … stands out", tên topic đặt sau dấu hai chấm; không câu khẳng định kiểu "posts on X tend to …"
   // (chữ Thy duyệt 2026-10-18 sau copy-reviewer)
   const standOut = (list: TopicView[], side: "above" | "below") =>
@@ -607,7 +607,7 @@ function AppEngagementPanel({
             ? [
                 "Every comparison is **exploratory**: it depends on where the topic boundaries fall.",
                 `Topics are re-clustered daily with a fixed seed; a few new ${noun.many} or another seed can redraw them, and earlier results have appeared and disappeared.`,
-                "A result becomes a finding only after it passes **a stability rule across random seeds**; that rule is not set yet.",
+                "A result becomes a finding only after it passes **a stability rule across random seeds**. That rule is fixed in advance, but it has not been applied yet: the reruns with other seeds have not been done.",
                 `The “stood out in” column is a record, not that rule. It counts the ${tests.history ? `${tests.history.clusterings_compared} ${tests.history.clusterings_compared === 1 ? "clustering" : "clusterings"}` : "clusterings"}${tests.history?.since ? ` tested since ${parisDate(tests.history.since)}` : ""}, leaving out those that gave a topic too few ${noun.many} to test.`,
                 `The clusterings share most of their ${noun.many}, so they are not independent tests. After a merge or split, a topic may count as new and its count starts again.`,
                 "A topic that stood out both ways shows the direction of its current δ, or, while tests are hidden, the direction it stood out in more often.",

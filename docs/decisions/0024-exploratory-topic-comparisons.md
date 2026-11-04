@@ -1,6 +1,6 @@
 # ADR-0024: Kết luận so sánh topic trình bày dạng khám phá tới khi bền qua các cách chia cụm
 
-- **Trạng thái**: Accepted
+- **Trạng thái**: Accepted — thời điểm chọn ngưỡng của luật bền (quyết định 2) thay bởi ADR-0036
 - **Ngày**: 2026-10-18
 - **Người quyết**: Thy — chọn phương án E sau khi đọc đề xuất kèm số đo (2026-10-18): đơn vị kết luận giữ là topic;
   trước deploy chấp nhận trình bày dạng khám phá; ngưỡng của luật bền chọn sau khi có số đo; làm RQ-01 ngay sau deploy.

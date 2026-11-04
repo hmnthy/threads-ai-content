@@ -448,7 +448,7 @@ class PartitionHistoryOut(BaseModel):
     """Lịch sử "đạt ở k trong m cách chia" của 1 topic × 1 chỉ số (ADR-0024 quyết định 3; định
     nghĩa ở `src/analysis/partition_history.py`). Mỗi cách chia cụm khác nhau đếm 1 lần, bằng lần
     so sánh mới nhất của nó; `clusterings` (m) chỉ gồm cách chia kiểm định được, cách chia thiếu bài
-    đếm riêng ở `too_few_posts`. Không phải luật bền — luật đó chờ RQ-01."""
+    đếm riêng ở `too_few_posts`. Không phải luật bền (ADR-0036, áp sau RQ-01)."""
 
     clusterings: int
     higher: int

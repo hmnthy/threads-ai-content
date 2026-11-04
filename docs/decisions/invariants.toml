@@ -35,7 +35,7 @@ planned_paths = [
   "tests/pipeline/test_recluster.py",
   "scripts/jobs", "scripts/jobs/**",
   "experiments", "experiments/**",
-  "docs/rq", "docs/rq/**",
+  "docs/rq/**",  # thư mục đã có (RQ-01); giữ cho các file RQ chưa tạo, VD `docs/rq/RQ-xx.md` trong CLAUDE.md
   ".claude/agent-memory", ".claude/agent-memory/**",
   # Gói Claude Design 2026-10-05: file các việc kế tiếp sẽ tạo (brief Topics Việc 0–4)
   "docs/design/topics-data-audit.md",
@@ -952,7 +952,8 @@ id = "ADR0024-topic-claim"
 adr = "0024"
 mockups = true
 # Kết luận so sánh topic chưa bền qua các cách chia cụm (0/2/0/1/1 kết luận trên 5 cách chia, cùng số liệu) → chưa
-# được viết thành câu khẳng định tới khi RQ-01 chọn luật bền (ADR mới). Bắt cả chuỗi sinh động `tend to get a ${…}`.
+# được viết thành câu khẳng định tới khi qua luật bền (chốt trước ở ADR-0036, áp sau RQ-01). Bắt cả chuỗi sinh động
+# `tend to get a ${…}`.
 pattern = 'tends? to get a (?:higher|lower|\$\{)'
 why = "Câu khẳng định về topic chỉ khi p Holm < 0.05 VÀ qua luật bền đo bằng RQ-01 — tới lúc đó hiển thị dạng khám phá (ADR-0024, UI-0024-exploratory-comparisons)"
 fix = "Ghi δ + CI (unadjusted) + p Holm như kết quả khám phá, kèm câu giới hạn 'topics are recomputed when new posts arrive' — không 'posts on X tend to get a higher/lower … rate'"
@@ -1181,4 +1182,28 @@ pattern = '(?i)(?:^|[.\n])(?![^.\n]*(laptop|machine|máy))[^.\n]*re-reads?\b[^.\
 why = "Từ ADR-0035 (promise-audit 2b): job chỉ chạy khi laptop thu dữ liệu đang thức (ADR-0017)"
 fix = "Ghi '…re-read every 4 hours while the collecting laptop is awake, so they are usually less than a day old.'"
 paths = ["docs/**", "src/**"]
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
+
+[[forbid]]
+id = "ADR0036-rule-chosen-later"
+adr = "0036"
+# Câu cũ "luật bền / ngưỡng sẽ chọn sau khi RQ-01 có số đo" (ADR-0024 quyết định 2): ADR-0036 chốt luật TRƯỚC khi chạy
+# RQ-01, ADR sau RQ chỉ ghi lại. Chỉ bắt dạng hẹn chọn sau ("ADR mới / ADR / RQ-01 chọn luật bền", "luật chọn sau
+# RQ-01", "chọn khi RQ-01 có số đo", "chưa có luật bền", "chưa có luật nên hiện chưa có câu khẳng định" — cả comment code); câu đúng "ADR-0036 chọn luật bền …" hay "Thy chọn luật bền …" không bị bắt
+pattern = '(?i)(ADR mới|\bADR|RQ-01) chọn luật bền|luật chọn sau RQ-01|chọn khi RQ-01 có số đo|chưa có luật bền|chưa có luật nên (hiện )?chưa có câu khẳng định'
+why = "Từ ADR-0036: luật bền đã chốt trước khi chạy RQ-01; ADR sau RQ chỉ ghi lại luật, không chọn lại"
+fix = "Ghi 'luật bền chốt trước ở ADR-0036, áp vào sản phẩm sau khi RQ-01 chạy'"
+paths = ["docs/**", "src/**", "README*.md"]
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
+
+[[forbid]]
+id = "ADR0036-stability-rule-not-set"
+adr = "0036"
+mockups = true
+# Chữ hiển thị cũ "chưa có luật bền" / "luật sẽ đến từ phép đo": ADR-0036 đã chốt luật trước, chỉ các lần gom cụm lại
+# với seed khác chưa làm → "fixed in advance … have not been done yet" (Thy duyệt 2026-11-04). Chỉ bắt đúng 4 câu cũ
+pattern = '(?i)no stability rule is set yet|that rule is not set yet|the rule will come from \**re-clustering|that measurement will set the rule'
+why = "Từ ADR-0036: luật bền đã chốt trước; điều chưa có là các lần gom cụm lại với seed khác (RQ-01), không phải luật"
+fix = "Ghi 'That rule is fixed in advance, but the reruns with other seeds that apply it have not been done yet' (UI-0036-rule-set-not-run)"
+paths = ["docs/**", "src/**", "README*.md"]
 allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
