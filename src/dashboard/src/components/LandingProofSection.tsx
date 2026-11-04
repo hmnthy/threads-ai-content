@@ -4,7 +4,7 @@ import { TopicEngagementPanel } from "@/components/LandingProof";
 import { SECTION, SectionHead } from "@/components/LandingParts";
 import { StabilityPanel, TopicProfilePanel } from "@/components/TopicsView";
 import type { ContentUnit } from "@/lib/api";
-import { UNIT_NOUN, type LandingData } from "@/lib/landing";
+import { noTopicsSentence, UNIT_NOUN, type LandingData } from "@/lib/landing";
 
 // "Product proof" (handoff §3.4) — 3 panel dùng LẠI nguyên các khối của /topics (Thy 2026-11-01, ADR-0032: C2 một vai
 // một component; bản đồ 3D nhiều màu như /topics). `LandingBlocks` đổi hình khối theo tầng B: tiêu đề lùi 1 cấp (X1),
@@ -50,7 +50,7 @@ export function LandingProof({ data, units }: { data: LandingData | null; units:
           {!data
             ? "The data service is not reachable right now. Reload in a moment."
             : data.summary.latest_cluster_run
-              ? "The latest clustering run found no topics: every content unit was left unclustered."
+              ? noTopicsSentence(data.summary.latest_cluster_run.n_units)
               : "No clustering run is stored yet, so there are no topics to show."}
         </p>
       )}

@@ -440,3 +440,18 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
 - Cảnh báo mockup mới (ADR-0035, luật `ADR0035-old-chart-tech`): `src/dashboard/mockups/landing.dc.html:560#body` node
   "Dashboard · Landing" còn "Charts are hand-built SVG; the topic map uses Plotly." — vòng thiết kế kế tiếp đổi theo câu
   đã duyệt ở trên (biểu đồ HTML/CSS; SVG chỉ cho biểu đồ views theo ngày và sơ đồ; bản đồ 3D Plotly WebGL).
+
+### Promise-audit 2026-11-02 gói 4 — 2 chữ cũ trong ruột (Thy duyệt 2026-11-04)
+
+- Bảng công thức `/topics`, mục "Content unit": bỏ câu cuối "The landing page calls a content unit a “post”." — sai
+  từ ADR-0032 (landing dùng chung tên "content units").
+- Trạng thái rỗng `/topics` + landing panel Proof (lần gom cụm không ra topic nào), một helper `noTopicsSentence`:
+  "The latest clustering run found no topics: none of its N content units grouped densely enough with others, so all of
+  them stay unclustered." (N = `n_units` của lần gom cụm; trước: "…every content unit was left as noise" ở `/topics`,
+  "…left unclustered" ở landing). Thy chọn bản có n + nguyên nhân (copy-reviewer); "noise" là từ riêng của HDBSCAN.
+- Bảng công thức `/topics`, mục DBCV: "…Unclustered content units count in the total with weight 0, so a large
+  unclustered share pulls the score toward 0." (trước: "a lot of noise lowers the score" — sai khi điểm âm: trọng số
+  0 kéo điểm về 0, không luôn hạ; code-reviewer 2026-11-04) — cùng cách nói "toward 0" với khối Stability.
+- Lỗi tải `/topics`: dùng `LoadError` chung (câu "The data service is not reachable right now." + nút "Try again" 44px,
+  thử lại = tải lại dữ liệu server của trang) thay link gạch chân tự viết; chữ trạng thái rỗng theo thang `body` 15px
+  (ux-reviewer 2026-11-04: C2, C3, T1).

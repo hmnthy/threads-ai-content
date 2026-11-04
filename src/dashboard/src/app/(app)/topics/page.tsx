@@ -1,9 +1,10 @@
-import Link from "next/link";
 import { PageHeader } from "@/components/AppBlock";
+import { ReloadError } from "@/components/ReloadError";
 import { TopicsView } from "@/components/TopicsView";
-import { parisTime } from "@/lib/landing";
+import { noTopicsSentence, parisTime } from "@/lib/landing";
 import { loadTopicPageData } from "@/lib/load";
 import { TOPIC_SECTIONS as SECTIONS } from "@/lib/topicSections";
+import { TYPE } from "@/lib/typeScale";
 
 // Server component: đọc cùng bộ số với landing mỗi request (`lib/load.ts`), rồi giao cho
 // TopicsView (client) vẽ. Câu hỏi của trang: chữ Thy duyệt 2026-10-09 (topics-proposal.md §1).
@@ -32,18 +33,17 @@ export default async function TopicsPage() {
         sections={loaded && loaded.data.topics.length > 0 ? SECTIONS : undefined}
       />
       <main className="mx-auto w-full max-w-[1280px] flex-1 px-6 py-10">
+        {/* Lỗi tải + trạng thái rỗng theo cùng component / thang chữ với trang app khác (ux-reviewer 2026-11-04:
+            C2 LoadError, T1 body 15px) */}
         {!loaded ? (
-          <div className="rounded-xl border border-border-hairline bg-bg-card p-6 text-text-secondary">
-            The data service is not reachable right now.{" "}
-            <Link href="/topics" className="font-medium text-amber-700 underline underline-offset-4">
-              Try again
-            </Link>
-          </div>
+          <ReloadError />
         ) : loaded.data.topics.length === 0 ? (
-          <div className="rounded-xl border border-border-hairline bg-bg-card p-6 text-text-secondary">
-            {run
-              ? "The latest clustering run found no topics: every content unit was left as noise."
-              : "No clustering run is stored yet, so there are no topics to show. Topics appear after the daily NLP job runs."}
+          <div className="rounded-xl border border-border-hairline bg-bg-card p-6">
+            <p className={`m-0 ${TYPE.body}`}>
+              {run
+                ? noTopicsSentence(run.n_units)
+                : "No clustering run is stored yet, so there are no topics to show. Topics appear after the daily NLP job runs."}
+            </p>
           </div>
         ) : (
           <TopicsView data={loaded.data} units={loaded.units} />
