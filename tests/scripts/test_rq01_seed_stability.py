@@ -683,6 +683,73 @@ def test_new_conclusions_count_verdicts_and_those_in_unmatched_clusters() -> Non
     assert p["new_conclusions_in_unmatched_clusters"]["median"] == 1.0  # 0 rồi 2
 
 
+def test_report_numbers_count_conclusions_and_where_they_sit() -> None:
+    # lần 1: t1 sống (c0) + kết luận ở c0. Lần 2: t1 tách (không khớp): c3 = a, b + z (unclustered
+    # ở tham chiếu), c4 = c (t1) + e (t2) → hoà; t2 vẫn sống ở c1. Lần 3: cụm 9 chỉ có z, kết luận
+    # lower; dòng cờ mẫu nhỏ không phải kết luận
+    split = {"a": 3, "b": 3, "z": 3, "c": 4, "e": 4, "d": -1, "f": 1, "g": 1, "h": 1}
+    only_z = {**T1_KEEP, "z": 9}
+    records = [
+        {"arm": arm, "b": b, "labels": labels, "seconds": 0.1 * b}
+        for arm in ARMS
+        for b, labels in ((1, T1_KEEP), (2, split), (3, only_z))
+    ]
+    rows = {
+        1: [_row("c0", "engagement", 0.01, 0.5), _row("c1", "share_rate", 0.01, 0.3, few=True)],
+        2: [_row("c3", "engagement", 0.02, 0.6), _row("c4", "engagement", 0.03, 0.7)],
+        3: [_row("c9", "share_rate", 0.01, -0.3), _row("c1", "engagement", 0.4, 0.1)],
+    }
+    comparisons: dict[tuple[str, int], Mapping[str, Any]] = {
+        (arm, b): {"rows": rows[b], "holm_family_size": 3 * b, "seconds": 10.0 * b}
+        for arm in ARMS
+        for b in (1, 2, 3)
+    }
+    p = rq.report_numbers(REF_LABELS, REF_TOPICS, records, comparisons)["arms"]["P"]
+    assert p["runs_with_any_conclusion"] == 3
+    assert p["conclusions_per_run"] == {1: 2, 2: 1}
+    assert p["n_conclusions"] == 4 and p["n_in_unmatched_clusters"] == 3  # c3, c4, c9
+    assert p["conclusions_by_kind"] == {"engagement:higher": 3, "share_rate:lower": 1}
+    assert p["holm_family_range"] == [3, 9]
+    assert p["compare_seconds"]["median"] == 20.0
+    assert p["cluster_seconds"]["total"] == pytest.approx(0.6)
+    post = p["post_hoc"]
+    # chỉ so giữa các topic (z không được tính khi chọn): c0, c3, c4 (hoà t1 / t2 → t1) → t1
+    assert post["by_main_reference_topic"] == {"t1": 3, "unclustered at reference only": 1}
+    assert post["n_ties"] == 1
+    assert post["effect_size_range_by_kind"] == {
+        "engagement:higher": [0.5, 0.7],
+        "share_rate:lower": [-0.3, -0.3],
+    }
+    t1 = post["composition_by_class"]["t1"]
+    assert t1["units_from_main_topic"]["median"] == 2.0  # 4, 2, 1
+    assert t1["n_with_any_unclustered_at_reference"] == 1  # chỉ c3 có z
+    assert t1["n_more_unclustered_than_main_topic"] == 0
+    assert t1["n_main_topic_at_most_half"] == 1  # c4: 1 / 2
+    only = post["composition_by_class"]["unclustered at reference only"]
+    assert only["n_more_unclustered_than_main_topic"] == 1
+
+
+def test_report_refuses_comparisons_of_other_labels(frozen: tuple[Path, list[str]]) -> None:
+    out, _ = frozen
+    _replicate(out)
+    _evaluate(out)
+    report = rq.run_report(out, replicates=K)
+    assert report["frozen_sha256"] == rq.verified_manifest(out)["sha256"]
+    assert set(report["serial_hours_estimate"]) == set(ARMS)
+    # replicates gom lại ra nhãn khác nhưng chưa chạy evaluate: không ghép với phép so cũ
+    path = out / rq.REPLICATES
+    records = rq.read_jsonl(path)
+    first = next(iter(records[0]["labels"]))
+    records[0]["labels"][first] = 7
+    records[0]["labels_sha256"] = rq.labels_digest(records[0]["labels"])
+    path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+    with pytest.raises(rq.ExperimentError, match="nhãn khác"):
+        rq.run_report(out, replicates=K)
+    path.write_text("".join(json.dumps(r) + "\n" for r in records[1:]), encoding="utf-8")
+    with pytest.raises(rq.ExperimentError, match="cần đủ"):
+        rq.run_report(out, replicates=K)
+
+
 def test_summarise_requires_every_replicate_and_comparison() -> None:
     with pytest.raises(rq.ExperimentError, match="cần đủ"):
         rq.summarise(REF_LABELS, REF_TOPICS, [], [], {}, replicates=2)

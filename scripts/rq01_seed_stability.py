@@ -23,6 +23,9 @@ Ba bước, cùng `--out-dir` (mặc định `data/experiments/rq01/`, gitignore
      uv run python -m scripts.rq01_seed_stability evaluate --workers 8
    Không import scikit-learn / UMAP / HDBSCAN. Bộ nhớ đệm phép so khoá theo bản đóng băng + số
    hoán vị + hash code của engine so sánh + phiên bản thư viện + nhãn của chính lần đó.
+4. `report`: đọc kết quả đã có (không tính lại phép so) → `report.json` — các số dẫn xuất mà mục
+   Kết quả của RQ trích, kể cả phần thăm dò sau khi xem số (gắn nhãn, không thuộc luật).
+     uv run python -m scripts.rq01_seed_stability report
 
 Không truyền `--out-dir` thì 3 bước phải chạy từ CÙNG một checkout: `data/` của mỗi worktree là bản
 riêng. Mỗi file `.jsonl` chỉ bước tạo ra nó được sửa (cắt dòng ghi dở); bước khác chỉ đọc.
@@ -1140,10 +1143,185 @@ def print_summary(summary: Mapping[str, Any]) -> None:
         print(f"lõi thăm dò {topic}: {core['core_size']}/{core['n_reference_units']} unit")
 
 
+# --- report (Windows hoặc WSL2): mọi số dẫn xuất mà mục Kết quả của RQ-01 trích ---------------
+
+
+def report_numbers(
+    reference_labels: Mapping[str, int],
+    reference_topics: Mapping[str, Sequence[str]],
+    replicate_records: Sequence[Mapping[str, Any]],
+    comparisons: Mapping[tuple[str, int], Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Số mà `evaluation.json` không lưu sẵn (hàm thuần, chỉ đọc kết quả đã có): phân phối số kết
+    luận mỗi lần, phần ở cụm không khớp, cỡ họ Holm, thời gian mỗi phép so.
+
+    Phần `post_hoc` là THĂM DÒ SAU KHI XEM SỐ, không thuộc pre-registration và không thuộc luật:
+    mỗi kết luận (cụm có verdict `higher` / `lower`) được xếp theo topic tham chiếu góp nhiều bài
+    nhất vào cụm đó — CHỈ so giữa các topic, bài unclustered ở tham chiếu không được tính khi
+    chọn (không có topic nào → "unclustered at reference only"); hoà → id nhỏ nhất, đếm ở
+    `n_ties`. Kèm thành phần thật của cụm mỗi lớp (bài của topic chính, bài unclustered ở tham
+    chiếu, cỡ cụm) để "nằm ở cụm của X" không bị đọc thành "phần lớn là bài của X"."""
+    unit_topic = {u: t for t, members in reference_topics.items() for u in members}
+    out: dict[str, Any] = {
+        "reference": {
+            "n_units": len(reference_labels),
+            "n_unclustered": sum(1 for x in reference_labels.values() if x == NOISE),
+            "n_topics": len(reference_topics),
+        },
+        "arms": {},
+    }
+    for arm in ARMS:
+        records = sorted((r for r in replicate_records if r["arm"] == arm), key=lambda r: r["b"])
+        per_run: Counter[int] = Counter()
+        kinds: Counter[str] = Counter()
+        classes: Counter[str] = Counter()
+        composition: dict[str, list[tuple[int, int, int]]] = {}
+        ties = 0
+        unmatched = 0
+        deltas: dict[str, list[float]] = {}
+        families: list[int] = []
+        seconds: list[float] = []
+        cluster_seconds = [float(r["seconds"]) for r in records if "seconds" in r]
+        for record in records:
+            comparison = comparisons[(arm, record["b"])]
+            families.append(int(comparison["holm_family_size"]))
+            seconds.append(float(comparison["seconds"]))
+            labels: Mapping[str, int] = record["labels"]
+            matches = match_reference_topics(reference_topics, labels)
+            matched = {f"c{m.cluster}" for m in matches.values() if m.alive}
+            conclusions = [r for r in comparison["rows"] if _verdict(r) in DIRECTIONS]
+            per_run[len(conclusions)] += 1
+            for row in conclusions:
+                kinds[f"{row['metric']}:{_verdict(row)}"] += 1
+                unmatched += row["group_id"] not in matched
+                deltas.setdefault(f"{row['metric']}:{_verdict(row)}", []).append(
+                    float(row["effect_size"])
+                )
+                members = [u for u, x in labels.items() if f"c{x}" == row["group_id"]]
+                sources = Counter(unit_topic[u] for u in members if u in unit_topic)
+                top = max(sorted(sources), key=lambda t: sources[t]) if sources else None
+                if sources:
+                    best = max(sources.values())
+                    ties += sum(1 for n in sources.values() if n == best) > 1
+                label = top or "unclustered at reference only"
+                classes[label] += 1
+                from_unclustered = sum(1 for u in members if u not in unit_topic)
+                composition.setdefault(label, []).append(
+                    (sources[top] if top else 0, from_unclustered, len(members))
+                )
+        total = sum(kinds.values())
+        out["arms"][arm] = {
+            "runs_with_any_conclusion": sum(n for k, n in per_run.items() if k > 0),
+            "conclusions_per_run": dict(sorted(per_run.items())),
+            "n_conclusions": total,
+            "n_in_unmatched_clusters": unmatched,
+            "conclusions_by_kind": dict(sorted(kinds.items())),
+            "holm_family_range": [min(families), max(families)] if families else None,
+            "compare_seconds": _stats(seconds),
+            "cluster_seconds": {**_stats(cluster_seconds), "total": sum(cluster_seconds)},
+            "post_hoc": {
+                "by_main_reference_topic": dict(classes.most_common()),
+                "n_ties": ties,
+                "composition_by_class": {
+                    label: {
+                        "n_clusters": len(rows),
+                        "units_from_main_topic": _stats([float(a) for a, _, _ in rows]),
+                        "units_unclustered_at_reference": _stats([float(b) for _, b, _ in rows]),
+                        "cluster_size": _stats([float(c) for _, _, c in rows]),
+                        "n_with_any_unclustered_at_reference": sum(1 for _, b, _ in rows if b),
+                        "n_more_unclustered_than_main_topic": sum(1 for a, b, _ in rows if b > a),
+                        "n_main_topic_at_most_half": sum(1 for a, _, c in rows if 2 * a <= c),
+                    }
+                    for label, rows in composition.items()
+                },
+                "effect_size_range_by_kind": {
+                    k: [min(v), max(v)] for k, v in sorted(deltas.items())
+                },
+            },
+        }
+    return out
+
+
+def run_report(out_dir: Path, *, replicates: int = STABILITY_REPLICATES) -> dict[str, Any]:
+    """Đọc kết quả đã có của lần chạy (không tính lại phép so nào) → `report.json` + in ra. Kiểm
+    cùng các dấu nhận diện như `evaluate` (bản đóng băng, đủ lần, nhãn của từng phép so) để không
+    ghép nhãn của lần gom cụm này với phép so của lần khác."""
+    manifest = verified_manifest(out_dir)
+    records = read_jsonl(out_dir / REPLICATES)
+    comparisons = {(r["arm"], r["b"]): r for r in read_jsonl(out_dir / COMPARISONS)}
+    evaluation = _read_json(out_dir / EVALUATION)
+    report = _read_json(out_dir / REPRODUCIBILITY)
+    expected = {(arm, b) for arm in ARMS for b in range(1, replicates + 1)}
+    if {(r["arm"], r["b"]) for r in records} != expected or set(comparisons) != expected:
+        raise ExperimentError(f"cần đủ {len(expected)} lần gom cụm và phép so")
+    sha = manifest["sha256"]
+    if any(
+        part.get("frozen_sha256") != sha
+        for part in (evaluation, report, *records, *comparisons.values())
+    ):
+        raise ExperimentError("kết quả thuộc bản đóng băng khác")
+    if any(
+        comparisons[(r["arm"], r["b"])].get("labels_sha256") != labels_digest(r["labels"])
+        for r in records
+    ):
+        raise ExperimentError(f"{COMPARISONS} tính trên nhãn khác {REPLICATES} — chạy evaluate")
+    conn = _open_frozen(out_dir)
+    try:
+        run = latest_cluster_run(conn)
+        if run is None or run["id"] != manifest["reference_cluster_run_id"]:
+            raise ExperimentError("lần gom cụm mới nhất của bản sao không khớp manifest")
+        labels: dict[str, int] = {u: int(x) for u, x in json.loads(run["labels_json"]).items()}
+        observations, _ = load_observations(conn, labels)
+    finally:
+        conn.close()
+    topics: dict[str, list[str]] = {}
+    for obs in observations:
+        if obs.topic_id is not None:
+            topics.setdefault(obs.topic_id, []).append(obs.unit_id)
+    numbers = report_numbers(labels, topics, records, comparisons)
+    numbers["frozen_sha256"] = sha
+    numbers["evaluation_evaluated_at"] = evaluation.get("evaluated_at")
+    numbers["topic_names"] = evaluation["reference"].get("topic_names", {})
+    numbers["reference"]["dbcv_stored"] = report.get("dbcv_stored")
+    # Cặp có tỉ lệ giữ > 0: phân rã verdict của cụm khớp + tỉ lệ giữ CHỈ trong các lần topic sống
+    numbers["matched_verdicts"] = {}
+    for arm in ARMS:
+        stability = evaluation["arms"][arm]["topic_stability"]
+        entries = {}
+        for c in evaluation["arms"][arm]["conclusions"]:
+            for direction in DIRECTIONS:
+                kept = c[direction]["kept"]
+                if not kept:
+                    continue
+                alive = stability[c["topic"]]["alive"]
+                low, high = wilson_interval(kept, alive)
+                entries[f"{c['topic']}:{c['metric']}:{direction}"] = {
+                    "matched_verdicts": c["matched_verdicts"],
+                    "kept_given_alive": [kept, alive],
+                    "wilson_given_alive": [low, high],
+                }
+        numbers["matched_verdicts"][arm] = entries
+    # Chênh số lần "sống" giữa 2 nhánh (cùng b, chỉ khác d bài bị bỏ)
+    gaps = {
+        t: evaluation["arms"]["S"]["topic_stability"][t]["alive"] - s["alive"]
+        for t, s in evaluation["arms"]["P"]["topic_stability"].items()
+    }
+    widest = max(sorted(gaps), key=lambda t: abs(gaps[t])) if gaps else None
+    numbers["alive_gap_s_minus_p"] = {"by_topic": gaps, "widest": widest}
+    # Ước thời gian chạy tuần tự từ chính lần chạy: (K lần × 2 nhánh + tham chiếu) × median
+    n_compares = 2 * replicates + 1
+    numbers["serial_hours_estimate"] = {
+        arm: n_compares * numbers["arms"][arm]["compare_seconds"]["median"] / 3600 for arm in ARMS
+    }
+    _write_json(out_dir / "report.json", numbers)
+    print(json.dumps(numbers, indent=2, ensure_ascii=False))
+    return numbers
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0] if __doc__ else None)
-    parser.add_argument("step", choices=["freeze", "replicates", "evaluate"])
+    parser.add_argument("step", choices=["freeze", "replicates", "evaluate", "report"])
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--source", type=Path, help="freeze: DB thật cần đóng băng")
     parser.add_argument("--check-only", action="store_true", help="replicates: chỉ kiểm tái lập")
@@ -1156,8 +1334,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps(run_freeze(args.source, args.out_dir), indent=2))
         elif args.step == "replicates":
             run_replicates(args.out_dir, check_only=args.check_only)
-        else:
+        elif args.step == "evaluate":
             print_summary(run_evaluate(args.out_dir, workers=args.workers))
+        else:
+            run_report(args.out_dir)
     except ExperimentError as exc:
         print(f"DỪNG: {exc}", file=sys.stderr)
         return 2

@@ -53,7 +53,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) �
 
 | RQ | Câu hỏi | Ghi chú |
 |---|---|---|
-| RQ-01 | Cluster có ổn định không? | Pre-registration (Thy chốt 2026-11-04): `docs/rq/RQ-01-seed-stability.md` — 2 nhánh × 100 lần gom cụm lại, luật bền cho câu khẳng định về topic (ADR-0024, chốt trước ở ADR-0036) |
+| RQ-01 | Cluster có ổn định không? | Done 2026-11-04: `docs/rq/RQ-01-seed-stability.md` — 2 nhánh × 100 lần gom cụm lại, luật bền chốt trước ở ADR-0036: không kết luận nào qua. Còn: ADR sau RQ đưa luật vào sản phẩm (cách chạy + chữ hiển thị) |
 | RQ-02 | HDBSCAN có hơn baseline không? | KMeans (silhouette), agglomerative, c-TF-IDF, NPMI coherence |
 | RQ-03 | Model embedding nào tốt nhất cho VI/FR/EN trộn? | bge-m3 vs multilingual-e5-large vs mpnet đa ngôn ngữ; trên cluster + RQ-09 |
 | RQ-04 | Mức trộn ngôn ngữ (CMI) có liên quan engagement? | `compare_groups()` (`src/analysis/significance.py`) + hiệu chỉnh Holm |
