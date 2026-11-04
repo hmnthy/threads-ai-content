@@ -880,7 +880,7 @@ LEARNED_RULES = [
         "3. **Panel 1 — Which topics get more engagement than the channel?**",
         "3. **Panel 1 — Which topics get a higher engagement rate than the rest of the channel?**",
     ),
-    # ADR-0024: chưa có luật bền qua các cách chia cụm → không câu khẳng định (cả chuỗi sinh động)
+    # ADR-0024: luật bền (ADR-0036) chưa áp → không câu khẳng định (cả chuỗi sinh động)
     (
         "ADR0024-topic-claim",
         "src/dashboard/src/components/LandingProof.tsx",
@@ -1605,6 +1605,73 @@ LEARNED_RULES = [
         "src/dashboard/src/components/LandingHero.tsx",
         '"Rates use the **latest counts** (re-read every 4 hours), so newer content units…",',
         '"Rates use the **latest counts**, re-read every 4 hours while the laptop is awake.",',
+    ),
+    (
+        "ADR0036-rule-chosen-later",
+        "docs/claude/data-model.md",
+        "  cho tới khi RQ-01 (đa seed) đo được độ nhạy và ADR mới chọn luật bền.",
+        "  cho tới khi RQ-01 đo xong và ADR sau RQ áp luật bền đã chốt trước.",
+    ),
+    (
+        "ADR0036-rule-chosen-later",
+        "docs/status.md",
+        "- p Holm < 0.05 và qua luật bền (ADR-0024 — luật chọn sau RQ-01).",
+        "- p Holm < 0.05 và qua luật bền (luật chốt trước ở ADR-0036, áp sau RQ-01).",
+    ),
+    (
+        "ADR0036-rule-chosen-later",
+        "src/dashboard/src/components/TopicComparisonTable.tsx",
+        "  // ADR-0024: chưa có luật bền → chỉ gợi ý, không câu khẳng định",
+        "  // ADR-0024: chưa áp luật bền qua các cách chia cụm (luật chốt ở ADR-0036)",
+    ),
+    (
+        "ADR0036-rule-chosen-later",
+        "README.md",
+        "Claims need a stability rule (ADR-0024 — chưa có luật nên hiện chưa có câu khẳng định).",
+        "Bản nháp cũ chưa có luật nên để trống ô ngưỡng; nay luật chốt ở ADR-0036.",
+    ),
+    (
+        "ADR0036-rule-chosen-later",
+        "docs/roadmap.md",
+        "- RQ-01: ngưỡng chọn khi RQ-01 có số đo.",
+        "- ADR-0024 từng hẹn chọn ngưỡng sau; nay ADR-0036 chốt trước.",
+    ),
+    (
+        "ADR0036-rule-chosen-later",
+        "docs/status.md",
+        "- Sau RQ-01, ADR chọn luật bền cho câu khẳng định.",
+        "- Sau RQ-01, ADR sau RQ chỉ ghi lại luật bền đã chốt.",
+    ),
+    # Câu đúng dùng cùng từ khoá không bị bắt: ADR-0036 / Thy đã chọn luật bền trước khi chạy
+    (
+        "ADR0036-rule-chosen-later",
+        "docs/rq/RQ-01-seed-stability.md",
+        "0. **Luật bền** — RQ-01 chọn luật bền khi có số đo.",
+        "0. **Luật bền** — ADR-0036 chọn luật bền trước khi chạy; Thy chọn luật bền 2026-11-04.",
+    ),
+    (
+        "ADR0036-stability-rule-not-set",
+        "src/dashboard/src/components/TopicsView.tsx",
+        '        answer="No stability rule is set yet, so a topic here is at most a lead."',
+        '    answer="Stability across random seeds is not measured yet, so it is a lead."',
+    ),
+    (
+        "ADR0036-stability-rule-not-set",
+        "src/dashboard/src/components/LandingProof.tsx",
+        '"A result is a finding only once it passes a stability rule; that rule is not set yet.",',
+        '"A result becomes a finding only after it passes a stability rule; that rule is fixed.",',
+    ),
+    (
+        "ADR0036-stability-rule-not-set",
+        "src/dashboard/src/components/TopicsView.tsx",
+        '"The rule will come from **re-clustering the same content units with several seeds**.",',
+        '"The rule a lead must pass is **fixed in advance**; the reruns have not been done yet.",',
+    ),
+    (
+        "ADR0036-stability-rule-not-set",
+        "src/dashboard/src/components/TopicsView.tsx",
+        "                That measurement will set the rule a result must pass.",
+        "                A result becomes a finding only if it passes a rule fixed in advance.",
     ),
 ]
 

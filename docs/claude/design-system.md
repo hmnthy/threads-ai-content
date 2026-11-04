@@ -391,7 +391,7 @@ Mỗi trang app trả lời đúng 1 câu hỏi chính (ADR-0023): `/overview` �
 Mỗi khối nội dung tầng A đi theo thứ tự đọc của landing: **câu hỏi → câu trả lời 1 dòng → bằng chứng (chart/bảng) →
 "Method and limits"** (công thức, phương pháp, n, giới hạn) — nhưng **giữ hình khối tầng A**: card 12px có viền
 hairline trên nền sáng, không dải tối, không dùng display-1/2 của landing. Câu trả lời chỉ khẳng định khi phép so có ý nghĩa
-sau hiệu chỉnh Holm **và** qua luật bền qua các cách chia cụm (ADR-0024 — chưa có luật nên hiện chưa có câu khẳng định);
+sau hiệu chỉnh Holm **và** qua luật bền qua các cách chia cụm (ADR-0024; luật chốt trước ở ADR-0036, áp vào sản phẩm sau RQ-01 — tới lúc đó chưa có câu khẳng định);
 tới lúc đó phép so hiện dạng khám phá (giới hạn trong "cách chia hiện tại", δ + CI unadjusted + p Holm, câu giới
 hạn); không đạt thì mô tả ("not distinguishable"). Số chính là median + IQR + n, không hiện mean.
 

@@ -32,7 +32,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) �
 - Các bước và điều kiện: mục "Hệ quả" của ADR-0025 (gói API tối giản → chế độ chỉ đọc → publish sau mỗi job → deploy thử preview → việc trước khi public → docs).
 - **Xong khi**: bản công khai chạy trên dữ liệu publish từ laptop; Thy duyệt bản preview; `job_health` cảnh báo khi bản publish cũ. Deploy thử thất bại (gói > 500 MB, không mở được DB, cold start làm trang không tải được) → ADR mới, chuyển sang snapshot tĩnh.
 - **Trạng thái (2026-10-28): live** — https://unthreaded-analytics.vercel.app, API https://unthreaded-api.vercel.app (PR #19, #20; cấu hình + 2 chỗ lệch so với ADR: `docs/claude/architecture.md` mục "Deploy"). Thy chọn công khai ngay thay cho bước duyệt preview. Còn: việc trước khi chia sẻ link rộng (bio, link CTA, giới hạn tần suất gọi API, theo dõi Usage).
-- Ngay sau H: RQ-01 (ADR-0024). Repo public chính thức, giữ mọi quyền, harness `.claude/` riêng tư (ADR-0027) — mục "Repo public" bên dưới.
+- Ngay sau H: RQ-01 (ADR-0024; luật bền chốt trước: ADR-0036). Repo public chính thức, giữ mọi quyền, harness `.claude/` riêng tư (ADR-0027) — mục "Repo public" bên dưới.
 
 ## G — CI (GitHub Actions) — ADR-0014
 
@@ -53,7 +53,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) �
 
 | RQ | Câu hỏi | Ghi chú |
 |---|---|---|
-| RQ-01 | Cluster có ổn định không? | 10 seed, ARI/AMI cặp, bootstrap subsample, DBCV vào code. **Làm ngay sau deploy (ADR-0024):** đầu ra chọn luật bền cho câu khẳng định về topic — tỉ lệ seed mà mỗi kết luận đạt p Holm + ARI cặp seed |
+| RQ-01 | Cluster có ổn định không? | Pre-registration (Thy chốt 2026-11-04): `docs/rq/RQ-01-seed-stability.md` — 2 nhánh × 100 lần gom cụm lại, luật bền cho câu khẳng định về topic (ADR-0024, chốt trước ở ADR-0036) |
 | RQ-02 | HDBSCAN có hơn baseline không? | KMeans (silhouette), agglomerative, c-TF-IDF, NPMI coherence |
 | RQ-03 | Model embedding nào tốt nhất cho VI/FR/EN trộn? | bge-m3 vs multilingual-e5-large vs mpnet đa ngôn ngữ; trên cluster + RQ-09 |
 | RQ-04 | Mức trộn ngôn ngữ (CMI) có liên quan engagement? | `compare_groups()` (`src/analysis/significance.py`) + hiệu chỉnh Holm |

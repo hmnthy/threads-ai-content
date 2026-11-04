@@ -315,7 +315,7 @@ function groups(run: ClusterRun | null, method: ComparisonMethod | null, minPost
           id: "seed",
           term: "Random seed",
           plain:
-            "The starting number of a procedure that uses chance. Both seeds on this page are fixed: UMAP's, so the same content units give the same topics, and the permutation test's, so the tests always give the same p-values. Another UMAP seed can draw the topics differently; measuring that (stability across seeds) is still research.",
+            "The starting number of a procedure that uses chance. Both seeds on this page are fixed: UMAP's, so the same content units give the same topics, and the permutation test's, so the tests always give the same p-values. Another UMAP seed can draw the topics differently; measuring that (stability across seeds) is planned: the rule is fixed in advance and the reruns have not been done yet.",
         },
       ],
     },
@@ -422,8 +422,19 @@ function groups(run: ClusterRun | null, method: ComparisonMethod | null, minPost
         {
           id: "lead",
           term: "Lead vs finding",
-          plain:
-            "A lead passes the corrected test on today's topics. It becomes a finding only once it also passes a stability rule across random seeds; that rule is not set yet, so a result here is at most a lead.",
+          plain: `A lead is a result marked ▲ or ▼ on today's topics: corrected p below ${alpha} with enough content units to test. A finding is a lead that also passes a stability rule fixed in advance. The reruns that apply the rule have not been done yet, so a result here is at most a lead.`,
+          // K = 100, ≥ 75, bỏ 3%, Jaccard > 0.5 = luật ADR-0036 (chốt trước RQ-01, không chọn lại)
+          formula: [
+            "finding = lead today  and  kept in ≥ 75 of K = 100 reruns",
+            "J(t, c) = |t ∩ c| ÷ |(t ∩ S) ∪ c|",
+            "found again:  max over c of  J(t, c) > 0.5",
+          ],
+          where: [
+            "Rerun: today's content units clustered again with another UMAP seed and a shuffled order, with 3% of them left out at random.",
+            "t: today's topic; c: a topic of the rerun; S: the content units kept in that rerun; |·|: number of content units; J: Jaccard overlap, 0.5 being the convention of the R package fpc (clusterboot). Unclustered is not a topic.",
+            `Kept: the topic is found again (J above 0.5), has enough content units to test, and stands out again with corrected p below ${alpha} in the same direction (▲ or ▼).`,
+            "A rerun where the topic is missing or cannot be tested counts as not kept; the count is always out of 100.",
+          ],
         },
         {
           id: "stood-out",

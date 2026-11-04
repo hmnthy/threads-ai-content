@@ -231,8 +231,8 @@ chứng mô phỏng (`scripts/topic_method_report.py` mục 5, ở ngưỡng 0.0
 - **Holm** (`holm_adjust`, Holm 1979) kiểm soát xác suất có ≥ 1 kết luận sai trong cả họ, đúng với mọi kiểu phụ thuộc
   giữa các phép so (các nhóm "phần còn lại" chồng lên nhau). **Họ = mọi phép so có p xác định cùng hiện trên 1 trang,
   kể cả topic n < 5** (Topics: 9 topic × 3 chỉ số = 27; landing dùng đúng p Holm của họ 27). Chỉ được khẳng định khi
-  p Holm < 0.05 **và** kết luận qua luật bền qua các cách chia cụm (ADR-0024 — luật chọn sau RQ-01; tới lúc đó chưa có
-  câu khẳng định nào); CI ghi "unadjusted".
+  p Holm < 0.05 **và** kết luận qua luật bền qua các cách chia cụm (ADR-0024; luật chốt trước ở ADR-0036, áp vào sản
+  phẩm sau khi RQ-01 chạy — tới lúc đó chưa có câu khẳng định nào); CI ghi "unadjusted".
 - `insufficient_data` dùng LẠI `MIN_N_PER_BUCKET` của `engagement.py` (1 nguồn sự thật "mẫu quá nhỏ để diễn giải").
   Đây là tầng 5 "Narrative Layering Principle".
 
@@ -253,7 +253,12 @@ chứng mô phỏng (`scripts/topic_method_report.py` mục 5, ở ngưỡng 0.0
   cách chia khác, nhưng chỉ thành kết luận khi ranh giới cụm ôm gọn chúng. Sinh lại bằng `uv run python -m
   scripts.topic_stability_report --reference-run 16 --reference-cluster 8`. Vì vậy kết quả so sánh hiển thị **dạng
   gợi ý** ("a lead, not a finding": δ + CI + p Holm, câu giới hạn; lịch sử "đạt ở k trong m cách chia" — mục dưới)
-  cho tới khi RQ-01 (đa seed) đo được độ nhạy và ADR mới chọn luật bền.
+  cho tới khi RQ-01 (đa seed) đo xong và ADR sau RQ đưa vào sản phẩm luật bền đã chốt trước.
+- **Luật bền chốt trước (ADR-0036, 2026-11-04; thiết kế: `docs/rq/RQ-01-seed-stability.md`):** một kết luận (topic,
+  tỉ lệ) chỉ được khẳng định khi verdict ở lần gom cụm tham chiếu là `higher` / `lower` (p Holm < 0.05, không cờ
+  `insufficient_data`) **và** giữ ở ≥ 75 / 100 lần gom cụm lại (seed UMAP + đảo thứ tự + bỏ 3% bài). "Giữ" ở một lần = topic có cụm
+  khớp (Jaccard > 0.5, quy ước `fpc::clusterboot`) và cụm đó lại có verdict cùng hướng theo `testVerdict` (p Holm < 0.05,
+  không cờ mẫu nhỏ) — cùng dấu δ thôi chưa đủ. ADR sau RQ chỉ ghi lại luật này, không chọn lại.
 - **Lịch sử "đạt ở k trong m cách chia" (ADR-0024 quyết định 3; Thy chốt cách đếm 2026-10-20):**
   `src/analysis/partition_history.py`, `GET /topics/comparisons` tính khi đọc từ `cluster_runs.labels_json` +
   `topic_comparisons` đã lưu (không bảng mới, không sửa job; ~8 ms/request trên 19 lần gom cụm). (1) Mỗi cách chia đếm

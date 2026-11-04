@@ -340,7 +340,7 @@ export function TopicProfilePanel({ data, units, full = true }: { data: LandingD
           "Names are written by Claude and **can be wrong at the edges** of a topic.",
           "A topic is renamed only when it is new, was split or merged, has drifted away from its original content, or was named with an older version of the naming prompt or model.",
           "UMAP keeps neighbours, not global distances, so far-apart topics are not necessarily more different.",
-          "Another UMAP seed can draw the topics differently; measuring that is still research (see the stability block below).",
+          "Another UMAP seed can draw the topics differently; measuring that is planned, and the reruns have not been done yet (see the stability block below).",
         ]}
         more={
           <>
@@ -635,7 +635,7 @@ export function StabilityPanel({ data }: { data: LandingData }) {
   const nClustered = run?.ari_clustered_only == null ? null : unitsOf(run.ari_n_clustered_both);
   const nCommon = run?.ari_vs_previous == null ? null : unitsOf(run.ari_n_common);
   const nRun = unitsOf(run?.n_units);
-  // Câu trả lời không tự đặt ngưỡng "ổn định" (UI-0004-ari-two-ways, ADR-0024): luật bền vẫn để mở
+  // Câu trả lời không tự đặt ngưỡng "ổn định" (UI-0004-ari-two-ways, ADR-0024): luật bền chốt ở ADR-0036, chưa áp
   // → mọi phép so là gợi ý. Không suy "cùng cách chia" từ ARI = 1: ARI chỉ tính trên unit có mặt ở
   // cả 2 lần (ADR-0024 bằng chứng 1, .claude/rules/pipeline-db.md)
   const rows: { name: React.ReactNode; value: string; meaning: string; missing?: boolean }[] = run
@@ -684,14 +684,14 @@ export function StabilityPanel({ data }: { data: LandingData }) {
       purpose="Shows how much the topics changed since the previous run and how well separated they are, which limits how far any result above can be trusted."
     >
       <AnswerRow
-        answer="No stability rule is set yet, so a topic that stands out on this page is at most a lead, not a finding."
+        answer="Stability across random seeds is not measured yet, so a topic that stands out on this page is at most a lead, not a finding."
         points={[
           "New content units can **re-draw the topic boundaries** every day.",
           "Test results have appeared and disappeared as the boundaries moved.",
           history && history.clusterings_compared > 0
             ? `Since ${history.since ? parisDate(history.since) : "the first test"}, the tests have run on ${history.clusterings_compared} different ${history.clusterings_compared === 1 ? "clustering" : "clusterings"} of the content units (daily runs that gave exactly the same grouping count once).`
             : null,
-          "The rule will come from **re-clustering the same content units with several random seeds** (research, not measured yet).",
+          "The rule a lead must pass is **fixed in advance**: it must hold on reruns with other random seeds and a few content units left out. Those reruns have not been done yet.",
         ]}
         keyNumbers={
           run
@@ -780,8 +780,8 @@ export function StabilityPanel({ data }: { data: LandingData }) {
                 </span>
               </dd>
               <dd className="col-span-2 m-0 text-[13px] leading-[1.55] text-text-secondary md:col-span-1">
-                Re-clustering the same content units with several seeds measures how much the topics depend on chance.
-                That measurement will set the rule a result must pass to become a finding.
+                Re-clustering the content units with other seeds, a few left out each time, measures how much the topics depend on chance and on small changes in the data.
+                A result becomes a finding only if it passes a <TermLink term="lead">rule fixed in advance</TermLink> on those reruns.
               </dd>
             </div>
           </dl>
@@ -808,7 +808,7 @@ export function StabilityPanel({ data }: { data: LandingData }) {
         limits={[
           "Every daily run uses the same UMAP seed, so a run on unchanged content units repeats the previous one exactly: an ARI of 1.00 then shows **reproducibility, not stability**.",
           "ARI only covers content units present in both runs, so a run that adds new content units can still score 1.00 on the old ones.",
-          "Comparing with the previous run mixes two changes: new content units, and the re-drawing they cause. Stability across seeds would measure the chance part alone (same content units, other seeds); it is not measured yet.",
+          "Comparing with the previous run mixes two changes: new content units, and the re-drawing they cause. The planned reruns separate them: some keep the same content units with other seeds (chance alone), others also leave 3% out at random (small changes in the data). They have not been done yet.",
           "DBCV is computed on the compressed UMAP numbers, not on the full embeddings.",
         ]}
         more={
