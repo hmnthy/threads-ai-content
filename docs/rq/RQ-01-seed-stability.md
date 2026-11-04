@@ -159,6 +159,14 @@ Theo mẫu `scripts/topic_identity_eval.py` (ADR-0018), viết ở PR sau, **sau
 
 Có test cho ghép cụm, tỉ lệ giữ theo hướng (cả các ca tính là không giữ), CI Wilson và cách bỏ bài trên dữ liệu giả.
 
+Phụ lục 2026-11-04 (sau khi file này merge, trước khi chạy) — đã viết: `scripts/rq01_seed_stability.py`, hằng số +
+luật ở `src/analysis/topic_stability.py`. Hai chỗ đổi cách chia việc giữa các bước, phương pháp không đổi:
+
+- đóng băng là bước riêng `freeze` chạy trên Windows, trước `replicates`: khoá SQLite qua `/mnt/c` giữa WSL2 và
+  Windows không đáng tin khi job đang ghi;
+- AMI / ARI chỉ cần nhãn nên tính ở cuối bước `replicates` (WSL2), không ở `evaluate`: scikit-learn chỉ được import ở
+  bước WSL2 (Smart App Control).
+
 ## Metric và ngưỡng quyết định (chốt 2026-11-04, TRƯỚC khi chạy)
 
 | Metric | Vì sao chọn | Ngưỡng để kết luận |
