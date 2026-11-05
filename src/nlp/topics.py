@@ -119,7 +119,7 @@ def label_cluster_with_claude(
 ) -> TopicLabelResult:
     """Tóm tắt 1 cluster thành tên + mô tả TIẾNG ANH bằng Claude — LLM CHỈ dùng ở
     bước labeling (đã có cấu trúc thật từ HDBSCAN), KHÔNG dùng để classify trực
-    tiếp (xem data-model.md "Vì sao LLM chỉ dùng ở bước labeling cluster")."""
+    tiếp (xem data-model.md "Vì sao trong job NLP, LLM chỉ dùng ở bước labeling cluster")."""
     anthropic_client = client or Anthropic()
     joined = "\n---\n".join(sample_texts[:15])
     prompt = (

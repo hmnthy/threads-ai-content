@@ -56,11 +56,12 @@ threads-ai-content/
 | Language ID | lingua-py + Code-Mixing Index (Gambäck & Das 2014) | Live |
 | Embedding | sentence-transformers `BAAI/bge-m3` (1024D, 8.192 token, MIT) | Live, chạy trong WSL2 |
 | Topic discovery | UMAP (3D) + HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8` — calibrate lại 2026-10-01, ADR-0004) | Live, re-cluster hằng ngày |
-| LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — CHỈ đặt tên cluster (tiếng Anh) | Live |
+| LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — trong job NLP CHỈ đặt tên cluster (tiếng Anh); demo RAG: `claude-haiku-5-5` cho các vai trung gian, tính sẵn (ADR-0037) | Live (demo: chưa có) |
 | Thống kê | median/IQR, Brunner-Munzel hoán vị + Cliff's δ kèm CI + Holm (numpy/scipy, ADR-0023) — so sánh topic vs phần còn lại tính trong job NLP, landing live (`GET /topics/comparisons`); trang Topics hiện đủ họ Holm (mọi topic × 3 chỉ số) + bảng thuật ngữ (Việc 4, 2026-10-29) | Live |
 | Dashboard | Next.js 16 + Tailwind v4 + chart HTML/CSS tự dựng (SVG cho biểu đồ views theo ngày) + Plotly (bản đồ topic 3D) + Phosphor icons | Live — công khai tại https://unthreaded-analytics.vercel.app (mục "Deploy") |
 | Hosting | Vercel (Hobby): 2 project từ cùng repo + Vercel Blob riêng tư cho bản sao DB (ADR-0025) | Live từ 2026-10-28 |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
+| Demo RAG `/rag-pipeline` | 20 content unit đóng băng; tính sẵn: OpenAI `text-embedding-3-small` + `bge-reranker-v2-m3` (WSL2) + Claude Haiku 5.5; trình duyệt: BM25, RRF / weighted / DBSF, MMR; file JSON trên Vercel Blob riêng tư (ADR-0037) | Đã quyết, chưa code |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
 | Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán (toàn repo, `--commit`), cổng review tầng 2 (chỉ commit của Claude, ADR-0015), pytest nhanh, eslint+tsc, commit-msg | Live |
 | CI | GitHub Actions (`.github/workflows/ci.yml`: job py + web, ADR-0014) | Live — chạy lần đầu 2026-10-05 (PR #1: `web` đỏ vì `LayoutProps` → `67c3bf8` → xanh); chỉ chạy khi mở/cập nhật PR, push vào `main` hoặc chạy tay (Roadmap G, ADR-0019) |
@@ -121,6 +122,7 @@ không 3 tab trống (landing vẫn chạy vì fetch phía server).
 - **Batch tách khỏi serving**: pipeline ML ghi kết quả vào SQLite; FastAPI chỉ đọc.
 - **Metric không gộp**: 6 index riêng + contextual score; mọi hằng số chưa calibrate ghi rõ là hypothesis.
 - **Narrative Layering**: số thô → rate → median/IQR → percentile kênh → kiểm định + effect size + CI → diễn giải (`data-model.md`).
-- **Claude không làm NLP core**: không classify, không embed — chỉ đặt tên cluster đã có.
+- **Claude không làm NLP core** của pipeline kênh: không classify, không embed — trong job NLP chỉ đặt tên cluster đã
+  có. Ngoại lệ có phạm vi: các vai LLM trung gian, tính sẵn, của demo RAG (ADR-0037) — không bao giờ là kết quả.
 - **Output hướng ra ngoài tiếng Anh**; docs/code comment tiếng Việt.
 - **Bằng chứng thực nghiệm thắng lý thuyết ban đầu** (VD HDBSCAN trên UMAP space, `data-model.md` methodology log).

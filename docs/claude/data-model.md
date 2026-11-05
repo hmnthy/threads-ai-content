@@ -531,9 +531,9 @@ CMI = 0                                 nếu n = u
 
 **Vì sao SVM-RBF làm model chính, LogisticRegression chỉ là baseline**: LogReg là mô hình tuyến tính, chỉ nên đóng vai trò benchmark để biết SVM-RBF (bắt được ranh giới phi tuyến trên embedding) có thực sự tốt hơn không — không phải chọn 1 trong 2 rồi bỏ, mà giữ cả 2 trong bảng kết quả để so sánh minh bạch.
 
-**Vì sao LLM chỉ dùng ở bước labeling cluster, không dùng để classify trực tiếp**: dùng LLM đúng việc nó giỏi nhất — tóm tắt ngôn ngữ tự nhiên sau khi đã có cấu trúc thật từ NLP pipeline (HDBSCAN), không thay thế phần NLP core bằng 1 API call.
+**Vì sao trong job NLP, LLM chỉ dùng ở bước labeling cluster, không dùng để classify trực tiếp**: dùng LLM đúng việc nó giỏi nhất — tóm tắt ngôn ngữ tự nhiên sau khi đã có cấu trúc thật từ NLP pipeline (HDBSCAN), không thay thế phần NLP core bằng 1 API call.
 
-**Ranh giới Claude LLM trong pipeline (chốt tường minh 2026-09-03)** — khảo sát thị trường (ghi chép nghiên cứu riêng, 2026-09) xác nhận kiến trúc hiện tại ĐÚNG hướng, không cần sửa code, chỉ cần công bố rõ: Claude **CHỈ** dùng ở duy nhất 1 điểm — `label_cluster_with_claude()` (`src/nlp/topics.py`), tóm tắt 1 cluster đã tồn tại (do HDBSCAN tìm ra) thành tên + mô tả tiếng Anh. Claude **KHÔNG BAO GIỜ**: (a) classify/gán nhãn topic trực tiếp cho 1 post (việc đó là HDBSCAN; bộ phân loại có giám sát chỉ tồn tại trong RQ-08), (b) tạo embedding (việc đó là `sentence-transformers`), (c) tham gia bất kỳ bước NLP core nào khác (LID, clustering, tokenization). Ranh giới này khớp nguyên tắc chung của dự án: dùng LLM đúng việc "tóm tắt ngôn ngữ tự nhiên", không dùng LLM như black-box thay thế phương pháp luận NLP có cấu trúc — giữ tính reproducible/explainable của pipeline (HDBSCAN cho kết quả xác định lại được từ embedding, LLM không).
+**Ranh giới Claude LLM trong pipeline (chốt tường minh 2026-09-03)** — khảo sát thị trường (ghi chép nghiên cứu riêng, 2026-09) xác nhận kiến trúc hiện tại ĐÚNG hướng, không cần sửa code, chỉ cần công bố rõ: trong pipeline kênh (job NLP) Claude **CHỈ** dùng ở duy nhất 1 điểm — `label_cluster_with_claude()` (`src/nlp/topics.py`), tóm tắt 1 cluster đã tồn tại (do HDBSCAN tìm ra) thành tên + mô tả tiếng Anh. Claude **KHÔNG BAO GIỜ**: (a) classify/gán nhãn topic trực tiếp cho 1 post (việc đó là HDBSCAN; bộ phân loại có giám sát chỉ tồn tại trong RQ-08), (b) tạo embedding (việc đó là `sentence-transformers`), (c) tham gia bất kỳ bước NLP core nào khác (LID, clustering, tokenization). Ranh giới này khớp nguyên tắc chung của dự án: dùng LLM đúng việc "tóm tắt ngôn ngữ tự nhiên", không dùng LLM như black-box thay thế phương pháp luận NLP có cấu trúc — giữ tính reproducible/explainable của pipeline (HDBSCAN cho kết quả xác định lại được từ embedding, LLM không). Ngoại lệ có phạm vi: các vai LLM trung gian, tính sẵn, của demo RAG (ADR-0037) — không bao giờ là kết quả.
 
 > Velocity/Momentum/Longevity/Freshness/Topic Affinity — xem "Metric Architecture" phía trên, không lặp lại ở đây.
 
@@ -636,6 +636,11 @@ Sau khi bỏ câu trả lời follower khỏi `full_text`, chạy lại đúng t
 1. **Retrieval**: hybrid BM25 + dense → RRF → cross-encoder rerank → top-k, kèm nguồn (permalink)
 2. **Eval**: gold set từ cặp (câu hỏi follower, câu trả lời tác giả) thật — recall@k, MRR, nDCG, bootstrap CI
 3. **Generation** (chatbot) — CHỈ sau khi KB đạt cổng chất lượng (roadmap Phase F), không làm trước
+
+**Demo trước KB (ADR-0037):** trang `/rag-pipeline` minh hoạ cơ chế truy xuất trên 20 content unit đóng băng, không
+phải KB: phần cần model tính sẵn cho 10 câu hỏi cố định (embedding OpenAI `text-embedding-3-small` — chỉ trong demo,
+gom cụm vẫn bge-m3; cross-encoder `BAAI/bge-reranker-v2-m3`; các vai LLM trung gian bằng Claude Haiku 5.5, LLM rerank
+chấm từng đoạn độc lập), trình duyệt chạy BM25 / trộn / MMR; output là đoạn nguồn xếp hạng, không câu trả lời LLM.
 
 ### Phạm vi hiện tại
 

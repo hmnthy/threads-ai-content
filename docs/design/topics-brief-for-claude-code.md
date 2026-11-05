@@ -33,7 +33,7 @@ Mỗi dòng ứng với **một ràng buộc mà UI phải tuân**, xuất phát
 - **id**: `UI-<ADR>-<slug>`, ví dụ `UI-0018-id-not-name`. Không tái dùng id.
 - **A**: tên khái niệm cùng trường thật (bảng.cột hoặc trường API), ví dụ `topics.topic_id`, `TopicOut.label_en`.
 - **B**: điều kỹ thuật đúng, kiểm được bằng code, viết thành 1 câu khẳng định. Không chứa số liệu, chỉ chứa tham số cố định của code (ví dụ "tối đa 15 bài/cụm") kèm `file:dòng#Tên` (ADR-0033).
-- **C**: `landing`, `overview`, `analytics`, `topics`, hoặc `all`.
+- **C**: `landing`, `overview`, `analytics`, `topics`, `rag-pipeline` (ADR-0037), hoặc `all`.
 - **D**: mã luật trong `invariants.toml` nếu kiểm tự động được; `test:` cùng tên test; hoặc `manual`.
 - **E**: quy tắc trình bày, 1 câu. Claude Code điền nháp, Claude Design duyệt.
 - Đầu file ghi `Cập nhật tới: ADR-NNNN · <ngày>`. Đây là mốc mà cổng kiểm ở 0.4 dùng.

@@ -40,6 +40,12 @@ planned_paths = [
   # Gói Claude Design 2026-10-05: file các việc kế tiếp sẽ tạo (brief Topics Việc 0–4)
   "docs/design/topics-data-audit.md",
   "src/dashboard/mockups/topics.dc.html",
+  # ADR-0037: trang demo "RAG pipeline visualization" (code ở PR sau trên cùng nhánh)
+  "src/rag_demo", "src/rag_demo/**",
+  "scripts/rag_demo_build.py",
+  "src/dashboard/src/lib/ragDemo", "src/dashboard/src/lib/ragDemo/**",
+  "src/dashboard/src/app/rag-pipeline", "src/dashboard/src/app/rag-pipeline/**",
+  "tests/rag_demo", "tests/rag_demo/**",
 ]
 # Có thật trên máy nhưng gitignored → không tồn tại ở clone mới/CI; chấp nhận khi được nhắc tới
 known_untracked = [
