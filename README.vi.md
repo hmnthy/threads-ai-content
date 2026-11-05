@@ -3,7 +3,7 @@
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-1059%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1061%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -190,7 +190,7 @@ pip install --user uv
 uv sync
 uv run pre-commit install          # cổng chặn commit: lint, kiểu, nhất quán, test nhanh
 cp .env.example .env               # điền THREADS_* và ANTHROPIC_API_KEY
-uv run pytest -q                   # toàn bộ test (~1 phút)
+uv run pytest -q                   # toàn bộ test (vài phút)
 uv run uvicorn src.main:app --reload --port 8000
 
 # Dashboard (Next.js)

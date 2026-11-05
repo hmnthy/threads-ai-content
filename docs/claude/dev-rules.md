@@ -20,7 +20,7 @@ copy .env.example .env
 # 4. Bật các cổng chặn commit (1 lần): ruff, mypy, sổ luật nhất quán, cổng review tầng 2 (chỉ commit của Claude, ADR-0015), pytest nhanh, dashboard eslint+tsc, commit-msg
 uv run pre-commit install
 
-# 5. Chạy test suite (~1 phút; pre-commit chạy bộ nhanh ~20s)
+# 5. Chạy test suite (~6 phút trên laptop Windows: mỗi lần mở git ~0,3 s, nghi do Smart App Control — chưa đo tách riêng; CI Linux nhanh hơn nhiều)
 uv run pytest -q
 
 # 6. Lint + format + type-check (cũng chạy tự động qua pre-commit khi commit)
