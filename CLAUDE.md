@@ -21,7 +21,7 @@ Không generation giọng văn, không carousel, không KOL engine. Portfolio NL
 
 ```bash
 uv sync                                    # cài deps (Python 3.12)
-uv run pytest -q                           # cả suite ~1 phút (pre-commit chạy bộ nhanh ~20s)
+uv run pytest -q                           # cả suite ~6 phút trên laptop Windows; pre-commit chạy gần trọn bộ (chỉ bỏ test slow/live)
 uv run pre-commit install                  # 1 lần sau khi clone: bật các cổng chặn commit
 uv run ruff check . && uv run ruff format . && uv run mypy
 uv run uvicorn src.main:app --reload --port 8000

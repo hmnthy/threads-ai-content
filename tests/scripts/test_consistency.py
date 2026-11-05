@@ -1176,8 +1176,20 @@ LEARNED_RULES = [
     (
         "ADR0008-pytest-slow",
         "CLAUDE.md",
-        "uv run pytest -q   # test (hiện chậm ~5 phút trên Windows)",
-        "- `pytest` đầy đủ ~1–1,5 phút (dao động theo tải máy)",
+        "uv run pytest -q   # cả suite ~1 phút (pre-commit chạy bộ nhanh ~20s)",
+        "uv run pytest -q   # cả suite ~6 phút trên laptop Windows; CI Linux ~0,5 phút",
+    ),
+    (
+        "ADR0008-pytest-slow",
+        "README.md",
+        "uv run pytest -q                   # full test suite (~1 minute)",
+        "uv run pytest -q                   # fast suite: under 1 min on CI (Linux)",
+    ),
+    (
+        "ADR0008-pytest-slow",
+        "docs/claude/dev-rules.md",
+        "# 5. Chạy pytest (~1min)",
+        "# 5. Chạy pytest: CI Linux dưới 1 phút, laptop Windows ~6 phút",
     ),
     (
         "ADR0008-mypy-scope",
