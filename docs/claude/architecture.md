@@ -61,7 +61,7 @@ threads-ai-content/
 | Dashboard | Next.js 16 + Tailwind v4 + chart HTML/CSS tự dựng (SVG cho biểu đồ views theo ngày) + Plotly (bản đồ topic 3D) + Phosphor icons | Live — công khai tại https://unthreaded-analytics.vercel.app (mục "Deploy") |
 | Hosting | Vercel (Hobby): 2 project từ cùng repo + Vercel Blob riêng tư cho bản sao DB (ADR-0025) | Live từ 2026-10-28 |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
-| Demo RAG `/rag-pipeline` | 20 content unit đóng băng; tính sẵn: OpenAI `text-embedding-3-small` + `bge-reranker-v2-m3` (WSL2) + Claude Haiku 5.5; trình duyệt: BM25, RRF / weighted / DBSF, MMR; file JSON trên Vercel Blob riêng tư (ADR-0037) | Đã quyết, chưa code |
+| Demo RAG `/rag-pipeline` | 20 content unit đóng băng; tính sẵn: OpenAI `text-embedding-3-small` + `bge-reranker-v2-m3` (WSL2) + Claude Haiku 5.5; trình duyệt: BM25, RRF / weighted / DBSF, MMR; file JSON trên Vercel Blob riêng tư (ADR-0037, ADR-0038) | Đang code: có engine BM25 |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
 | Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán (toàn repo, `--commit`), cổng review tầng 2 (chỉ commit của Claude, ADR-0015), pytest nhanh, eslint+tsc, commit-msg | Live |
 | CI | GitHub Actions (`.github/workflows/ci.yml`: job py + web, ADR-0014) | Live — chạy lần đầu 2026-10-05 (PR #1: `web` đỏ vì `LayoutProps` → `67c3bf8` → xanh); chỉ chạy khi mở/cập nhật PR, push vào `main` hoặc chạy tay (Roadmap G, ADR-0019) |

@@ -26,6 +26,9 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+      - uses: actions/setup-node@v4 # test Python chạy engine TypeScript của demo RAG bằng node (ADR-0038)
+        with:
+          node-version: 22
       - name: Install (no torch/CUDA — fast suite never imports them)
         run: |
           # torch + ~20 gói CUDA nặng vài GB chỉ cần cho test `slow` (bị bỏ ở CI).

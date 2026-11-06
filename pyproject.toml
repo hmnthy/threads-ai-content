@@ -49,6 +49,11 @@ ignore_missing_imports = true
 module = ["scipy", "scipy.*"]
 ignore_missing_imports = true
 
+# bm25s không ship py.typed — chỉ dùng trong tests/rag_demo/ làm bài giải mẫu (ADR-0038)
+[[tool.mypy.overrides]]
+module = ["bm25s", "bm25s.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
@@ -78,6 +83,7 @@ pipeline = [
 ]
 dev = [
     { include-group = "pipeline" },
+    "bm25s==0.3.16",
     "mypy>=2.3.1",
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
