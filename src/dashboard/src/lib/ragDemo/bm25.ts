@@ -1,4 +1,4 @@
-// BM25 của trang demo RAG, chạy trong trình duyệt (ADR-0037 D3, ADR-0038).
+// BM25 của trang demo RAG, chạy trong trình duyệt (ADR-0037 D3, ADR-0038, ADR-0039).
 // Một file, không import, chỉ dùng cú pháp TypeScript xoá được: test Python chạy đúng file này bằng
 // `node --experimental-strip-types` để đối chiếu với `bm25s` (tests/rag_demo/).
 
@@ -40,7 +40,7 @@ const TONE_ON_FIRST_VOWEL: Record<string, string> = {
   uỵ: "ụy",
 };
 
-// Token theo âm tiết, không stopword; giữ số như `1,0`; dấu gạch và dấu nháy tách token (ADR-0038 D3).
+// Token theo âm tiết, không stopword; giữ số như `1,0`; dấu gạch và dấu nháy tách token (ADR-0038 D3, ADR-0039 D4).
 export function tokenize(text: string): string[] {
   const visible = text.replace(EMOJI_KEYCAP, " ").replace(EMOJI_STYLE_MARKS, "");
   const normalized = visible.normalize("NFC").toLowerCase().normalize("NFC");

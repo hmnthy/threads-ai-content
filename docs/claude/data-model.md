@@ -644,9 +644,12 @@ chấm từng đoạn độc lập), trình duyệt chạy BM25 / trộn / MMR; 
 BM25 của demo (ADR-0038): công thức Lucene, `IDF = log(1 + (N − n + 0,5) / (n + 0,5))`, k1 = 1,2 và b = 0,75 có nhãn nguồn;
 token theo âm tiết, không stopword, câu có dấu so khớp có dấu, câu không dấu so khớp bản bỏ dấu; hoà điểm xếp theo mã
 chunk. Đáp án đúng theo mã bài, câu 5 và 8 thêm vị trí ký tự, bước dựng bằng Python tính sẵn chunk nào trúng.
-Chi tiết token (`src/dashboard/src/lib/ragDemo/bm25.ts:44#tokenize`): bỏ ký tự đi kèm emoji; token mở đầu bằng chữ
-hoặc số; số thập phân chỉ áp cho token toàn số (`2,5kg` thành `2,5` + `kg`, `15km` giữ một token, `12.5.2026` là một token);
-dấu thanh trên nguyên âm sau ở cụm oa, oe, uy cuối âm tiết gộp về nguyên âm đầu (`tuỳ` = `tùy`). `œ`, `æ` không đổi: 0 lần trong 20 bài.
+Chi tiết token (ADR-0039 D4, `src/dashboard/src/lib/ragDemo/bm25.ts:44#tokenize`): bỏ ký tự đi kèm emoji; token mở đầu bằng
+chữ hoặc số; số thập phân chỉ áp cho token toàn số (`2,5kg` thành `2,5` + `kg`, `15km` giữ một token, `12.5.2026` là một
+token); dấu thanh trên nguyên âm sau ở cụm oa, oe, uy gộp về nguyên âm đầu (`tuỳ` = `tùy`), chỉ ở cuối token và không sau
+`q`. `œ`, `æ` không đổi: 0 lần trong 20 bài.
+Chia đoạn (ADR-0039): 7 cách (không chia, theo từng post, cố định 300 / 500 / 800 ký tự, recursive 500, semantic), chunk lấy
+từ `full_text`, câu ngữ cảnh là công tắc, rerank chấm trên chữ gốc của chunk.
 
 ### Phạm vi hiện tại
 

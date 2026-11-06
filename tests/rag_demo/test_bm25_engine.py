@@ -1,7 +1,7 @@
 """BM25 TypeScript của demo RAG: chạy đúng file sản phẩm bằng node, đối chiếu `bm25s` (ADR-0038).
 
 Python ở đây chỉ là bài giải mẫu; bản trong sản phẩm là TypeScript (ADR-0037). Mọi câu trong test
-là câu tự đặt, không dùng chữ của bài thật vì repo public.
+là câu tự đặt, không dùng chữ của bài thật vì repo public. Quy tắc token: ADR-0038 D3, ADR-0039 D4.
 """
 
 import functools
