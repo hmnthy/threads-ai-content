@@ -1,6 +1,6 @@
 # Hợp đồng UI — Unthreaded
 
-> Cập nhật tới: ADR-0037 · 2026-11-05 (trang demo "RAG pipeline visualization": đoạn nguồn xếp hạng, tính sẵn, không câu trả lời LLM)
+> Cập nhật tới: ADR-0038 · 2026-11-06 (BM25 của demo RAG: thanh kéo k1 / b, khoảng hạng khi hoà điểm, định nghĩa đáp án đúng)
 >
 > **Đọc khi:** trước mọi phiên thiết kế (Claude Design) và trước khi port mockup sang code (Claude Code).
 > **Vì sao có file này:** ADR-0020. Chiều thay đổi chỉ có một: **ADR → hợp đồng này → mockup → code.** Mockup cần thứ
@@ -218,8 +218,16 @@ code dời dòng thì chạy `uv run python -m scripts.consistency.check --fix-r
 |---|---|---|---|---|---|---|
 | UI-0037-rag-pipeline-page | 0037 | — (file JSON dựng bởi `scripts/rag_demo_build.py`, publish lên Vercel Blob riêng tư, API chỉ đọc trả nguyên file qua một endpoint GET — chưa có, PR code) | Trang chỉ có danh sách đoạn nguồn xếp hạng, không câu trả lời do LLM viết; endpoint chỉ phát tên file trong danh sách cố định, tên khác → 404; dữ liệu là 20 content unit đóng băng (bài gốc + post tác giả viết tiếp), không reply cho follower; code ở `src/dashboard/src/app/rag-pipeline/` | rag-pipeline | manual | Tên trang "RAG pipeline visualization", route `/rag-pipeline`, tab "RAG pipeline"; hai giai đoạn Indexing → Query theo thứ tự pipeline, mỗi bước một khối có lựa chọn + kết quả của bước; mỗi đoạn hiện hạng ở từng bước (BM25, dense, trộn, rerank) + mũi tên đổi hạng + hạng của đáp án đúng; chế độ A/B đặt 2 cấu hình cạnh nhau; dòng ghi công repo mẫu |
 | UI-0037-static-precomputed | 0037 | — (điểm câu hỏi × chunk, cosine chunk × chunk, kết quả LLM kèm tên model + phiên bản prompt) | Bước cần model (embedding `text-embedding-3-small`, cross-encoder `BAAI/bge-reranker-v2-m3`, mọi vai Claude Haiku 5.5): phần phụ thuộc câu hỏi chỉ tính sẵn cho 10 câu hỏi cố định, phần không phụ thuộc câu hỏi (chunk, câu ngữ cảnh, embedding chunk) tính sẵn một lần; trình duyệt chỉ chạy BM25, trộn, top-K, MMR, lọc (`src/dashboard/src/lib/ragDemo/`); LLM rerank chấm từng đoạn độc lập | rag-pipeline | manual | Mỗi kết quả LLM ghi tên model + phiên bản prompt; chữ do LLM viết hiện bản tiếng Anh trước, chữ tiếng Việt / Pháp ngay dưới; câu hỏi cố định có nhãn "precomputed" |
-| UI-0037-free-query-bm25-only | 0037 | — (câu người xem tự gõ) | Câu tự gõ chỉ chạy BM25 trong trình duyệt (âm tiết + bản bỏ dấu); dense, rerank và LLM tắt cho câu này; câu tự gõ không rời trình duyệt (không request mạng nào chứa câu hỏi, kể cả URL) | rag-pipeline | manual | Lựa chọn bị tắt vẫn hiện, kèm một câu vì sao (chỉ tính sẵn cho câu hỏi cố định) |
+| UI-0037-free-query-bm25-only | 0037 | — (câu người xem tự gõ) | Câu tự gõ chỉ chạy BM25 trong trình duyệt (âm tiết; câu có dấu so khớp có dấu, câu không dấu so khớp bản bỏ dấu — ADR-0038); dense, rerank và LLM tắt cho câu này; câu tự gõ không rời trình duyệt (không request mạng nào chứa câu hỏi, kể cả URL) | rag-pipeline | manual | Lựa chọn bị tắt vẫn hiện, kèm một câu vì sao (chỉ tính sẵn cho câu hỏi cố định) |
 | UI-0037-explain-every-step | 0037 | — | Mọi bước, lựa chọn và con số có nghĩa + công thức + lý do + giới hạn (sổ luật `docs/claude/design-system.md` §3b) | rag-pipeline | manual | Viết cho cả kỹ sư lẫn người không làm kỹ thuật; ghi rõ "minh hoạ cơ chế, không phải đánh giá" kèm n (20 bài, 10 câu hỏi) |
+
+## ADR-0038 — BM25 và đáp án đúng của demo RAG
+
+| id | ADR | Khái niệm / trường (A) | Ràng buộc kỹ thuật (B) | Trang (C) | Kiểm bằng (D) | Trình bày (E) |
+|---|---|---|---|---|---|---|
+| UI-0038-bm25-controls | 0038 | — (k1, b, tính trong trình duyệt) | BM25 dùng công thức Lucene; k1 = 1,2 và b = 0,75 là mặc định có nhãn nguồn, người xem đổi được bằng 2 thanh kéo; code ở `src/dashboard/src/lib/ragDemo/` | rag-pipeline | manual | Mỗi thanh kéo có nghĩa bằng lời thường + giá trị mặc định + nguồn; có một câu nói tác động thường nhỏ |
+| UI-0038-tied-rank | 0038 | — (hạng trong danh sách BM25) | Điểm bằng nhau sau khi làm tròn tới 6 chữ số thập phân xếp theo mã chunk; đáp án đúng bị hoà thì hiện khoảng hạng, không một số trần; đoạn điểm 0 không được xếp hạng | rag-pipeline | manual | Khoảng hạng có nhãn "tied" và giải thích vì sao không có một hạng duy nhất |
+| UI-0038-gold-definition | 0038 | — (đáp án đúng trong file dữ liệu demo) | Đáp án đúng theo mã bài: câu 3 và 7 cần cả 2 bài, câu 4 một trong 2 bài, câu 10 không có đáp án; câu 5 và 8 chunk phải chạm đoạn chứa ý; hạng mỗi bài lấy chunk trúng cao nhất, câu 3 và 7 có số chính = hạng của bài tìm thấy sau cùng + hạng từng bài; chunk nào trúng do bước dựng bằng Python tính sẵn, trình duyệt không tính vị trí | rag-pipeline | manual | Trang nói rõ hạng tính theo bài hay theo đoạn ở từng câu; câu 10 hiện là không có đáp án, không hiện hạng; đáp án không có chunk nào điểm trên 0 thì hiện "not found" |
 
 ## Quyết định trước ADR-0001 còn hiệu lực (legacy-log, design-system)
 

@@ -641,6 +641,9 @@ Sau khi bỏ câu trả lời follower khỏi `full_text`, chạy lại đúng t
 phải KB: phần cần model tính sẵn cho 10 câu hỏi cố định (embedding OpenAI `text-embedding-3-small` — chỉ trong demo,
 gom cụm vẫn bge-m3; cross-encoder `BAAI/bge-reranker-v2-m3`; các vai LLM trung gian bằng Claude Haiku 5.5, LLM rerank
 chấm từng đoạn độc lập), trình duyệt chạy BM25 / trộn / MMR; output là đoạn nguồn xếp hạng, không câu trả lời LLM.
+BM25 của demo (ADR-0038): công thức Lucene, `IDF = log(1 + (N − n + 0,5) / (n + 0,5))`, k1 = 1,2 và b = 0,75 có nhãn nguồn;
+token theo âm tiết, không stopword, câu có dấu so khớp có dấu, câu không dấu so khớp bản bỏ dấu; hoà điểm xếp theo mã
+chunk. Đáp án đúng theo mã bài, câu 5 và 8 thêm vị trí ký tự, bước dựng bằng Python tính sẵn chunk nào trúng.
 
 ### Phạm vi hiện tại
 
