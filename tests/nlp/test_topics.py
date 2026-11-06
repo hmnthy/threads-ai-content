@@ -82,7 +82,7 @@ def test_label_cluster_with_claude_parses_json_response() -> None:
     )
 
 
-@pytest.mark.slow  # UMAP + HDBSCAN thật, ~20s trên Windows
+@pytest.mark.slow  # UMAP + HDBSCAN thật, ~30s trên Windows
 def test_cluster_embeddings_on_toy_data() -> None:
     # BLOCKED trên máy chạy agent này (2026-08-31): umap-learn/hdbscan phụ thuộc
     # scipy.linalg._flapack ở tầng import, bị Smart App Control chặn (chẩn đoán

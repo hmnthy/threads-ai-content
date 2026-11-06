@@ -402,10 +402,12 @@ paths = ["docs/claude/dev-rules.md"]
 [[forbid]]
 id = "ADR0008-pytest-slow"
 adr = "0008"
-# (?<![\d,.–-]) → không khớp "1,5 phút" / "1–1.5 min" (thời gian thật của bộ đầy đủ)
-pattern = '(?i)pytest[^\n]{0,60}~?\s?(?<![\d,.–-])5 (phút|min)'
-why = "Bộ test đầy đủ ~51 giây, bộ nhanh ~20 giây — con số ~5 phút là lần chạy lạnh đầu tiên"
-fix = "Ghi '~1 phút (đầy đủ); pre-commit chạy bộ nhanh'"
+# Đo lại 2026-11-05 (luật cũ cấm "~5 phút" theo số đo ~51 giây — nay sai): cả suite ~6 phút trên
+# laptop Windows. (?<![\d,.–-]) → không khớp "11 phút" / "0,1 phút" / "2.1 min"; (?<!dưới |under |< )
+# → câu so sánh đúng ("dưới 1 phút trên CI") không bị bắt; đuôi bắt cả "1 minute(s)", "1min".
+pattern = '(?i)pytest[^\n]{0,60}(?<![\d,.–-])(?<!dưới )(?<!under )(?<!< )1 ?(phút|min(ute)?s?)\b'
+why = "Cả suite ~6 phút trên laptop Windows (mỗi lần mở git ~0,3 s, so với ~1 ms trong WSL2 cùng máy — nghi do Smart App Control đang bật, chưa đo tách riêng), bộ pre-commit cũng vậy vì chỉ bỏ vài test slow/live; CI Linux ~30 s — '~1 phút' là số đo cũ"
+fix = "Ghi '~6 phút trên laptop Windows' hoặc 'vài phút' (README)"
 allow = ["docs/decisions/**"]
 
 [[forbid]]

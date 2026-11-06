@@ -1,7 +1,7 @@
 # Status — Unthreaded
 
 > Chỉ trạng thái HIỆN TẠI (≤60 dòng). Lịch sử = `git log` + `docs/decisions/`. Cập nhật ở mỗi `/checkpoint`.
-> Cập nhật: 2026-11-05 (ADR-0037 demo RAG đã ghi trên nhánh `feat/rag-visualizer`, code chưa viết; RQ-01: PR #39, đã merge)
+> Cập nhật: 2026-11-06 (ADR-0037 demo RAG đã ghi trên nhánh `feat/rag-visualizer`, code chưa viết; test chập chờn + số phút test: PR #40, đã merge; RQ-01: PR #39, đã merge)
 
 ## Now
 
@@ -40,7 +40,7 @@
 ## Blocked / cần Thy
 
 - Vòng 3 Claude Design (gói 2026-10-07) xong; cảnh báo mockup nay 12 (1 báo nhầm ADR-0001, 2 ADR-0021, 6 ADR-0023, 2 ADR-0031, 1 ADR-0035). Lần gửi tới kèm `ui-contract-audit.md` mới (mục "Việc 3": chữ panel 1, Approach, How it works, bảng top) và đổi `RUN_AT_UTC` của landing thành giờ thật `2026-10-01T11:35:06Z`.
-- Lần mở phiên tới: duyệt 2 MCP server trong `/mcp` (`context7`, `huggingface` — HF đăng nhập OAuth) và thử pop-up khi Claude xong việc.
+- Lần mở phiên tới: thử pop-up khi Claude xong việc.
 - Duyệt bio ở `LandingAuthor.tsx` (copy của mockup, vẫn là nháp). Repo đã public (ADR-0027) → Thy quyết có thêm lại nút "View the repo" ở khối CTA không.
 - Phase C cần Thy mở VS Code Remote-WSL (Claude Code chạy trong Linux) — không tự làm được từ phiên Windows.
 - RQ-08 cần Thy gán nhãn tay 150 bài (6 nhãn cố định) + gán lại 30 bài sau 2 tuần.
@@ -51,9 +51,9 @@
 
 ## Số liệu nhanh
 
-- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 1059 test pass
-- `pytest` đầy đủ ~6 phút trên máy hiện tại (dao động theo tải máy); bộ nhanh (`-m "not slow and not live"`, chạy ở pre-commit) ~20 giây
+- 163 root post · 1.475 reply của tác giả (385 self_continuation · 716 author_answer · 374 outbound — ADR-0004) · 10 cluster (nhiễu 41% — lần gom 2026-10-20; số sống: `GET /pipeline/summary`) · 1061 test pass
+- `pytest` đầy đủ ~6 phút trên laptop Windows; bộ `-m "not slow and not live"` (pre-commit) cũng ~6 phút vì chỉ bỏ vài test — mỗi lần mở git ~0,3 s trên Windows, ~1 ms trong WSL2 (đo 2026-11-05; nghi do Smart App Control, chưa tách riêng); CI Linux chạy bộ đó ~30 s
 
 ## Last checkpoint
 
-- Record ADR-0037: static RAG pipeline visualization demo — nhánh `feat/rag-visualizer` (tách từ `main` 4557642, sau PR #39 — đã merge)
+- Record ADR-0037: static RAG pipeline visualization demo — nhánh `feat/rag-visualizer` (tách từ `main` 4557642, sau PR #39 — đã merge; đã gộp `main` 7db2040, sau PR #40 — đã merge)
