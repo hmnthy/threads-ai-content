@@ -650,6 +650,17 @@ token); dấu thanh trên nguyên âm sau ở cụm oa, oe, uy gộp về nguyê
 `q`. `œ`, `æ` không đổi: 0 lần trong 20 bài.
 Chia đoạn (ADR-0039): 7 cách (không chia, theo từng post, cố định 300 / 500 / 800 ký tự, recursive 500, semantic), chunk lấy
 từ `full_text`, câu ngữ cảnh là công tắc, rerank chấm trên chữ gốc của chunk.
+Tập 20 bài đóng băng bằng danh sách mã + độ dài + hash (`src/rag_demo/corpus.py:28#FROZEN_UNITS`), không bằng "20 bài mới nhất": bài mới
+không đẩy bài cũ ra; bài biến mất khỏi DB, đổi chữ hoặc có thêm post viết tiếp thì `src/rag_demo/corpus.py:166#load_units` dừng.
+Bài gốc xoá trên Threads vẫn nằm trong DB (ingest không xoá hàng nào) nên chốt này không bắt được: bước dựng (chặng 3, chưa có) phải so với danh
+sách bài còn sống trước khi publish. Tách câu
+(`src/rag_demo/chunking.py:111#split_sentences`): mảnh chỉ có emoji hoặc ký hiệu gắn vào câu trước, nên mọi ký tự đều nằm trong
+chunk; số thứ tự danh sách ("2.") gắn vào câu sau, không thành câu riêng; ranh giới post không phải điểm ngắt câu cứng
+(rất ít câu chứa chữ của 2 post, số đo ghi trong docstring module); cỡ cố định không tính dấu cách nằm đúng ở mép cửa sổ, có thể mất 1 từ cuối đoạn mà
+đoạn sau thường có lại nhờ chồng lấn (`src/rag_demo/chunking.py:145#_fixed_spans`; cả 3 điểm Thy chốt 2026-11-07). Ngưỡng
+semantic tính chung trên mọi cặp câu liền kề của cả tập, không riêng từng bài (Thy chốt 2026-11-06). CI không có DB thật:
+test chạy `src/rag_demo/questions.py:124#check_gold` trên bài giả có đúng độ dài đóng băng, nên vẫn kiểm được mã đáp án và 2
+vị trí; bước dựng (chặng 3, chưa có) sẽ kiểm lại trên bài thật, kể cả độ dài lưu sẵn.
 
 ### Phạm vi hiện tại
 

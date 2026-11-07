@@ -138,3 +138,5 @@ def test_api_imports_with_only_deploy_set() -> None:
     assert proc.returncode == 0, proc.stderr
     loaded = json.loads(proc.stdout)
     assert [m for m in loaded if m.partition(".")[0] in PIPELINE_MODULES] == []
+    # Gói chỉ cần numpy nên danh sách trên không bắt được; API chỉ phát file demo (ADR-0037)
+    assert [m for m in loaded if m.startswith("src.rag_demo")] == []
