@@ -33,7 +33,7 @@ threads-ai-content/
 │   ├── analysis/              # 6 index (share_rate…) + reach (tầng, ADR-0012) + stats/significance/topic_comparison/reply_thread/topic_affinity
 │   ├── db/schema.py           # SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs, topic_label_history, topic_comparison_runs, topic_comparisons, data_migrations
 │   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job + nlp_cluster_job (cron, pythonw — ADR-0013), job_log, cầu nối clustering Win↔WSL2 (bỏ ở Phase C), compare_topics (bước cuối job NLP, ADR-0023)
-│   ├── rag_demo/              # demo RAG (ADR-0037), chỉ chạy trên laptop, API không import: corpus (20 bài đóng băng), chunking (7 cách chia đoạn), questions (10 câu + đáp án)
+│   ├── rag_demo/              # demo RAG (ADR-0037), chỉ chạy trên laptop, API không import: corpus (20 bài đóng băng), chunking (7 cách chia đoạn), questions (10 câu + đáp án), embedding (OpenAI + cache), llm_jobs + llm_batch (Haiku qua Message Batches), cross_encoder (+ `cross_encoder_wsl`, chỉ WSL2)
 │   ├── main.py                # FastAPI — chỉ đọc SQLite, không load model trong request
 │   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
 │                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)
@@ -103,6 +103,7 @@ ADR-0025). Landing ghi mốc "Data as of …" (`UI-0025-published-snapshot`).
 | Nơi | Biến | Ghi chú |
 |---|---|---|
 | Laptop `.env` (thư mục chính) | `DB_BLOB_PATH=threads.db`, `BLOB_READ_WRITE_TOKEN` | Thiếu → publish bỏ qua. Chỉ đọc từ `.env` của chính checkout; worktree không bao giờ publish |
+| Laptop `.env` | `OPENAI_API_KEY` | Chỉ bước dựng demo RAG (embedding, ADR-0037 D6); không bao giờ đặt trên Vercel. Khoá chỉ cần quyền Embeddings |
 | Vercel `unthreaded-api` | `DB_BLOB_PATH`, `CORS_ALLOW_ORIGINS` (Config, các origin trang công khai, phân cách dấu phẩy) | `VERCEL=1` do Vercel tự đặt (cổng bật chế độ Blob) |
 | Vercel `unthreaded-api` (do "Connect store" tạo, prefix `BLOB`) | `BLOB_STORE_ID`, `BLOB_READ_WRITE_TOKEN`, `BLOB_WEBHOOK_PUBLIC_KEY` | API đọc bằng token OIDC trong header request (đã kiểm log: "credential from header"); token RW chỉ là dự phòng |
 | Vercel `unthreaded` | `NEXT_PUBLIC_API_BASE_URL=https://unthreaded-api.vercel.app` | Gắn vào bản build → đổi phải redeploy |

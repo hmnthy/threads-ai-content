@@ -1327,6 +1327,23 @@ wheels = [
 ]
 
 [[package]]
+name = "openai"
+version = "3.46.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "httpx2" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/34/b6/23cddcb571d6eafe7b4bb58c7e0a068076121b7b001b776179994cca6a03/openai-3.46.0.tar.gz", hash = "sha256:fb34cd8cab6809ad0aa8dc42493fa622aaa87c814fd8e67a6fb3fa1f1e5d952d", size = 2408622, upload-time = "2026-11-05T00:55:55.463Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f4/63/454e6faad68ac903e7669932db8d0a91c95dfca829ec9476e52045b17684/openai-3.46.0-py3-none-any.whl", hash = "sha256:7b650117e9bf539029bf880c2eff94a26f281394f6572284efa5d068d4b1c98e", size = 2438918, upload-time = "2026-11-05T00:55:53.301Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1995,6 +2012,7 @@ dev = [
     { name = "hdbscan" },
     { name = "lingua-language-detector" },
     { name = "mypy" },
+    { name = "openai" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -2011,6 +2029,7 @@ pipeline = [
     { name = "anthropic" },
     { name = "hdbscan" },
     { name = "lingua-language-detector" },
+    { name = "openai" },
     { name = "scikit-learn" },
     { name = "sentence-transformers" },
     { name = "umap-learn" },
@@ -2038,6 +2057,7 @@ dev = [
     { name = "hdbscan", specifier = ">=0.8.44" },
     { name = "lingua-language-detector", specifier = ">=2.2.0" },
     { name = "mypy", specifier = ">=2.3.1" },
+    { name = "openai", specifier = ">=3.46.0" },
     { name = "pre-commit", specifier = ">=4.6.2" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
@@ -2054,6 +2074,7 @@ pipeline = [
     { name = "anthropic", specifier = ">=1.2.0" },
     { name = "hdbscan", specifier = ">=0.8.44" },
     { name = "lingua-language-detector", specifier = ">=2.2.0" },
+    { name = "openai", specifier = ">=3.46.0" },
     { name = "scikit-learn", specifier = ">=1.9.0" },
     { name = "sentence-transformers", specifier = ">=6.0.1" },
     { name = "umap-learn", specifier = ">=0.5.12" },

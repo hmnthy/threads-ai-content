@@ -662,6 +662,63 @@ semantic tính chung trên mọi cặp câu liền kề của cả tập, không
 test chạy `src/rag_demo/questions.py:124#check_gold` trên bài giả có đúng độ dài đóng băng, nên vẫn kiểm được mã đáp án và 2
 vị trí; bước dựng (chặng 3, chưa có) sẽ kiểm lại trên bài thật, kể cả độ dài lưu sẵn.
 
+### Methodology log: tính sẵn của demo RAG (chặng 3, thực nghiệm 2026-11-07 → 08)
+
+Thy yêu cầu (2026-11-07, 2026-11-08): mỗi lựa chọn kỹ thuật được lưu kèm đủ lý luận, và trang `/rag-pipeline` giải thích
+được cho người đọc. Số đo dưới đây là của lần dựng này, trên 20 bài đóng băng.
+
+- **Chunk semantic** (`src/rag_demo/chunking.py`): câu → vector OpenAI → cosine giữa 2 câu liền kề → ngưỡng = phân vị 25
+  của mọi cặp câu liền kề trong cả tập (0,309 trên 330 cặp) → cắt ở cặp dưới ngưỡng, tối đa 800 ký tự. Ra 111 chunk; 19
+  chunk dưới 40 ký tự, đều là 1 câu ngắn: 12 ở giữa bài có cosine dưới ngưỡng với cả câu trước lẫn câu sau, 7 ở đầu
+  (2) hoặc cuối bài (5) chỉ có một câu liền kề và cosine với câu đó dưới ngưỡng. Thy giữ nguyên (S1 A, 2026-11-07),
+  không thêm luật gộp, vì đây là điểm yếu thật của cách chia này; trang nói rõ vì sao có chunk 1 câu và câu ngữ cảnh giúp
+  được gì.
+- **Vai Haiku** (`src/rag_demo/llm_jobs.py`, Thy chốt 2026-11-07): rerank thang 0–3 có định nghĩa từng mức, giữ khi
+  điểm ≥ 2 (C1 A); suy nghĩ thích ứng mức `low` (C2 A); gửi qua Message Batches, rẻ hơn 50 % (C3 A); chỉ chấm trên câu hỏi
+  gốc, không trên câu đã biến đổi (C4 A), để số cặp không nhân 7. Câu trích phải là chuỗi con nguyên văn của chunk, sai
+  thì bỏ câu trích (giữ điểm). Haiku 5.5 không đổi được `temperature`, nên kết quả được lưu và không tự chạy lại; mỗi
+  việc có phiên bản prompt riêng, test ghim dấu vân tay (sha256 của tham số request thật — model, trần token, effort,
+  schema, system, chữ prompt — dựng từ một đầu vào giả cố định) theo từng phiên bản, nên sửa prompt hay cách dựng request
+  mà quên tăng phiên bản thì test đỏ, và nhãn phiên bản của kết quả là của lúc gửi lô. Mỗi dòng kết quả mang mã lô và dấu
+  vân tay của lúc gửi, nhưng chỉ từ các lô sau 2026-11-08: 5.182 dòng của 3 lô (transform 10, context 472 gồm 20 bản dịch,
+  rerank 4.700) ngày 2026-11-07 → 08
+  được thu trước khi có hai trường này (không điền bù — điền dấu vân tay hiện tại sẽ là một khẳng định không kiểm được), nên
+  bước đóng file demo phải chấp nhận dòng thiếu chúng. Từ nay mỗi dòng còn lưu output thô (`raw`) trước mọi bước chuẩn
+  hoá, để đổi luật hậu kiểm (mức giữ, cách so nguyên văn) vẫn áp lại được; 5.182 dòng cũ chỉ có bản đã chuẩn hoá, nên 228
+  câu trích đã bỏ (kể cả ca `not_verbatim` duy nhất) không xem lại được trừ khi tải lại kết quả lô — Batch API giữ kết
+  quả 29 ngày sau khi tạo (skill claude-api, `batches.md`), tức tới khoảng 2026-12-06 cho 3 lô này. Kết quả rerank
+  (4.700 cặp, 0 lỗi): 257 cặp giữ; 228 câu trích bị bỏ, trong đó 227 vì model vẫn trả câu trích khi điểm 0–1 (đúng luật)
+  và chỉ 1 vì không nguyên văn ở điểm ≥ 2 (`quote_drop_reason` tách hai lý do; chỉ con số sau đo được lỗi bịa chữ). Chi
+  phí thật theo bảng giá (giảm 50 % của lô cộng dồn với giá cache ×1,25 ghi / ×0,1 đọc): $0,273 cho 3 việc Haiku,
+  $0,002 cho embedding.
+- **Chunk trùng cả bài thì chỉ dịch, không có câu ngữ cảnh** (`src/rag_demo/llm_jobs.py`, `context_requests`): không chỉ
+  cách "không chia" (20 chunk) mà mọi chunk có chữ bằng cả bài ở các cách khác (bài ngắn hơn cỡ cửa sổ): lần dựng này 15
+  chunk (theo post 2, cố định 300 2, cố định 500 3, cố định 800 3, recursive 500 3, semantic 2). Cùng lý do ADR-0039 D2:
+  câu ngữ cảnh "đặt chunk vào bài" vô nghĩa khi chunk đã là cả bài. Trang hiển thị các chunk này là "the chunk is the
+  whole post", không để trống.
+- **Câu 1 gõ không dấu**: mọi biến đổi câu hỏi của Haiku đọc sai câu này. Thy giữ nguyên (Q1 A, 2026-11-07): không chạy
+  lại, không sửa prompt riêng cho câu này (chọn kết quả đẹp hoặc dạy theo đề), trang trình bày đây là kiểu lỗi thật của
+  bước viết lại câu hỏi bằng LLM.
+- **Cross-encoder** (`src/rag_demo/cross_encoder.py`, chạy trong WSL2 bằng `src/rag_demo/cross_encoder_wsl.py`):
+  `BAAI/bge-reranker-v2-m3` khoá commit Hugging Face, chấm mọi cặp câu hỏi gốc × chữ chunk (4.700 cặp), chữ gốc không
+  kèm câu ngữ cảnh (ADR-0039 D2). Lưu logit thô; sigmoid chỉ để hiển thị, thứ hạng không đổi. fp32, không fp16 (model card
+  nói fp16 giảm nhẹ chất lượng; fp32 vẫn chỉ mất 141 giây trên RTX 4070). Kiểm lặp lại trên mẫu 150 cặp, chấm lại từng
+  cặp một (không đệm chung lô): 100 cặp lấy cách đều trên danh sách (10 cặp mỗi câu hỏi) cộng cả 50 cặp dài hơn 512 token
+  (nơi phần đệm trong lô khác nhiều nhất). Trên mẫu này, độ lệch lớn nhất so với chấm theo lô là δ = 2,7 × 10⁻⁵ logit
+  (riêng 50 cặp dài: 9,5 × 10⁻⁶); δ là max trên mẫu, không phải trên mọi cặp. Hai hạng liền kề chỉ có thể đổi chỗ khi
+  khoảng cách < 2δ (mỗi bên lệch một phía). Ở 20 hạng đầu mỗi câu hỏi, khoảng cách nhỏ nhất là 2,0 × 10⁻⁴ (gấp 3,8 lần
+  2δ), nên trên mẫu này thứ tự phần đầu bảng không phụ thuộc cách gom lô; trên cả 470 hạng, 596 / 4.690 khoảng cách nhỏ
+  hơn 2δ và có 4 cặp hoà điểm tuyệt đối, nên ở phần đuôi thứ tự có thể đổi. Chặng 4 cần một luật phá hoà cố định cho
+  điểm cross-encoder (Thy chọn khi làm trang; ADR-0038 mới chốt luật hoà cho BM25).
+- **Độ dài tối đa của cross-encoder = 1024 token** (Thy chốt 2026-11-08, phương án A). Đo trên 4.700 cặp: dài nhất 790
+  token, trung vị 120; 50 cặp vượt 512, đều thuộc 5 chunk của cách "không chia", 4 trong 5 là bài đáp án (câu 2, 4, 7, 8).
+  Mức 512 (mặc định FlagEmbedding) cắt đuôi đúng các bài đó, kể cả có thể mất đáp án câu 8 (ký tự 1141–1363 của bài dài
+  2625 ký tự): cách "không chia" sẽ thua vì bị cắt, không vì cách chia, làm lệch phép so sánh mà trang muốn cho thấy. Mức
+  1024 không cắt cặp nào; model có 8194 vị trí, và ví dụ chấm điểm chính thức của FlagEmbedding cho model này dùng 1024.
+  Giới hạn: tài liệu không nói model được fine-tune trên cặp dài bao nhiêu, nên điểm của 5 chunk dài có thể kém tin cậy
+  hơn. Bước WSL2 dừng nếu có cặp vượt mức, không bao giờ cắt ngầm; bước đọc trên Windows từ chối file điểm không ghi độ dài
+  cặp dài nhất.
+
 ### Phạm vi hiện tại
 
 - 150 root post + 1.369 reply của tác giả: 353 self_continuation · 674 author_answer · 342 outbound (`posts.reply_role`, ADR-0004, số đo 2026-10-01)

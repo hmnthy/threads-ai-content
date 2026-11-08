@@ -114,6 +114,7 @@ def test_line_with_only_digits_stays_its_own_sentence() -> None:
         (f"2.\n{SMILE}\nCâu.", [(0, 9)]),  # ký hiệu giữa số và câu sau
         (f"{SMILE} 2. Câu.", [(0, 9)]),  # ký hiệu đầu bài rồi mới đến số
         ("Giá 10. Rẻ.", [(0, 3), (4, 11)]),  # giới hạn đã chấp nhận: số thường cũng bị bắt
+        ("Mục:\n3)\nCâu ba.", [(0, 4), (5, 15)]),  # dạng "3)" (0 lần trong 20 bài) cũng về sau
     ],
 )
 def test_list_number_joins_the_next_sentence(text: str, expected: list[tuple[int, int]]) -> None:

@@ -65,12 +65,14 @@ markers = [
 
 [dependency-groups]
 # Thư viện của 2 cron job (snapshot, NLP: embedding/UMAP/HDBSCAN, nhận diện ngôn ngữ, đặt tên cụm,
-# tách từ) — API không dùng. Không thêm "pipeline" vào `default-groups`: `--no-dev` của Vercel
+# tách từ) và bước dựng demo RAG trên laptop (`openai`: embedding chỉ cho demo, ADR-0037 D6) — API
+# không dùng. Không thêm "pipeline" vào `default-groups`: `--no-dev` của Vercel
 # chỉ bỏ nhóm `dev`, nhóm mặc định khác vẫn bị cài → vượt 500 MB.
 pipeline = [
     "anthropic>=1.2.0",
     "hdbscan>=0.8.44",
     "lingua-language-detector>=2.2.0",
+    "openai>=3.46.0",
     "scikit-learn>=1.9.0",
     "sentence-transformers>=6.0.1",
     "umap-learn>=0.5.12",
