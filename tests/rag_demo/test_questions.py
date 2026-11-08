@@ -20,15 +20,15 @@ from src.rag_demo.questions import (
     gold_chunk_ids,
 )
 
-ADR_0037 = (
-    Path(__file__).parents[2] / "docs/decisions/0037-rag-pipeline-visualization-static-demo.md"
-)
+DECISIONS = Path(__file__).parents[2] / "docs/decisions"
+ADR_0037 = DECISIONS / "0037-rag-pipeline-visualization-static-demo.md"
+ADR_0040 = DECISIONS / "0040-rag-demo-deleted-post-and-preregistered-gold.md"
 
 EXPECTED_RULES = {
     1: (AnswerRule.SINGLE, 1),
     2: (AnswerRule.SINGLE, 1),
     3: (AnswerRule.BOTH, 2),
-    4: (AnswerRule.ANY_OF_TWO, 2),
+    4: (AnswerRule.SINGLE, 1),  # ADR-0040: bài gần trùng thứ hai bị xoá trên Threads
     5: (AnswerRule.SINGLE, 1),
     6: (AnswerRule.SINGLE, 1),
     7: (AnswerRule.BOTH, 2),
@@ -62,17 +62,33 @@ def test_ten_questions_numbered_in_order_with_english() -> None:
     assert all(question.text and question.english for question in QUESTIONS)
 
 
+def deleted_by_adr_0040() -> str:
+    """Mã bài ADR-0040 D1 bỏ, đọc từ chính ADR (không từ code đang kiểm)."""
+    match = re.search(r"Bỏ bài `(\d{17})`", ADR_0040.read_text(encoding="utf-8"))
+    assert match is not None
+    return match[1]
+
+
 def test_questions_match_the_adr_table_word_for_word() -> None:
-    """Chữ, tiếng Anh và mã bài của từng câu: đổi chỗ đáp án 2 câu là hỏng ở đây."""
+    """Chữ, tiếng Anh và mã bài của từng câu: đổi chỗ đáp án 2 câu là hỏng ở đây. Bảng của ADR-0037
+    trừ đi đúng bài ADR-0040 bỏ."""
+    deleted = deleted_by_adr_0040()
     row = re.compile(r"\| (\d+) \| (.+?) \| (.+?) \| (.+?) \| .+ \|$")
     table = {}
     for line in ADR_0037.read_text(encoding="utf-8").splitlines():
         match = row.fullmatch(line)
         if match is not None:
-            gold_ids = tuple(re.findall(r"\d{17}", match[4]))
+            gold_ids = tuple(i for i in re.findall(r"\d{17}", match[4]) if i != deleted)
             table[int(match[1])] = (match[2], match[3], gold_ids)
     assert len(table) == 10
+    assert deleted in ADR_0037.read_text(encoding="utf-8")  # ADR-0040 bỏ đúng một bài có trong bảng
     assert {q.number: (q.text, q.english, q.gold_unit_ids) for q in QUESTIONS} == table
+
+
+def test_the_deleted_unit_is_gone_from_corpus_and_gold() -> None:
+    deleted = deleted_by_adr_0040()
+    assert deleted not in {unit.id for unit in FROZEN_UNITS}
+    assert all(deleted not in q.gold_unit_ids for q in QUESTIONS)
 
 
 def test_answer_rule_and_gold_count_of_each_question() -> None:
@@ -83,7 +99,7 @@ def test_answer_rule_and_gold_count_of_each_question() -> None:
 def test_every_gold_unit_is_in_the_frozen_list() -> None:
     frozen = {unit.id for unit in FROZEN_UNITS}
     gold = {unit_id for question in QUESTIONS for unit_id in question.gold_unit_ids}
-    assert len(gold) == 10
+    assert len(gold) == 9  # 10 trước ADR-0040
     assert gold <= frozen
 
 

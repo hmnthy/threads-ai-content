@@ -10,17 +10,19 @@ import sqlite3
 import subprocess
 import sys
 import types
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from scripts import rag_demo_build
+from src.api.auth import REQUIRED_ENV_VARS
 from src.rag_demo.chunking import ChunkingWay
 from src.rag_demo.corpus import PostSpan, Unit
 from src.rag_demo.cross_encoder import PAIRS_PATH, SCORES_PATH
 from src.rag_demo.embedding import EmbeddingCache, token_upper_bound
 from src.rag_demo.llm_jobs import Job
-from src.rag_demo.questions import QUESTIONS
+from src.rag_demo.questions import QUESTIONS, AnswerRule, GoldSpan, Question
 from tests.rag_demo.test_embedding import FakeClient
 
 REPO = Path(__file__).resolve().parents[2]
@@ -126,9 +128,142 @@ def test_ce_check_needs_no_db_but_other_commands_do(tmp_path: Path) -> None:
         rag_demo_build.main(["ce-check", *isolated(tmp_path)])
 
 
+QUESTION = Question(
+    number=1,
+    text="câu hỏi tự đặt",
+    english="made-up question",
+    rule=AnswerRule.SINGLE,
+    gold_unit_ids=("u1",),
+    gold_span=GoldSpan(start=0, end=5),
+)
+
+
+@pytest.fixture
+def embedded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> EmbeddingCache:
+    """Cache có vector câu (để chia semantic) và bộ câu hỏi chỉ một câu, đáp án nằm ở bài giả."""
+    cache = EmbeddingCache(tmp_path / "c.jsonl")
+    rag_demo_build.run_embed(UNITS, FakeClient(), cache)
+    monkeypatch.setattr(rag_demo_build, "QUESTIONS", (QUESTION,))
+    return cache
+
+
+def test_check_passes_only_with_a_current_pairs_file(
+    embedded: EmbeddingCache, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    by_way = rag_demo_build.all_chunks(UNITS, FakeClient(), embedded)
+    path = tmp_path / "pairs.json"
+    assert rag_demo_build.build_problems(UNITS, by_way, path) == [
+        f"chưa có file cặp cross-encoder {path}"
+    ]
+    rag_demo_build.run_ce_export(UNITS, embedded, path)
+    assert rag_demo_build.build_problems(UNITS, by_way, path) == []
+    # sửa câu hỏi sau khi chấm: điểm cũ thuộc cặp khác
+    monkeypatch.setattr(rag_demo_build, "QUESTIONS", (replace(QUESTION, text="câu đã sửa"),))
+    assert rag_demo_build.build_problems(UNITS, by_way, path) == [
+        "file cặp cross-encoder không còn khớp chunk / câu hỏi hiện tại"
+    ]
+
+
+def test_check_reports_a_way_where_no_chunk_holds_the_answer(
+    embedded: EmbeddingCache, tmp_path: Path
+) -> None:
+    by_way = rag_demo_build.all_chunks(UNITS, FakeClient(), embedded)
+    path = tmp_path / "pairs.json"
+    rag_demo_build.run_ce_export(UNITS, embedded, path)
+    by_way[ChunkingWay.WHOLE] = [c for c in by_way[ChunkingWay.WHOLE] if c.unit_id != "u1"]
+    # chữ của chunk bỏ đi vẫn có ở cách chia khác (bài ngắn) nên file cặp vẫn khớp: chỉ một lỗi
+    assert rag_demo_build.build_problems(UNITS, by_way, path) == [
+        "câu 1, cách whole: không chunk nào trúng u1"
+    ]
+
+
+def test_check_reports_a_gold_unit_missing_from_the_corpus(
+    embedded: EmbeddingCache, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(rag_demo_build, "QUESTIONS", (replace(QUESTION, gold_unit_ids=("u9",)),))
+    by_way = rag_demo_build.all_chunks(UNITS, FakeClient(), embedded)
+    problems = rag_demo_build.build_problems(UNITS, by_way, tmp_path / "pairs.json")
+    assert problems[0] == "câu 1: u9 không có trong tập"
+    assert sum("không chunk nào trúng u9" in p for p in problems) == len(ChunkingWay)
+
+
+def test_live_check_exit_code_follows_the_comparison(capsys: pytest.CaptureFixture[str]) -> None:
+    # bài giả: mã bài gốc u1 khác mã post p1 (như bài gốc không có chữ) — cả hai phải còn sống
+    assert rag_demo_build.run_live_check(UNITS, {"u1": "", "p1": TEXT}) == 0
+    assert rag_demo_build.run_live_check(UNITS, {}) == 1
+    assert "u1: post không còn trên Threads: u1, p1" in capsys.readouterr().out
+
+
+def test_live_texts_come_from_posts_and_replies_without_cache(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Cache cũ (TTL 6 giờ) sẽ che một bài vừa xoá: phép so phải đọc thẳng API."""
+    seen: list[tuple[str, object]] = []
+
+    class FakeThreadsClient:
+        def __init__(self, *, access_token: str) -> None:
+            assert access_token == "token-not-real"
+
+        async def __aenter__(self) -> FakeThreadsClient:
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+    def fake_fetch(name: str, items: list[tuple[str, str | None]]) -> object:
+        async def fetch(_client: object, user_id: str, cache: object = None) -> list[object]:
+            seen.append((name, cache))
+            assert user_id == "user-not-real"
+            return [types.SimpleNamespace(id=i, text=t) for i, t in items]
+
+        return fetch
+
+    credentials = types.SimpleNamespace(access_token="token-not-real", user_id="user-not-real")
+    monkeypatch.setattr(rag_demo_build, "load_dotenv", lambda *_, **__: None)
+    monkeypatch.setattr(rag_demo_build, "load_credentials", lambda: credentials)
+    monkeypatch.setattr(rag_demo_build, "ThreadsClient", FakeThreadsClient)
+    monkeypatch.setattr(rag_demo_build, "get_posts", fake_fetch("posts", [("p1", "Bài.")]))
+    monkeypatch.setattr(rag_demo_build, "get_replies", fake_fetch("replies", [("r1", None)]))
+    assert rag_demo_build.fetch_live_texts(tmp_path / ".env") == {"p1": "Bài.", "r1": ""}
+    assert seen == [("posts", None), ("replies", None)]
+
+
+def test_live_check_uses_the_token_of_env_file_over_one_already_loaded(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`src/api/auth.py` đã nạp `.env` gần nhất lúc import (bản sao trong worktree, token có thể
+    cũ): `--env-file` phải thắng, không thì tuỳ chọn không có tác dụng."""
+    for name in REQUIRED_ENV_VARS:
+        monkeypatch.setenv(name, "cu-not-real")  # như biến đã nạp từ .env cũ; teardown trả lại
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(f"{name}=moi-not-real" for name in REQUIRED_ENV_VARS), encoding="utf-8"
+    )
+    seen: list[str] = []
+
+    class FakeThreadsClient:
+        def __init__(self, *, access_token: str) -> None:
+            seen.append(access_token)
+
+        async def __aenter__(self) -> FakeThreadsClient:
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+    async def no_posts(*_: object, **__: object) -> list[object]:
+        return []
+
+    monkeypatch.setattr(rag_demo_build, "ThreadsClient", FakeThreadsClient)
+    monkeypatch.setattr(rag_demo_build, "get_posts", no_posts)
+    monkeypatch.setattr(rag_demo_build, "get_replies", no_posts)
+    assert rag_demo_build.fetch_live_texts(env_file) == {}
+    assert seen == ["moi-not-real"]
+
+
 @pytest.fixture
 def offline_main(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
-    monkeypatch.setattr(rag_demo_build, "load_dotenv", lambda: None)
+    monkeypatch.setattr(rag_demo_build, "load_dotenv", lambda *_, **__: None)
     monkeypatch.setattr(rag_demo_build, "connect_readonly", lambda _: sqlite3.connect(":memory:"))
     monkeypatch.setattr(rag_demo_build, "load_units", lambda _: UNITS)
     return monkeypatch
@@ -166,6 +301,52 @@ def test_llm_submit_turns_off_sdk_retries(offline_main: pytest.MonkeyPatch, tmp_
     argv = ["llm-submit", "--job", "transform", "--db", str(tmp_path / "x.db"), *isolated(tmp_path)]
     assert rag_demo_build.main(argv) == 0
     assert seen == {"max_retries": 0}
+
+
+def test_check_command_exits_1_and_lists_problems(
+    offline_main: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rag_demo_build.run_embed(UNITS, FakeClient(), EmbeddingCache(tmp_path / "c.jsonl"))
+    argv = ["check", "--db", str(tmp_path / "x.db"), *isolated(tmp_path)]
+    assert rag_demo_build.main(argv) == 1
+    out = capsys.readouterr().out
+    assert "chưa có file cặp cross-encoder" in out
+    # bộ câu hỏi thật: bài đáp án không có trong bài giả
+    assert f"câu 1: {QUESTIONS[0].gold_unit_ids[0]} không có trong tập" in out
+
+
+def test_live_check_without_threads_token_stops_before_any_call(
+    offline_main: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for name in REQUIRED_ENV_VARS:
+        offline_main.delenv(name, raising=False)
+
+    def fail(*_: object, **__: object) -> None:
+        raise AssertionError("không được gọi Threads khi thiếu token")
+
+    offline_main.setattr(rag_demo_build, "ThreadsClient", fail)
+    env_file = tmp_path / ".env"
+    env_file.write_text("# không có token\n", encoding="utf-8")
+    argv = ["live-check", "--db", str(tmp_path / "x.db"), "--env-file", str(env_file)]
+    assert rag_demo_build.main([*argv, *isolated(tmp_path)]) == 2
+    assert "THREADS_ACCESS_TOKEN" in capsys.readouterr().err
+
+
+def test_live_check_with_a_missing_env_file_stops_before_any_call(
+    offline_main: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Gõ sai `--env-file` không được âm thầm chạy bằng token đã nạp lúc import."""
+    for name in REQUIRED_ENV_VARS:
+        offline_main.setenv(name, "da-nap-not-real")
+
+    def fail(*_: object, **__: object) -> None:
+        raise AssertionError("không được gọi Threads khi file .env không có")
+
+    offline_main.setattr(rag_demo_build, "ThreadsClient", fail)
+    missing = tmp_path / "khong-co" / ".env"
+    argv = ["live-check", "--db", str(tmp_path / "x.db"), "--env-file", str(missing)]
+    assert rag_demo_build.main([*argv, *isolated(tmp_path)]) == 2
+    assert "Không thấy file" in capsys.readouterr().err
 
 
 def test_embed_without_key_stops_before_any_call(

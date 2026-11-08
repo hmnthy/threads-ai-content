@@ -1,8 +1,8 @@
 """10 câu hỏi cố định và đáp án đúng của demo RAG: bản gốc duy nhất (ADR-0037 D10, ADR-0038 D6–D7).
 
-Bước dựng (chặng 3, chưa có) sẽ chép các câu này vào file dữ liệu demo; trình duyệt đọc từ đó,
-không có bản thứ hai. Câu hỏi và mã bài đã công khai trong ADR-0037; vị trí ghi bằng số, không chép
-chữ của bài (repo public).
+Bước dựng (`scripts/rag_demo_build.py`) chép các câu này vào file dữ liệu demo; trình duyệt đọc từ
+đó, không có bản thứ hai. Câu hỏi và mã bài đã công khai trong ADR-0037; vị trí ghi bằng số, không
+chép chữ của bài (repo public).
 """
 
 from collections.abc import Sequence
@@ -17,7 +17,6 @@ class AnswerRule(StrEnum):
     """Bài nào phải tìm thấy (ADR-0038 D7–D8)."""
 
     SINGLE = "single"
-    ANY_OF_TWO = "any_of_two"  # câu 4: hai bài gần trùng, một trong hai là đủ
     BOTH = "both"  # câu 3, 7: phải đọc tới hạng của bài tìm thấy sau cùng
     NONE = "none"  # câu 10: không có bài nào chứa đáp án
 
@@ -71,8 +70,10 @@ QUESTIONS: tuple[Question, ...] = (
         number=4,
         text="Nên chọn mentor / coach thế nào cho du học sinh?",
         english="How should an international student choose a mentor or coach?",
-        rule=AnswerRule.ANY_OF_TWO,
-        gold_unit_ids=("17923191900443021", "18117744790996401"),
+        # từng có thêm bài gần trùng `18117744790996401`, bị xoá trên Threads sau mốc đóng băng
+        # (ADR-0040): còn một bài đáp án
+        rule=AnswerRule.SINGLE,
+        gold_unit_ids=("17923191900443021",),
     ),
     Question(
         number=5,
@@ -125,7 +126,7 @@ def check_gold(units: Sequence[Unit], questions: Sequence[Question] = QUESTIONS)
     """Mọi mã bài đáp án có trong tập, mọi vị trí nằm trong `full_text`.
 
     CI không có DB thật nên chạy hàm này trên bài giả có đúng độ dài đóng băng (kiểm mã bài và 2
-    vị trí); bước dựng (chặng 3, chưa có) chạy lại trên bài thật."""
+    vị trí); lệnh `check` của bước dựng chạy lại trên bài thật."""
     texts = {unit.id: unit.full_text for unit in units}
     for question in questions:
         for unit_id in question.gold_unit_ids:

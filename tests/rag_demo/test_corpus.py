@@ -1,4 +1,4 @@
-"""Chốt chặn 20 bài đóng băng của demo RAG (ADR-0037 D2). DB tự chế, không đọc DB thật."""
+"""Chốt chặn các bài đóng băng của demo RAG (ADR-0037 D2, ADR-0040). DB tự chế, không DB thật."""
 
 import json
 import re
@@ -13,7 +13,9 @@ from src.rag_demo.corpus import (
     CorpusChangedError,
     FrozenUnit,
     PostSpan,
+    Unit,
     content_hash,
+    live_mismatches,
     load_units,
 )
 
@@ -55,10 +57,11 @@ def conn(tmp_path: Path) -> sqlite3.Connection:
     return connection
 
 
-def test_frozen_list_has_20_distinct_units_with_length_and_full_sha256() -> None:
-    assert len(FROZEN_UNITS) == 20
-    assert len({unit.id for unit in FROZEN_UNITS}) == 20
-    assert len({unit.sha256 for unit in FROZEN_UNITS}) == 20
+def test_frozen_list_has_19_distinct_units_with_length_and_full_sha256() -> None:
+    """20 bài lúc đóng băng, 1 bài bị xoá trên Threads sau mốc (ADR-0040)."""
+    assert len(FROZEN_UNITS) == 19
+    assert len({unit.id for unit in FROZEN_UNITS}) == 19
+    assert len({unit.sha256 for unit in FROZEN_UNITS}) == 19
     for unit in FROZEN_UNITS:
         assert unit.id.isdigit()
         assert unit.length > 0
@@ -149,3 +152,56 @@ def test_stops_when_a_new_continuation_appears(conn: sqlite3.Connection) -> None
     conn.execute("UPDATE content_units SET full_text = ? WHERE id = 'root'", (longer,))
     with pytest.raises(CorpusChangedError, match="root: độ dài"):
         load_units(conn, freeze("root", FULL_TEXT))
+
+
+# --- so với bài đang sống trên Threads (lệnh live-check) ---
+
+
+def test_live_check_passes_when_every_post_is_alive_and_unchanged(
+    conn: sqlite3.Connection,
+) -> None:
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    live = {"root": FIRST_POST, "next": SECOND_POST, "other": "Bài khác của kênh."}
+    assert live_mismatches(units, live) == []
+
+
+def test_live_check_reports_a_deleted_post_by_id_only(conn: sqlite3.Connection) -> None:
+    """Ca thật 2026-11-08: bài gốc bị xoá, các post viết tiếp vẫn còn."""
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    assert live_mismatches(units, {"next": SECOND_POST}) == [
+        "root: post không còn trên Threads: root"
+    ]
+
+
+def test_live_check_reports_edited_text_without_showing_it(conn: sqlite3.Connection) -> None:
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    edited = "Post viết lại."
+    problems = live_mismatches(units, {"root": FIRST_POST, "next": edited})
+    assert problems == ["root: chữ trên Threads khác lúc đóng băng"]
+    assert edited not in problems[0] and FIRST_POST not in problems[0]
+
+
+def test_live_check_reports_a_deleted_continuation_while_the_root_lives(
+    conn: sqlite3.Connection,
+) -> None:
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    assert live_mismatches(units, {"root": FIRST_POST}) == [
+        "root: post không còn trên Threads: next"
+    ]
+
+
+def test_live_check_reports_a_deleted_root_that_has_no_text() -> None:
+    """Bài gốc chỉ có ảnh không nằm trong `posts` (`_post_spans` bỏ post rỗng): vẫn phải bắt."""
+    unit = Unit("root", SECOND_POST, (PostSpan("next", 0, len(SECOND_POST)),))
+    assert live_mismatches([unit], {"next": SECOND_POST}) == [
+        "root: post không còn trên Threads: root"
+    ]
+    assert live_mismatches([unit], {"root": "", "next": SECOND_POST}) == []
+
+
+def test_live_check_reports_a_post_emptied_on_threads(conn: sqlite3.Connection) -> None:
+    """Post còn nhưng chữ bị làm rỗng: bài ghép lại đã khác hash lúc đóng băng."""
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    assert live_mismatches(units, {"root": FIRST_POST, "next": ""}) == [
+        "root: chữ trên Threads khác lúc đóng băng"
+    ]

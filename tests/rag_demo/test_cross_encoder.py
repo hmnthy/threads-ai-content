@@ -25,6 +25,7 @@ from src.rag_demo.cross_encoder import (
     CrossEncoderResultError,
     Pair,
     cross_encoder_pairs,
+    pairs_file_is_current,
     read_scores,
     sigmoid,
     write_pairs,
@@ -295,3 +296,13 @@ def test_wsl_measure_counts_untruncated_lengths(
 def test_wsl_main_rejects_unknown_command(capsys: pytest.CaptureFixture[str]) -> None:
     assert cross_encoder_wsl.main(["nope"]) == 2
     assert "measure | score" in capsys.readouterr().err
+
+
+def test_pairs_file_is_current_only_for_exactly_the_pairs_written(tmp_path: Path) -> None:
+    """`read_scores` chỉ so file điểm với file cặp; phép này so file cặp với code hiện tại."""
+    pairs = [Pair("a", "câu hỏi", "đoạn một"), Pair("b", "câu hỏi", "đoạn hai")]
+    path = tmp_path / "pairs.json"
+    write_pairs(pairs, path)
+    assert pairs_file_is_current(pairs, path)
+    assert not pairs_file_is_current([pairs[0], Pair("b", "câu hỏi", "đoạn hai sửa")], path)
+    assert not pairs_file_is_current(pairs[:1], path)

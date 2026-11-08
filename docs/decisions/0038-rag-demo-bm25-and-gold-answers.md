@@ -1,6 +1,6 @@
 # ADR-0038: Chốt BM25 và cách chấm đáp án đúng của demo RAG
 
-- **Trạng thái**: Accepted
+- **Trạng thái**: Accepted — luật câu 4 của D7 (một trong 2 bài → một bài) thay bởi ADR-0040
 - **Ngày**: 2026-11-06
 - **Người quyết**: Thy — chọn từng mục qua trao đổi 2026-11-06; phương án và số đo do Claude đề xuất.
 

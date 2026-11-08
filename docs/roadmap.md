@@ -66,7 +66,7 @@ Thứ tự: `0 → A1 → B → A2–A6 → G → H → C → D0 → (D ∥ E) �
 
 ## E — Knowledge base (`src/kb/`) — ADR-0006
 
-- Trước KB: trang demo "RAG pipeline visualization" (`/rag-pipeline`, ADR-0037) — 20 content unit đóng băng, 10 câu hỏi cố định, phần nặng tính sẵn, phần nhẹ chạy trong trình duyệt; minh hoạ cơ chế từng bước, không phải đánh giá, không thay các mục dưới.
+- Trước KB: trang demo "RAG pipeline visualization" (`/rag-pipeline`, ADR-0037) — 19 content unit đóng băng (ADR-0040), 10 câu hỏi cố định, phần nặng tính sẵn, phần nhẹ chạy trong trình duyệt; minh hoạ cơ chế từng bước, không phải đánh giá, không thay các mục dưới.
 - Tài liệu: `post` (root + continuation + attachment), `qa` (câu hỏi follower diễn đạt lại + câu trả lời tác giả).
 - Chunking so sánh trong RQ-09: 1 chunk/unit · chunk con theo segment trả về cha (mặc định) · cửa sổ 256 token.
 - Lưu trong SQLite hiện có: `kb_documents`, `kb_chunks`, FTS5 `unicode61` giữ dấu tiếng Việt; dense = numpy cosine brute-force sau interface `VectorIndex` (sqlite-vec khi dữ liệu lớn).

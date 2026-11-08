@@ -11,6 +11,11 @@ Lệnh con:
   ce-export     ghi mọi cặp câu hỏi gốc × chunk cho cross-encoder chạy trong WSL2
                 (`src/rag_demo/cross_encoder_wsl.py`); cần embed xong trước (chunk semantic)
   ce-check      đọc điểm WSL2 trả về, kiểm khớp file cặp (digest, model, độ dài, đủ cặp)
+  check         kiểm trên bài thật, không gọi mạng: vị trí đáp án nằm trong bài, mọi bài đáp án có
+                chunk trúng ở cả 7 cách chia, file cặp cross-encoder đúng là file code hiện tại ghi
+  live-check    so các bài đóng băng với bài đang sống trên Threads (đã xoá / ẩn / sửa chữ); chạy
+                trước mỗi lần publish (ADR-0040 D3); chỉ đọc, cần token Threads trong `--env-file`
+                (mặc định `.env`)
 
 Đọc DB ở chế độ chỉ đọc (`--db`, thường là `data/threads.db` của thư mục chính, vì worktree không có
 DB thật). Vector lưu ở `--cache` (mặc định `data/rag_demo/embeddings.jsonl`, gitignored). Script chỉ
@@ -20,6 +25,7 @@ in số đếm, không in chữ bài.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import sys
@@ -31,13 +37,17 @@ import numpy as np
 from dotenv import load_dotenv
 from numpy.typing import NDArray
 
+from src.api.auth import MissingCredentialsError, load_credentials
+from src.api.client import ThreadsClient
+from src.api.endpoints import get_posts, get_replies
 from src.db.schema import connect_readonly
 from src.rag_demo.chunking import Chunk, ChunkingWay, build_chunks, split_sentences
-from src.rag_demo.corpus import Unit, load_units
+from src.rag_demo.corpus import CorpusChangedError, Unit, live_mismatches, load_units
 from src.rag_demo.cross_encoder import (
     PAIRS_PATH,
     SCORES_PATH,
     cross_encoder_pairs,
+    pairs_file_is_current,
     read_scores,
     write_pairs,
 )
@@ -63,7 +73,7 @@ from src.rag_demo.llm_jobs import (
     rerank_requests,
     transform_requests,
 )
-from src.rag_demo.questions import QUESTIONS
+from src.rag_demo.questions import QUESTIONS, check_gold, gold_chunk_ids
 
 DEFAULT_CACHE = Path("data/rag_demo/embeddings.jsonl")
 DEFAULT_LLM_DIR = Path("data/rag_demo/llm")
@@ -202,6 +212,74 @@ def run_ce_export(units: Sequence[Unit], cache: EmbeddingCache, path: Path) -> N
     print(f"Cross-encoder: {len(pairs)} cặp → {path} (sha256 {digest[:12]}…)")
 
 
+def build_problems(
+    units: Sequence[Unit], by_way: dict[ChunkingWay, list[Chunk]], pairs_path: Path
+) -> list[str]:
+    """Mọi lỗi của dữ liệu đã dựng so với bài thật và code hiện tại.
+
+    Chỉ chứng minh file cặp cross-encoder khớp code; file điểm khớp file cặp là việc của `ce-check`
+    (`read_scores`). Rỗng + `ce-check` qua + `live-check` 0 lỗi mới dùng được để đóng file demo."""
+    problems: list[str] = []
+    try:
+        check_gold(units, QUESTIONS)
+    except CorpusChangedError as error:
+        problems.append(str(error))
+    for question in QUESTIONS:
+        for way, chunks in by_way.items():
+            for unit_id, ids in gold_chunk_ids(question, chunks).items():
+                if not ids:
+                    problems.append(
+                        f"câu {question.number}, cách {way.value}: không chunk nào trúng {unit_id}"
+                    )
+    chunks = [c for way_chunks in by_way.values() for c in way_chunks]
+    if not pairs_path.exists():
+        problems.append(f"chưa có file cặp cross-encoder {pairs_path}")
+    elif not pairs_file_is_current(cross_encoder_pairs(QUESTIONS, chunks), pairs_path):
+        problems.append("file cặp cross-encoder không còn khớp chunk / câu hỏi hiện tại")
+    return problems
+
+
+def run_check(units: Sequence[Unit], cache: EmbeddingCache, pairs_path: Path) -> int:
+    by_way = all_chunks(units, OfflineClient(), cache)
+    problems = build_problems(units, by_way, pairs_path)
+    gold = sum(len(q.gold_unit_ids) for q in QUESTIONS)
+    print(
+        f"Kiểm {len(units)} bài, {len(QUESTIONS)} câu hỏi ({gold} bài đáp án) × {len(by_way)} "
+        f"cách chia, file cặp {pairs_path}: {len(problems)} lỗi"
+    )
+    for problem in problems:
+        print(f"  - {problem}")
+    return 1 if problems else 0
+
+
+def fetch_live_texts(env_file: Path) -> dict[str, str]:
+    """Mã post → chữ của mọi post + reply của kênh, đọc thẳng API (không cache), chỉ GET.
+
+    `override=True`: `src/api/auth.py` đã `load_dotenv()` lúc import (tìm `.env` gần nhất, thường là
+    bản sao trong worktree, token có thể cũ); không ghi đè thì `--env-file` không có tác dụng."""
+    load_dotenv(env_file, override=True)
+    credentials = load_credentials()
+
+    async def fetch() -> dict[str, str]:
+        async with ThreadsClient(access_token=credentials.access_token) as client:
+            posts = await get_posts(client, credentials.user_id)
+            replies = await get_replies(client, credentials.user_id)
+        return {post.id: post.text or "" for post in [*posts, *replies]}
+
+    return asyncio.run(fetch())
+
+
+def run_live_check(units: Sequence[Unit], live_texts: dict[str, str]) -> int:
+    problems = live_mismatches(units, live_texts)
+    print(
+        f"So {len(units)} bài với {len(live_texts)} post + reply đang sống trên Threads: "
+        f"{len(problems)} lỗi"
+    )
+    for problem in problems:
+        print(f"  - {problem}")
+    return 1 if problems else 0
+
+
 def require_env(name: str) -> bool:
     load_dotenv()
     if os.environ.get(name, "").strip():
@@ -212,6 +290,7 @@ def require_env(name: str) -> bool:
 
 def main(argv: Sequence[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+    sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[union-attr]  # lỗi cũng in chữ Việt
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0] if __doc__ else None)
     parser.add_argument(
         "command",
@@ -223,6 +302,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "llm-collect",
             "ce-export",
             "ce-check",
+            "check",
+            "live-check",
         ],
     )
     parser.add_argument("--db", type=Path, help="SQLite thật, mở chỉ đọc (mọi lệnh trừ ce-check)")
@@ -231,6 +312,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--llm-dir", type=Path, default=DEFAULT_LLM_DIR)
     parser.add_argument("--ce-pairs", type=Path, default=PAIRS_PATH, help="file cặp (ce-*)")
     parser.add_argument("--ce-scores", type=Path, default=SCORES_PATH, help="file điểm (ce-check)")
+    parser.add_argument(
+        "--env-file", type=Path, default=Path(".env"), help="file chứa token Threads (live-check)"
+    )
     args = parser.parse_args(argv)
     if args.command == "ce-check":
         # không cần DB: chỉ so 2 file trong data/rag_demo/
@@ -255,6 +339,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "ce-export":
         run_ce_export(units, cache, args.ce_pairs)
         return 0
+    if args.command == "check":
+        return run_check(units, cache, args.ce_pairs)
+    if args.command == "live-check":
+        if not args.env_file.is_file():
+            # `load_dotenv` gặp file không có chỉ trả False: lệnh sẽ chạy tiếp bằng token đã nạp lúc
+            # import (`src/api/auth.py`), tức `--env-file` gõ sai mà không ai biết
+            print(f"Không thấy file {args.env_file}: chưa gọi API nào.", file=sys.stderr)
+            return 2
+        try:
+            live_texts = fetch_live_texts(args.env_file)
+        except MissingCredentialsError as error:
+            print(f"{error}: chưa gọi API nào.", file=sys.stderr)
+            return 2
+        return run_live_check(units, live_texts)
     if args.command == "embed":
         if not require_env(OPENAI_KEY_ENV):
             return 2

@@ -1,7 +1,9 @@
-"""20 content unit đóng băng của demo RAG (ADR-0037 D2): danh sách mã + độ dài + hash, đọc từ DB.
+"""19 content unit đóng băng của demo RAG (ADR-0037 D2, ADR-0040): danh sách mã + độ dài + hash.
 
 Đóng băng bằng danh sách chứ không bằng "20 bài mới nhất": bài mới đăng sau mốc không được đẩy bài
 cũ ra khỏi tập, vì 10 câu hỏi và 2 vị trí đáp án gắn với đúng các bài này. Thy chọn 2026-11-06.
+Mốc đóng băng có 20 bài; `18117744790996401` bị tác giả xoá trên Threads sau mốc nên bỏ, không lấy
+bài khác thay (ADR-0040, Thy chọn 2026-11-08).
 
 CI không có DB thật (`data/` gitignored): chốt chặn "bài còn nguyên" nằm ở code đọc dữ liệu, chạy ở
 bước dựng, test dùng DB tự chế. Độ dài lưu sẵn để CI vẫn kiểm được 2 vị trí đáp án nằm trong bài
@@ -11,6 +13,7 @@ bước dựng, test dùng DB tự chế. Độ dài lưu sẵn để CI vẫn k
 import hashlib
 import json
 import sqlite3
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 
@@ -96,11 +99,7 @@ FROZEN_UNITS: tuple[FrozenUnit, ...] = (
     FrozenUnit(
         "18138892390592446", 279, "63e254dc4aa9f480c89d8186eef6df141842e40fe982f0452cf3daa987e6ea83"
     ),
-    FrozenUnit(
-        "18117744790996401",
-        2707,
-        "f513adf878d2af387cf631d4e649a02ce31300e6619c17a889fb9b203a5518f8",
-    ),
+    # (chỗ của `18117744790996401`, bị xoá trên Threads — ADR-0040)
     FrozenUnit(
         "18128894426508078",
         1594,
@@ -173,7 +172,7 @@ def load_units(
     khi 5). Kiểm cả độ dài để số lưu sẵn mà CI dùng không thể lệch với bài thật.
 
     Không bắt được bài gốc xoá trên Threads: ingest chỉ ghi thêm nên hàng cũ còn nguyên trong DB.
-    Bước dựng phải tự so mã bài với danh sách bài còn sống trước khi publish.
+    Phép so với bài còn sống là `live_mismatches` (lệnh `live-check` của bước dựng).
     """
     units: list[Unit] = []
     for expected in frozen:
@@ -197,3 +196,27 @@ def load_units(
             )
         )
     return units
+
+
+def live_mismatches(units: Sequence[Unit], live_texts: Mapping[str, str]) -> list[str]:
+    """So các bài đóng băng với bài đang sống trên Threads; trả danh sách vấn đề (rỗng = khớp).
+
+    `live_texts` là mã post → chữ, lấy từ danh sách post + reply của kênh lúc chạy (cùng endpoint
+    ingest dùng). Post không có trong danh sách coi là đã xoá hoặc bị ẩn: bài demo phải là bài
+    người đọc còn mở được. Bài gốc kiểm riêng, vì bài gốc không có chữ (chỉ ảnh) không nằm trong
+    `posts`; post viết tiếp không có chữ thì không được kiểm (xoá nó không đổi chữ hay chunk nào,
+    bài vẫn mở được qua bài gốc). Chữ của các post trong `posts` ghép bằng dấu cách phải ra đúng
+    hash lúc đóng băng; một post bị làm rỗng trên Threads cũng làm lệch hash. Thông báo chỉ ghi mã
+    bài, không ghi chữ bài.
+    """
+    problems: list[str] = []
+    for unit in units:
+        ids = dict.fromkeys([unit.id, *(post.post_id for post in unit.posts)])
+        gone = [post_id for post_id in ids if post_id not in live_texts]
+        if gone:
+            problems.append(f"{unit.id}: post không còn trên Threads: {', '.join(gone)}")
+            continue
+        live = " ".join(live_texts[post.post_id] for post in unit.posts)
+        if content_hash(live) != content_hash(unit.full_text):
+            problems.append(f"{unit.id}: chữ trên Threads khác lúc đóng băng")
+    return problems

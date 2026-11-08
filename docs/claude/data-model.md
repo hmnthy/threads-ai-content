@@ -637,8 +637,8 @@ Sau khi bỏ câu trả lời follower khỏi `full_text`, chạy lại đúng t
 2. **Eval**: gold set từ cặp (câu hỏi follower, câu trả lời tác giả) thật — recall@k, MRR, nDCG, bootstrap CI
 3. **Generation** (chatbot) — CHỈ sau khi KB đạt cổng chất lượng (roadmap Phase F), không làm trước
 
-**Demo trước KB (ADR-0037):** trang `/rag-pipeline` minh hoạ cơ chế truy xuất trên 20 content unit đóng băng, không
-phải KB: phần cần model tính sẵn cho 10 câu hỏi cố định (embedding OpenAI `text-embedding-3-small` — chỉ trong demo,
+**Demo trước KB (ADR-0037):** trang `/rag-pipeline` minh hoạ cơ chế truy xuất trên 19 content unit đóng băng (đóng băng
+20, 1 bài bị tác giả xoá trên Threads sau mốc — ADR-0040), không phải KB: phần cần model tính sẵn cho 10 câu hỏi cố định (embedding OpenAI `text-embedding-3-small` — chỉ trong demo,
 gom cụm vẫn bge-m3; cross-encoder `BAAI/bge-reranker-v2-m3`; các vai LLM trung gian bằng Claude Haiku 5.5, LLM rerank
 chấm từng đoạn độc lập), trình duyệt chạy BM25 / trộn / MMR; output là đoạn nguồn xếp hạng, không câu trả lời LLM.
 BM25 của demo (ADR-0038): công thức Lucene, `IDF = log(1 + (N − n + 0,5) / (n + 0,5))`, k1 = 1,2 và b = 0,75 có nhãn nguồn;
@@ -647,25 +647,29 @@ chunk. Đáp án đúng theo mã bài, câu 5 và 8 thêm vị trí ký tự, b�
 Chi tiết token (ADR-0039 D4, `src/dashboard/src/lib/ragDemo/bm25.ts:44#tokenize`): bỏ ký tự đi kèm emoji; token mở đầu bằng
 chữ hoặc số; số thập phân chỉ áp cho token toàn số (`2,5kg` thành `2,5` + `kg`, `15km` giữ một token, `12.5.2026` là một
 token); dấu thanh trên nguyên âm sau ở cụm oa, oe, uy gộp về nguyên âm đầu (`tuỳ` = `tùy`), chỉ ở cuối token và không sau
-`q`. `œ`, `æ` không đổi: 0 lần trong 20 bài.
+`q`. `œ`, `æ` không đổi: 0 lần trong 20 bài lúc đóng băng.
 Chia đoạn (ADR-0039): 7 cách (không chia, theo từng post, cố định 300 / 500 / 800 ký tự, recursive 500, semantic), chunk lấy
 từ `full_text`, câu ngữ cảnh là công tắc, rerank chấm trên chữ gốc của chunk.
-Tập 20 bài đóng băng bằng danh sách mã + độ dài + hash (`src/rag_demo/corpus.py:28#FROZEN_UNITS`), không bằng "20 bài mới nhất": bài mới
-không đẩy bài cũ ra; bài biến mất khỏi DB, đổi chữ hoặc có thêm post viết tiếp thì `src/rag_demo/corpus.py:166#load_units` dừng.
-Bài gốc xoá trên Threads vẫn nằm trong DB (ingest không xoá hàng nào) nên chốt này không bắt được: bước dựng (chặng 3, chưa có) phải so với danh
-sách bài còn sống trước khi publish. Tách câu
-(`src/rag_demo/chunking.py:111#split_sentences`): mảnh chỉ có emoji hoặc ký hiệu gắn vào câu trước, nên mọi ký tự đều nằm trong
+Tập bài đóng băng bằng danh sách mã + độ dài + hash (`src/rag_demo/corpus.py:31#FROZEN_UNITS`), không bằng "20 bài mới nhất": bài mới
+không đẩy bài cũ ra; bài biến mất khỏi DB, đổi chữ hoặc có thêm post viết tiếp thì `src/rag_demo/corpus.py:165#load_units` dừng.
+Bài gốc xoá trên Threads vẫn nằm trong DB (ingest không xoá hàng nào) nên chốt này không bắt được: lệnh `live-check` của
+bước dựng (`src/rag_demo/corpus.py:201#live_mismatches`) so với danh sách post + reply đang sống, đọc thẳng API không qua
+cache, và chạy trước mỗi lần publish; bài mất hoặc đổi chữ thì dừng, Thy quyết (ADR-0040 D3). Ca thật 2026-11-08: bài
+đáp án câu 4 bị xoá → Thy bỏ, còn 19 bài (ADR-0040 D1). Tách câu
+(`src/rag_demo/chunking.py:113#split_sentences`): mảnh chỉ có emoji hoặc ký hiệu gắn vào câu trước, nên mọi ký tự đều nằm trong
 chunk; số thứ tự danh sách ("2.") gắn vào câu sau, không thành câu riêng; ranh giới post không phải điểm ngắt câu cứng
 (rất ít câu chứa chữ của 2 post, số đo ghi trong docstring module); cỡ cố định không tính dấu cách nằm đúng ở mép cửa sổ, có thể mất 1 từ cuối đoạn mà
-đoạn sau thường có lại nhờ chồng lấn (`src/rag_demo/chunking.py:145#_fixed_spans`; cả 3 điểm Thy chốt 2026-11-07). Ngưỡng
+đoạn sau thường có lại nhờ chồng lấn (`src/rag_demo/chunking.py:147#_fixed_spans`; cả 3 điểm Thy chốt 2026-11-07). Ngưỡng
 semantic tính chung trên mọi cặp câu liền kề của cả tập, không riêng từng bài (Thy chốt 2026-11-06). CI không có DB thật:
-test chạy `src/rag_demo/questions.py:124#check_gold` trên bài giả có đúng độ dài đóng băng, nên vẫn kiểm được mã đáp án và 2
-vị trí; bước dựng (chặng 3, chưa có) sẽ kiểm lại trên bài thật, kể cả độ dài lưu sẵn.
+test chạy `src/rag_demo/questions.py:125#check_gold` trên bài giả có đúng độ dài đóng băng, nên vẫn kiểm được mã đáp án và 2
+vị trí; lệnh `check` của bước dựng kiểm lại trên bài thật (độ dài lưu sẵn, vị trí đáp án, mỗi bài đáp án có chunk trúng ở
+cả 7 cách chia, file cặp cross-encoder đúng là file code hiện tại ghi).
 
 ### Methodology log: tính sẵn của demo RAG (chặng 3, thực nghiệm 2026-11-07 → 08)
 
 Thy yêu cầu (2026-11-07, 2026-11-08): mỗi lựa chọn kỹ thuật được lưu kèm đủ lý luận, và trang `/rag-pipeline` giải thích
-được cho người đọc. Số đo dưới đây là của lần dựng này, trên 20 bài đóng băng.
+được cho người đọc. Số đo dưới đây là của lần dựng 2026-11-07 → 08, trên 20 bài lúc đó (trước ADR-0040); số của tập 19
+bài ở mục cuối.
 
 - **Chunk semantic** (`src/rag_demo/chunking.py`): câu → vector OpenAI → cosine giữa 2 câu liền kề → ngưỡng = phân vị 25
   của mọi cặp câu liền kề trong cả tập (0,309 trên 330 cặp) → cắt ở cặp dưới ngưỡng, tối đa 800 ký tự. Ra 111 chunk; 19
@@ -718,6 +722,22 @@ Thy yêu cầu (2026-11-07, 2026-11-08): mỗi lựa chọn kỹ thuật đượ
   Giới hạn: tài liệu không nói model được fine-tune trên cặp dài bao nhiêu, nên điểm của 5 chunk dài có thể kém tin cậy
   hơn. Bước WSL2 dừng nếu có cặp vượt mức, không bao giờ cắt ngầm; bước đọc trên Windows từ chối file điểm không ghi độ dài
   cặp dài nhất.
+- **Tập 19 bài (ADR-0040, đo 2026-11-08).** Bỏ bài đã xoá không đổi chữ chunk nào của 19 bài còn lại ở cả 7 cách chia
+  (ngưỡng semantic tính chung trên cả tập nhưng không chỗ ngắt nào đổi bên), nên không gọi lại OpenAI hay Haiku: kết quả
+  đã trả tiền dùng lại nguyên, dòng của bài đã xoá vẫn nằm trong file kết quả nhưng không vào file demo. Số chunk: không
+  chia 19, theo post 63, cố định 300 / 500 / 800 là 102 / 64 / 43, recursive 500 65, semantic 102; 428 chữ chunk khác
+  nhau → 4.280 cặp cross-encoder, dài nhất vẫn 790 token, 40 cặp vượt 512 (4 chunk của cách không chia). Chấm lại trong
+  WSL2 (126 giây): 4.280 / 4.280 cặp còn giữ ra cùng điểm với lần chấm 20 bài, lệch lớn nhất 6,8 × 10⁻⁵ logit, cùng cỡ
+  với độ lệch khi tự chấm lặp lại (lần này 9,5 × 10⁻⁶ trên mẫu 139 cặp gồm cả 40 cặp dài). `check` và `live-check` ra
+  0 lỗi.
+- **Đáp án chốt trước giữ nguyên** (ADR-0040 D4). Haiku chấm 2 / 3 điểm cho 43 chữ chunk không thuộc đáp án (câu 1: 7,
+  câu 2: 7, câu 4: 4, câu 7: 16, câu 8: 9), không chữ chunk ngoài đáp án nào được 3, câu 10 (không có đáp án) 0. Có đoạn
+  trả lời một phần thật (VD câu 7: thực đơn đồ Việt nấu tại nhà) và đoạn nhầm rõ (VD câu 1: một đoạn của bài đổi ngành).
+  Thêm chúng vào đáp án sau khi thấy kết quả là chọn hậu nghiệm, và lấy điểm Haiku làm đáp án để chấm chính Haiku là đo
+  vòng tròn; trang công bố con số kèm ví dụ cả hai loại. Hệ quả: 43 đoạn này vẫn tính là trượt.
+- **Bản dịch máy** (ADR-0040 D5). 27 dòng `chunk_en` / `context_en` có một cụm ≥ 3 từ mang chữ cái chỉ tiếng Việt mới có;
+  22 dòng là tên món, nhãn hàng (giữ tiếng Việt là đúng), 5 dòng sót thật, cả 5 ở đầu một chunk bắt đầu giữa câu (chunk
+  cố định cắt ngang câu). Giữ nguyên, trang ghi chú; không dịch lại để khỏi tăng phiên bản prompt cho 5 dòng.
 
 ### Phạm vi hiện tại
 

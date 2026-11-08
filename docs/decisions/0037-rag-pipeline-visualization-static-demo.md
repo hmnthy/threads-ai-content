@@ -1,6 +1,6 @@
 # ADR-0037: Trang "RAG pipeline visualization" — demo truy xuất tĩnh trên 20 thread gần nhất
 
-- **Trạng thái**: Accepted
+- **Trạng thái**: Accepted — số bài của D2 (20 → 19) thay bởi ADR-0040
 - **Ngày**: 2026-11-05
 - **Người quyết**: Thy — chọn qua trao đổi 2026-11-05: D1–D12 dưới đây, rồi nơi đặt file dữ liệu (Vercel Blob riêng tư)
   và route `/rag-pipeline` + tab "RAG pipeline". Thiết kế do Claude đề xuất sau khi đọc repo mẫu.

@@ -5,7 +5,9 @@ Chunk lấy từ `full_text`, không từ `normalized_text` (bước chuẩn ho�
 
 Quyết định của Thy 2026-11-06 cho những chỗ ADR-0039 chưa ghi: mảnh chỉ có emoji / ký hiệu gắn vào
 câu đứng trước; ngưỡng semantic tính chung trên mọi cặp câu của cả tập. Một câu dài hơn trần giữ
-nguyên, không cắt giữa câu: 20 bài đóng băng dài nhất 230 ký tự một câu nên chưa gặp.
+nguyên, không cắt giữa câu: câu dài nhất của 20 bài lúc đóng băng là 230 ký tự nên chưa gặp.
+
+Số đo trong module này đo 2026-11-06 → 07 trên 20 bài lúc đóng băng, trước khi ADR-0040 bỏ 1 bài.
 
 Ranh giới post không phải điểm ngắt câu cứng (Thy chốt 2026-11-07): post nối bằng dấu cách và
 thường không kết thúc bằng dấu câu, nhưng trên 20 bài chỉ 3 / 350 câu chứa chữ của 2 post (28 ca

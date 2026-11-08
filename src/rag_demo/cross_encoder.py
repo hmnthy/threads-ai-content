@@ -67,8 +67,8 @@ def cross_encoder_pairs(questions: Sequence[Question], chunks: Sequence[Chunk]) 
     return [Pair(rerank_id(q, text), q.text, text) for q in questions for text in texts]
 
 
-def write_pairs(pairs: Sequence[Pair], path: Path = PAIRS_PATH) -> str:
-    """Ghi file cặp cho WSL2; trả sha256 của đúng các byte đã ghi."""
+def pairs_bytes(pairs: Sequence[Pair]) -> bytes:
+    """Đúng các byte của file cặp: ghi file và kiểm file cũ dùng chung một cách dựng."""
     if len({pair.id for pair in pairs}) != len(pairs):
         raise ValueError("mã cặp trùng nhau")
     payload = {
@@ -76,10 +76,23 @@ def write_pairs(pairs: Sequence[Pair], path: Path = PAIRS_PATH) -> str:
         "revision": CROSS_ENCODER_REVISION,
         "pairs": [{"id": p.id, "question": p.question, "passage": p.passage} for p in pairs],
     }
-    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    return json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+
+def write_pairs(pairs: Sequence[Pair], path: Path = PAIRS_PATH) -> str:
+    """Ghi file cặp cho WSL2; trả sha256 của đúng các byte đã ghi."""
+    data = pairs_bytes(pairs)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     return hashlib.sha256(data).hexdigest()
+
+
+def pairs_file_is_current(pairs: Sequence[Pair], path: Path = PAIRS_PATH) -> bool:
+    """File cặp trên đĩa có đúng là file mà code hiện tại sẽ ghi không.
+
+    `read_scores` chỉ chứng minh file điểm khớp file cặp; hàm này chứng minh file cặp vẫn khớp chunk
+    và câu hỏi của code hiện tại (VD sửa cách chia sau khi chấm thì điểm cũ không còn dùng được)."""
+    return path.read_bytes() == pairs_bytes(pairs)
 
 
 def read_scores(pairs_path: Path = PAIRS_PATH, scores_path: Path = SCORES_PATH) -> dict[str, float]:
