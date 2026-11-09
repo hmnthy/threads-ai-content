@@ -61,7 +61,7 @@ SELECT COUNT(*) FROM topics WHERE <cột> IS NULL OR <cột> = '' OR <cột> = '
 
 | Trường | Hôm nay | Khi nào có thể null hoặc rỗng (theo code) |
 |---|---|---|
-| `keywords_json` | 9/9 có, 8 từ khoá mỗi topic | `[]` khi lần gom cụm chưa ghi hồ sơ (`TopicOut.keywords`, `src/main.py:232#keywords`) |
+| `keywords_json` | 9/9 có, 8 từ khoá mỗi topic | `[]` khi lần gom cụm chưa ghi hồ sơ (`TopicOut.keywords`, `src/main.py:246#keywords`) |
 | `representative_ids_json` | 9/9 có, 3 bài | `[]` khi cụm không có embedding. API bỏ id không còn content unit (`_representatives`) |
 | `centroid_embedding_json` | 9/9 có | null khi file kết quả không có embedding (`clustering_import.py`, nhánh `embeddings is None`) |
 | `labeled_at`, `label_model`, `label_prompt_version` | 9/9 có (đặt tên 2026-10-05, `claude-sonnet-5-5`, prompt v2) | null với topic từ trước ADR-0018 chưa được đặt lại tên (`src/db/schema.py:421#_migrate`) |

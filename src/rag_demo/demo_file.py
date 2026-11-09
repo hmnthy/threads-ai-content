@@ -260,6 +260,30 @@ def _context_of(
     return {"en": out["chunk_en"], "context": out["context"], "context_en": out["context_en"]}
 
 
+def code_provenance() -> dict[str, object]:
+    """Phần provenance do code hiện tại quyết định, không phụ thuộc dữ liệu đầu vào. `publish` so
+    đúng phần này với file: file dựng bằng cấu hình cũ (model, phiên bản prompt, phần còn chờ…)
+    không được đè bản công khai. Một nguồn cho cả `build_demo` lẫn `publish`, để thêm trường là
+    tự được kiểm."""
+    return {
+        "embedding_model": EMBEDDING_MODEL,
+        "llm_model": LLM_MODEL,
+        "llm_effort": EFFORT,
+        "prompt_versions": {job.value: PROMPT_VERSIONS[job] for job in Job},
+        "llm_keep_min_score": RERANK_KEEP_MIN_SCORE,
+        "cross_encoder": {
+            "model": CROSS_ENCODER_MODEL,
+            "revision": CROSS_ENCODER_REVISION,
+            "max_length": CROSS_ENCODER_MAX_LENGTH,
+            "score": "raw logit",
+        },
+        "score_decimals": SCORE_DECIMALS,
+        "offsets": "utf-16 code units, half-open",
+        "cosine_layout": "upper triangle by row, per chunking way, in chunk id order",
+        "pending": list(PENDING_PARTS),
+    }
+
+
 def build_demo(
     units: Sequence[Unit],
     by_way: Mapping[ChunkingWay, Sequence[Chunk]],
@@ -385,24 +409,10 @@ def build_demo(
     return {
         "format": DEMO_FILE_FORMAT,
         "provenance": {
-            "embedding_model": EMBEDDING_MODEL,
-            "llm_model": LLM_MODEL,
-            "llm_effort": EFFORT,
-            "prompt_versions": {job.value: PROMPT_VERSIONS[job] for job in Job},
-            "llm_keep_min_score": RERANK_KEEP_MIN_SCORE,
-            "cross_encoder": {
-                "model": CROSS_ENCODER_MODEL,
-                "revision": CROSS_ENCODER_REVISION,
-                "max_length": CROSS_ENCODER_MAX_LENGTH,
-                "score": "raw logit",
-            },
-            "score_decimals": SCORE_DECIMALS,
+            **code_provenance(),
             # cặp đoạn cùng câu hỏi thành bằng nhau CHỈ vì làm tròn (điểm thô khác nhau)
             "rounding_ties": ties,
             "embedding_vectors_sha256": hashlib.sha256(used_vectors.tobytes()).hexdigest(),
-            "offsets": "utf-16 code units, half-open",
-            "cosine_layout": "upper triangle by row, per chunking way, in chunk id order",
-            "pending": list(PENDING_PARTS),
             "question_texts_sha256": question_texts_sha256(questions),
             "inputs": dict(inputs or {}),
         },

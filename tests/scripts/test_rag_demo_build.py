@@ -16,10 +16,11 @@ from pathlib import Path
 
 import pytest
 
+import src.pipeline.publish as publish_module
 from scripts import rag_demo_build
 from src.api.auth import REQUIRED_ENV_VARS
 from src.rag_demo.chunking import ChunkingWay
-from src.rag_demo.corpus import PostSpan, Unit
+from src.rag_demo.corpus import PostSpan, Unit, content_hash
 from src.rag_demo.cross_encoder import (
     CROSS_ENCODER_MAX_LENGTH,
     CROSS_ENCODER_MODEL,
@@ -27,7 +28,7 @@ from src.rag_demo.cross_encoder import (
     PAIRS_PATH,
     SCORES_PATH,
 )
-from src.rag_demo.demo_file import DEMO_PATH, question_texts_sha256
+from src.rag_demo.demo_file import DEMO_PATH, code_provenance, question_texts_sha256
 from src.rag_demo.embedding import EmbeddingCache, token_upper_bound
 from src.rag_demo.llm_batch import done_ids
 from src.rag_demo.llm_jobs import (
@@ -671,3 +672,196 @@ def test_a_results_row_missing_a_key_stops_instead_of_resubmitting(tmp_path: Pat
     results.write_text(json.dumps({"custom_id": "tf-q01", "job": "transform", "ok": True}) + "\n")
     with pytest.raises(KeyError):
         done_ids(results)
+
+
+# --- publish (ADR-0037 D3 + ADR-0040 D3) ---
+
+
+class Uploads:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, bytes]] = []
+
+    def __call__(self, pathname: str, body: bytes) -> None:
+        self.calls.append((pathname, body))
+
+
+def current_demo(**changes: object) -> bytes:
+    """File demo tối thiểu khớp `UNITS` + bộ câu hỏi đang dùng (chỉ các trường publish kiểm)."""
+    demo: dict[str, object] = {
+        "format": 1,
+        "units": [{"id": u.id, "sha256": content_hash(u.full_text)} for u in UNITS],
+        "provenance": {
+            "question_texts_sha256": question_texts_sha256(QUESTIONS),
+            **code_provenance(),
+        },
+    }
+    demo.update(changes)
+    return json.dumps(demo).encode()
+
+
+def test_publish_uploads_the_file_to_the_fixed_pathname(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    uploads, data = Uploads(), current_demo()
+    assert rag_demo_build.run_publish(UNITS, data, [], uploads) == 0
+    assert uploads.calls == [("rag-demo/common.json", data)]
+    assert "Đã publish rag-demo/common.json" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("data", "live", "reason"),
+    [
+        (current_demo(), ["bài u1 đã bị xoá"], "live-check: bài u1 đã bị xoá"),
+        (current_demo(format=2), [], "định dạng 2"),
+        (current_demo(units=[{"id": "u1", "sha256": "cu"}]), [], "khác các bài đóng băng"),
+        (current_demo(units=[]), [], "khác các bài đóng băng"),
+        (current_demo(provenance={"question_texts_sha256": "cu"}), [], "chữ câu hỏi"),
+        (current_demo(provenance=None), [], "chữ câu hỏi"),
+        (
+            current_demo(
+                provenance={
+                    "question_texts_sha256": question_texts_sha256(QUESTIONS),
+                    **(code_provenance() | {"pending": []}),
+                }
+            ),
+            [],
+            "provenance khác code hiện tại (pending)",
+        ),
+        (
+            current_demo(provenance={"question_texts_sha256": question_texts_sha256(QUESTIONS)}),
+            [],
+            "provenance khác code hiện tại (cosine_layout, cross_encoder",
+        ),
+        (b"<html>", [], "không phải JSON"),
+        (b"[]", [], "không phải object"),
+    ],
+)
+def test_publish_uploads_nothing_on_any_problem(
+    data: bytes, live: list[str], reason: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    uploads = Uploads()
+    assert rag_demo_build.run_publish(UNITS, data, live, uploads) == 1
+    assert uploads.calls == []
+    out = capsys.readouterr().out
+    assert "bản công khai giữ nguyên" in out
+    assert reason in out
+
+
+def test_publish_refuses_a_file_at_the_size_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    data = current_demo()
+    uploads = Uploads()
+    monkeypatch.setattr(rag_demo_build, "DEMO_FILE_MAX_BYTES", len(data))
+    assert rag_demo_build.run_publish(UNITS, data, [], uploads) == 1
+    monkeypatch.setattr(rag_demo_build, "DEMO_FILE_MAX_BYTES", len(data) + 1)
+    assert rag_demo_build.run_publish(UNITS, data, [], uploads) == 0
+    assert len(uploads.calls) == 1
+
+
+def test_a_freshly_assembled_file_passes_the_publish_checks(
+    offline_main: pytest.MonkeyPatch, embedded: EmbeddingCache, tmp_path: Path
+) -> None:
+    stored_inputs(tmp_path, embedded)
+    assert rag_demo_build.main(assemble_argv(tmp_path)) == 0
+    data = (tmp_path / "demo.json").read_bytes()
+    assert rag_demo_build.publish_problems(UNITS, data) == []
+    # đối chứng: cùng file, bài đổi chữ sau lần dựng → bị chặn
+    edited = [replace(UNITS[0], full_text=UNITS[0].full_text + " sửa")]
+    assert rag_demo_build.publish_problems(edited, data) != []
+
+
+@pytest.fixture
+def main_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Thư mục chính giả (`.git` là thư mục) có `.env` + file demo; `conftest` đã chặn tải thật."""
+    root = tmp_path / "repo"
+    (root / ".git").mkdir(parents=True)
+    env = root / ".env"
+    env.write_text("BLOB_READ_WRITE_TOKEN=vercel_blob_rw_test\n", encoding="utf-8")
+    monkeypatch.setattr(publish_module, "REPO_ROOT", root)
+    monkeypatch.setattr(publish_module, "ENV_FILE", env)
+    demo = root / "demo.json"
+    demo.write_bytes(current_demo())
+    monkeypatch.setattr(rag_demo_build, "DEMO_PATH", demo)
+    return root
+
+
+def test_publish_wires_live_check_then_upload_with_the_env_token(
+    main_checkout: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[object] = []
+
+    def live(env_file: Path) -> dict[str, str]:
+        seen.append(env_file)
+        return {"u1": TEXT, "p1": TEXT}
+
+    def upload(pathname: str, body: bytes, token: str, content_type: str) -> None:
+        seen.append((pathname, token, content_type, body == current_demo()))
+
+    monkeypatch.setattr(rag_demo_build, "fetch_live_texts", live)
+    monkeypatch.setattr(publish_module, "vercel_upload", upload)
+    assert rag_demo_build.main_publish(UNITS) == 0
+    assert seen == [
+        main_checkout / ".env",
+        ("rag-demo/common.json", "vercel_blob_rw_test", "application/json", True),
+    ]
+
+
+def test_publish_stops_when_a_post_changed_on_threads(
+    main_checkout: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        rag_demo_build, "fetch_live_texts", lambda env_file: {"u1": TEXT, "p1": "chữ khác"}
+    )
+    # `conftest` thay `vercel_upload` bằng hàm raise → lỡ tải là test lỗi
+    assert rag_demo_build.main_publish(UNITS) == 1
+    assert "live-check:" in capsys.readouterr().out
+
+
+def _no_network(env_file: Path) -> dict[str, str]:
+    pytest.fail("không được gọi Threads")
+
+
+def test_publish_never_runs_from_a_worktree(
+    main_checkout: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (main_checkout / ".git").rmdir()
+    (main_checkout / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+    monkeypatch.setattr(rag_demo_build, "fetch_live_texts", _no_network)
+    assert rag_demo_build.main_publish(UNITS) == 2
+    assert "worktree" in capsys.readouterr().err
+
+
+def test_publish_needs_the_blob_token_before_any_network_call(
+    main_checkout: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (main_checkout / ".env").write_text("OTHER=1\n", encoding="utf-8")
+    monkeypatch.setattr(rag_demo_build, "fetch_live_texts", _no_network)
+    assert rag_demo_build.main_publish(UNITS) == 2
+
+
+def test_publish_without_an_assembled_file_stops(
+    main_checkout: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (main_checkout / "demo.json").unlink()
+    monkeypatch.setattr(rag_demo_build, "fetch_live_texts", _no_network)
+    assert rag_demo_build.main_publish(UNITS) == 2
+
+
+def test_publish_reads_the_file_from_the_repo_root_not_the_cwd(
+    main_checkout: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "demo.json").write_bytes(b"file khac")
+    monkeypatch.chdir(elsewhere)
+    monkeypatch.setattr(rag_demo_build, "DEMO_PATH", Path("demo.json"))
+    monkeypatch.setattr(
+        rag_demo_build, "fetch_live_texts", lambda env_file: {"u1": TEXT, "p1": TEXT}
+    )
+    seen: list[bytes] = []
+
+    def upload(pathname: str, body: bytes, token: str, content_type: str) -> None:
+        seen.append(body)
+
+    monkeypatch.setattr(publish_module, "vercel_upload", upload)
+    assert rag_demo_build.main_publish(UNITS) == 0
+    assert seen == [current_demo()]

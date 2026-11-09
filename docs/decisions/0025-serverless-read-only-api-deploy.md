@@ -21,7 +21,7 @@ số liệu cho bản công khai.
    (danh sách entrypoint chuẩn gồm `main.py` trong `src/`) — không cần đổi cấu trúc thư mục.
 2. **Dung lượng thư viện API đang import:** đo wheel Linux (manylinux x86_64, CPython 3.12) đúng phiên bản trong
    `uv.lock` của mọi gói mà `import src.main` nạp: **474,8 MB** — sát giới hạn. Riêng `lingua-language-detector` 292,0 MB;
-   scipy 106,8; numpy 54,5; phần còn lại ≈ 21,5. `lingua` và `anthropic` bị kéo vào chỉ vì `src/main.py:92#topic_identity` import
+   scipy 106,8; numpy 54,5; phần còn lại ≈ 21,5. `lingua` và `anthropic` bị kéo vào chỉ vì `src/main.py:101#topic_identity` import
    `src.nlp.topic_identity`, và `src/nlp/__init__.py` import sẵn `src.nlp.language` (lingua) + `src.nlp.topics`
    (anthropic). API không dùng 2 thư viện này. Mô phỏng bản sửa (nạp `src.main` khi gói `src.nlp` không chạy
    `__init__.py`) → còn **177,6 MB** (không còn `lingua`, `anthropic`, `jiter`, `docstring_parser`, `httpx2`; chưa tính

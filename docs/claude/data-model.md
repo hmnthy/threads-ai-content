@@ -765,8 +765,26 @@ bài ở mục cuối.
   kèm câu ngữ cảnh; file ghi rõ ở `provenance.pending`. `provenance.inputs` ghi hash file cặp + file điểm cross-encoder,
   hash file kết quả Haiku (băm đúng các byte đã đọc và đã kiểm), và số dòng dùng / bỏ qua theo lý do, để truy được file
   ghép từ lần chấm nào; `provenance.embedding_vectors_sha256` là hash các vector đã dùng. `--out` chỉ được nằm hẳn trong
-  `data/rag_demo/` (`data/` không bị gitignore cả thư mục), là `.json` và không trùng file đầu vào nào. Publish lên Blob
-  + endpoint là một bước riêng sau mục 2 (Thy chọn B1), có `live-check` bắt buộc trước khi publish (ADR-0040 D3).
+  `data/rag_demo/` (`data/` không bị gitignore cả thư mục), là `.json` và không trùng file đầu vào nào.
+- **Publish + endpoint** (lệnh `publish`, `src/db/published_demo.py`; Thy chọn B1 2026-11-08, rồi 2026-11-09 đổi thứ tự:
+  lên web ngay, không chờ mục 2 — phần còn chờ hiện "in progress" trên trang). `publish` chỉ chạy ở thư mục chính, đọc
+  token Blob + token Threads từ `.env` của chính checkout, chạy `live-check` trước (ADR-0040 D3), rồi kiểm file: dưới
+  ngân sách cỡ, đúng định dạng, đúng mã + hash chữ các bài đóng băng hiện tại và hash chữ câu hỏi hiện tại (file dựng
+  trước một thay đổi như ADR-0040 không được đè bản công khai); lỗi bất kỳ thì không tải gì. Pathname cố định
+  `rag-demo/common.json` trên Blob riêng tư. API `GET /rag-demo/{name}` chỉ nhận tên trong danh sách cố định (`common`;
+  tên khác → 404 trước mọi lần đọc), phát nguyên byte, không đọc DB nên không chờ bản sao DB; trên Vercel giữ file
+  trong bộ nhớ instance, hỏi lại Blob theo ETag mỗi 15 phút, tải lỗi thì giữ bản cũ. Cache: `private, max-age=300` +
+  ETag = sha256 nội dung (trình duyệt hỏi lại, không đổi thì 304 rỗng). **Không cho CDN giữ**: header CORS chỉ có khi
+  request mang `Origin` được phép, một bản CDN giữ từ request không có `Origin` (mở thẳng link, bot) sẽ làm trang lỗi
+  CORS với mọi người tới khi hết hạn (code-reviewer 2026-11-09); đổi lại mỗi lượt xem mới là một lượt Function. Bản mới
+  lên trang sau tối đa ~21 phút (15 phút bộ nhớ API + 5 phút trình duyệt + ~1 phút cache đọc của Blob), khi các lần hỏi
+  lại Blob thành công (lỗi tạm thì API giữ bản cũ). Gỡ gấp (VD bài vừa bị xoá, mà `live-check` chặn publish bản mới cho
+  tới khi đổi bộ bài đóng băng): xoá object `rag-demo/common.json` trên Blob (API coi 404 là "đã gỡ", bỏ cả bản trong bộ
+  nhớ ở lần hỏi lại kế tiếp) rồi redeploy project API để ngừng ngay; redeploy một mình thì API tải lại đúng file cũ. `publish` còn so phần provenance do code quyết định (`code_provenance`: model,
+  phiên bản prompt, phần còn chờ…). Chưa bắt được: sửa code chia đoạn hay vị trí / mã bài đáp án (`questions.py`) mà quên
+  `assemble` — file không ghi phiên bản của chúng (code-reviewer 2026-11-09 đề xuất `publish` dựng lại file trong bộ nhớ
+  rồi so byte; để sau). Dữ liệu dựng (cặp + điểm cross-encoder, `llm/`, `demo.json`) chỉ ở `data/rag_demo/` của worktree
+  `rag-visualizer`: chép về thư mục chính trước `publish` và trước khi dọn worktree.
 
 ### Phạm vi hiện tại
 

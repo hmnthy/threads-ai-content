@@ -19,6 +19,11 @@ Lệnh con:
   assemble      ghép file demo `--out` (mặc định `data/rag_demo/demo.json`) từ kết quả đã tính sẵn,
                 không gọi mạng; chạy mọi phép kiểm của `check` + `ce-check` trước, lỗi thì không
                 ghi; từ chối file từ 4 MB trở lên (ADR-0037 D3)
+  publish       tải file demo đã ghép lên Vercel Blob riêng tư (pathname cố định, ADR-0037 D3) để
+                API phát; chỉ chạy ở thư mục chính, đọc token Blob + token Threads từ `.env` của
+                chính checkout; chạy `live-check` trước, kiểm file khớp bài đóng băng + câu hỏi
+                hiện tại, lỗi thì không tải gì (ADR-0040 D3); đọc `data/rag_demo/demo.json` của
+                thư mục chính, không dùng `--out` / `--env-file`
 
 Đọc DB ở chế độ chỉ đọc (`--db`, thường là `data/threads.db` của thư mục chính, vì worktree không có
 DB thật). Vector lưu ở `--cache` (mặc định `data/rag_demo/embeddings.jsonl`, gitignored). Script chỉ
@@ -33,20 +38,28 @@ import hashlib
 import json
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import NoReturn
 
 import numpy as np
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from numpy.typing import NDArray
 
 from src.api.auth import MissingCredentialsError, load_credentials
 from src.api.client import ThreadsClient
 from src.api.endpoints import get_posts, get_replies
+from src.db.published_demo import BROWSER_MAX_AGE_S, REVALIDATE_S, blob_pathname
 from src.db.schema import connect_readonly
+from src.pipeline import publish as publish_module
 from src.rag_demo.chunking import Chunk, ChunkingWay, build_chunks, split_sentences
-from src.rag_demo.corpus import CorpusChangedError, Unit, live_mismatches, load_units
+from src.rag_demo.corpus import (
+    CorpusChangedError,
+    Unit,
+    content_hash,
+    live_mismatches,
+    load_units,
+)
 from src.rag_demo.cross_encoder import (
     PAIRS_PATH,
     SCORES_PATH,
@@ -59,11 +72,13 @@ from src.rag_demo.cross_encoder import (
     write_pairs,
 )
 from src.rag_demo.demo_file import (
+    DEMO_FILE_FORMAT,
     DEMO_FILE_MAX_BYTES,
     DEMO_PATH,
     PAID_QUESTION_TEXTS_SHA256,
     SCORE_DECIMALS,
     build_demo,
+    code_provenance,
     non_gold_kept,
     question_texts_sha256,
     score_counts,
@@ -449,6 +464,79 @@ def run_assemble(
     return 0
 
 
+DEMO_CONTENT_TYPE = "application/json"
+# Độ trễ tối đa để bản mới lên trang sau `publish`: API hỏi lại Blob mỗi `REVALIDATE_S` + trình
+# duyệt giữ `max-age` + ~1 phút cache đọc của Blob (tài liệu Vercel "Consistent reads").
+PUBLISH_DELAY_MINUTES = (REVALIDATE_S + BROWSER_MAX_AGE_S) // 60 + 1
+
+
+def publish_problems(units: Sequence[Unit], data: bytes) -> list[str]:
+    """Lý do không được publish file demo `data` (rỗng = được): dưới ngân sách cỡ, đúng định dạng,
+    đúng các bài đóng băng hiện tại (mã + hash chữ), đúng chữ câu hỏi hiện tại và đúng phần
+    provenance do code quyết định (`code_provenance`: model, phiên bản prompt, phần còn chờ…) —
+    file cũ dựng trước một thay đổi (VD ADR-0040 bỏ bài) không được đè bản công khai. Giới hạn:
+    code chia đoạn không có số phiên bản trong file, nên sửa chunker mà quên `assemble` thì chốt
+    này không bắt được."""
+    if len(data) >= DEMO_FILE_MAX_BYTES:
+        return [f"file {len(data)} byte ≥ ngân sách {DEMO_FILE_MAX_BYTES} (ADR-0037 D3)"]
+    try:
+        demo = json.loads(data)
+    except ValueError:
+        return ["file không phải JSON hợp lệ"]
+    if not isinstance(demo, dict):
+        return ["file không phải object JSON"]
+    problems: list[str] = []
+    if demo.get("format") != DEMO_FILE_FORMAT:
+        problems.append(f"định dạng {demo.get('format')!r} ≠ {DEMO_FILE_FORMAT}: chạy lại assemble")
+    stored = [
+        (u.get("id"), u.get("sha256")) for u in demo.get("units") or [] if isinstance(u, dict)
+    ]
+    if stored != [(u.id, content_hash(u.full_text)) for u in units]:
+        problems.append("bài trong file khác các bài đóng băng hiện tại: chạy lại assemble")
+    provenance = demo.get("provenance")
+    stored_questions = (
+        provenance.get("question_texts_sha256") if isinstance(provenance, dict) else None
+    )
+    if stored_questions != question_texts_sha256(QUESTIONS):
+        problems.append("chữ câu hỏi trong file khác code hiện tại: chạy lại assemble")
+    expected = code_provenance()
+    stale = sorted(
+        key
+        for key, value in expected.items()
+        if not isinstance(provenance, dict) or provenance.get(key) != value
+    )
+    if stale:
+        problems.append(f"provenance khác code hiện tại ({', '.join(stale)}): chạy lại assemble")
+    return problems
+
+
+def run_publish(
+    units: Sequence[Unit],
+    data: bytes,
+    live_problems: Sequence[str],
+    upload: Callable[[str, bytes], None],
+) -> int:
+    """`live-check` phải 0 lỗi (ADR-0040 D3) và file phải qua `publish_problems`; có lỗi thì không
+    tải gì, bản công khai giữ nguyên."""
+    problems = [*(f"live-check: {p}" for p in live_problems), *publish_problems(units, data)]
+    if problems:
+        print(f"Chưa publish: {len(problems)} lỗi (bản công khai giữ nguyên)")
+        for problem in problems:
+            print(f"  - {problem}")
+        return 1
+    pathname = blob_pathname("common")
+    upload(pathname, data)
+    digest = hashlib.sha256(data).hexdigest()
+    print(f"Đã publish {pathname}: {len(data)} byte, sha256 {digest[:12]}")
+    print(
+        f"Trang công khai đổi sau tối đa ~{PUBLISH_DELAY_MINUTES} phút khi API đọc được Blob (bản "
+        "trong bộ nhớ API + cache trình duyệt). Gỡ gấp (VD bài vừa bị xoá): xoá object "
+        f"{pathname} trên Vercel Blob rồi redeploy project API — redeploy một mình thì API tải "
+        "lại đúng file cũ."
+    )
+    return 0
+
+
 def require_env(name: str) -> bool:
     load_dotenv()
     if os.environ.get(name, "").strip():
@@ -474,6 +562,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "check",
             "live-check",
             "assemble",
+            "publish",
         ],
     )
     parser.add_argument("--db", type=Path, help="SQLite thật, mở chỉ đọc (mọi lệnh trừ ce-check)")
@@ -521,6 +610,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.llm_dir / RESULTS_NAME,
             args.out,
         )
+    if args.command == "publish":
+        return main_publish(units)
     if args.command == "live-check":
         if not args.env_file.is_file():
             # `load_dotenv` gặp file không có chỉ trả False: lệnh sẽ chạy tiếp bằng token đã nạp lúc
@@ -578,6 +669,41 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"chi phí theo bảng giá ${cost:.4f}"
     )
     return 0
+
+
+def main_publish(units: Sequence[Unit]) -> int:
+    """Nối `run_publish` với thế giới thật. `REPO_ROOT`, `ENV_FILE`, `vercel_upload` tra lúc gọi
+    trên `src.pipeline.publish` → `tests/conftest.py` chặn tải thật ở mọi test (như
+    `publish_after_job`)."""
+    if (publish_module.REPO_ROOT / ".git").is_file():
+        # worktree: `data/` riêng có thể cũ, và `.env` tìm ngược lên thư mục chính (pipeline-db)
+        print("Chưa publish: chỉ thư mục chính được publish (đây là worktree).", file=sys.stderr)
+        return 2
+    env_file = publish_module.ENV_FILE
+    if not env_file.is_file():
+        print(f"Không thấy file {env_file}: chưa gọi API nào.", file=sys.stderr)
+        return 2
+    token = (dotenv_values(env_file).get(publish_module.TOKEN_ENV) or "").strip()
+    if not token:
+        print(f"Thiếu {publish_module.TOKEN_ENV} trong {env_file.name}.", file=sys.stderr)
+        return 2
+    try:
+        # cùng gốc với chốt worktree + `.env` (REPO_ROOT), không theo thư mục đang đứng
+        data = (publish_module.REPO_ROOT / DEMO_PATH).read_bytes()
+    except FileNotFoundError:
+        print(f"Chưa có {DEMO_PATH}: chạy assemble trước.", file=sys.stderr)
+        return 2
+    try:
+        live_texts = fetch_live_texts(env_file)
+    except MissingCredentialsError as error:
+        print(f"{error}: chưa gọi API nào.", file=sys.stderr)
+        return 2
+    upload = publish_module.vercel_upload
+
+    def _upload(pathname: str, body: bytes) -> None:
+        upload(pathname, body, token, content_type=DEMO_CONTENT_TYPE)
+
+    return run_publish(units, data, live_mismatches(units, live_texts), _upload)
 
 
 if __name__ == "__main__":
