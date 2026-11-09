@@ -198,6 +198,14 @@ def _params(
     return params
 
 
+def context_id(document: str, chunk: Chunk) -> str:
+    """Mã request câu ngữ cảnh của một chunk (`cx-`), hoặc chỉ dịch khi chunk là cả bài (`tr-`).
+
+    Một chỗ duy nhất quyết định: bước gửi lô và bước ghép file demo cùng dùng."""
+    prefix = "tr" if chunk.text == document.strip() else "cx"
+    return f"{prefix}-{_digest(chunk.unit_id, chunk.text)}"
+
+
 def context_requests(units: Sequence[Unit], chunks: Sequence[Chunk]) -> list[LlmRequest]:
     """Một request cho mỗi chunk khác nhau trong cùng bài; chunk là cả bài thì chỉ dịch.
 
@@ -207,15 +215,14 @@ def context_requests(units: Sequence[Unit], chunks: Sequence[Chunk]) -> list[Llm
     requests: dict[str, LlmRequest] = {}
     for chunk in chunks:
         document = by_id[chunk.unit_id].full_text
-        if chunk.text == document.strip():
-            custom_id = f"tr-{_digest(chunk.unit_id, chunk.text)}"
+        custom_id = context_id(document, chunk)
+        if job_of(custom_id) is Job.TRANSLATE:
             request = LlmRequest(
                 custom_id,
                 Job.TRANSLATE,
                 _params(Job.TRANSLATE, TRANSLATE_USER.format(document=document)),
             )
         else:
-            custom_id = f"cx-{_digest(chunk.unit_id, chunk.text)}"
             system = [
                 {
                     "type": "text",
@@ -232,11 +239,13 @@ def context_requests(units: Sequence[Unit], chunks: Sequence[Chunk]) -> list[Llm
     return list(requests.values())
 
 
+def transform_id(question: Question) -> str:
+    return f"tf-q{question.number:02d}"
+
+
 def transform_requests(questions: Sequence[Question]) -> list[LlmRequest]:
     return [
-        LlmRequest(
-            f"tf-q{q.number:02d}", Job.TRANSFORM, _params(Job.TRANSFORM, q.text, TRANSFORM_SYSTEM)
-        )
+        LlmRequest(transform_id(q), Job.TRANSFORM, _params(Job.TRANSFORM, q.text, TRANSFORM_SYSTEM))
         for q in questions
     ]
 

@@ -26,6 +26,7 @@ from src.rag_demo.cross_encoder import (
     Pair,
     cross_encoder_pairs,
     pairs_file_is_current,
+    parse_scores,
     read_scores,
     sigmoid,
     write_pairs,
@@ -306,3 +307,9 @@ def test_pairs_file_is_current_only_for_exactly_the_pairs_written(tmp_path: Path
     assert pairs_file_is_current(pairs, path)
     assert not pairs_file_is_current([pairs[0], Pair("b", "câu hỏi", "đoạn hai sửa")], path)
     assert not pairs_file_is_current(pairs[:1], path)
+
+
+@pytest.mark.parametrize("scores", [b"[]", b'{"scores": []}', b"null"])
+def test_scores_file_of_the_wrong_shape_is_a_clear_error(scores: bytes) -> None:
+    with pytest.raises(CrossEncoderResultError, match="không phải object"):
+        parse_scores(b'{"pairs": []}', scores)

@@ -5,6 +5,7 @@ Bài giả tự đặt, không chữ bài thật (repo public).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import subprocess
@@ -19,9 +20,24 @@ from scripts import rag_demo_build
 from src.api.auth import REQUIRED_ENV_VARS
 from src.rag_demo.chunking import ChunkingWay
 from src.rag_demo.corpus import PostSpan, Unit
-from src.rag_demo.cross_encoder import PAIRS_PATH, SCORES_PATH
+from src.rag_demo.cross_encoder import (
+    CROSS_ENCODER_MAX_LENGTH,
+    CROSS_ENCODER_MODEL,
+    CROSS_ENCODER_REVISION,
+    PAIRS_PATH,
+    SCORES_PATH,
+)
+from src.rag_demo.demo_file import DEMO_PATH, question_texts_sha256
 from src.rag_demo.embedding import EmbeddingCache, token_upper_bound
-from src.rag_demo.llm_jobs import Job
+from src.rag_demo.llm_batch import done_ids
+from src.rag_demo.llm_jobs import (
+    LLM_MODEL,
+    PROMPT_VERSIONS,
+    SCHEMAS,
+    Job,
+    LlmRequest,
+    check_output,
+)
 from src.rag_demo.questions import QUESTIONS, AnswerRule, GoldSpan, Question
 from tests.rag_demo.test_embedding import FakeClient
 
@@ -33,10 +49,14 @@ def test_build_outputs_are_gitignored() -> None:
     `data/` không bị bỏ qua cả thư mục, chỉ từng thư mục con có tên trong `.gitignore`."""
     paths = [
         rag_demo_build.DEFAULT_CACHE,
-        rag_demo_build.DEFAULT_LLM_DIR / "results.jsonl",
+        rag_demo_build.DEFAULT_LLM_DIR / rag_demo_build.RESULTS_NAME,
         rag_demo_build.DEFAULT_LLM_DIR / "batch_rerank.json",
         PAIRS_PATH,
         SCORES_PATH,
+        DEMO_PATH,
+        DEMO_PATH.with_suffix(".json.tmp"),
+        # chốt `--out` của assemble cho mọi file dưới thư mục này (out_is_private)
+        rag_demo_build.PRIVATE_DIR / "bat-ky.json",
     ]
     result = subprocess.run(
         ["git", "check-ignore", "--no-index", *(path.as_posix() for path in paths)],
@@ -144,7 +164,17 @@ def embedded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> EmbeddingCache:
     cache = EmbeddingCache(tmp_path / "c.jsonl")
     rag_demo_build.run_embed(UNITS, FakeClient(), cache)
     monkeypatch.setattr(rag_demo_build, "QUESTIONS", (QUESTION,))
+    # bộ câu hỏi giả coi như là bộ đã gửi lô (hằng thật ghim chữ của 10 câu thật)
+    monkeypatch.setattr(
+        rag_demo_build, "PAID_QUESTION_TEXTS_SHA256", question_texts_sha256((QUESTION,))
+    )
     return cache
+
+
+EDITED_QUESTION = (
+    "chữ câu hỏi khác lúc gửi lô Haiku: tăng PROMPT_VERSIONS của transform + rerank, gửi "
+    "lại lô, rồi cập nhật PAID_QUESTION_TEXTS_SHA256"
+)
 
 
 def test_check_passes_only_with_a_current_pairs_file(
@@ -157,11 +187,15 @@ def test_check_passes_only_with_a_current_pairs_file(
     ]
     rag_demo_build.run_ce_export(UNITS, embedded, path)
     assert rag_demo_build.build_problems(UNITS, by_way, path) == []
-    # sửa câu hỏi sau khi chấm: điểm cũ thuộc cặp khác
+    # sửa câu hỏi sau khi chấm: điểm cũ thuộc cặp khác, và kết quả Haiku đã trả tiền chấm câu cũ
     monkeypatch.setattr(rag_demo_build, "QUESTIONS", (replace(QUESTION, text="câu đã sửa"),))
     assert rag_demo_build.build_problems(UNITS, by_way, path) == [
-        "file cặp cross-encoder không còn khớp chunk / câu hỏi hiện tại"
+        EDITED_QUESTION,
+        "file cặp cross-encoder không còn khớp chunk / câu hỏi hiện tại",
     ]
+    # chấm lại cross-encoder (miễn phí) không gỡ được lỗi chữ câu hỏi: lô Haiku vẫn là của câu cũ
+    rag_demo_build.run_ce_export(UNITS, embedded, path)
+    assert rag_demo_build.build_problems(UNITS, by_way, path) == [EDITED_QUESTION]
 
 
 def test_check_reports_a_way_where_no_chunk_holds_the_answer(
@@ -183,6 +217,7 @@ def test_check_reports_a_gold_unit_missing_from_the_corpus(
     monkeypatch.setattr(rag_demo_build, "QUESTIONS", (replace(QUESTION, gold_unit_ids=("u9",)),))
     by_way = rag_demo_build.all_chunks(UNITS, FakeClient(), embedded)
     problems = rag_demo_build.build_problems(UNITS, by_way, tmp_path / "pairs.json")
+    # chữ câu hỏi không đổi, chỉ đổi đáp án: không có lỗi chữ câu hỏi
     assert problems[0] == "câu 1: u9 không có trong tập"
     assert sum("không chunk nào trúng u9" in p for p in problems) == len(ChunkingWay)
 
@@ -364,3 +399,275 @@ def test_embed_without_key_stops_before_any_call(
     code = rag_demo_build.main(["embed", "--db", str(tmp_path / "x.db"), *isolated(tmp_path)])
     assert code == 2
     assert "OPENAI_API_KEY" in capsys.readouterr().err
+
+
+# --- assemble: ghép file demo từ kết quả đã lưu ---
+
+
+def fake_output(request: LlmRequest, passage: str | None) -> dict[str, object]:
+    """Output hợp lệ theo đúng schema của việc đó, đi qua cùng phép kiểm của bước thu lô."""
+    schema = SCHEMAS[request.job]["properties"]
+    if request.job is Job.RERANK:
+        raw: dict[str, object] = {"score": 0, "quote": "", "quote_en": ""}
+    else:
+        raw = {key: ["x"] if spec["type"] == "array" else "x" for key, spec in schema.items()}
+    return check_output(request.job, raw, passage)
+
+
+def stored_inputs(tmp_path: Path, cache: EmbeddingCache) -> Path:
+    """Đủ đầu vào cho bài giả: vector câu hỏi, file cặp + điểm cross-encoder, kết quả Haiku."""
+    rag_demo_build.run_embed(UNITS, FakeClient(), cache)  # thêm vector của câu hỏi đã thay
+    pairs = tmp_path / "pairs.json"
+    rag_demo_build.run_ce_export(UNITS, cache, pairs)
+    pair_ids = [pair["id"] for pair in json.loads(pairs.read_bytes())["pairs"]]
+    scores = {
+        "pairs_digest": hashlib.sha256(pairs.read_bytes()).hexdigest(),
+        "model": CROSS_ENCODER_MODEL,
+        "revision": CROSS_ENCODER_REVISION,
+        "max_length": CROSS_ENCODER_MAX_LENGTH,
+        "longest_pair_tokens": 10,
+        "scores": {pair_id: 0.5 for pair_id in pair_ids},
+    }
+    (tmp_path / "scores.json").write_text(json.dumps(scores), encoding="utf-8")
+    rows = []
+    for job in (Job.TRANSFORM, Job.CONTEXT, Job.RERANK):
+        requests, passages = rag_demo_build.llm_requests(job, UNITS, cache)
+        rows += [
+            {
+                "custom_id": r.custom_id,
+                "job": r.job.value,
+                "ok": True,
+                "model": LLM_MODEL,
+                "prompt_version": PROMPT_VERSIONS[r.job],
+                "output": fake_output(r, passages.get(r.custom_id)),
+            }
+            for r in requests
+        ]
+    results = tmp_path / "llm" / "results.jsonl"
+    results.parent.mkdir()
+    results.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    return results
+
+
+def assemble_argv(tmp_path: Path) -> list[str]:
+    out = ["--out", str(tmp_path / "demo.json")]
+    return ["assemble", "--db", str(tmp_path / "x.db"), *isolated(tmp_path), *out]
+
+
+def test_assemble_writes_the_demo_file_from_stored_results(
+    offline_main: pytest.MonkeyPatch,
+    embedded: EmbeddingCache,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    results = stored_inputs(tmp_path, embedded)
+    rows = [json.loads(line) for line in results.read_text(encoding="utf-8").splitlines()]
+    rerank = next(row for row in rows if row["job"] == "rerank")
+    extra = [
+        {"custom_id": "rr-q01-bai-da-xoa", "job": "rerank", "ok": True},  # ADR-0040
+        rerank | {"ok": False, "error": "batch result errored"},  # thất bại, rồi gửi lại được
+        rerank | {"prompt_version": "2000-01-01.1"},  # dòng của phiên bản prompt cũ
+        rerank | {"prompt_version": "2000-01-02.1"},
+    ]
+    with results.open("a", encoding="utf-8") as file:
+        file.write("".join(json.dumps(row) + "\n" for row in extra))
+    assert rag_demo_build.main(assemble_argv(tmp_path)) == 0
+    demo = json.loads((tmp_path / "demo.json").read_text(encoding="utf-8"))
+    assert demo["format"] == 1
+    assert [q["number"] for q in demo["questions"]] == [1]
+    inputs = demo["provenance"]["inputs"]
+    pairs_digest = hashlib.sha256((tmp_path / "pairs.json").read_bytes()).hexdigest()
+    assert inputs["cross_encoder_pairs_sha256"] == pairs_digest
+    assert inputs["llm_results_sha256"] == hashlib.sha256(results.read_bytes()).hexdigest()
+    scores_digest = hashlib.sha256((tmp_path / "scores.json").read_bytes()).hexdigest()
+    assert inputs["cross_encoder_scores_sha256"] == scores_digest
+    skipped = {"not_in_current_set": 1, "failed": 1, "other_prompt_version": 2}
+    assert inputs["llm_rows_skipped"] == skipped
+    assert inputs["llm_rows_with_fingerprint"] == 0
+    by_way = rag_demo_build.all_chunks(UNITS, FakeClient(), embedded)
+    texts = {c.text for chunks in by_way.values() for c in chunks}
+    assert [p["text"] for p in demo["passages"]] == list(
+        dict.fromkeys(c.text for chunks in by_way.values() for c in chunks)
+    )
+    assert len(demo["questions"][0]["llm"]) == len(texts)
+    out = capsys.readouterr().out
+    assert "bỏ qua: 1 không thuộc tập hiện tại, 1 thất bại, 2 khác phiên bản prompt hiện tại" in out
+    assert "Đoạn Haiku giữ mà không trúng đáp án: 0" in out
+
+
+def test_assemble_keeps_the_old_file_when_a_result_is_missing(
+    offline_main: pytest.MonkeyPatch,
+    embedded: EmbeddingCache,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    results = stored_inputs(tmp_path, embedded)
+    lines = results.read_text(encoding="utf-8").splitlines(keepends=True)
+    results.write_text("".join(lines[:-1]), encoding="utf-8")
+    old = tmp_path / "demo.json"
+    old.write_text("bản cũ", encoding="utf-8")
+    assert rag_demo_build.main(assemble_argv(tmp_path)) == 1
+    assert "chưa có kết quả thành công" in capsys.readouterr().out
+    assert old.read_text(encoding="utf-8") == "bản cũ"
+
+
+def test_assemble_runs_every_check_before_writing(
+    offline_main: pytest.MonkeyPatch,
+    embedded: EmbeddingCache,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored_inputs(tmp_path, embedded)
+    # sửa câu hỏi sau khi chấm: file cặp cross-encoder không còn khớp code
+    offline_main.setattr(rag_demo_build, "QUESTIONS", (replace(QUESTION, text="câu đã sửa"),))
+    assert rag_demo_build.main(assemble_argv(tmp_path)) == 1
+    out = capsys.readouterr().out
+    assert "Chưa ghép được: 2 lỗi của lệnh check" in out
+    assert EDITED_QUESTION in out
+    assert not (tmp_path / "demo.json").exists()
+
+
+def test_assemble_stops_on_scores_of_another_pairs_file(
+    offline_main: pytest.MonkeyPatch,
+    embedded: EmbeddingCache,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored_inputs(tmp_path, embedded)
+    scores = tmp_path / "scores.json"
+    data = json.loads(scores.read_text(encoding="utf-8"))
+    scores.write_text(json.dumps(data | {"pairs_digest": "0" * 64}), encoding="utf-8")
+    assert rag_demo_build.main(assemble_argv(tmp_path)) == 1
+    assert "file điểm thuộc một file cặp khác" in capsys.readouterr().out
+    assert not (tmp_path / "demo.json").exists()
+
+
+def test_demo_file_inside_a_git_tree_must_stay_under_data_rag_demo(tmp_path: Path) -> None:
+    main = tmp_path / "main"
+    (main / ".git").mkdir(parents=True)  # checkout chính: .git là thư mục
+    worktree = main / ".claude" / "worktrees" / "wt"
+    worktree.mkdir(parents=True)
+    (worktree / ".git").write_text("gitdir: ../../../.git/worktrees/wt", encoding="utf-8")
+    private = rag_demo_build.out_is_private
+    assert private(worktree / "data" / "rag_demo" / "demo.json")
+    # chính thư mục thì không: file tạm sẽ là data/rag_demo.tmp
+    assert not private(worktree / "data" / "rag_demo")
+    # data/ không bị gitignore cả thư mục
+    assert not private(worktree / "data" / "demo.json")
+    assert not private(worktree / "src" / "dashboard" / "demo.json")
+    # worktree nằm trong checkout chính: cây làm việc của checkout chính cũng bị chặn
+    assert not private(main / "src" / "demo.json")
+    assert private(main / "data" / "rag_demo" / "demo.json")
+    assert private(tmp_path / "elsewhere" / "demo.json")
+
+
+def test_assemble_refuses_a_public_path_before_writing_anything(
+    offline_main: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    target = REPO / "src" / "dashboard" / "public" / "rag-demo-test.json"
+    argv = ["assemble", "--db", str(tmp_path / "x.db"), *isolated(tmp_path), "--out", str(target)]
+    assert rag_demo_build.main(argv) == 1
+    assert "ngoài data/" in capsys.readouterr().out
+    assert not target.exists()
+
+
+def test_assemble_without_sentence_vectors_stops_with_a_message(
+    offline_main: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert rag_demo_build.main(assemble_argv(tmp_path)) == 1
+    assert "Chưa ghép được: 3 chữ chưa có vector trong cache" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("target", "reason"),
+    [
+        ("pairs", "trùng một file đầu vào"),
+        ("scores", "trùng một file đầu vào"),
+        ("llm-dir", "nằm trong thư mục kết quả Haiku"),
+        ("results", "không phải .json"),
+        ("not-json", "không phải .json"),
+    ],
+)
+def test_assemble_never_overwrites_a_paid_input(
+    offline_main: pytest.MonkeyPatch,
+    embedded: EmbeddingCache,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    target: str,
+    reason: str,
+) -> None:
+    results = stored_inputs(tmp_path, embedded)
+    paid = [results, tmp_path / "pairs.json", tmp_path / "scores.json"]
+    out = {
+        "pairs": paid[1],
+        "scores": paid[2],
+        "llm-dir": results.parent / "demo.json",
+        "results": results,
+        "not-json": tmp_path / "demo.jsonl",
+    }[target]
+    before = {p: p.read_bytes() for p in paid}
+    argv = ["assemble", "--db", str(tmp_path / "x.db"), *isolated(tmp_path), "--out", str(out)]
+    assert rag_demo_build.main(argv) == 1
+    assert f"{out} {reason}" in capsys.readouterr().out
+    assert {p: p.read_bytes() for p in paid} == before
+    assert out in paid or not out.exists()
+
+
+def test_assemble_stops_on_a_hand_edited_score_and_keeps_the_old_file(
+    offline_main: pytest.MonkeyPatch,
+    embedded: EmbeddingCache,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    results = stored_inputs(tmp_path, embedded)
+    rows = [json.loads(line) for line in results.read_text(encoding="utf-8").splitlines()]
+    target = next(row for row in rows if row["job"] == "rerank")
+    target["output"]["score"] = "3"  # sửa tay: chuỗi thay vì số
+    results.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    old = tmp_path / "demo.json"
+    old.write_text("bản cũ", encoding="utf-8")
+    assert rag_demo_build.main(assemble_argv(tmp_path)) == 1
+    assert "output sai dạng (điểm '3')" in capsys.readouterr().out
+    assert old.read_text(encoding="utf-8") == "bản cũ"
+
+
+def test_assemble_checks_the_pairs_bytes_it_actually_uses(
+    offline_main: pytest.MonkeyPatch,
+    embedded: EmbeddingCache,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """File cặp đổi sau lần kiểm của `build_problems` (giả lập bằng cách bỏ qua lần kiểm đó)."""
+    stored_inputs(tmp_path, embedded)
+    offline_main.setattr(rag_demo_build, "build_problems", lambda *_: [])
+    pairs = tmp_path / "pairs.json"
+    pairs.write_bytes(pairs.read_bytes().replace(b"}]}", b'}], "x": 1}'))
+    assert rag_demo_build.main(assemble_argv(tmp_path)) == 1
+    assert "file cặp cross-encoder đổi giữa lúc kiểm và lúc ghép" in capsys.readouterr().out
+    assert not (tmp_path / "demo.json").exists()
+
+
+def test_assemble_never_overwrites_the_default_input_paths(
+    offline_main: pytest.MonkeyPatch,
+    embedded: EmbeddingCache,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Đầu vào được trỏ chỗ khác (`isolated`), nhưng file mặc định vẫn là file đã trả tiền thật."""
+    stored_inputs(tmp_path, embedded)
+    offline_main.chdir(tmp_path)
+    default = tmp_path / PAIRS_PATH
+    default.parent.mkdir(parents=True)
+    default.write_bytes(b"cap that")
+    argv = ["assemble", "--db", "x.db", *isolated(tmp_path), "--out", PAIRS_PATH.as_posix()]
+    assert rag_demo_build.main(argv) == 1
+    assert "trùng một file đầu vào" in capsys.readouterr().out
+    assert default.read_bytes() == b"cap that"
+
+
+def test_a_results_row_missing_a_key_stops_instead_of_resubmitting(tmp_path: Path) -> None:
+    """Dòng hỏng không được coi là "chưa xong": coi vậy thì llm-submit gửi lại và trả tiền."""
+    results = tmp_path / "results.jsonl"
+    results.write_text(json.dumps({"custom_id": "tf-q01", "job": "transform", "ok": True}) + "\n")
+    with pytest.raises(KeyError):
+        done_ids(results)

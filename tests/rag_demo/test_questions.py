@@ -4,6 +4,8 @@ Giá trị mong đợi viết tay theo ADR, không suy ra từ file đang kiểm
 đặt.
 """
 
+import hashlib
+import json
 import re
 from pathlib import Path
 
@@ -11,6 +13,7 @@ import pytest
 
 from src.rag_demo.chunking import Chunk
 from src.rag_demo.corpus import FROZEN_UNITS, CorpusChangedError, Unit
+from src.rag_demo.demo_file import PAID_QUESTION_TEXTS_SHA256, question_texts_sha256
 from src.rag_demo.questions import (
     QUESTIONS,
     AnswerRule,
@@ -185,3 +188,18 @@ def test_check_gold_stops_on_an_invalid_position(span: GoldSpan) -> None:
 def test_check_gold_stops_when_a_gold_unit_is_missing() -> None:
     with pytest.raises(CorpusChangedError, match="u2 không có trong tập"):
         check_gold([make_unit("u1", 20)], [make_question(("u1", "u2"))])
+
+
+# sha256 của [[số, chữ], …] lúc gửi các lô Haiku 2026-11-07 (chữ không đổi từ đó); ghi lại tay
+# ở đây, độc lập với hằng trong code
+QUESTION_TEXTS_SHA256 = "d225c86b8f16b99e09164d934db11da7cb70ea1785323002c820607a68af31c0"
+
+
+def test_question_texts_are_the_ones_the_paid_results_answer() -> None:
+    """Mã request `tf-qNN` / `rr-qNN-…` chỉ ghi số câu, không băm chữ câu hỏi: sửa chữ một câu thì
+    bước gửi lô vẫn coi là xong và file demo nhận output Haiku chấm theo câu cũ mà không báo. Đổi
+    chữ → tăng `PROMPT_VERSIONS` của transform và rerank (gửi lại lô), rồi mới cập nhật hash này."""
+    payload = json.dumps([[q.number, q.text] for q in QUESTIONS], ensure_ascii=False)
+    assert hashlib.sha256(payload.encode("utf-8")).hexdigest() == QUESTION_TEXTS_SHA256
+    # hằng mà bước dựng (`check`, `assemble`) so lúc chạy thật, và file demo ghi lại
+    assert question_texts_sha256(QUESTIONS) == PAID_QUESTION_TEXTS_SHA256 == QUESTION_TEXTS_SHA256

@@ -33,7 +33,7 @@ threads-ai-content/
 │   ├── analysis/              # 6 index (share_rate…) + reach (tầng, ADR-0012) + stats/significance/topic_comparison/reply_thread/topic_affinity
 │   ├── db/schema.py           # SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs, topic_label_history, topic_comparison_runs, topic_comparisons, data_migrations
 │   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job + nlp_cluster_job (cron, pythonw — ADR-0013), job_log, cầu nối clustering Win↔WSL2 (bỏ ở Phase C), compare_topics (bước cuối job NLP, ADR-0023)
-│   ├── rag_demo/              # demo RAG (ADR-0037), chỉ chạy trên laptop, API không import: corpus (19 bài đóng băng, ADR-0040), chunking (7 cách chia đoạn), questions (10 câu + đáp án), embedding (OpenAI + cache), llm_jobs + llm_batch (Haiku qua Message Batches), cross_encoder (+ `cross_encoder_wsl`, chỉ WSL2)
+│   ├── rag_demo/              # demo RAG (ADR-0037), chỉ chạy trên laptop, API không import: corpus (19 bài đóng băng, ADR-0040), chunking (7 cách chia đoạn), questions (10 câu + đáp án), embedding (OpenAI + cache), llm_jobs + llm_batch (Haiku qua Message Batches), cross_encoder (+ `cross_encoder_wsl`, chỉ WSL2), demo_file (ghép file demo cho trình duyệt)
 │   ├── main.py                # FastAPI — chỉ đọc SQLite, không load model trong request
 │   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
 │                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)

@@ -738,6 +738,35 @@ bài ở mục cuối.
 - **Bản dịch máy** (ADR-0040 D5). 27 dòng `chunk_en` / `context_en` có một cụm ≥ 3 từ mang chữ cái chỉ tiếng Việt mới có;
   22 dòng là tên món, nhãn hàng (giữ tiếng Việt là đúng), 5 dòng sót thật, cả 5 ở đầu một chunk bắt đầu giữa câu (chunk
   cố định cắt ngang câu). Giữ nguyên, trang ghi chú; không dịch lại để khỏi tăng phiên bản prompt cho 5 dòng.
+- **File demo** (`src/rag_demo/demo_file.py`, lệnh `assemble`; Thy chọn 2026-11-08). Không gọi mạng: chạy lại mọi phép
+  kiểm của `check` và `ce-check`, dựng lại danh sách request từ code hiện tại rồi chỉ nhận đúng các mã đó. Dòng thành
+  công của phiên bản prompt khác bản hiện tại là dòng đã bị thay (lô mới ghi thêm dòng cùng mã), bỏ qua — cùng định
+  nghĩa "còn hiệu lực" với bước gửi lô (`is_current`). Thiếu một mã, một mã có 2 kết quả thành công cùng phiên bản, sai
+  model, output sai dạng (kiểm lại ngay lúc dùng, cả các bất biến như "điểm dưới 2 không mang câu trích", vì file trên
+  đĩa có thể đã bị sửa tay), câu trích không nguyên văn trong đoạn (ADR-0037 D8) → dừng, không ghi file; mọi phép đếm in
+  ra cũng chạy trước khi ghi. Dòng thiếu dấu vân tay vẫn nhận, có thì phải khớp (lần ghép 2026-11-08: 0 / 4.718 dòng có
+  dấu vân tay, nên phép đối chiếu này chưa được dùng trên dữ liệu thật). Mã request Haiku chỉ ghi số câu, không băm chữ
+  câu hỏi, nên `check` và `assemble` so hash chữ 10 câu hỏi với hash lúc gửi lô (`PAID_QUESTION_TEXTS_SHA256`); sửa chữ
+  một câu thì phải tăng phiên bản prompt và gửi lại lô. Đơn vị lưu là "đoạn" = cặp (bài, chữ chunk) khác nhau: 458 chunk
+  của 7 cách chia là 428 đoạn, mỗi điểm lưu một lần. **Mọi điểm làm tròn 6 chữ số thập phân** (Thy chọn A1): cùng mức
+  với hằng hoà của BM25 (ADR-0038 D4), để nếu luật hoà của dense / rerank (chưa quyết, chặng 4) theo cùng kiểu thì cả
+  trang dùng một hằng; 4 chữ số nhẹ hơn nhưng sinh thêm hoà, và cỡ file không phải ràng buộc. Làm tròn chia trục số
+  thành ô rộng 10⁻⁶: hai điểm cùng ô thành bằng nhau, hai điểm khác ô vẫn khác nhau dù lệch rất ít. Đo trên file
+  (`provenance.rounding_ties`): ở dense 7 cặp đoạn cùng câu hỏi thành hoà chỉ vì làm tròn, nhưng không cặp nào nằm trong
+  cùng một cách chia (trang xếp hạng trong từng cách chia), nên làm tròn không đổi thứ hạng nào (dense và cross-encoder
+  của câu hỏi gốc, trong từng cách chia; phần còn chờ chưa đo); cross-encoder 0 — con số cho ADR luật hoà. **Vị trí ký
+  tự ghi theo đơn vị UTF-16** (cách chuỗi JavaScript đếm), đổi từ điểm mã của Python: 263 / 458 chunk bắt đầu sau ít
+  nhất một emoji ngoài BMP, không đổi thì vị trí của chúng lệch trên trang; kiểm bằng node: cắt `full_text` theo vị trí
+  ghi trong file ra đúng chữ 458 / 458 chunk, ghép post ra đúng 19 / 19 bài. Lần ghép 2026-11-08: 1.369.248 byte (34 %
+  ngân sách 4.000.000, ADR-0037 D3), dùng 4.718 kết quả Haiku (10 biến đổi + 428 câu ngữ cảnh / bản dịch + 4.280
+  rerank), bỏ qua 464 dòng không thuộc tập hiện tại (0 thất bại, 0 khác phiên bản prompt hiện tại) = 420 rerank + 44 câu
+  ngữ cảnh / bản dịch của bài đã xoá; điểm Haiku 0 / 1 / 2 / 3 trên 19 bài = 3.647 / 403 / 185 / 45; đếm lại từ file: 43
+  đoạn giữ mà không trúng đáp án, khớp mục trên. Chưa có (mục 2 của 3e): điểm dense của câu hỏi biến đổi và của chunk
+  kèm câu ngữ cảnh; file ghi rõ ở `provenance.pending`. `provenance.inputs` ghi hash file cặp + file điểm cross-encoder,
+  hash file kết quả Haiku (băm đúng các byte đã đọc và đã kiểm), và số dòng dùng / bỏ qua theo lý do, để truy được file
+  ghép từ lần chấm nào; `provenance.embedding_vectors_sha256` là hash các vector đã dùng. `--out` chỉ được nằm hẳn trong
+  `data/rag_demo/` (`data/` không bị gitignore cả thư mục), là `.json` và không trùng file đầu vào nào. Publish lên Blob
+  + endpoint là một bước riêng sau mục 2 (Thy chọn B1), có `live-check` bắt buộc trước khi publish (ADR-0040 D3).
 
 ### Phạm vi hiện tại
 

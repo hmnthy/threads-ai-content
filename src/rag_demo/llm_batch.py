@@ -61,10 +61,15 @@ def read_rows(results_path: Path) -> list[dict[str, Any]]:
     là lỗi thật → `ValueError`."""
     if not results_path.exists():
         return []
+    return parse_rows(results_path.read_bytes(), str(results_path))
+
+
+def parse_rows(data: bytes, name: str = "results.jsonl") -> list[dict[str, Any]]:
+    """Như `read_rows` nhưng từ byte đã đọc: ai cần băm đúng các byte đã parse thì đọc một lần."""
     # Đọc theo byte: dòng ghi với ensure_ascii=False, chết giữa một ký tự nhiều byte thì decode cả
     # file sẽ lỗi trước khi tới bước bỏ dòng dở. json.loads(bytes) ném UnicodeDecodeError hoặc
     # JSONDecodeError, cả hai là ValueError.
-    lines = results_path.read_bytes().split(b"\n")
+    lines = data.split(b"\n")
     rows: list[dict[str, Any]] = []
     for number, line in enumerate(lines, start=1):
         if not line.strip():
@@ -73,7 +78,7 @@ def read_rows(results_path: Path) -> list[dict[str, Any]]:
             rows.append(json.loads(line))
         except ValueError:
             if number != len(lines):
-                raise ValueError(f"{results_path}: dòng {number} hỏng") from None
+                raise ValueError(f"{name}: dòng {number} hỏng") from None
     return rows
 
 
@@ -97,13 +102,19 @@ def _prepare_append(results_path: Path) -> None:
         file.write(b"\n")
 
 
+def is_current(row: dict[str, Any]) -> bool:
+    """Dòng còn hiệu lực = thành công với đúng phiên bản prompt hiện tại của việc đó.
+
+    Một định nghĩa cho cả bước gửi lô (`done_ids`: không gửi lại) và bước ghép file demo
+    (`select_outputs`): tăng phiên bản thì lô mới ghi thêm dòng cùng mã cạnh dòng cũ, dòng cũ
+    thành "đã bị thay", không phải bản trùng. Đọc khoá trực tiếp: dòng thiếu khoá là dòng hỏng,
+    phải dừng (`KeyError`), không được coi là "chưa xong" rồi gửi lại và trả tiền lần nữa."""
+    return bool(row["ok"]) and row["prompt_version"] == PROMPT_VERSIONS[Job(row["job"])]
+
+
 def done_ids(results_path: Path) -> set[str]:
     """custom_id đã có kết quả thành công với đúng phiên bản prompt hiện tại của việc đó."""
-    return {
-        row["custom_id"]
-        for row in read_rows(results_path)
-        if row["ok"] and row["prompt_version"] == PROMPT_VERSIONS[Job(row["job"])]
-    }
+    return {row["custom_id"] for row in read_rows(results_path) if is_current(row)}
 
 
 _PENDING = (

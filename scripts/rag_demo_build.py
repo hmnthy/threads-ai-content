@@ -16,6 +16,9 @@ Lệnh con:
   live-check    so các bài đóng băng với bài đang sống trên Threads (đã xoá / ẩn / sửa chữ); chạy
                 trước mỗi lần publish (ADR-0040 D3); chỉ đọc, cần token Threads trong `--env-file`
                 (mặc định `.env`)
+  assemble      ghép file demo `--out` (mặc định `data/rag_demo/demo.json`) từ kết quả đã tính sẵn,
+                không gọi mạng; chạy mọi phép kiểm của `check` + `ce-check` trước, lỗi thì không
+                ghi; từ chối file từ 4 MB trở lên (ADR-0037 D3)
 
 Đọc DB ở chế độ chỉ đọc (`--db`, thường là `data/threads.db` của thư mục chính, vì worktree không có
 DB thật). Vector lưu ở `--cache` (mặc định `data/rag_demo/embeddings.jsonl`, gitignored). Script chỉ
@@ -26,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import sys
@@ -46,21 +50,37 @@ from src.rag_demo.corpus import CorpusChangedError, Unit, live_mismatches, load_
 from src.rag_demo.cross_encoder import (
     PAIRS_PATH,
     SCORES_PATH,
+    CrossEncoderResultError,
     cross_encoder_pairs,
+    pairs_bytes,
     pairs_file_is_current,
+    parse_scores,
     read_scores,
     write_pairs,
+)
+from src.rag_demo.demo_file import (
+    DEMO_FILE_MAX_BYTES,
+    DEMO_PATH,
+    PAID_QUESTION_TEXTS_SHA256,
+    SCORE_DECIMALS,
+    build_demo,
+    non_gold_kept,
+    question_texts_sha256,
+    score_counts,
+    select_outputs,
+    write_demo,
 )
 from src.rag_demo.embedding import (
     EMBEDDING_MODEL,
     EmbeddingCache,
     EmbeddingClient,
     EmbedReport,
+    cache_key,
     cost_upper_bound_usd,
     embed_texts,
     token_upper_bound,
 )
-from src.rag_demo.llm_batch import collect, submit
+from src.rag_demo.llm_batch import collect, parse_rows, submit
 from src.rag_demo.llm_jobs import (
     EFFORT,
     LLM_MODEL,
@@ -75,6 +95,9 @@ from src.rag_demo.llm_jobs import (
 )
 from src.rag_demo.questions import QUESTIONS, check_gold, gold_chunk_ids
 
+# Thư mục con của data/ mà .gitignore bỏ qua cho demo (test_build_outputs_are_gitignored)
+PRIVATE_DIR = Path("data/rag_demo")
+RESULTS_NAME = "results.jsonl"
 DEFAULT_CACHE = Path("data/rag_demo/embeddings.jsonl")
 DEFAULT_LLM_DIR = Path("data/rag_demo/llm")
 OPENAI_KEY_ENV = "OPENAI_API_KEY"
@@ -175,17 +198,32 @@ def run_embed(units: Sequence[Unit], client: EmbeddingClient, cache: EmbeddingCa
     )
 
 
+SUBMITTED_JOBS = (Job.TRANSFORM, Job.CONTEXT, Job.RERANK)  # lô context mang cả request dịch
+
+
+def requests_of(job: Job, units: Sequence[Unit], chunks: Sequence[Chunk]) -> list[LlmRequest]:
+    """Request của một việc, dựng từ code hiện tại: một chỗ cho cả bước gửi lô và bước ghép file."""
+    if job is Job.TRANSFORM:
+        return transform_requests(QUESTIONS)
+    if job is Job.RERANK:
+        return rerank_requests(QUESTIONS, chunks)
+    return context_requests(units, chunks)
+
+
 def llm_requests(
     job: Job, units: Sequence[Unit], cache: EmbeddingCache
 ) -> tuple[list[LlmRequest], dict[str, str]]:
     """Request của một việc + bảng custom_id → chữ chunk (để kiểm câu trích của rerank)."""
     if job is Job.TRANSFORM:
-        return transform_requests(QUESTIONS), {}
+        # không cần chunk: gửi được trước khi embed (chunk semantic cần vector câu)
+        return requests_of(job, units, []), {}
     chunks = [c for cs in all_chunks(units, OfflineClient(), cache).values() for c in cs]
-    if job is Job.RERANK:
-        passages = {rerank_id(q, c.text): c.text for q in QUESTIONS for c in chunks}
-        return rerank_requests(QUESTIONS, chunks), passages
-    return context_requests(units, chunks), {}
+    passages = (
+        {rerank_id(q, c.text): c.text for q in QUESTIONS for c in chunks}
+        if job is Job.RERANK
+        else {}
+    )
+    return requests_of(job, units, chunks), passages
 
 
 def run_llm_estimate(units: Sequence[Unit], cache: EmbeddingCache) -> None:
@@ -194,7 +232,7 @@ def run_llm_estimate(units: Sequence[Unit], cache: EmbeddingCache) -> None:
     Mọi token vào tính theo giá ghi cache (×1,25, đắt nhất), nên vẫn là chặn trên cho việc có cache.
     Phía ra không ước lượng ở đây; số thật lấy từ `usage` khi thu lô."""
     print(f"Model: {LLM_MODEL} · effort {EFFORT}")
-    for job in (Job.TRANSFORM, Job.CONTEXT, Job.RERANK):
+    for job in SUBMITTED_JOBS:
         requests, _ = llm_requests(job, units, cache)
         bytes_in = sum(len(json.dumps(r.params, ensure_ascii=False).encode()) for r in requests)
         print(
@@ -220,6 +258,11 @@ def build_problems(
     Chỉ chứng minh file cặp cross-encoder khớp code; file điểm khớp file cặp là việc của `ce-check`
     (`read_scores`). Rỗng + `ce-check` qua + `live-check` 0 lỗi mới dùng được để đóng file demo."""
     problems: list[str] = []
+    if question_texts_sha256(QUESTIONS) != PAID_QUESTION_TEXTS_SHA256:
+        problems.append(
+            "chữ câu hỏi khác lúc gửi lô Haiku: tăng PROMPT_VERSIONS của transform + rerank, gửi "
+            "lại lô, rồi cập nhật PAID_QUESTION_TEXTS_SHA256"
+        )
     try:
         check_gold(units, QUESTIONS)
     except CorpusChangedError as error:
@@ -280,6 +323,132 @@ def run_live_check(units: Sequence[Unit], live_texts: dict[str, str]) -> int:
     return 1 if problems else 0
 
 
+def out_is_private(path: Path) -> bool:
+    """File demo chứa nguyên văn bài: trong một cây git chỉ được nằm dưới `data/rag_demo/`.
+
+    `data/` KHÔNG bị gitignore cả thư mục (`.gitignore` chỉ liệt kê từng thư mục con), nên chốt
+    ở đúng `data/rag_demo/`. Cây git = thư mục cha gần nhất có `.git` (thư mục ở checkout chính,
+    file ở worktree): worktree nằm trong checkout chính, nên ghi vào `<chính>/src/` cũng bị chặn.
+    Giả định mọi cây git gặp ở đây là repo này (bỏ qua `data/rag_demo/`; có test `check-ignore`).
+    Không thuộc cây git nào (VD thư mục tạm của test) thì được. Không gọi `git check-ignore` để
+    bước dựng không phụ thuộc git."""
+    resolved = path.resolve()
+    for root in resolved.parents:
+        if (root / ".git").exists():
+            # nằm HẲN bên trong: `is_relative_to` nhận cả chính thư mục, khi đó file tạm
+            # `data/rag_demo.tmp` rơi vào data/ (không bị bỏ qua)
+            return (root / PRIVATE_DIR).resolve() in resolved.parents
+    return True
+
+
+def run_assemble(
+    units: Sequence[Unit],
+    cache: EmbeddingCache,
+    pairs_path: Path,
+    scores_path: Path,
+    results_path: Path,
+    out_path: Path,
+) -> int:
+    """Ghép file demo; mọi lỗi → in ra, trả 1, không ghi file (file cũ, nếu có, giữ nguyên)."""
+    if not out_is_private(out_path):
+        print(
+            f"Chưa ghép được: {out_path} nằm trong cây git nhưng ngoài {PRIVATE_DIR.as_posix()}/ "
+            "— file chứa nguyên văn bài, chỉ được ghi vào chỗ gitignored"
+        )
+        return 1
+    # Không bao giờ ghi đè đầu vào: kết quả đã trả tiền không chạy lại ra y hệt
+    inputs = [cache.path, pairs_path, scores_path, results_path]
+    inputs += [DEFAULT_CACHE, PAIRS_PATH, SCORES_PATH, DEFAULT_LLM_DIR / RESULTS_NAME]
+    out = out_path.resolve()
+    refusal = (
+        "không phải .json"
+        if out.suffix != ".json"
+        else "trùng một file đầu vào"
+        if out in {p.resolve() for p in inputs}
+        else "nằm trong thư mục kết quả Haiku"
+        if {results_path.parent.resolve(), DEFAULT_LLM_DIR.resolve()} & set(out.parents)
+        else ""
+    )
+    if refusal:
+        print(f"Chưa ghép được: {out_path} {refusal}")
+        return 1
+    try:
+        by_way = all_chunks(units, OfflineClient(), cache)
+    except RuntimeError as error:  # cache thiếu vector câu (chunk semantic)
+        print(f"Chưa ghép được: {error}")
+        return 1
+    problems = build_problems(units, by_way, pairs_path)
+    if problems:
+        print(f"Chưa ghép được: {len(problems)} lỗi của lệnh check")
+        for problem in problems:
+            print(f"  - {problem}")
+        return 1
+    chunks = [c for way_chunks in by_way.values() for c in way_chunks]
+    requests = [r for job in SUBMITTED_JOBS for r in requests_of(job, units, chunks)]
+    texts = list(dict.fromkeys([c.text for c in chunks] + [q.text for q in QUESTIONS]))
+    vectors = {text: v for text in texts if (v := cache.get(cache_key(text, EMBEDDING_MODEL)))}
+    try:
+        # mỗi file đọc đúng một lần: hash ghi vào file demo là hash của chính các byte đã dùng
+        pairs_data, scores_data = pairs_path.read_bytes(), scores_path.read_bytes()
+        results_data = results_path.read_bytes()
+        if pairs_data != pairs_bytes(cross_encoder_pairs(QUESTIONS, chunks)):
+            # build_problems đã kiểm một lần đọc trước; file có thể đã đổi từ đó
+            raise CrossEncoderResultError("file cặp cross-encoder đổi giữa lúc kiểm và lúc ghép")
+        logits = parse_scores(pairs_data, scores_data)
+        selection = select_outputs(parse_rows(results_data, str(results_path)), requests)
+        provenance = {
+            "cross_encoder_pairs_sha256": hashlib.sha256(pairs_data).hexdigest(),
+            "cross_encoder_scores_sha256": hashlib.sha256(scores_data).hexdigest(),
+            "llm_results_sha256": hashlib.sha256(results_data).hexdigest(),
+            "llm_rows_used": len(selection.outputs),
+            "llm_rows_with_fingerprint": selection.fingerprinted,
+            "llm_rows_skipped": {
+                "not_in_current_set": selection.not_wanted,
+                "failed": selection.failed,
+                "other_prompt_version": selection.superseded,
+            },
+        }
+        demo = build_demo(
+            units, by_way, QUESTIONS, selection.outputs, logits, vectors, inputs=provenance
+        )
+        # mọi phép tính trên file chạy TRƯỚC khi ghi: lỗi nào cũng xảy ra khi file cũ còn nguyên
+        scores = score_counts(demo)
+        kept = non_gold_kept(demo)
+        size, digest = write_demo(demo, out_path)
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        # gồm DemoFileError, CrossEncoderResultError, file thiếu, JSON / dòng kết quả hỏng,
+        # file thiếu khoá, giá trị sai kiểu
+        print(f"Chưa ghép được: {type(error).__name__}: {error}")
+        return 1
+    print(
+        f"File demo {out_path}: {size} byte ({size / DEMO_FILE_MAX_BYTES:.0%} ngân sách "
+        f"{DEMO_FILE_MAX_BYTES}) · sha256 {digest[:12]}…"
+    )
+    print(
+        f"{len(units)} bài · {len(demo['passages'])} đoạn khác nhau · chunk theo cách chia "
+        + ", ".join(f"{way} {len(records)}" for way, records in demo["ways"].items())
+    )
+    print(
+        f"Kết quả Haiku dùng {len(selection.outputs)} (có dấu vân tay để đối chiếu: "
+        f"{selection.fingerprinted}) · bỏ qua: {selection.not_wanted} không thuộc tập hiện tại, "
+        f"{selection.failed} thất bại, {selection.superseded} khác phiên bản prompt hiện tại"
+    )
+    print("Điểm Haiku 0/1/2/3: " + "/".join(str(scores[s]) for s in range(4)))
+    per_question = ", ".join(f"câu {n} {c}" for n, c in kept.items() if c)
+    print(
+        f"Đoạn Haiku giữ mà không trúng đáp án: {sum(kept.values())}"
+        + (f" ({per_question})" if per_question else "")
+    )
+    for kind, ties in demo["provenance"]["rounding_ties"].items():
+        per_way = ", ".join(f"{way} {n}" for way, n in ties["by_way"].items())
+        print(
+            f"Cặp hoà do làm tròn {SCORE_DECIMALS} chữ số (điểm thô khác nhau), {kind}: "
+            f"{ties['passages']} trên mọi đoạn · theo cách chia: {per_way}"
+        )
+    print("Chưa có (mục 2): " + "; ".join(demo["provenance"]["pending"]))
+    return 0
+
+
 def require_env(name: str) -> bool:
     load_dotenv()
     if os.environ.get(name, "").strip():
@@ -304,6 +473,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "ce-check",
             "check",
             "live-check",
+            "assemble",
         ],
     )
     parser.add_argument("--db", type=Path, help="SQLite thật, mở chỉ đọc (mọi lệnh trừ ce-check)")
@@ -312,6 +482,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--llm-dir", type=Path, default=DEFAULT_LLM_DIR)
     parser.add_argument("--ce-pairs", type=Path, default=PAIRS_PATH, help="file cặp (ce-*)")
     parser.add_argument("--ce-scores", type=Path, default=SCORES_PATH, help="file điểm (ce-check)")
+    parser.add_argument("--out", type=Path, default=DEMO_PATH, help="file demo (assemble)")
     parser.add_argument(
         "--env-file", type=Path, default=Path(".env"), help="file chứa token Threads (live-check)"
     )
@@ -341,6 +512,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "check":
         return run_check(units, cache, args.ce_pairs)
+    if args.command == "assemble":
+        return run_assemble(
+            units,
+            cache,
+            args.ce_pairs,
+            args.ce_scores,
+            args.llm_dir / RESULTS_NAME,
+            args.out,
+        )
     if args.command == "live-check":
         if not args.env_file.is_file():
             # `load_dotenv` gặp file không có chỉ trả False: lệnh sẽ chạy tiếp bằng token đã nạp lúc
@@ -374,7 +554,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # phản hồi, lần gửi lại tạo lô thứ hai (trả tiền hai lần) mà file trạng thái chỉ biết lô sau.
     # Lỗi mạng thì dừng, người chạy xem Console trước khi gửi lại.
     api = Anthropic(max_retries=0).messages.batches
-    results_path = args.llm_dir / "results.jsonl"
+    results_path = args.llm_dir / RESULTS_NAME
     requests, passages = llm_requests(args.job, units, cache)
     if args.command == "llm-submit":
         batch_id, count = submit(args.job, requests, api, args.llm_dir, results_path)

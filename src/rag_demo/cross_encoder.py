@@ -97,9 +97,17 @@ def pairs_file_is_current(pairs: Sequence[Pair], path: Path = PAIRS_PATH) -> boo
 
 def read_scores(pairs_path: Path = PAIRS_PATH, scores_path: Path = SCORES_PATH) -> dict[str, float]:
     """Điểm thô (logit) theo mã cặp, sau khi kiểm file điểm khớp file cặp hiện tại."""
-    digest = hashlib.sha256(pairs_path.read_bytes()).hexdigest()
-    pair_ids = {pair["id"] for pair in json.loads(pairs_path.read_bytes())["pairs"]}
-    result = json.loads(scores_path.read_bytes())
+    return parse_scores(pairs_path.read_bytes(), scores_path.read_bytes())
+
+
+def parse_scores(pairs_data: bytes, scores_data: bytes) -> dict[str, float]:
+    """Như `read_scores` nhưng từ byte đã đọc (băm được đúng các byte đã dùng)."""
+    digest = hashlib.sha256(pairs_data).hexdigest()
+    pair_ids = {pair["id"] for pair in json.loads(pairs_data)["pairs"]}
+    result = json.loads(scores_data)
+    # file sửa tay / bị cắt có thể là JSON hợp lệ nhưng sai dạng: báo lỗi, không traceback
+    if not isinstance(result, dict) or not isinstance(result.get("scores"), dict):
+        raise CrossEncoderResultError("file điểm không phải object có 'scores' dạng object")
     if result.get("pairs_digest") != digest:
         raise CrossEncoderResultError("file điểm thuộc một file cặp khác — chạy lại bước WSL2")
     for key, expected in (
