@@ -40,6 +40,7 @@ from src.rag_demo.llm_jobs import (
     check_output,
 )
 from src.rag_demo.questions import QUESTIONS, AnswerRule, GoldSpan, Question
+from src.rag_demo.unit_metadata import UNCLUSTERED, MetadataError, TopicSnapshot, UnitMeta
 from tests.rag_demo.test_embedding import FakeClient
 
 REPO = Path(__file__).resolve().parents[2]
@@ -71,6 +72,7 @@ def test_build_outputs_are_gitignored() -> None:
 
 TEXT = "Câu một nói về nhà. Câu hai cũng về nhà. Câu ba nói chuyện khác hẳn."
 UNITS = [Unit(id="u1", full_text=TEXT, posts=(PostSpan("p1", 0, len(TEXT)),))]
+META = TopicSnapshot(7, "2026-11-10T11:30:00+00:00", {"u1": UnitMeta("2026-10", None, UNCLUSTERED)})
 
 
 def test_estimate_bounds_semantic_chunks_by_the_whole_text() -> None:
@@ -302,6 +304,7 @@ def offline_main(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
     monkeypatch.setattr(rag_demo_build, "load_dotenv", lambda *_, **__: None)
     monkeypatch.setattr(rag_demo_build, "connect_readonly", lambda _: sqlite3.connect(":memory:"))
     monkeypatch.setattr(rag_demo_build, "load_units", lambda _: UNITS)
+    monkeypatch.setattr(rag_demo_build, "read_unit_metadata", lambda *_: META)
     return monkeypatch
 
 
@@ -474,7 +477,13 @@ def test_assemble_writes_the_demo_file_from_stored_results(
         file.write("".join(json.dumps(row) + "\n" for row in extra))
     assert rag_demo_build.main(assemble_argv(tmp_path)) == 0
     demo = json.loads((tmp_path / "demo.json").read_text(encoding="utf-8"))
-    assert demo["format"] == 1
+    assert demo["format"] == 2
+    assert demo["units"][0]["month"] == "2026-10"
+    assert demo["units"][0]["topic"] == {"id": None, "label_en": "Unclustered"}
+    assert demo["provenance"]["topics"] == {
+        "cluster_run_id": 7,
+        "cluster_run_at": "2026-11-10T11:30:00+00:00",
+    }
     assert [q["number"] for q in demo["questions"]] == [1]
     inputs = demo["provenance"]["inputs"]
     pairs_digest = hashlib.sha256((tmp_path / "pairs.json").read_bytes()).hexdigest()
@@ -493,6 +502,7 @@ def test_assemble_writes_the_demo_file_from_stored_results(
     assert len(demo["questions"][0]["llm"]) == len(texts)
     out = capsys.readouterr().out
     assert "bỏ qua: 1 không thuộc tập hiện tại, 1 thất bại, 2 khác phiên bản prompt hiện tại" in out
+    assert "Topic: lần gom cụm 7 (2026-11-10T11:30:00+00:00) · 0 / 1 bài có topic" in out
     assert "Đoạn Haiku giữ mà không trúng đáp án: 0" in out
 
 
@@ -688,10 +698,19 @@ class Uploads:
 def current_demo(**changes: object) -> bytes:
     """File demo tối thiểu khớp `UNITS` + bộ câu hỏi đang dùng (chỉ các trường publish kiểm)."""
     demo: dict[str, object] = {
-        "format": 1,
-        "units": [{"id": u.id, "sha256": content_hash(u.full_text)} for u in UNITS],
+        "format": 2,
+        "units": [
+            {
+                "id": u.id,
+                "sha256": content_hash(u.full_text),
+                "month": "2026-10",
+                "topic": {"id": None, "label_en": "Unclustered"},
+            }
+            for u in UNITS
+        ],
         "provenance": {
             "question_texts_sha256": question_texts_sha256(QUESTIONS),
+            "topics": {"cluster_run_id": 7, "cluster_run_at": "2026-11-10T11:30:00+00:00"},
             **code_provenance(),
         },
     }
@@ -712,7 +731,7 @@ def test_publish_uploads_the_file_to_the_fixed_pathname(
     ("data", "live", "reason"),
     [
         (current_demo(), ["bài u1 đã bị xoá"], "live-check: bài u1 đã bị xoá"),
-        (current_demo(format=2), [], "định dạng 2"),
+        (current_demo(format=3), [], "định dạng 3"),
         (current_demo(units=[{"id": "u1", "sha256": "cu"}]), [], "khác các bài đóng băng"),
         (current_demo(units=[]), [], "khác các bài đóng băng"),
         (current_demo(provenance={"question_texts_sha256": "cu"}), [], "chữ câu hỏi"),
@@ -865,3 +884,84 @@ def test_publish_reads_the_file_from_the_repo_root_not_the_cwd(
     monkeypatch.setattr(publish_module, "vercel_upload", upload)
     assert rag_demo_build.main_publish(UNITS) == 0
     assert seen == [current_demo()]
+
+
+def test_assemble_stops_when_the_metadata_cannot_be_read(
+    offline_main: pytest.MonkeyPatch,
+    embedded: EmbeddingCache,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored_inputs(tmp_path, embedded)
+
+    def broken(*_: object) -> TopicSnapshot:
+        raise MetadataError("u1: post mở đầu không có trong posts")
+
+    offline_main.setattr(rag_demo_build, "read_unit_metadata", broken)
+    assert rag_demo_build.main(assemble_argv(tmp_path)) == 1
+    assert not (tmp_path / "demo.json").exists()
+    out = capsys.readouterr().out
+    assert "Chưa ghép được: MetadataError: u1: post mở đầu không có trong posts" in out
+
+
+@pytest.mark.parametrize(
+    "unit_change",
+    [
+        {"month": None},
+        {"month": "2026-1"},
+        {"month": "2026-13"},
+        {"month": "２０２６-10"},  # chữ số toàn khổ: `\d` của Python khớp, `[0-9]` thì không
+        {"topic": {"id": None, "label_en": "Jobs"}},  # id None chỉ đi với "Unclustered"
+        {"topic": None},
+        {"topic": {"id": None}},
+        {"topic": {"id": None, "label_en": ""}},
+        {"topic": {"id": 3, "label_en": "Jobs"}},
+        # mỗi điều kiện một ca chỉ vi phạm đúng nó (ca vi phạm 2 điều kiện che mất một)
+        {"topic": {"id": "topic_1", "label_en": ""}},
+        {"topic": {"id": "topic_1", "label_en": 5}},
+        {"topic": {"id": "topic_1", "label_en": "Jobs", "x": 1}},
+    ],
+)
+def test_publish_refuses_a_unit_without_a_valid_month_or_topic(
+    unit_change: dict[str, object],
+) -> None:
+    """Định dạng 2 (ADR-0041): bộ lọc metadata của trang cần tháng đăng + topic của mọi bài."""
+    good = json.loads(current_demo())
+    assert rag_demo_build.publish_problems(UNITS, json.dumps(good).encode()) == []
+    units = [unit | unit_change for unit in good["units"]]
+    data = current_demo(units=units)
+    assert rag_demo_build.publish_problems(UNITS, data) == [
+        "bài thiếu tháng đăng / topic: chạy lại assemble"
+    ]
+
+
+def test_publish_refuses_a_file_without_the_topic_run() -> None:
+    good = json.loads(current_demo())
+    provenance = {k: v for k, v in good["provenance"].items() if k != "topics"}
+    assert rag_demo_build.publish_problems(UNITS, current_demo(provenance=provenance)) == [
+        "provenance thiếu lần gom cụm của topic: chạy lại assemble"
+    ]
+
+
+def test_assemble_reports_a_locked_db_instead_of_a_traceback(
+    offline_main: pytest.MonkeyPatch,
+    embedded: EmbeddingCache,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored_inputs(tmp_path, embedded)
+
+    def locked(*_: object) -> TopicSnapshot:
+        raise sqlite3.OperationalError("database is locked")
+
+    offline_main.setattr(rag_demo_build, "read_unit_metadata", locked)
+    assert rag_demo_build.main(assemble_argv(tmp_path)) == 1
+    assert not (tmp_path / "demo.json").exists()
+    out = capsys.readouterr().out
+    assert "Chưa ghép được: OperationalError: database is locked" in out
+
+
+def test_publish_refuses_a_format_1_file() -> None:
+    assert "định dạng 1 ≠ 2: chạy lại assemble" in rag_demo_build.publish_problems(
+        UNITS, current_demo(format=1)
+    )

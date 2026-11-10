@@ -33,7 +33,7 @@ threads-ai-content/
 │   ├── analysis/              # 6 index (share_rate…) + reach (tầng, ADR-0012) + stats/significance/topic_comparison/reply_thread/topic_affinity
 │   ├── db/                    # published (bản sao DB trên Blob, ADR-0025) · published_demo (file demo RAG trên Blob, ADR-0037) · schema.py — SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs, topic_label_history, topic_comparison_runs, topic_comparisons, data_migrations
 │   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job + nlp_cluster_job (cron, pythonw — ADR-0013), job_log, cầu nối clustering Win↔WSL2 (bỏ ở Phase C), compare_topics (bước cuối job NLP, ADR-0023)
-│   ├── rag_demo/              # demo RAG (ADR-0037), chỉ chạy trên laptop, API không import: corpus (19 bài đóng băng, ADR-0040), chunking (7 cách chia đoạn), questions (10 câu + đáp án), embedding (OpenAI + cache), llm_jobs + llm_batch (Haiku qua Message Batches), cross_encoder (+ `cross_encoder_wsl`, chỉ WSL2), demo_file (ghép file demo cho trình duyệt)
+│   ├── rag_demo/              # demo RAG (ADR-0037), chỉ chạy trên laptop, API không import: corpus (19 bài đóng băng, ADR-0040), chunking (7 cách chia đoạn), questions (10 câu + đáp án), embedding (OpenAI + cache), llm_jobs + llm_batch (Haiku qua Message Batches), cross_encoder (+ `cross_encoder_wsl`, chỉ WSL2), demo_file (ghép file demo cho trình duyệt), unit_metadata (tháng đăng + topic mỗi bài, ADR-0041)
 │   ├── main.py                # FastAPI — chỉ đọc SQLite, không load model trong request
 │   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
 │                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)
@@ -57,7 +57,7 @@ threads-ai-content/
 | Language ID | lingua-py + Code-Mixing Index (Gambäck & Das 2014) | Live |
 | Embedding | sentence-transformers `BAAI/bge-m3` (1024D, 8.192 token, MIT) | Live, chạy trong WSL2 |
 | Topic discovery | UMAP (3D) + HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8` — calibrate lại 2026-10-01, ADR-0004) | Live, re-cluster hằng ngày |
-| LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — trong job NLP CHỈ đặt tên cluster (tiếng Anh); demo RAG: `claude-haiku-5-5` cho các vai trung gian, tính sẵn (ADR-0037) | Live (demo: chưa có) |
+| LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — trong job NLP CHỈ đặt tên cluster (tiếng Anh); demo RAG: `claude-haiku-5-5` cho các vai trung gian, tính sẵn (ADR-0037) | Live (demo: tính sẵn một lần bằng Message Batches 2026-11-07) |
 | Thống kê | median/IQR, Brunner-Munzel hoán vị + Cliff's δ kèm CI + Holm (numpy/scipy, ADR-0023) — so sánh topic vs phần còn lại tính trong job NLP, landing live (`GET /topics/comparisons`); trang Topics hiện đủ họ Holm (mọi topic × 3 chỉ số) + bảng thuật ngữ (Việc 4, 2026-10-29) | Live |
 | Dashboard | Next.js 16 + Tailwind v4 + chart HTML/CSS tự dựng (SVG cho biểu đồ views theo ngày) + Plotly (bản đồ topic 3D) + Phosphor icons | Live — công khai tại https://unthreaded-analytics.vercel.app (mục "Deploy") |
 | Hosting | Vercel (Hobby): 2 project từ cùng repo + Vercel Blob riêng tư cho bản sao DB (ADR-0025) và file demo RAG (ADR-0037) | Live từ 2026-10-28 |

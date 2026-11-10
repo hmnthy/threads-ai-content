@@ -750,7 +750,8 @@ bài ở mục cuối.
   dấu vân tay, nên phép đối chiếu này chưa được dùng trên dữ liệu thật). Mã request Haiku chỉ ghi số câu, không băm chữ
   câu hỏi, nên `check` và `assemble` so hash chữ 10 câu hỏi với hash lúc gửi lô (`PAID_QUESTION_TEXTS_SHA256`); sửa chữ
   một câu thì phải tăng phiên bản prompt và gửi lại lô. Đơn vị lưu là "đoạn" = cặp (bài, chữ chunk) khác nhau: 458 chunk
-  của 7 cách chia là 428 đoạn, mỗi điểm lưu một lần. **Mọi điểm làm tròn 6 chữ số thập phân** (Thy chọn A1): cùng mức
+  của 7 cách chia là 428 đoạn, mỗi điểm lưu một lần. **Mọi điểm làm tròn 6 chữ số thập phân** (Thy chọn A1; từ định dạng 2 nửa ô làm tròn ra xa số 0 đúng như `toFixed`
+  của trang, ADR-0041 Luật chung 5): cùng mức
   với hằng hoà của BM25 (ADR-0038 D4), để luật hoà của dense / cross-encoder / trộn (ADR-0041 Luật chung 2) dùng
   chung một hằng với BM25; 4 chữ số nhẹ hơn nhưng sinh thêm hoà, và cỡ file không phải ràng buộc. Làm tròn chia trục số
   thành ô rộng 10⁻⁶: hai điểm cùng ô thành bằng nhau, hai điểm khác ô vẫn khác nhau dù lệch rất ít. Đo trên file
@@ -760,12 +761,19 @@ bài ở mục cuối.
   vị UTF-16** (cách chuỗi JavaScript đếm), đổi từ điểm mã của Python: 263 / 458 chunk bắt đầu sau ít
   nhất một emoji ngoài BMP, không đổi thì vị trí của chúng lệch trên trang; kiểm bằng node: cắt `full_text` theo vị trí
   ghi trong file ra đúng chữ 458 / 458 chunk, ghép post ra đúng 19 / 19 bài. Lần ghép 2026-11-08: 1.369.248 byte (34 %
-  ngân sách 4.000.000, ADR-0037 D3), dùng 4.718 kết quả Haiku (10 biến đổi + 428 câu ngữ cảnh / bản dịch + 4.280
+  ngân sách 4.000.000, ADR-0037 D3); lần ghép định dạng 2 ngày 2026-11-10: 1.370.744 byte (34 %), so với định dạng 1
+  đúng 1 ô đổi giá trị (cross-encoder câu 9, đoạn 403: −11,039062 → −11,039063), `rounding_ties` không đổi. Lần ghép
+  2026-11-08 dùng 4.718 kết quả Haiku (10 biến đổi + 428 câu ngữ cảnh / bản dịch + 4.280
   rerank), bỏ qua 464 dòng không thuộc tập hiện tại (0 thất bại, 0 khác phiên bản prompt hiện tại) = 420 rerank + 44 câu
   ngữ cảnh / bản dịch của bài đã xoá; điểm Haiku 0 / 1 / 2 / 3 trên 19 bài = 3.647 / 403 / 185 / 45; đếm lại từ file: 43
   đoạn giữ mà không trúng đáp án, khớp mục trên. Chưa có (mục 2 của 3e): điểm dense của câu hỏi biến đổi và của chunk
-  kèm câu ngữ cảnh; file ghi rõ ở `provenance.pending` (mục thứ ba trong đó, cosine kèm câu ngữ cảnh, không dùng —
-  bỏ khi nâng định dạng lên 2, ADR-0041 Luật chung 8). `provenance.inputs` ghi hash file cặp + file điểm cross-encoder,
+  kèm câu ngữ cảnh; file ghi rõ ở `provenance.pending` (định dạng 2 bỏ mục cosine kèm câu ngữ cảnh: lọc gần trùng và
+  MMR dùng cosine của chữ gốc, ADR-0041 Luật chung 8). **Định dạng 2** (ADR-0041, `src/rag_demo/unit_metadata.py`):
+  mỗi bài thêm `month` ("YYYY-MM", giờ Paris của post mở đầu, ADR-0034) và `topic` `{id, label_en}` của lần gom cụm
+  mới nhất lúc ghép; bài không có nhãn (nhiễu hoặc ngoài lần gom cụm đó) ghi `{id: null, label_en: "Unclustered"}`
+  (Thy chọn 2026-11-10). Nhãn và mã lần gom cụm đọc trong một giao dịch, vì job gom cụm ghi cả hai trong một commit;
+  `provenance.topics` ghi mã + giờ lần gom cụm; `publish` từ chối file định dạng 1 và bài thiếu 2 trường. Lần ghép
+  2026-11-10: lần gom cụm 37, 10 / 19 bài có topic, 9 Unclustered; tháng 2026-10: 17 bài, 2026-11: 2. `provenance.inputs` ghi hash file cặp + file điểm cross-encoder,
   hash file kết quả Haiku (băm đúng các byte đã đọc và đã kiểm), và số dòng dùng / bỏ qua theo lý do, để truy được file
   ghép từ lần chấm nào; `provenance.embedding_vectors_sha256` là hash các vector đã dùng. `--out` chỉ được nằm hẳn trong
   `data/rag_demo/` (`data/` không bị gitignore cả thư mục), là `.json` và không trùng file đầu vào nào.

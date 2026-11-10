@@ -18,7 +18,9 @@ Lệnh con:
                 (mặc định `.env`)
   assemble      ghép file demo `--out` (mặc định `data/rag_demo/demo.json`) từ kết quả đã tính sẵn,
                 không gọi mạng; chạy mọi phép kiểm của `check` + `ce-check` trước, lỗi thì không
-                ghi; từ chối file từ 4 MB trở lên (ADR-0037 D3)
+                ghi; từ chối file từ 4 MB trở lên (ADR-0037 D3). Đọc thêm từ `--db` tháng đăng +
+                topic của mỗi bài (lần gom cụm mới nhất, ADR-0041); lỗi lúc đọc tháng / topic (bảng
+                thiếu, DB bị khoá) → "Chưa ghép được"
   publish       tải file demo đã ghép lên Vercel Blob riêng tư (pathname cố định, ADR-0037 D3) để
                 API phát; chỉ chạy ở thư mục chính, đọc token Blob + token Threads từ `.env` của
                 chính checkout; chạy `live-check` trước, kiểm file khớp bài đóng băng + câu hỏi
@@ -37,6 +39,8 @@ import asyncio
 import hashlib
 import json
 import os
+import re
+import sqlite3
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -109,6 +113,13 @@ from src.rag_demo.llm_jobs import (
     transform_requests,
 )
 from src.rag_demo.questions import QUESTIONS, check_gold, gold_chunk_ids
+from src.rag_demo.unit_metadata import (
+    UNCLUSTERED,
+    MetadataError,
+    TopicSnapshot,
+    read_unit_metadata,
+)
+from src.rag_demo.unit_metadata import summary as metadata_summary
 
 # Thư mục con của data/ mà .gitignore bỏ qua cho demo (test_build_outputs_are_gitignored)
 PRIVATE_DIR = Path("data/rag_demo")
@@ -358,6 +369,7 @@ def out_is_private(path: Path) -> bool:
 
 def run_assemble(
     units: Sequence[Unit],
+    metadata: TopicSnapshot,
     cache: EmbeddingCache,
     pairs_path: Path,
     scores_path: Path,
@@ -424,7 +436,14 @@ def run_assemble(
             },
         }
         demo = build_demo(
-            units, by_way, QUESTIONS, selection.outputs, logits, vectors, inputs=provenance
+            units,
+            by_way,
+            QUESTIONS,
+            selection.outputs,
+            logits,
+            vectors,
+            inputs=provenance,
+            metadata=metadata,
         )
         # mọi phép tính trên file chạy TRƯỚC khi ghi: lỗi nào cũng xảy ra khi file cũ còn nguyên
         scores = score_counts(demo)
@@ -460,6 +479,7 @@ def run_assemble(
             f"Cặp hoà do làm tròn {SCORE_DECIMALS} chữ số (điểm thô khác nhau), {kind}: "
             f"{ties['passages']} trên mọi đoạn · theo cách chia: {per_way}"
         )
+    print(metadata_summary(metadata))
     print("Chưa có (mục 2): " + "; ".join(demo["provenance"]["pending"]))
     return 0
 
@@ -468,6 +488,26 @@ DEMO_CONTENT_TYPE = "application/json"
 # Độ trễ tối đa để bản mới lên trang sau `publish`: API hỏi lại Blob mỗi `REVALIDATE_S` + trình
 # duyệt giữ `max-age` + ~1 phút cache đọc của Blob (tài liệu Vercel "Consistent reads").
 PUBLISH_DELAY_MINUTES = (REVALIDATE_S + BROWSER_MAX_AGE_S) // 60 + 1
+
+
+def _has_unit_metadata(unit: object) -> bool:
+    """Bài trong file có `month` "YYYY-MM" (tháng 01–12) và `topic` {id: chuỗi | None, label_en:
+    chuỗi}; id None chỉ đi với "Unclustered". Khoá lọc của trang là `topic.id` (tên không
+    UNIQUE)."""
+    if not isinstance(unit, dict):
+        return False
+    month, topic = unit.get("month"), unit.get("topic")
+    return (
+        isinstance(month, str)
+        # [0-9], không \d: \d của Python khớp cả chữ số Unicode
+        and re.fullmatch(r"[0-9]{4}-(0[1-9]|1[0-2])", month) is not None
+        and isinstance(topic, dict)
+        and set(topic) == {"id", "label_en"}
+        and (topic["id"] is None or isinstance(topic["id"], str))
+        and isinstance(topic["label_en"], str)
+        and bool(topic["label_en"])
+        and (topic["id"] is not None or topic["label_en"] == UNCLUSTERED)
+    )
 
 
 def publish_problems(units: Sequence[Unit], data: bytes) -> list[str]:
@@ -493,7 +533,13 @@ def publish_problems(units: Sequence[Unit], data: bytes) -> list[str]:
     ]
     if stored != [(u.id, content_hash(u.full_text)) for u in units]:
         problems.append("bài trong file khác các bài đóng băng hiện tại: chạy lại assemble")
+    if any(not _has_unit_metadata(u) for u in demo.get("units") or []):
+        # định dạng 2 (ADR-0041): bộ lọc metadata của trang cần tháng đăng + topic của mọi bài
+        problems.append("bài thiếu tháng đăng / topic: chạy lại assemble")
     provenance = demo.get("provenance")
+    topics = provenance.get("topics") if isinstance(provenance, dict) else None
+    if not isinstance(topics, dict) or "cluster_run_id" not in topics:
+        problems.append("provenance thiếu lần gom cụm của topic: chạy lại assemble")
     stored_questions = (
         provenance.get("question_texts_sha256") if isinstance(provenance, dict) else None
     )
@@ -588,7 +634,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.db is None:
         parser.error(f"{args.command} cần --db")
 
-    units = load_units(connect_readonly(args.db))
+    conn = connect_readonly(args.db)
+    units = load_units(conn)
     cache = EmbeddingCache(args.cache)
     if args.command == "estimate":
         run_estimate(units)
@@ -602,8 +649,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "check":
         return run_check(units, cache, args.ce_pairs)
     if args.command == "assemble":
+        try:
+            metadata = read_unit_metadata(conn, units)
+        except (MetadataError, sqlite3.OperationalError) as error:
+            # OperationalError: VD "database is locked" khi job gom cụm giữ khoá ghi quá lâu
+            print(f"Chưa ghép được: {type(error).__name__}: {error}")
+            return 1
         return run_assemble(
             units,
+            metadata,
             cache,
             args.ce_pairs,
             args.ce_scores,

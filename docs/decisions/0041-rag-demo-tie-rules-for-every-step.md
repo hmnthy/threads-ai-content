@@ -25,7 +25,7 @@
   hiện khoảng hạng). Trang `/rag-pipeline` bản đầu (Thy chốt 2026-11-09: đủ phạm vi ADR-0037) có mọi bước, nên engine
   TypeScript cần một đặc tả mà hai người viết độc lập ra cùng thứ hạng.
 - Đo trên file demo 2026-11-08 / 09 (câu hỏi gốc, 19 bài):
-  - Hoà trong cùng một cách chia (hoà tuyệt đối lẫn do làm tròn 6 chữ số, `src/rag_demo/demo_file.py:65#SCORE_DECIMALS`):
+  - Hoà trong cùng một cách chia (hoà tuyệt đối lẫn do làm tròn 6 chữ số, `src/rag_demo/demo_file.py:70#SCORE_DECIMALS`):
     **0 ở dense, 0 ở cross-encoder**. Hoà do làm tròn trên mọi cách chia gộp lại: dense 7, cross-encoder 0.
   - Haiku chấm số nguyên 0–3: 3.647 / 403 / 185 / 45 trên 4.280 cặp — hoà là chuyện thường. Bật lọc Haiku (bỏ < 2):
     câu 10 còn 0 đoạn ở cả 7 cách chia, câu 5 còn 1 đoạn ở 6 / 7 cách chia.
@@ -77,8 +77,8 @@
       recursive 500 — cách chia mặc định khi mở trang**); câu 3: như nhau; câu 8: kém 1 hạng ở fixed 300; câu 2, 4, 5,
       9: như nhau. Thy giữ quyết định expand sau khi xem mốc này (2026-11-10). Trang phải hiện đúng điều này ở chế độ A/B khi đặt cả hai bên BM25 (ở mặc định hybrid, bên expand là
       "hybrid rơi về BM25" → "no clear winner", Luật chung 8), không quảng cáo expand là luôn tốt hơn.
-  - Dense của câu hỏi biến đổi và của chunk kèm câu ngữ cảnh (mục 2 của 3e) chưa có nên chưa đo. File demo chưa có ngày
-    đăng hay topic của bài.
+  - Dense của câu hỏi biến đổi và của chunk kèm câu ngữ cảnh (mục 2 của 3e) chưa có nên chưa đo. Lúc quyết (định dạng 1)
+    file demo chưa có ngày đăng hay topic của bài; định dạng 2 (2026-11-10) đã có — mục "Dữ liệu thêm vào file demo".
 - Nguồn hằng số đã kiểm 2026-11-09: RRF k = 60 là giá trị của bài gốc (Cormack, Clarke & Büttcher, SIGIR 2009) và mặc
   định `rank_constant` của Elasticsearch; Qdrant mặc định k = 2 (qdrant.tech, "Hybrid queries"). DBSF theo mô tả của
   Qdrant (cùng trang): (s − (μ − 3σ)) / 6σ, σ là độ lệch chuẩn mẫu, không kẹp vào [0, 1], mọi điểm bằng nhau hoặc một
@@ -137,10 +137,10 @@
    - Cộng bằng vòng lặp trái → phải (`acc = acc + x`), không `sum` (từ Python 3.12 cộng có bù sai số:
      `sum([0.1] * 10)` = 1.0, vòng lặp và JS = 0.9999999999999999), không `math.fsum`, `statistics` hay numpy.
    - Mọi số làm tròn trong file demo (dense, cross-encoder, cosine chunk × chunk) cũng theo luật này: `assemble`
-     (`src/rag_demo/demo_file.py:207#_score`) hiện dùng `round`, đổi sang ROUND_HALF_UP (giữ `+ 0.0` để −0 thành 0)
-     cùng lúc nâng `DEMO_FILE_FORMAT` lên 2, rồi đo lại `rounding_ties`. Đo 2026-11-10: 2 / 4.280 logit thô rơi đúng
-     nửa ô, 1 trong đó cho kết quả khác — −11,0390625, câu 9, đoạn 403: file format 1 ghi −11,039062, luật này cho
-     −11,039063; thứ hạng không đổi.
+     (`src/rag_demo/demo_file.py:212#_score`) dùng ROUND_HALF_UP (giữ `+ 0.0` để −0 thành 0) từ định dạng 2
+     (2026-11-10; định dạng 1 dùng `round`). Đo 2026-11-10: 2 / 4.280 logit thô rơi đúng nửa ô, 1 trong đó cho kết
+     quả khác — −11,0390625, câu 9, đoạn 403: định dạng 1 ghi −11,039062, luật này cho −11,039063; thứ hạng không
+     đổi. Dựng lại sang định dạng 2: đúng ô đó đổi, `rounding_ties` không đổi (dense 7, cross-encoder 0).
 
    Giá trị thanh kéo (α, λ, ngưỡng gần trùng, k1, b) = số nguyên i / 100 trước khi dùng, và
    1 − α, 1 − λ, 1 − b tính là (100 − i) / 100, để bước 0,1 không thành 0,30000000000000004. Hiện
@@ -180,8 +180,8 @@
 
    Chung cho cả hai: lọc gần trùng và MMR **luôn dùng cosine chunk × chunk của chữ gốc** (Thy chọn, lựa chọn thiết kế:
    đo độ trùng / đa dạng trên nội dung người đọc thấy, câu ngữ cảnh chỉ hỗ trợ tìm), nên không phụ thuộc phần còn chờ.
-   File ghi 3 mục còn chờ; mục thứ ba (cosine chunk × chunk kèm câu ngữ cảnh) vì vậy không dùng, bỏ khỏi `PENDING_PARTS`
-   khi nâng định dạng lên 2 và trang không hiện nó. A/B với hai cấu hình này: mục "Hạng của đáp án".
+   File định dạng 1 ghi 3 mục còn chờ; mục thứ ba (cosine chunk × chunk kèm câu ngữ cảnh) vì vậy không dùng, đã bỏ
+   khỏi `PENDING_PARTS` ở định dạng 2 (2026-11-10) và trang không hiện nó. A/B với hai cấu hình này: mục "Hạng của đáp án".
 9. **Câu tự gõ** (ADR-0037 D11): chỉ BM25. Vẫn dùng được: lọc metadata, lọc gần trùng, MMR (rel = điểm BM25), cắt
    top-K, chọn cách chia, thanh kéo k1 / b, công tắc câu ngữ cảnh (câu ngữ cảnh tính sẵn theo chunk, không theo câu
    hỏi). Tắt: dense, trộn, biến đổi câu hỏi, rerank, lọc Haiku (không có điểm tính sẵn cho câu tự gõ); trang ghi lý do.
@@ -327,7 +327,7 @@
   null` → chunk trần), và embed `transforms.expand` riêng (không
   embed chuỗi ghép), vì expand đi theo 2 danh sách. Nâng `DEMO_FILE_FORMAT` lên 2 kèm bỏ mục
   thứ ba khỏi `PENDING_PARTS` (Luật chung 8) và đổi `_score` sang ROUND_HALF_UP (Luật chung 5). Hằng 6 chữ số có 2
-  bản (`src/rag_demo/demo_file.py:65#SCORE_DECIMALS`, `src/dashboard/src/lib/ragDemo/bm25.ts:11#SCORE_DECIMALS`):
+  bản (`src/rag_demo/demo_file.py:70#SCORE_DECIMALS`, `src/dashboard/src/lib/ragDemo/bm25.ts:11#SCORE_DECIMALS`):
   engine từ chối file có `provenance.score_decimals` khác hằng của mình.
 - **Docs:** `docs/claude/data-model.md` (mục demo RAG), `docs/claude/architecture.md`, `docs/status.md`,
   `docs/design/ui-contract.md`, `docs/decisions/README.md`, dòng

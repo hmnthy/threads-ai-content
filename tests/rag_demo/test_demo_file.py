@@ -6,6 +6,7 @@ không đọc lại từ code đang test.
 
 from __future__ import annotations
 
+import functools
 import json
 import math
 import os
@@ -43,6 +44,7 @@ from src.rag_demo.llm_jobs import (
     transform_requests,
 )
 from src.rag_demo.questions import AnswerRule, GoldSpan, Question
+from src.rag_demo.unit_metadata import UNCLUSTERED, TopicSnapshot, UnitMeta
 
 # Post 1 có emoji ngoài BMP: 13 điểm mã nhưng 14 đơn vị UTF-16
 POST_1 = "Nhà ấm 😀 quá."
@@ -103,6 +105,16 @@ TRANSFORM = {
 PASSAGES = [FULL_1, FULL_2, POST_1, POST_2]
 DOCUMENT = {FULL_1: FULL_1, FULL_2: FULL_2, POST_1: FULL_1, POST_2: FULL_1}
 UNIT_OF = {FULL_1: "u1", FULL_2: "u2", POST_1: "u1", POST_2: "u1"}
+# u1 có topic, u2 Unclustered (ADR-0041 "Dữ liệu thêm vào file demo")
+META = TopicSnapshot(
+    cluster_run_id=37,
+    cluster_run_at="2026-11-10T11:30:42+00:00",
+    units={
+        "u1": UnitMeta("2026-10", "topic-3", "Housing in France"),
+        "u2": UnitMeta("2026-11", None, UNCLUSTERED),
+    },
+)
+build = functools.partial(build_demo, metadata=META)
 
 
 def context_key(text: str) -> str:
@@ -129,7 +141,7 @@ def logits() -> dict[str, float]:
 
 
 def demo() -> dict[str, Any]:
-    return build_demo(UNITS, BY_WAY, [QUESTION], outputs(), logits(), VECTORS)
+    return build(UNITS, BY_WAY, [QUESTION], outputs(), logits(), VECTORS)
 
 
 def test_utf16_offset_counts_an_astral_emoji_as_two_units() -> None:
@@ -165,8 +177,7 @@ def test_whole_unit_chunks_carry_a_translation_but_no_context() -> None:
 
 def test_scores_are_rounded_to_six_decimals() -> None:
     question = demo()["questions"][0]
-    half_root = round(1 / math.sqrt(2), 6)
-    assert half_root == 0.707107
+    half_root = 0.707107  # 1/√2 = 0,70710678… (viết tay, không tính bằng `round`)
     # cosine với câu hỏi [1, 0, 1]: tính tay
     assert question["dense"] == [half_root, 0.0, 0.5, half_root]
     assert question["cross_encoder"] == [1.234568, -2.0, 0.5, 3.0]
@@ -187,7 +198,7 @@ def test_llm_cells_keep_the_checked_quote_and_why_one_was_dropped() -> None:
     assert [c["score"] for c in cells] == [3, 1, 2, 2]
     assert cells[0] == {"score": 3, "quote": "Nhà ấm", "quote_en": "en", "quote_dropped": None}
     assert cells[1]["quote"] is None
-    dropped = build_demo(
+    dropped = build(
         UNITS,
         BY_WAY,
         [QUESTION],
@@ -253,7 +264,7 @@ def test_each_question_gets_its_own_row_of_scores() -> None:
         raw = {"score": score, "quote": quote, "quote_en": quote and "en"}
         results[rerank_id(QUESTION_2, text)] = check_output(Job.RERANK, raw, text)
     vectors = VECTORS | {QUESTION_2.text: [0.0, 1.0, 0.0]}
-    built = build_demo(UNITS, BY_WAY, [QUESTION, QUESTION_2], results, scores, vectors)
+    built = build(UNITS, BY_WAY, [QUESTION, QUESTION_2], results, scores, vectors)
     first, second = built["questions"]
     assert first["dense"] == [0.707107, 0.0, 0.5, 0.707107]
     # câu 2 [0, 1, 0]: FULL_1 0, FULL_2 1, POST_1 1/√2, POST_2 0
@@ -280,7 +291,7 @@ def test_a_shared_gold_span_is_converted_per_unit() -> None:
         raw = {"score": 0, "quote": "", "quote_en": ""}
         results[rerank_id(both, text)] = check_output(Job.RERANK, raw, text)
     vectors = VECTORS | {both.text: [1.0, 1.0, 1.0]}
-    built = build_demo(UNITS, BY_WAY, [both], results, scores, vectors)
+    built = build(UNITS, BY_WAY, [both], results, scores, vectors)
     spans = built["questions"][0]["gold_spans"]
     assert spans == {"u1": {"start": 10, "end": 12}, "u2": {"start": 9, "end": 11}}
     assert FULL_1[9:11] == "qu" and FULL_2[9:11] == "êm"
@@ -288,8 +299,13 @@ def test_a_shared_gold_span_is_converted_per_unit() -> None:
 
 def test_provenance_lists_the_parts_still_missing() -> None:
     built = demo()
-    assert built["format"] == 1
-    assert built["provenance"]["pending"] == list(PENDING_PARTS)
+    assert built["format"] == 2
+    # định dạng 2 bỏ "cosine kèm câu ngữ cảnh": lọc gần trùng và MMR dùng cosine chữ gốc
+    assert built["provenance"]["pending"] == [
+        "dense score of transformed questions",
+        "dense score of chunks with their context sentence",
+    ]
+    assert list(PENDING_PARTS) == built["provenance"]["pending"]
     assert built["provenance"]["offsets"].startswith("utf-16")
 
 
@@ -316,7 +332,7 @@ def test_any_missing_cell_stops_the_build(drop: str, message: str) -> None:
     else:
         del results["tf-q01"]
     with pytest.raises(DemoFileError, match=message):
-        build_demo(UNITS, BY_WAY, [QUESTION], results, scores, vectors)
+        build(UNITS, BY_WAY, [QUESTION], results, scores, vectors)
 
 
 # --- chọn kết quả Haiku ---
@@ -455,7 +471,7 @@ def test_written_file_round_trips(tmp_path: Path) -> None:
 
 def test_a_tiny_negative_score_is_written_as_plain_zero() -> None:
     scores = logits() | {rerank_id(QUESTION, FULL_1): -1e-9}
-    built = build_demo(UNITS, BY_WAY, [QUESTION], outputs(), scores, VECTORS)
+    built = build(UNITS, BY_WAY, [QUESTION], outputs(), scores, VECTORS)
     assert '"cross_encoder":[0.0,' in encode_demo(built).decode()
 
 
@@ -503,7 +519,7 @@ def test_a_quote_not_in_the_passage_never_reaches_the_page() -> None:
     cell["quote"] = "chữ không có trong đoạn"
     results[rerank_id(QUESTION, FULL_2)] = cell
     with pytest.raises(DemoFileError, match="câu trích không nguyên văn trong đoạn"):
-        build_demo(UNITS, BY_WAY, [QUESTION], results, logits(), VECTORS)
+        build(UNITS, BY_WAY, [QUESTION], results, logits(), VECTORS)
 
 
 def test_rounding_ties_in_the_file_count_raw_scores_per_passage_and_per_way() -> None:
@@ -515,7 +531,7 @@ def test_rounding_ties_in_the_file_count_raw_scores_per_passage_and_per_way() ->
         rerank_id(QUESTION, FULL_2): 0.1234561,
         rerank_id(QUESTION, POST_1): 0.1234564,
     }
-    ties = build_demo(UNITS, BY_WAY, [QUESTION], outputs(), scores, vectors)["provenance"][
+    ties = build(UNITS, BY_WAY, [QUESTION], outputs(), scores, vectors)["provenance"][
         "rounding_ties"
     ]
     # đoạn: FULL_1 0, FULL_2 1, POST_1 2, POST_2 3. whole = [0, 1]; post = [2, 3, 1];
@@ -528,7 +544,7 @@ def test_rounding_ties_in_the_file_count_raw_scores_per_passage_and_per_way() ->
 
 def test_provenance_fingerprints_the_vectors_used() -> None:
     first = demo()["provenance"]["embedding_vectors_sha256"]
-    changed = build_demo(
+    changed = build(
         UNITS, BY_WAY, [QUESTION], outputs(), logits(), VECTORS | {POST_2: [0.0, 0.0, 3.0]}
     )
     # cùng hướng nên mọi điểm như cũ, nhưng vector đã dùng khác
@@ -540,3 +556,48 @@ def test_provenance_fingerprints_the_vectors_used() -> None:
 def test_a_malformed_results_row_stops_the_build(row: object) -> None:
     with pytest.raises(DemoFileError, match="không phải object có custom_id"):
         select_outputs([*rows(), cast(Any, row)], REQUESTS)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # giá trị có thật (câu 9, đoạn 403): `round` cho -11.039062, `toFixed` của trang -11.039063
+        (-11.0390625, -11.039063),
+        (1 / 128, 0.007813),  # 1 / (60 + 68), một số hạng RRF; `round` cho 0.007812
+        (5e-7, 0.0),  # nhị phân thật < 5e-7: `toFixed` cho 0.000000 (`Decimal(str)` cho 0.000001)
+        (-4e-7, 0.0),  # làm tròn ra -0: ghi 0.0, JSON không có "-0.0"
+    ],
+)
+def test_scores_round_half_away_from_zero_like_the_page(raw: float, expected: float) -> None:
+    """ADR-0041 Luật chung 5: file làm tròn đúng như `Number(x.toFixed(6))` của trang."""
+    scores = logits() | {rerank_id(QUESTION, FULL_1): raw}
+    built = build(UNITS, BY_WAY, [QUESTION], outputs(), scores, VECTORS)
+    value = built["questions"][0]["cross_encoder"][0]
+    assert value == expected
+    if value == 0.0:
+        assert math.copysign(1.0, value) == 1.0  # +0, không phải -0
+    assert "-0.0" not in encode_demo(built).decode()
+
+
+def test_a_non_finite_score_stops_before_writing() -> None:
+    scores = logits() | {rerank_id(QUESTION, FULL_1): math.inf}
+    with pytest.raises(DemoFileError, match="điểm không hữu hạn"):
+        build(UNITS, BY_WAY, [QUESTION], outputs(), scores, VECTORS)
+
+
+def test_units_carry_their_month_and_topic_snapshot() -> None:
+    built = demo()
+    assert [(u["id"], u["month"], u["topic"]) for u in built["units"]] == [
+        ("u1", "2026-10", {"id": "topic-3", "label_en": "Housing in France"}),
+        ("u2", "2026-11", {"id": None, "label_en": "Unclustered"}),
+    ]
+    assert built["provenance"]["topics"] == {
+        "cluster_run_id": 37,
+        "cluster_run_at": "2026-11-10T11:30:42+00:00",
+    }
+
+
+def test_a_unit_without_metadata_stops() -> None:
+    partial = TopicSnapshot(37, "2026-11-10T11:30:42+00:00", {"u1": META.units["u1"]})
+    with pytest.raises(DemoFileError, match="thiếu tháng đăng / topic của bài u2"):
+        build_demo(UNITS, BY_WAY, [QUESTION], outputs(), logits(), VECTORS, metadata=partial)

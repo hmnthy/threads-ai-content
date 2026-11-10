@@ -14,10 +14,12 @@ File chứa nguyên văn bài nên không vào repo (`data/rag_demo/` gitignored
 import contextlib
 import hashlib
 import json
+import math
 import os
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any
 
@@ -49,27 +51,30 @@ from src.rag_demo.llm_jobs import (
     transform_id,
 )
 from src.rag_demo.questions import Question, gold_chunk_ids
+from src.rag_demo.unit_metadata import TopicSnapshot
 
 DEMO_PATH = Path("data/rag_demo/demo.json")
-# Đổi cấu trúc file thì tăng số này; trang từ chối số lạ thay vì đọc sai.
-DEMO_FILE_FORMAT = 1
+# Đổi cấu trúc file thì tăng số này; trang từ chối số lạ thay vì đọc sai. 2 (ADR-0041): mỗi bài có
+# tháng đăng + topic, `provenance.topics` ghi lần gom cụm, điểm làm tròn nửa ra xa số 0.
+DEMO_FILE_FORMAT = 2
 # ADR-0037 D3: response của Vercel Function tối đa 4,5 MB (vượt → 413); Thy chốt ngân sách < 4 MB
 # (byte, không phải MiB, để chặt hơn).
 DEMO_FILE_MAX_BYTES = 4_000_000
-# Thy chọn A1 2026-11-08: 6 chữ số thập phân cho mọi điểm, cùng mức với hằng hoà của BM25
-# (ADR-0038 D4), để dense / cross-encoder / trộn dùng cùng kiểu luật hoà (ADR-0041 Luật chung 2)
-# và cả trang chỉ có một hằng. Làm tròn chia trục số thành ô rộng 1e-6: hai điểm cùng ô thành bằng
-# nhau (lệch nhau có thể tới gần 1e-6), hai điểm khác ô vẫn khác nhau dù lệch rất ít. Lựa chọn thiết
-# kế: cỡ file không phải ràng buộc (đo 2026-11-08: 4 chữ số ~1,8 MB, 6 chữ số ~2,2 MB khi có đủ
-# phần của mục 2).
+# Thy chọn A1 2026-11-08: 6 chữ số thập phân cho mọi điểm lưu trong file, cùng mức với hằng hoà
+# của BM25 (ADR-0038 D4), để mọi điểm của trang dùng cùng kiểu luật hoà (nay ADR-0041 Luật chung 2).
+# Hằng có 2 bản: bản này và `src/dashboard/src/lib/ragDemo/bm25.ts:11#SCORE_DECIMALS`; engine từ
+# chối file có `provenance.score_decimals` khác bản của nó (ADR-0041 Hệ quả). Làm tròn chia trục số
+# thành ô rộng 1e-6: hai điểm cùng ô thành bằng nhau (lệch nhau có thể tới gần 1e-6), hai điểm khác
+# ô vẫn khác nhau dù lệch rất ít. Lựa chọn thiết kế: cỡ file không phải ràng buộc (đo 2026-11-08:
+# 4 chữ số ~1,8 MB, 6 chữ số ~2,2 MB khi có đủ phần của mục 2).
 SCORE_DECIMALS = 6
+_SCORE_STEP = Decimal(1).scaleb(-SCORE_DECIMALS)
 # Phần file chưa có, làm ở mục 2 của 3e (embed chữ chỉ có sau Haiku). Trang làm theo ADR-0041 Luật
-# chung 8 ("hybrid rơi về BM25", "dense trần cần phần còn chờ"); mục thứ ba không dùng, bỏ khi nâng
-# `DEMO_FILE_FORMAT` lên 2.
+# chung 8 ("hybrid rơi về BM25", "dense trần cần phần còn chờ"). Lọc gần trùng và MMR luôn dùng
+# cosine của chữ gốc, nên cosine kèm câu ngữ cảnh không còn là phần chờ (bỏ ở định dạng 2).
 PENDING_PARTS = (
     "dense score of transformed questions",
     "dense score of chunks with their context sentence",
-    "chunk x chunk cosine with context sentences",
 )
 
 
@@ -205,10 +210,16 @@ def _summary(problems: Sequence[str]) -> str:
 
 
 def _score(value: float) -> float:
-    # `round` làm tròn nửa về số chẵn, khác `toFixed` của trang: đổi sang ROUND_HALF_UP khi nâng
-    # `DEMO_FILE_FORMAT` lên 2 (ADR-0041 Luật chung 5).
+    """Làm tròn 6 chữ số đúng như `Number(x.toFixed(6))` của trang (ADR-0041 Luật chung 5): nửa ô
+    ra xa số 0, trên giá trị nhị phân chính xác — `Decimal(float)`, không `Decimal(str)`. `round`
+    của Python làm tròn nửa về số chẵn: đo 2026-11-10, logit −11,0390625 (câu 9, đoạn 403) ra
+    −11,039062 thay vì −11,039063."""
+    number = float(value)
+    if not math.isfinite(number):
+        raise DemoFileError("điểm không hữu hạn")
+    rounded = float(Decimal(number).quantize(_SCORE_STEP, rounding=ROUND_HALF_UP))
     # `+ 0.0` đổi -0.0 (giá trị trong (-5e-7, 0) sau làm tròn) thành 0.0: JSON không ghi "-0.0"
-    return round(float(value), SCORE_DECIMALS) + 0.0
+    return rounded + 0.0
 
 
 # sha256 của [[số, chữ], …] lúc gửi các lô Haiku 2026-11-07 (chữ không đổi từ đó). Mã request
@@ -296,12 +307,18 @@ def build_demo(
     cross_encoder_logits: Mapping[str, float],
     vector_of: Mapping[str, Sequence[float]],
     inputs: Mapping[str, Any] | None = None,
+    *,
+    metadata: TopicSnapshot,
 ) -> dict[str, Any]:
     """Nội dung file demo. `vector_of`: chữ → vector embedding (chunk và câu hỏi gốc); `inputs`:
-    danh tính các file đầu vào (hash, số dòng) để truy được file demo ghép từ lần chấm nào.
+    danh tính các file đầu vào (hash, số dòng) để truy được file demo ghép từ lần chấm nào;
+    `metadata`: tháng đăng + topic của mỗi bài (ADR-0041, `read_unit_metadata`).
 
-    Thiếu vector, điểm cross-encoder hay output Haiku của bất kỳ đoạn nào → `DemoFileError`: file
-    thiếu một ô thì trang xếp hạng sai mà không ai thấy."""
+    Thiếu vector, điểm cross-encoder, output Haiku hay metadata của bất kỳ đoạn / bài nào →
+    `DemoFileError`: file thiếu một ô thì trang xếp hạng / lọc sai mà không ai thấy."""
+    missing_meta = [unit.id for unit in units if unit.id not in metadata.units]
+    if missing_meta:
+        raise DemoFileError(f"thiếu tháng đăng / topic của bài {', '.join(missing_meta)}")
     by_id = {unit.id: unit for unit in units}
     passage_index: dict[tuple[str, str], int] = {}
     passages: list[dict[str, Any]] = []
@@ -419,12 +436,22 @@ def build_demo(
             "embedding_vectors_sha256": hashlib.sha256(used_vectors.tobytes()).hexdigest(),
             "question_texts_sha256": question_texts_sha256(questions),
             "inputs": dict(inputs or {}),
+            # topic là ảnh chụp lúc dựng file, có thể lệch với /topics sau lần gom cụm sau
+            "topics": {
+                "cluster_run_id": metadata.cluster_run_id,
+                "cluster_run_at": metadata.cluster_run_at,
+            },
         },
         "units": [
             {
                 "id": unit.id,
                 "text": unit.full_text,
                 "sha256": content_hash(unit.full_text),
+                "month": metadata.units[unit.id].month,
+                "topic": {
+                    "id": metadata.units[unit.id].topic_id,
+                    "label_en": metadata.units[unit.id].topic_label_en,
+                },
                 "posts": [
                     {
                         "id": post.post_id,
