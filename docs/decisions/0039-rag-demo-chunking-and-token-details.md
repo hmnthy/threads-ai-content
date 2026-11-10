@@ -52,7 +52,7 @@ ADR-0037 D6 nên số đoạn sẽ khác.
    của chunk, không kèm câu ngữ cảnh, để số cặp không nhân đôi.
 3. **D3 — Vị trí đáp án** đã Thy duyệt, nửa mở, tính trên `full_text` theo điểm mã Unicode của Python: câu 5 bài
    18156311638533948 ký tự [979, 1219); câu 8 bài 18042552590841773 ký tự [1141, 1363).
-4. **D4 — Token**, bổ sung ADR-0038 D3 (`src/dashboard/src/lib/ragDemo/bm25.ts:44#tokenize`):
+4. **D4 — Token**, bổ sung ADR-0038 D3 (`src/dashboard/src/lib/ragDemo/bm25.ts:42#tokenize`):
    - dấu thanh trên nguyên âm sau ở cụm oa, oe, uy gộp về nguyên âm đầu (`tuỳ` = `tùy`), chỉ ở cuối token và không sau `q`;
    - bỏ ký tự đi kèm emoji, khung số đổi thành khoảng trắng để từ dính sau nó không gộp vào số;
    - số thập phân chỉ áp cho token toàn số, token mở đầu bằng chữ hoặc số;

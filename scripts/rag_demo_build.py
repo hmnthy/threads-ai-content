@@ -490,6 +490,18 @@ DEMO_CONTENT_TYPE = "application/json"
 PUBLISH_DELAY_MINUTES = (REVALIDATE_S + BROWSER_MAX_AGE_S) // 60 + 1
 
 
+def _has_topic_run(topics: object) -> bool:
+    """`provenance.topics` = {cluster_run_id: số nguyên, cluster_run_at: chuỗi}, hoặc cả hai None
+    khi DB chưa có lần gom cụm nào (mọi bài Unclustered, `read_unit_metadata`)."""
+    if not isinstance(topics, dict) or set(topics) != {"cluster_run_id", "cluster_run_at"}:
+        return False
+    run_id, run_at = topics["cluster_run_id"], topics["cluster_run_at"]
+    if run_id is None:
+        return run_at is None
+    # bool là lớp con của int trong Python
+    return isinstance(run_id, int) and not isinstance(run_id, bool) and isinstance(run_at, str)
+
+
 def _has_unit_metadata(unit: object) -> bool:
     """Bài trong file có `month` "YYYY-MM" (tháng 01–12) và `topic` {id: chuỗi | None, label_en:
     chuỗi}; id None chỉ đi với "Unclustered". Khoá lọc của trang là `topic.id` (tên không
@@ -538,7 +550,7 @@ def publish_problems(units: Sequence[Unit], data: bytes) -> list[str]:
         problems.append("bài thiếu tháng đăng / topic: chạy lại assemble")
     provenance = demo.get("provenance")
     topics = provenance.get("topics") if isinstance(provenance, dict) else None
-    if not isinstance(topics, dict) or "cluster_run_id" not in topics:
+    if not _has_topic_run(topics):
         problems.append("provenance thiếu lần gom cụm của topic: chạy lại assemble")
     stored_questions = (
         provenance.get("question_texts_sha256") if isinstance(provenance, dict) else None

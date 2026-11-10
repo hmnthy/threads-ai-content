@@ -157,6 +157,20 @@ def test_an_unreadable_timestamp_stops_with_a_message(tmp_path: Path) -> None:
         read_unit_metadata(connect_readonly(path), [unit("a")])
 
 
+def test_a_timestamp_without_time_zone_stops_instead_of_using_the_machine_zone(
+    tmp_path: Path,
+) -> None:
+    # 23:30 không múi giờ: giờ máy UTC → tháng 10, giờ Paris → tháng 11; không được đoán
+    path = tmp_path / "naive.db"
+    conn = sqlite3.connect(path)
+    create_schema(conn)
+    add_post(conn, "a", "2026-10-31T23:30:00")
+    conn.commit()
+    conn.close()
+    with pytest.raises(MetadataError, match=r"a: timestamp không đọc được \(không có múi giờ\)"):
+        read_unit_metadata(connect_readonly(path), [unit("a")])
+
+
 def test_a_label_without_any_cluster_run_stops(tmp_path: Path) -> None:
     path = tmp_path / "broken.db"
     conn = sqlite3.connect(path)

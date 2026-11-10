@@ -1,14 +1,12 @@
 // BM25 của trang demo RAG, chạy trong trình duyệt (ADR-0037 D3, ADR-0038, ADR-0039).
-// Một file, không import, chỉ dùng cú pháp TypeScript xoá được: test Python chạy đúng file này bằng
-// `node --experimental-strip-types` để đối chiếu với `bm25s` (tests/rag_demo/).
+// Chỉ import file cùng thư mục và chỉ dùng cú pháp TypeScript xoá được: test Python chạy đúng file này
+// bằng `node --experimental-strip-types` để đối chiếu với `bm25s` (tests/rag_demo/).
+import { rankBm25, slider } from "./rank.ts";
+import type { RankedChunk } from "./rank.ts";
 
 // Mặc định của Lucene BM25Similarity, SQLite FTS5 cố định cùng giá trị (nguồn trong ADR-0038).
 export const BM25_K1 = 1.2;
 export const BM25_B = 0.75;
-
-// Hoà = bằng nhau sau khi làm tròn tới số chữ số này (ADR-0038 D4). Làm tròn thay vì so ngưỡng chênh
-// lệch vì ngưỡng không bắc cầu: A hoà B, B hoà C mà A không hoà C.
-export const SCORE_DECIMALS = 6;
 
 // Ký tự đi kèm emoji thuộc nhóm dấu: không bỏ thì dính vào chữ đứng trước và làm câu không dấu bị coi là có dấu.
 // Khung số (1️⃣) đổi thành khoảng trắng để từ dính sau nó không gộp vào số.
@@ -85,11 +83,23 @@ export function inverseDocumentFrequency(docCount: number, docFrequency: number)
   return Math.log(1 + (docCount - docFrequency + 0.5) / (docFrequency + 0.5));
 }
 
+// Tham số BM25 từ thanh kéo (số nguyên phần trăm): 1 − b tính sẵn là (100 − i) / 100 (ADR-0041 Luật chung 5).
+export type Bm25Params = { k1: number; b: number; oneMinusB: number };
+
+export function bm25Params(k1Hundredths: number, bHundredths: number): Bm25Params {
+  const b = slider(bHundredths);
+  return { k1: slider(k1Hundredths).value, b: b.value, oneMinusB: b.complement };
+}
+
+// Vị trí thanh kéo của BM25_K1, BM25_B (test kiểm hai cách viết ra cùng số).
+export const DEFAULT_BM25 = bm25Params(120, 75);
+
 // Tử số không có (k1 + 1), bằng đúng điểm `bm25s` `method="lucene"` (ADR-0038 D1).
-export function scoreDocs(index: Bm25Index, query: string[], k1: number, b: number): number[] {
+export function scoreDocs(index: Bm25Index, query: string[], params: Bm25Params): number[] {
   const docCount = index.termCounts.length;
+  const { k1, b, oneMinusB } = params;
   return index.termCounts.map((counts, doc) => {
-    const lengthNorm = 1 - b + (b * index.lengths[doc]) / index.averageLength;
+    const lengthNorm = oneMinusB + (b * index.lengths[doc]) / index.averageLength;
     return query.reduce((score, term) => {
       const frequency = counts.get(term);
       if (frequency === undefined) return score;
@@ -97,34 +107,6 @@ export function scoreDocs(index: Bm25Index, query: string[], k1: number, b: numb
       return score + (idf * frequency) / (frequency + k1 * lengthNorm);
     }, 0);
   });
-}
-
-export type RankedChunk = {
-  chunk: number; // vị trí trong danh sách chunk, chính là mã chunk để phân hạng khi hoà
-  score: number; // đã làm tròn SCORE_DECIMALS
-  rank: number; // từ 1
-  tiedFrom: number; // tiedFrom < tiedTo = chunk này hoà, hạng thật là cả khoảng (ADR-0038 D4)
-  tiedTo: number;
-};
-
-// Đoạn điểm 0 không khớp từ nào nên không được xếp hạng (ADR-0038 D4).
-export function rankScores(scores: number[]): RankedChunk[] {
-  const rows = scores
-    .map((score, chunk) => ({ chunk, score: Number(score.toFixed(SCORE_DECIMALS)) }))
-    .filter((row) => row.score > 0)
-    .sort((a, b) => b.score - a.score || a.chunk - b.chunk);
-  const firstRank = new Map<number, number>();
-  const lastRank = new Map<number, number>();
-  rows.forEach((row, position) => {
-    if (!firstRank.has(row.score)) firstRank.set(row.score, position + 1);
-    lastRank.set(row.score, position + 1);
-  });
-  return rows.map((row, position) => ({
-    ...row,
-    rank: position + 1,
-    tiedFrom: firstRank.get(row.score) ?? position + 1,
-    tiedTo: lastRank.get(row.score) ?? position + 1,
-  }));
 }
 
 export type ChunkIndex = { accented: Bm25Index; folded: Bm25Index };
@@ -145,15 +127,22 @@ export type Bm25Result = {
 };
 
 // Câu có ít nhất một chữ có dấu so khớp bản có dấu, câu không dấu so khớp bản bỏ dấu (ADR-0038 D3).
+// `candidates` = chunk còn lại sau lọc metadata: chỉ loại đoạn, IDF và độ dài trung bình vẫn của cả kho
+// (ADR-0041, bảng từng bước).
 export function searchBm25(
   index: ChunkIndex,
   question: string,
-  k1: number = BM25_K1,
-  b: number = BM25_B,
+  params: Bm25Params = DEFAULT_BM25,
+  candidates?: readonly number[],
 ): Bm25Result {
   const tokens = tokenize(question);
   const accented = tokens.some((token) => foldToken(token) !== token);
   const query = accented ? tokens : tokens.map(foldToken);
-  const scores = scoreDocs(accented ? index.accented : index.folded, query, k1, b);
-  return { mode: accented ? "accented" : "folded", query, scores, ranked: rankScores(scores) };
+  const scores = scoreDocs(accented ? index.accented : index.folded, query, params);
+  return {
+    mode: accented ? "accented" : "folded",
+    query,
+    scores,
+    ranked: rankBm25(scores, candidates),
+  };
 }

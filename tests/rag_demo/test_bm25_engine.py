@@ -4,12 +4,8 @@ Python ở đây chỉ là bài giải mẫu; bản trong sản phẩm là TypeS
 là câu tự đặt, không dùng chữ của bài thật vì repo public. Quy tắc token: ADR-0038 D3, ADR-0039 D4.
 """
 
-import functools
-import json
 import random
 import re
-import shutil
-import subprocess
 import unicodedata
 from pathlib import Path
 from typing import Any
@@ -17,65 +13,45 @@ from typing import Any
 import bm25s
 import pytest
 
-ENGINE = Path(__file__).parents[2] / "src/dashboard/src/lib/ragDemo/bm25.ts"
-# Node sớm nhất có --experimental-strip-types; thiếu thì test phải hỏng, không được bỏ qua âm thầm
-MIN_NODE = (22, 6)
+from tests.rag_demo.node_engine import ENGINE_DIR, run_driver
+
+ENGINE = ENGINE_DIR / "bm25.ts"
 # `bm25s` lưu số 32 bit, điểm tới ~30 sai khác cỡ 1e-6; lấy rộng hơn 1 bậc (ADR-0038 D5).
 # Hằng riêng của test, khác SCORE_DECIMALS của sản phẩm.
 BM25S_TOLERANCE = 1e-5
 
 DRIVER = """
 import { readFileSync } from "node:fs";
-const engine = await import(process.argv[2]);
+const engine = await import(process.argv[2] + "bm25.ts");
+const rank = await import(process.argv[2] + "rank.ts");
 const cases = JSON.parse(readFileSync(process.argv[3], "utf8"));
 const out = cases.map((c) => {
   if (c.op === "tokenize") return engine.tokenize(c.text);
   if (c.op === "fold") return engine.foldToken(c.token);
-  if (c.op === "rank") return engine.rankScores(c.scores);
+  if (c.op === "rank") return rank.rankBm25(c.scores);
   if (c.op === "constants") {
-    return { k1: engine.BM25_K1, b: engine.BM25_B, decimals: engine.SCORE_DECIMALS };
+    return {
+      k1: engine.BM25_K1,
+      b: engine.BM25_B,
+      decimals: rank.SCORE_DECIMALS,
+      defaults: engine.DEFAULT_BM25,
+    };
   }
   const index = engine.buildChunkIndex(c.docs);
   if (c.op === "search") {
     return c.queries.map((q) => engine.searchBm25(index, q));
   }
-  return c.queries.map((q) => engine.searchBm25(index, q.text, q.k1, q.b));
+  if (c.op === "score_params") {
+    return engine.scoreDocs(index.accented, engine.tokenize(c.query), c.params);
+  }
+  return c.queries.map((q) => engine.searchBm25(index, q.text, engine.bm25Params(q.k1, q.b)));
 });
 console.log(JSON.stringify(out));
 """
 
 
-@functools.cache
-def node_binary() -> str:
-    node = shutil.which("node")
-    assert node, "cần node để chạy engine TypeScript"
-    version = subprocess.run([node, "--version"], capture_output=True, text=True, check=True)
-    major, minor = version.stdout.strip().lstrip("v").split(".")[:2]
-    assert (int(major), int(minor)) >= MIN_NODE, f"cần node >= {MIN_NODE}, có {version.stdout}"
-    return node
-
-
 def run_engine(tmp_path: Path, cases: list[dict[str, Any]]) -> list[Any]:
-    node = node_binary()
-    driver = tmp_path / "driver.mjs"
-    driver.write_text(DRIVER, encoding="utf-8")
-    data = tmp_path / "cases.json"
-    data.write_text(json.dumps(cases, ensure_ascii=False), encoding="utf-8")
-    result = subprocess.run(
-        [
-            node,
-            "--experimental-strip-types",
-            "--no-warnings",
-            str(driver),
-            ENGINE.as_uri(),
-            str(data),
-        ],
-        capture_output=True,
-        encoding="utf-8",
-        timeout=60,
-    )
-    assert result.returncode == 0, result.stderr
-    return list(json.loads(result.stdout))
+    return run_driver(tmp_path, DRIVER, cases)
 
 
 # Dấu trên nguyên âm sau → nguyên âm đầu, bảng tay độc lập với engine (Thy chọn 2026-11-06)
@@ -178,7 +154,13 @@ QUERIES = [
 
 def test_constants_are_the_adr_values(tmp_path: Path) -> None:
     constants = run_engine(tmp_path, [{"op": "constants"}])[0]
-    assert constants == {"k1": 1.2, "b": 0.75, "decimals": 6}
+    assert constants == {
+        "k1": 1.2,
+        "b": 0.75,
+        "decimals": 6,
+        # Vị trí thanh kéo mặc định ra đúng hằng ADR; 1 − b tính sẵn (ADR-0041 Luật chung 5)
+        "defaults": {"k1": 1.2, "b": 0.75, "oneMinusB": 0.25},
+    }
 
 
 def test_score_matches_a_hand_computed_value(tmp_path: Path) -> None:
@@ -187,6 +169,17 @@ def test_score_matches_a_hand_computed_value(tmp_path: Path) -> None:
     docs = ["xoài xoài cam", "cam", "cam chuối"]
     result = run_engine(tmp_path, [{"op": "search", "docs": docs, "queries": ["xoài"]}])[0][0]
     assert result["scores"] == pytest.approx([0.537441, 0, 0], abs=1e-6)
+
+
+def test_length_norm_uses_the_precomputed_one_minus_b(tmp_path: Path) -> None:
+    # Cố ý cho 1 − b lệch b: norm = 1 + 0,75 × 1,5 = 2,125; điểm = 0,980829 × 2 / (2 + 1,2 × 2,125).
+    # Engine tự tính 1 − b sẽ ra 0,537441 như ca trên.
+    docs = ["xoài xoài cam", "cam", "cam chuối"]
+    params = {"k1": 1.2, "b": 0.75, "oneMinusB": 1.0}
+    scores = run_engine(
+        tmp_path, [{"op": "score_params", "docs": docs, "query": "xoài", "params": params}]
+    )
+    assert scores[0] == pytest.approx([0.431134, 0, 0], abs=1e-6)
 
 
 def test_tokens_keep_numbers_and_split_on_hyphen_and_apostrophe(tmp_path: Path) -> None:
@@ -359,11 +352,13 @@ def test_score_rounding_to_zero_is_not_ranked(tmp_path: Path) -> None:
     ]
 
 
+# Vị trí thanh kéo (phần trăm), như trang truyền vào engine (ADR-0041 Luật chung 5)
 @pytest.mark.parametrize(
-    ("k1", "b"), [(1.2, 0.75), (1.5, 0.75), (0.5, 0.3), (2.0, 1.0), (1.2, 0.0)]
+    ("k1_step", "b_step"), [(120, 75), (150, 75), (50, 30), (200, 100), (120, 0), (120, 10)]
 )
-def test_scores_match_bm25s_on_the_sample_corpus(tmp_path: Path, k1: float, b: float) -> None:
-    queries = [{"text": q, "k1": k1, "b": b} for q in QUERIES]
+def test_scores_match_bm25s_on_the_sample_corpus(tmp_path: Path, k1_step: int, b_step: int) -> None:
+    k1, b = k1_step / 100, b_step / 100
+    queries = [{"text": q, "k1": k1_step, "b": b_step} for q in QUERIES]
     results = run_engine(tmp_path, [{"op": "search_params", "docs": CORPUS, "queries": queries}])[0]
     docs = [reference_tokens(text) for text in CORPUS]
     for question, result in zip(QUERIES, results, strict=True):
@@ -395,6 +390,14 @@ def test_scores_match_bm25s_on_a_random_corpus(tmp_path: Path) -> None:
 
 
 def test_engine_stays_runnable_by_node_without_a_bundler() -> None:
-    source = ENGINE.read_text(encoding="utf-8")
-    assert not re.search(r"^\s*import\s", source, re.M), "engine phải là một file, không import"
-    assert not re.search(r"^\s*(export\s+)?enum\s", source, re.M), "enum không xoá được kiểu"
+    sources = sorted(ENGINE_DIR.glob("*.ts"))
+    assert ENGINE in sources
+    for path in sources:
+        source = path.read_text(encoding="utf-8")
+        # node chỉ chạy thẳng được import tương đối có đuôi `.ts`, không package, không alias `@/`
+        for target in re.findall(r"^\s*import\s[^;]*?from\s+\"([^\"]+)\"", source, re.M):
+            assert re.fullmatch(r"\./[A-Za-z0-9]+\.ts", target), f"{path.name}: import {target}"
+            assert (ENGINE_DIR / target).is_file(), f"{path.name}: thiếu {target}"
+        assert not re.search(r"^\s*(export\s+)?(const\s+)?enum\s", source, re.M), (
+            "enum không xoá được"
+        )

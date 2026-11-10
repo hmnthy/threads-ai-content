@@ -62,11 +62,12 @@ DEMO_FILE_FORMAT = 2
 DEMO_FILE_MAX_BYTES = 4_000_000
 # Thy chọn A1 2026-11-08: 6 chữ số thập phân cho mọi điểm lưu trong file, cùng mức với hằng hoà
 # của BM25 (ADR-0038 D4), để mọi điểm của trang dùng cùng kiểu luật hoà (nay ADR-0041 Luật chung 2).
-# Hằng có 2 bản: bản này và `src/dashboard/src/lib/ragDemo/bm25.ts:11#SCORE_DECIMALS`; engine từ
-# chối file có `provenance.score_decimals` khác bản của nó (ADR-0041 Hệ quả). Làm tròn chia trục số
-# thành ô rộng 1e-6: hai điểm cùng ô thành bằng nhau (lệch nhau có thể tới gần 1e-6), hai điểm khác
-# ô vẫn khác nhau dù lệch rất ít. Lựa chọn thiết kế: cỡ file không phải ràng buộc (đo 2026-11-08:
-# 4 chữ số ~1,8 MB, 6 chữ số ~2,2 MB khi có đủ phần của mục 2).
+# Hằng có 2 bản: bản này và `src/dashboard/src/lib/ragDemo/rank.ts:7#SCORE_DECIMALS`; bộ đọc file
+# của engine (`parseDemoFile` trong `demoFile.ts`) từ chối file có `provenance.score_decimals` khác
+# bản của nó (ADR-0041 Hệ quả). Làm tròn chia trục số thành ô rộng 1e-6: hai điểm cùng ô thành
+# bằng nhau (lệch nhau có thể tới gần 1e-6), hai điểm khác ô vẫn khác nhau dù lệch rất ít. Lựa
+# chọn thiết kế: cỡ file không phải ràng buộc (đo 2026-11-08: 4 chữ số ~1,8 MB, 6 chữ số ~2,2 MB
+# khi có đủ phần của mục 2).
 SCORE_DECIMALS = 6
 _SCORE_STEP = Decimal(1).scaleb(-SCORE_DECIMALS)
 # Phần file chưa có, làm ở mục 2 của 3e (embed chữ chỉ có sau Haiku). Trang làm theo ADR-0041 Luật

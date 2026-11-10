@@ -645,7 +645,7 @@ BM25 của demo (ADR-0038): công thức Lucene, `IDF = log(1 + (N − n + 0,5) 
 token theo âm tiết, không stopword, câu có dấu so khớp có dấu, câu không dấu so khớp bản bỏ dấu; hoà điểm xếp theo mã
 chunk (luật này dùng chung cho dense, gộp câu con, trộn, cross-encoder; Haiku và MMR giữ thứ tự bước trước — ADR-0041,
 mục "Luật xếp hạng cho mọi bước" bên dưới). Đáp án đúng theo mã bài, câu 5 và 8 thêm vị trí ký tự, bước dựng bằng Python tính sẵn chunk nào trúng.
-Chi tiết token (ADR-0039 D4, `src/dashboard/src/lib/ragDemo/bm25.ts:44#tokenize`): bỏ ký tự đi kèm emoji; token mở đầu bằng
+Chi tiết token (ADR-0039 D4, `src/dashboard/src/lib/ragDemo/bm25.ts:42#tokenize`): bỏ ký tự đi kèm emoji; token mở đầu bằng
 chữ hoặc số; số thập phân chỉ áp cho token toàn số (`2,5kg` thành `2,5` + `kg`, `15km` giữ một token, `12.5.2026` là một
 token); dấu thanh trên nguyên âm sau ở cụm oa, oe, uy gộp về nguyên âm đầu (`tuỳ` = `tùy`), chỉ ở cuối token và không sau
 `q`. `œ`, `æ` không đổi: 0 lần trong 20 bài lúc đóng băng.

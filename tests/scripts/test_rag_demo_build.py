@@ -935,9 +935,45 @@ def test_publish_refuses_a_unit_without_a_valid_month_or_topic(
     ]
 
 
-def test_publish_refuses_a_file_without_the_topic_run() -> None:
+def test_publish_accepts_a_unit_with_a_real_topic() -> None:
+    good = json.loads(current_demo())
+    units = [u | {"topic": {"id": "topic_18", "label_en": "Renting"}} for u in good["units"]]
+    assert rag_demo_build.publish_problems(UNITS, current_demo(units=units)) == []
+
+
+@pytest.mark.parametrize(
+    "topics",
+    [
+        {"cluster_run_id": 7, "cluster_run_at": "2026-11-10T11:30:00+00:00"},
+        # DB chưa có lần gom cụm nào: assemble ghi cả hai None
+        {"cluster_run_id": None, "cluster_run_at": None},
+    ],
+)
+def test_publish_accepts_a_valid_topic_run(topics: dict[str, object]) -> None:
+    good = json.loads(current_demo())
+    provenance = good["provenance"] | {"topics": topics}
+    assert rag_demo_build.publish_problems(UNITS, current_demo(provenance=provenance)) == []
+
+
+@pytest.mark.parametrize(
+    "topics",
+    [
+        "missing",
+        None,
+        # mỗi ca chỉ vi phạm đúng một điều kiện
+        {"cluster_run_id": 7},
+        {"cluster_run_id": "7", "cluster_run_at": "2026-11-10T11:30:00+00:00"},
+        {"cluster_run_id": True, "cluster_run_at": "2026-11-10T11:30:00+00:00"},
+        {"cluster_run_id": 7, "cluster_run_at": None},
+        {"cluster_run_id": None, "cluster_run_at": "2026-11-10T11:30:00+00:00"},
+        {"cluster_run_id": 7, "cluster_run_at": "2026-11-10", "x": 1},
+    ],
+)
+def test_publish_refuses_a_file_without_a_valid_topic_run(topics: object) -> None:
     good = json.loads(current_demo())
     provenance = {k: v for k, v in good["provenance"].items() if k != "topics"}
+    if topics != "missing":
+        provenance["topics"] = topics
     assert rag_demo_build.publish_problems(UNITS, current_demo(provenance=provenance)) == [
         "provenance thiếu lần gom cụm của topic: chạy lại assemble"
     ]

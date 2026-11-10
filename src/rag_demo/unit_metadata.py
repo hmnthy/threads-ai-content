@@ -15,6 +15,7 @@ import sqlite3
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 
 from src.models.days import author_day
 from src.rag_demo.corpus import Unit
@@ -42,6 +43,10 @@ class TopicSnapshot:
 
 def author_month(timestamp: str) -> str:
     """Tháng đăng "YYYY-MM" theo giờ Paris, cùng quy ước với ngày đăng (`author_day`)."""
+    # Không có múi giờ thì `astimezone` lặng lẽ hiểu là giờ của máy chạy lệnh: bài đăng gần nửa
+    # đêm đầu tháng có thể sang tháng khác tuỳ máy. Dừng thay vì đoán.
+    if datetime.fromisoformat(timestamp).tzinfo is None:
+        raise ValueError("không có múi giờ")
     return author_day(timestamp)[:7]
 
 
