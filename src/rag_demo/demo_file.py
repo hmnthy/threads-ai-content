@@ -57,13 +57,15 @@ DEMO_FILE_FORMAT = 1
 # (byte, không phải MiB, để chặt hơn).
 DEMO_FILE_MAX_BYTES = 4_000_000
 # Thy chọn A1 2026-11-08: 6 chữ số thập phân cho mọi điểm, cùng mức với hằng hoà của BM25
-# (ADR-0038 D4), để nếu chặng 4 chọn cho dense / rerank cùng kiểu luật hoà thì cả trang dùng một
-# hằng. Đây là độ chính xác lưu; luật hoà của dense và rerank vẫn chưa quyết (ADR-0038 D4). Làm
-# tròn chia trục số thành ô rộng 1e-6: hai điểm cùng ô thành bằng nhau (lệch nhau có thể tới gần
-# 1e-6), hai điểm khác ô vẫn khác nhau dù lệch rất ít. Lựa chọn thiết kế: cỡ file không phải ràng
-# buộc (đo 2026-11-08: 4 chữ số ~1,8 MB, 6 chữ số ~2,2 MB khi có đủ phần của mục 2).
+# (ADR-0038 D4), để dense / cross-encoder / trộn dùng cùng kiểu luật hoà (ADR-0041 Luật chung 2)
+# và cả trang chỉ có một hằng. Làm tròn chia trục số thành ô rộng 1e-6: hai điểm cùng ô thành bằng
+# nhau (lệch nhau có thể tới gần 1e-6), hai điểm khác ô vẫn khác nhau dù lệch rất ít. Lựa chọn thiết
+# kế: cỡ file không phải ràng buộc (đo 2026-11-08: 4 chữ số ~1,8 MB, 6 chữ số ~2,2 MB khi có đủ
+# phần của mục 2).
 SCORE_DECIMALS = 6
-# Phần file chưa có, làm ở mục 2 của 3e (embed chữ chỉ có sau Haiku): trang tắt các lựa chọn này.
+# Phần file chưa có, làm ở mục 2 của 3e (embed chữ chỉ có sau Haiku). Trang làm theo ADR-0041 Luật
+# chung 8 ("hybrid rơi về BM25", "dense trần cần phần còn chờ"); mục thứ ba không dùng, bỏ khi nâng
+# `DEMO_FILE_FORMAT` lên 2.
 PENDING_PARTS = (
     "dense score of transformed questions",
     "dense score of chunks with their context sentence",
@@ -203,6 +205,8 @@ def _summary(problems: Sequence[str]) -> str:
 
 
 def _score(value: float) -> float:
+    # `round` làm tròn nửa về số chẵn, khác `toFixed` của trang: đổi sang ROUND_HALF_UP khi nâng
+    # `DEMO_FILE_FORMAT` lên 2 (ADR-0041 Luật chung 5).
     # `+ 0.0` đổi -0.0 (giá trị trong (-5e-7, 0) sau làm tròn) thành 0.0: JSON không ghi "-0.0"
     return round(float(value), SCORE_DECIMALS) + 0.0
 
@@ -221,7 +225,7 @@ def question_texts_sha256(questions: Sequence[Question]) -> str:
 
 def rounding_ties(values: Sequence[float]) -> int:
     """Số cặp (i < j) bằng nhau sau làm tròn mà điểm thô khác nhau: hoà do chính việc làm tròn
-    sinh ra, con số luật hoà của dense / rerank cần (ADR-0038 D4 còn để ngỏ)."""
+    sinh ra — số đo trong Bối cảnh của ADR-0041."""
     groups: dict[float, Counter[float]] = {}
     for value in values:
         groups.setdefault(_score(value), Counter())[value] += 1

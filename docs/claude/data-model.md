@@ -643,7 +643,8 @@ gom cụm vẫn bge-m3; cross-encoder `BAAI/bge-reranker-v2-m3`; các vai LLM tr
 chấm từng đoạn độc lập), trình duyệt chạy BM25 / trộn / MMR; output là đoạn nguồn xếp hạng, không câu trả lời LLM.
 BM25 của demo (ADR-0038): công thức Lucene, `IDF = log(1 + (N − n + 0,5) / (n + 0,5))`, k1 = 1,2 và b = 0,75 có nhãn nguồn;
 token theo âm tiết, không stopword, câu có dấu so khớp có dấu, câu không dấu so khớp bản bỏ dấu; hoà điểm xếp theo mã
-chunk. Đáp án đúng theo mã bài, câu 5 và 8 thêm vị trí ký tự, bước dựng bằng Python tính sẵn chunk nào trúng.
+chunk (luật này dùng chung cho dense, gộp câu con, trộn, cross-encoder; Haiku và MMR giữ thứ tự bước trước — ADR-0041,
+mục "Luật xếp hạng cho mọi bước" bên dưới). Đáp án đúng theo mã bài, câu 5 và 8 thêm vị trí ký tự, bước dựng bằng Python tính sẵn chunk nào trúng.
 Chi tiết token (ADR-0039 D4, `src/dashboard/src/lib/ragDemo/bm25.ts:44#tokenize`): bỏ ký tự đi kèm emoji; token mở đầu bằng
 chữ hoặc số; số thập phân chỉ áp cho token toàn số (`2,5kg` thành `2,5` + `kg`, `15km` giữ một token, `12.5.2026` là một
 token); dấu thanh trên nguyên âm sau ở cụm oa, oe, uy gộp về nguyên âm đầu (`tuỳ` = `tùy`), chỉ ở cuối token và không sau
@@ -696,7 +697,7 @@ bài ở mục cuối.
   phí thật theo bảng giá (giảm 50 % của lô cộng dồn với giá cache ×1,25 ghi / ×0,1 đọc): $0,273 cho 3 việc Haiku,
   $0,002 cho embedding.
 - **Chunk trùng cả bài thì chỉ dịch, không có câu ngữ cảnh** (`src/rag_demo/llm_jobs.py`, `context_requests`): không chỉ
-  cách "không chia" (20 chunk) mà mọi chunk có chữ bằng cả bài ở các cách khác (bài ngắn hơn cỡ cửa sổ): lần dựng này 15
+  cách "không chia" (19 chunk) mà mọi chunk có chữ bằng cả bài ở các cách khác (bài ngắn hơn cỡ cửa sổ): lần dựng này 15
   chunk (theo post 2, cố định 300 2, cố định 500 3, cố định 800 3, recursive 500 3, semantic 2). Cùng lý do ADR-0039 D2:
   câu ngữ cảnh "đặt chunk vào bài" vô nghĩa khi chunk đã là cả bài. Trang hiển thị các chunk này là "the chunk is the
   whole post", không để trống.
@@ -704,16 +705,17 @@ bài ở mục cuối.
   lại, không sửa prompt riêng cho câu này (chọn kết quả đẹp hoặc dạy theo đề), trang trình bày đây là kiểu lỗi thật của
   bước viết lại câu hỏi bằng LLM.
 - **Cross-encoder** (`src/rag_demo/cross_encoder.py`, chạy trong WSL2 bằng `src/rag_demo/cross_encoder_wsl.py`):
-  `BAAI/bge-reranker-v2-m3` khoá commit Hugging Face, chấm mọi cặp câu hỏi gốc × chữ chunk (4.700 cặp), chữ gốc không
+  `BAAI/bge-reranker-v2-m3` khoá commit Hugging Face, chấm mọi cặp câu hỏi gốc × chữ chunk (4.700 cặp trên 20 bài trước ADR-0040; nay 4.280 trên 19 bài), chữ gốc không
   kèm câu ngữ cảnh (ADR-0039 D2). Lưu logit thô; sigmoid chỉ để hiển thị, thứ hạng không đổi. fp32, không fp16 (model card
-  nói fp16 giảm nhẹ chất lượng; fp32 vẫn chỉ mất 141 giây trên RTX 4070). Kiểm lặp lại trên mẫu 150 cặp, chấm lại từng
+  nói fp16 giảm nhẹ chất lượng; fp32 vẫn chỉ mất 141 giây trên RTX 4070 ở lần chấm 20 bài). Các số kiểm lặp dưới đây đo ở lần chấm trên 20 bài, trước ADR-0040. Kiểm lặp lại trên mẫu 150 cặp, chấm lại từng
   cặp một (không đệm chung lô): 100 cặp lấy cách đều trên danh sách (10 cặp mỗi câu hỏi) cộng cả 50 cặp dài hơn 512 token
   (nơi phần đệm trong lô khác nhiều nhất). Trên mẫu này, độ lệch lớn nhất so với chấm theo lô là δ = 2,7 × 10⁻⁵ logit
   (riêng 50 cặp dài: 9,5 × 10⁻⁶); δ là max trên mẫu, không phải trên mọi cặp. Hai hạng liền kề chỉ có thể đổi chỗ khi
   khoảng cách < 2δ (mỗi bên lệch một phía). Ở 20 hạng đầu mỗi câu hỏi, khoảng cách nhỏ nhất là 2,0 × 10⁻⁴ (gấp 3,8 lần
-  2δ), nên trên mẫu này thứ tự phần đầu bảng không phụ thuộc cách gom lô; trên cả 470 hạng, 596 / 4.690 khoảng cách nhỏ
-  hơn 2δ và có 4 cặp hoà điểm tuyệt đối, nên ở phần đuôi thứ tự có thể đổi. Chặng 4 cần một luật phá hoà cố định cho
-  điểm cross-encoder (Thy chọn khi làm trang; ADR-0038 mới chốt luật hoà cho BM25).
+  2δ), nên trên mẫu này thứ tự phần đầu bảng không phụ thuộc cách gom lô; trên cả 470 hạng (20 bài, trước ADR-0040), 596 / 4.690 khoảng cách nhỏ
+  hơn 2δ và có 4 cặp hoà điểm tuyệt đối (số đo trên 20 bài, xếp toàn cục mỗi câu hỏi; trên 19 bài: 3 cặp khi gộp mọi
+  đoạn của câu hỏi, 0 trong từng cách chia — trang xếp trong từng cách chia; đo 2026-11-10), nên ở phần đuôi thứ tự có thể đổi. Luật phá hoà: ADR-0041 (như BM25 — làm tròn 6 chữ số, mã
+  chunk gốc, đáp án hoà hiện khoảng hạng).
 - **Độ dài tối đa của cross-encoder = 1024 token** (Thy chốt 2026-11-08, phương án A). Đo trên 4.700 cặp: dài nhất 790
   token, trung vị 120; 50 cặp vượt 512, đều thuộc 5 chunk của cách "không chia", 4 trong 5 là bài đáp án (câu 2, 4, 7, 8).
   Mức 512 (mặc định FlagEmbedding) cắt đuôi đúng các bài đó, kể cả có thể mất đáp án câu 8 (ký tự 1141–1363 của bài dài
@@ -749,25 +751,49 @@ bài ở mục cuối.
   câu hỏi, nên `check` và `assemble` so hash chữ 10 câu hỏi với hash lúc gửi lô (`PAID_QUESTION_TEXTS_SHA256`); sửa chữ
   một câu thì phải tăng phiên bản prompt và gửi lại lô. Đơn vị lưu là "đoạn" = cặp (bài, chữ chunk) khác nhau: 458 chunk
   của 7 cách chia là 428 đoạn, mỗi điểm lưu một lần. **Mọi điểm làm tròn 6 chữ số thập phân** (Thy chọn A1): cùng mức
-  với hằng hoà của BM25 (ADR-0038 D4), để nếu luật hoà của dense / rerank (chưa quyết, chặng 4) theo cùng kiểu thì cả
-  trang dùng một hằng; 4 chữ số nhẹ hơn nhưng sinh thêm hoà, và cỡ file không phải ràng buộc. Làm tròn chia trục số
+  với hằng hoà của BM25 (ADR-0038 D4), để luật hoà của dense / cross-encoder / trộn (ADR-0041 Luật chung 2) dùng
+  chung một hằng với BM25; 4 chữ số nhẹ hơn nhưng sinh thêm hoà, và cỡ file không phải ràng buộc. Làm tròn chia trục số
   thành ô rộng 10⁻⁶: hai điểm cùng ô thành bằng nhau, hai điểm khác ô vẫn khác nhau dù lệch rất ít. Đo trên file
   (`provenance.rounding_ties`): ở dense 7 cặp đoạn cùng câu hỏi thành hoà chỉ vì làm tròn, nhưng không cặp nào nằm trong
   cùng một cách chia (trang xếp hạng trong từng cách chia), nên làm tròn không đổi thứ hạng nào (dense và cross-encoder
-  của câu hỏi gốc, trong từng cách chia; phần còn chờ chưa đo); cross-encoder 0 — con số cho ADR luật hoà. **Vị trí ký
-  tự ghi theo đơn vị UTF-16** (cách chuỗi JavaScript đếm), đổi từ điểm mã của Python: 263 / 458 chunk bắt đầu sau ít
+  của câu hỏi gốc, trong từng cách chia; phần còn chờ chưa đo); cross-encoder 0 — con số dùng trong ADR-0041 (luật hoà: mục "Luật xếp hạng cho mọi bước" bên dưới). **Vị trí ký tự ghi theo đơn
+  vị UTF-16** (cách chuỗi JavaScript đếm), đổi từ điểm mã của Python: 263 / 458 chunk bắt đầu sau ít
   nhất một emoji ngoài BMP, không đổi thì vị trí của chúng lệch trên trang; kiểm bằng node: cắt `full_text` theo vị trí
   ghi trong file ra đúng chữ 458 / 458 chunk, ghép post ra đúng 19 / 19 bài. Lần ghép 2026-11-08: 1.369.248 byte (34 %
   ngân sách 4.000.000, ADR-0037 D3), dùng 4.718 kết quả Haiku (10 biến đổi + 428 câu ngữ cảnh / bản dịch + 4.280
   rerank), bỏ qua 464 dòng không thuộc tập hiện tại (0 thất bại, 0 khác phiên bản prompt hiện tại) = 420 rerank + 44 câu
   ngữ cảnh / bản dịch của bài đã xoá; điểm Haiku 0 / 1 / 2 / 3 trên 19 bài = 3.647 / 403 / 185 / 45; đếm lại từ file: 43
   đoạn giữ mà không trúng đáp án, khớp mục trên. Chưa có (mục 2 của 3e): điểm dense của câu hỏi biến đổi và của chunk
-  kèm câu ngữ cảnh; file ghi rõ ở `provenance.pending`. `provenance.inputs` ghi hash file cặp + file điểm cross-encoder,
+  kèm câu ngữ cảnh; file ghi rõ ở `provenance.pending` (mục thứ ba trong đó, cosine kèm câu ngữ cảnh, không dùng —
+  bỏ khi nâng định dạng lên 2, ADR-0041 Luật chung 8). `provenance.inputs` ghi hash file cặp + file điểm cross-encoder,
   hash file kết quả Haiku (băm đúng các byte đã đọc và đã kiểm), và số dòng dùng / bỏ qua theo lý do, để truy được file
   ghép từ lần chấm nào; `provenance.embedding_vectors_sha256` là hash các vector đã dùng. `--out` chỉ được nằm hẳn trong
   `data/rag_demo/` (`data/` không bị gitignore cả thư mục), là `.json` và không trùng file đầu vào nào.
+- **Luật xếp hạng cho mọi bước** (ADR-0041, Thy chốt 2026-11-09 / 10; bảng đầy đủ trong ADR). Thứ tự: lọc metadata (topic,
+  tháng đăng, phần của thread — chunk chạm phần nào khớp phần đó, 105 / 458 chunk chạm cả post mở đầu lẫn một post viết tiếp; BM25 giữ thống kê cả kho) →
+  tìm (BM25 / dense, mỗi câu con một lần; câu con gộp bằng RRF) → trộn (RRF k = 60 theo bài gốc + Elasticsearch, nhóm hoà
+  nhận hạng trung bình; weighted min-max α = 0,5; DBSF mean ± 3σ, σ mẫu, không kẹp) → rerank trên top-N (N = 20; nhóm
+  hoà ở mốc lấy cả nhóm; đoạn ngoài N "not reranked"; luôn chấm theo câu hỏi gốc) → lọc Haiku (bước độc lập) → lọc gần
+  trùng (mặc định 0,95: trên 19 bài cosine chunk × chunk cao nhất 0,804, nên mặc định không bỏ gì) → MMR (rel = điểm
+  bước chấm gần nhất min-max, λ = 0,5) → top-K (K = 10). Hoà ở điểm liên tục: làm tròn 6 chữ số, mã chunk gốc, khoảng
+  hạng tính lại sau mỗi lọc; chỉ BM25 bỏ điểm 0 và có "not found" (giữ nguyên ở rerank khi đáp án vắng trong danh sách vào) — cross-encoder (logit, 24 / 77 bộ đáp án ≤ 0), dense
+  và trộn xếp hạng mọi đoạn. Rerank Haiku (0–3) giữ thứ tự bước trước; MMR hoà ở một lượt → một hạng + nhãn "tied at
+  this pick". Khoảng hạng của đáp án = mọi cách xếp lại trong nhóm hoà; so A/B theo cả khoảng. Mặc định khi mở trang:
+  câu 1, không biến đổi câu hỏi, câu ngữ cảnh tắt, recursive 500, BM25 + dense RRF, chưa rerank, các bước lọc và MMR tắt. Biến đổi câu hỏi: mỗi lần một cách; câu con
+  (multi-query, decompose) không gồm câu gốc; rewrite / HyDE thay câu gốc; expand và step-back tìm 2 lần (câu gốc + câu
+  biến đổi) rồi gộp RRF (expand: 0 / 10 câu mở rộng của Haiku giữ nguyên câu gốc; nối thành một chuỗi làm câu 1 tụt
+  hạng ở mọi cách chia vì chế độ dấu; đánh đổi: câu 7 kém 1–5 hạng so với chuỗi ghép; so với không biến đổi, expand làm câu 1 kém 0–3 hạng, giúp câu 6
+  rõ rệt, câu 7 tốt hơn ở 5 / 7 cách chia nhưng kém 1 hạng ở recursive 500 (cách chia mặc định) — bảng đủ trong ADR-0041). A/B xét theo thứ tự:
+  câu không có đáp án thì không phán quyết; một bên "in progress", hoặc một bên "hybrid rơi về BM25" còn bên kia có dense thật →
+  "no clear winner"; một bên rơi về BM25 so với BM25 thật (hoặc cả hai rơi về) → so bình thường; có hạng thắng không
+  hạng, cả hai không có hạng → "no clear winner"; khoảng chồng nhau → "no clear winner". Mũi tên đổi hạng chỉ ở rerank và MMR,
+  khoảng chồng nhau thì không vẽ. Phần dense còn chờ có 2 trường hợp: "hybrid rơi về BM25" (chỉ chạy BM25, các bước
+  sau vẫn chạy, nhãn "BM25 only") và "dense trần cần phần còn chờ" (khối dense "in progress", các bước sau bỏ qua); lọc
+  gần trùng và MMR luôn dùng cosine của chữ gốc. Câu tự gõ: chỉ BM25, kèm lọc metadata, lọc gần trùng, MMR, cắt top-K,
+  công tắc câu ngữ cảnh.
 - **Publish + endpoint** (lệnh `publish`, `src/db/published_demo.py`; Thy chọn B1 2026-11-08, rồi 2026-11-09 đổi thứ tự:
-  lên web ngay, không chờ mục 2 — phần còn chờ hiện "in progress" trên trang). `publish` chỉ chạy ở thư mục chính, đọc
+  lên web ngay, không chờ mục 2 — phần còn chờ: "hybrid rơi về BM25" chỉ chạy BM25 (nhãn "BM25 only"), "dense trần cần phần còn chờ" ghi
+  "in progress", ADR-0041 Luật chung 8). `publish` chỉ chạy ở thư mục chính, đọc
   token Blob + token Threads từ `.env` của chính checkout, chạy `live-check` trước (ADR-0040 D3), rồi kiểm file: dưới
   ngân sách cỡ, đúng định dạng, đúng mã + hash chữ các bài đóng băng hiện tại và hash chữ câu hỏi hiện tại (file dựng
   trước một thay đổi như ADR-0040 không được đè bản công khai); lỗi bất kỳ thì không tải gì. Pathname cố định

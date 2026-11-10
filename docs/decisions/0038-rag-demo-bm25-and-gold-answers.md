@@ -1,6 +1,8 @@
 # ADR-0038: Chốt BM25 và cách chấm đáp án đúng của demo RAG
 
-- **Trạng thái**: Accepted — luật câu 4 của D7 (một trong 2 bài → một bài) thay bởi ADR-0040
+- **Trạng thái**: Accepted — luật câu 4 của D7 (một trong 2 bài → một bài) thay bởi ADR-0040; D4 (hoà ở trộn và rerank)
+  bổ sung bởi ADR-0041; D8: *not found* chỉ còn cho BM25 (và rerank khi đáp án vắng trong danh sách vào), khoảng hạng của đáp án tính theo mọi cách xếp lại trong nhóm hoà, A/B so cả khoảng
+  hạng — thay bởi ADR-0041
 - **Ngày**: 2026-11-06
 - **Người quyết**: Thy — chọn từng mục qua trao đổi 2026-11-06; phương án và số đo do Claude đề xuất.
 
