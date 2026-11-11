@@ -88,7 +88,7 @@ export type Bm25Params = { k1: number; b: number; oneMinusB: number };
 
 export function bm25Params(k1Hundredths: number, bHundredths: number): Bm25Params {
   const b = slider(bHundredths);
-  return { k1: slider(k1Hundredths).value, b: b.value, oneMinusB: b.complement };
+  return { k1: slider(k1Hundredths, 0, 300).value, b: b.value, oneMinusB: b.complement };
 }
 
 // Vị trí thanh kéo của BM25_K1, BM25_B (test kiểm hai cách viết ra cùng số).
@@ -122,7 +122,7 @@ export function buildChunkIndex(chunks: string[]): ChunkIndex {
 export type Bm25Result = {
   mode: "accented" | "folded";
   query: string[];
-  scores: number[];
+  scores: number[]; // điểm thô của MỌI chunk trong kho (kể cả chunk bị lọc), chưa làm tròn
   ranked: RankedChunk[];
 };
 

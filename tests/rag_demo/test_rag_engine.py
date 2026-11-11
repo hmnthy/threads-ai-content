@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from src.rag_demo.demo_file import DEMO_FILE_FORMAT, PENDING_PARTS, SCORE_DECIMALS, _score
+from src.rag_demo.llm_jobs import RERANK_KEEP_MIN_SCORE
+from tests.rag_demo.demo_fixture import PENDING, WAYS, make_demo
 from tests.rag_demo.node_engine import run_driver
 
 DRIVER = """
@@ -34,7 +36,11 @@ function run(c) {
   if (c.bm25) config.bm25 = bm25.bm25Params(c.bm25[0], c.bm25[1]);
   if (c.op === "plan") return retrieve.retrievalPlan(config, c.free ?? false);
   if (c.op === "texts") return retrieve.chunkTexts(demo, config.way, config.context);
-  const index = retrieve.buildWayIndex(demo, config.way, config.context);
+  const index = retrieve.buildWayIndex(
+    demo,
+    c.indexWay ?? config.way,
+    c.indexContext ?? config.context,
+  );
   const query =
     c.freeText !== undefined ? { freeText: c.freeText } : { question: demo.questions[0] };
   return retrieve.retrieve(demo, index, query, config, c.candidates);
@@ -48,13 +54,6 @@ const out = cases.map((c) => {
 });
 console.log(JSON.stringify(out));
 """
-
-# Đúng 2 mục bản Python ghi (`src/rag_demo/demo_file.py` PENDING_PARTS)
-PENDING = (
-    "dense score of transformed questions",
-    "dense score of chunks with their context sentence",
-)
-WAYS = ["whole", "post", "fixed_300", "fixed_500", "fixed_800", "recursive_500", "semantic"]
 
 
 def ok(results: list[dict[str, Any]]) -> list[Any]:
@@ -81,65 +80,6 @@ def row(
 
 def table(ranked: list[dict[str, Any]]) -> list[tuple[int, float, int, int]]:
     return [(r["chunk"], r["score"], r["tiedFrom"], r["tiedTo"]) for r in ranked]
-
-
-def make_demo(
-    texts: list[str],
-    *,
-    contexts: list[str | None] | None = None,
-    dense: list[float] | None = None,
-    question: str = "câu hỏi",
-    transforms: dict[str, Any] | None = None,
-    **changes: Any,
-) -> dict[str, Any]:
-    """File demo định dạng 2 tối thiểu: mỗi cách chia có cùng các chunk, chunk i = passage i."""
-    n = len(texts)
-    contexts = contexts if contexts is not None else [None] * n
-    chunks = [{"id": i, "unit": "u1", "start": 0, "end": 1, "passage": i} for i in range(n)]
-    base_transforms: dict[str, Any] = {
-        "rewrite": question,
-        "expand": question,
-        "hyde": question,
-        "multi_query": [question],
-        "decompose": [question],
-        "step_back": question,
-    }
-    base_transforms.update(transforms or {})
-    for key in list(base_transforms):
-        base_transforms[f"{key}_en"] = base_transforms[key]
-    demo: dict[str, Any] = {
-        "format": 2,
-        "provenance": {
-            "score_decimals": 6,
-            "pending": list(PENDING),
-            "llm_keep_min_score": 2,
-            "topics": {"cluster_run_id": 1, "cluster_run_at": "2026-11-10T00:00:00+00:00"},
-        },
-        "units": [],
-        "passages": [
-            {"unit": "u1", "text": t, "en": t, "context": c, "context_en": c}
-            for t, c in zip(texts, contexts, strict=True)
-        ],
-        "ways": {way: [dict(c) for c in chunks] for way in WAYS},
-        "cosine": {way: [0.0] * (n * (n - 1) // 2) for way in WAYS},
-        "questions": [
-            {
-                "number": 1,
-                "text": question,
-                "english": question,
-                "rule": "single",
-                "gold_unit_ids": [],
-                "gold_spans": {},
-                "gold_chunks": {way: {} for way in WAYS},
-                "transforms": base_transforms,
-                "dense": dense if dense is not None else [0.0] * n,
-                "cross_encoder": [0.0] * n,
-                "llm": [{"score": 0, "quote": None, "quote_en": None, "quote_dropped": None}] * n,
-            }
-        ],
-    }
-    demo.update(changes)
-    return demo
 
 
 # --- Xếp hạng chung (Luật chung 2, 5) ---
@@ -349,7 +289,7 @@ def test_bm25_without_match_stops_after_bm25_or_after_the_merge(tmp_path: Path) 
     ]
     single, merged = engine(tmp_path, cases)
     assert (single["list"], single["emptyAfter"]) == ([], "bm25")
-    assert (merged["list"], merged["emptyAfter"]) == ([], "sub-query merge")
+    assert (merged["list"], merged["emptyAfter"]) == ([], "merge")
 
 
 def plan(bm25: bool, dense: str, fuse: bool, status: str) -> dict[str, Any]:
@@ -418,9 +358,9 @@ def test_metadata_filter_that_removes_every_chunk_is_named_as_the_empty_step(
     ]
     cases = [{"op": "retrieve", "demo": demo, "config": c, "candidates": []} for c in configs]
     assert [(r["list"], r["emptyAfter"]) for r in engine(tmp_path, cases)] == [
-        ([], "metadata filter"),
-        ([], "metadata filter"),
-        ([], "metadata filter"),
+        ([], "metadata"),
+        ([], "metadata"),
+        ([], "metadata"),
         (None, None),  # "dense trần cần phần còn chờ": "in progress" thắng trạng thái của bước lọc
     ]
 
@@ -506,14 +446,25 @@ def test_engine_constants_match_the_python_file_builder(tmp_path: Path) -> None:
         ("demoFile", "PENDING_PARTS"),
         ("demoFile", "DEMO_FILE_FORMAT"),
         ("rank", "SCORE_DECIMALS"),
+        ("demoFile", "RERANK_KEEP_MIN_SCORE"),
     ]
     cases = [{"op": "const", "module": m, "name": n} for m, n in names]
-    assert engine(tmp_path, cases) == [list(PENDING_PARTS), DEMO_FILE_FORMAT, SCORE_DECIMALS]
+    assert engine(tmp_path, cases) == [
+        list(PENDING_PARTS),
+        DEMO_FILE_FORMAT,
+        SCORE_DECIMALS,
+        RERANK_KEEP_MIN_SCORE,
+    ]
     assert tuple(PENDING) == PENDING_PARTS
 
 
 def test_reader_accepts_a_minimal_format_2_file(tmp_path: Path) -> None:
-    assert engine(tmp_path, [{"op": "parse", "demo": make_demo(["a", "b"])}]) == [2]
+    gold = make_demo(["a", "b"])
+    question = gold["questions"][0]
+    question.update(rule="single", gold_unit_ids=["u1"])
+    question["gold_chunks"] = {way: {"u1": [1]} for way in WAYS}
+    cases = [{"op": "parse", "demo": make_demo(["a", "b"])}, {"op": "parse", "demo": gold}]
+    assert engine(tmp_path, cases) == [2, 2]
 
 
 def broken(change: str) -> dict[str, Any]:
@@ -548,6 +499,49 @@ def broken(change: str) -> dict[str, Any]:
         del demo["passages"][0]["context"]
     elif change == "passage_text":
         demo["passages"][1]["text"] = None
+    elif change == "sub_query_empty":
+        demo["questions"][0]["transforms"]["decompose"] = []
+    elif change == "unit_repeated":
+        demo["units"].append(dict(demo["units"][0], month="2026-01"))
+    elif change == "keep_min_score":
+        demo["provenance"]["llm_keep_min_score"] = 1
+    elif change == "unit_month":
+        demo["units"][0]["month"] = "2026-13"
+    elif change == "unit_topic":
+        demo["units"][0]["topic"] = {"id": 3, "label_en": "Jobs"}
+    elif change == "unit_posts":
+        demo["units"][0]["posts"] = [
+            {"id": "p1", "start": 5, "end": 20},
+            {"id": "p2", "start": 4, "end": 9},
+        ]
+    elif change == "post_outside":
+        demo["units"][0]["posts"] = [{"id": "p1", "start": 0, "end": 21}]
+    elif change == "chunk_unit":
+        demo["ways"]["post"][0]["unit"] = "u9"
+    elif change == "chunk_span":
+        demo["ways"]["post"][0]["end"] = 0
+    elif change == "passage_unit":
+        demo["passages"][0]["unit"] = "u9"
+    elif change == "cross_encoder_value":
+        demo["questions"][0]["cross_encoder"] = [0.1, "0.2"]
+    elif change == "llm_score":
+        demo["questions"][0]["llm"] = [{"score": 0}, {"score": 4}]
+    elif change == "llm_cell":
+        demo["questions"][0]["llm"] = [{"score": 0}, None]
+    elif change == "cosine_value":
+        demo["cosine"]["semantic"] = [1.5]
+    elif change == "gold_count":
+        demo["questions"][0]["rule"] = "single"
+    elif change == "gold_units":
+        q = demo["questions"][0]
+        q.update(rule="single", gold_unit_ids=["u1"])
+        q["gold_chunks"] = {way: {"u1": [0]} for way in WAYS}
+        q["gold_chunks"]["fixed_500"] = {}
+    elif change == "gold_chunk":
+        q = demo["questions"][0]
+        q.update(rule="single", gold_unit_ids=["u1"])
+        q["gold_chunks"] = {way: {"u1": [0]} for way in WAYS}
+        q["gold_chunks"]["fixed_500"] = {"u1": [2]}
     return demo
 
 
@@ -567,6 +561,23 @@ BROKEN = [
     "question_text",
     "context_missing",
     "passage_text",
+    "keep_min_score",
+    "unit_repeated",
+    "sub_query_empty",
+    "unit_month",
+    "unit_topic",
+    "unit_posts",
+    "post_outside",
+    "chunk_unit",
+    "chunk_span",
+    "passage_unit",
+    "cross_encoder_value",
+    "llm_score",
+    "llm_cell",
+    "cosine_value",
+    "gold_count",
+    "gold_units",
+    "gold_chunk",
 ]
 
 
@@ -576,3 +587,77 @@ def test_reader_rejects_files_the_engine_cannot_rank_correctly(tmp_path: Path) -
     assert {c: o.get("error") for c, o in zip(BROKEN, out, strict=True)} == dict.fromkeys(
         BROKEN, "DemoFileError"
     )
+
+
+# --- Ca bổ sung (NIT của review commit engine đầu tiên) ---
+
+
+def test_hybrid_with_candidates_ranks_dense_inside_the_subset(tmp_path: Path) -> None:
+    # Lọc bỏ đoạn 0 (dense cao nhất): dense xếp lại trong tập còn lại nên đoạn 2 đứng 1, không 2.
+    # BM25 "cam": đoạn 3 ("cam cam") 1, đoạn 1 2; dense: 2, 3, 1 → RRF:
+    # đoạn 3 = 1/61 + 1/62, đoạn 1 = 1/62 + 1/63, đoạn 2 = 1/61 (BM25 điểm 0 góp 0)
+    demo = make_demo(
+        ["cam", "cam xoài", "mận", "cam cam"], question="cam", dense=[0.9, 0.1, 0.5, 0.3]
+    )
+    result = engine(tmp_path, [{"op": "retrieve", "demo": demo, "candidates": [1, 2, 3]}])[0]
+    assert table(result["dense"]["list"]) == [(2, 0.5, 1, 1), (3, 0.3, 2, 2), (1, 0.1, 3, 3)]
+    assert table(result["list"]) == [(3, 0.032522, 1, 1), (1, 0.032002, 2, 2), (2, 0.016393, 3, 3)]
+
+
+def test_typed_question_without_any_match_stops_after_bm25(tmp_path: Path) -> None:
+    demo = make_demo(["cam", "xoài"])
+    config = {"retriever": "bm25"}
+    result = engine(
+        tmp_path, [{"op": "retrieve", "demo": demo, "config": config, "freeText": "zzz"}]
+    )[0]
+    assert (result["list"], result["emptyAfter"]) == ([], "bm25")
+
+
+def test_three_sub_queries_add_their_rrf_terms_in_file_order(tmp_path: Path) -> None:
+    # "cam": đoạn 0 (ngắn hơn) 1, đoạn 2 2; "xoài": đoạn 1; "mận": đoạn 2 →
+    # đoạn 2 = 1/62 + 1/61 = 0,032522; đoạn 0 và 1 cùng 1/61 → hoà [2, 3], đoạn 0 trước (mã chunk)
+    transforms = {"multi_query": ["cam", "xoài", "mận"]}
+    demo = make_demo(["cam", "xoài", "mận cam"], transforms=transforms)
+    config = {"retriever": "bm25", "transform": "multi_query"}
+    result = engine(tmp_path, [{"op": "retrieve", "demo": demo, "config": config}])[0]
+    assert [len(sub["ranked"]) for sub in result["bm25"]["subQueries"]] == [2, 1, 1]
+    assert table(result["list"]) == [(2, 0.032522, 1, 1), (0, 0.016393, 2, 3), (1, 0.016393, 2, 3)]
+
+
+def test_fusion_scores_that_differ_only_before_rounding_are_tied(tmp_path: Path) -> None:
+    # weighted α 0,5, BM25 rỗng (m = 0): dense −1 … 1 → m(đoạn 0) = 1,999999 / 2; điểm thô
+    # 0,49999975 khác 0,5 nhưng làm tròn 6 chữ số cùng 0,5 → hoà [1, 2], phá hoà theo mã chunk
+    demo = make_demo(["cam", "xoài", "mận"], question="zzz", dense=[0.999999, 1.0, -1.0])
+    result = engine(tmp_path, [{"op": "retrieve", "demo": demo, "config": {"fusion": "weighted"}}])[
+        0
+    ]
+    assert table(result["list"]) == [(0, 0.5, 1, 2), (1, 0.5, 1, 2), (2, 0.0, 3, 3)]
+
+
+def test_retrieve_refuses_bad_candidates_and_an_index_of_another_way(tmp_path: Path) -> None:
+    demo = make_demo(["cam", "xoài"])
+    cases: list[dict[str, Any]] = [
+        {"op": "retrieve", "demo": demo, "candidates": [0, 0]},
+        {"op": "retrieve", "demo": demo, "candidates": [2]},
+        {"op": "retrieve", "demo": demo, "candidates": [0.5]},
+        {"op": "retrieve", "demo": demo, "indexWay": "post"},
+        {
+            "op": "retrieve",
+            "demo": demo,
+            "config": {"way": "post", "context": True},
+            "indexContext": False,
+        },
+    ]
+    errors = [out.get("error") for out in run_driver(tmp_path, DRIVER, cases)]
+    assert errors == ["RangeError", "RangeError", "RangeError", "Error", "Error"]
+
+
+def test_slider_positions_have_an_upper_bound(tmp_path: Path) -> None:
+    cases = [
+        {"op": "call", "module": "rank", "fn": "slider", "args": [101]},
+        {"op": "call", "module": "bm25", "fn": "bm25Params", "args": [301, 75]},
+        {"op": "call", "module": "bm25", "fn": "bm25Params", "args": [300, 100]},
+    ]
+    out = run_driver(tmp_path, DRIVER, cases)
+    assert [o.get("error") for o in out] == ["RangeError", "RangeError", None]
+    assert out[2]["ok"] == {"k1": 3, "b": 1, "oneMinusB": 0}

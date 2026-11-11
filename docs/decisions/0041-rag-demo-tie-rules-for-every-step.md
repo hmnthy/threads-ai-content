@@ -46,7 +46,8 @@
     chỉ dẫn của LLM; không sửa prompt vì kết quả đã trả tiền.
   - Nối câu gốc với câu mở rộng thành một chuỗi hỏng câu 1: BM25 chọn chế độ có dấu / bỏ dấu cho cả chuỗi (ADR-0038
     D3), câu mở rộng có dấu kéo cả chuỗi sang chế độ có dấu, 7 / 10 từ không dấu của câu gốc không còn khớp.
-  - Đo bằng chính `src/dashboard/src/lib/ragDemo/bm25.ts`, thước = **số chính của trang** (ADR-0038 D8: câu 3 và 7 lấy
+  - Đo bằng chính `src/dashboard/src/lib/ragDemo/bm25.ts` (từ commit engine đầu tiên, 2026-11-10: `bm25.ts` +
+    `rank.ts`; ảnh chụp hồi quy chạy lại ra đúng các số dưới đây), thước = **số chính của trang** (ADR-0038 D8: câu 3 và 7 lấy
     hạng của bài tìm thấy sau cùng; một vị trí sau phá hoà theo mã chunk), 9 câu có đáp án × 7 cách chia, chuỗi ghép → 2
     danh sách gộp RRF (whole / post / fixed 300 / fixed 500 / fixed 800 / recursive 500 / semantic):
     - Câu 1: 9→3, 12→2, 13→2, 12→4, 10→3, 11→2, 6→1 (RRF tốt hơn ở cả 7 cách chia).
@@ -97,7 +98,7 @@
 2. **Hoà ở điểm liên tục** (BM25, dense, gộp câu con, trộn, cross-encoder): hoà = bằng nhau sau khi làm tròn 6 chữ số; xếp
    theo **mã chunk gốc** của cách chia (không phải vị trí trong danh sách đã lọc); mỗi đoạn mang khoảng hạng `[đầu, cuối]`
    của nhóm hoà. Chỉ BM25 bỏ đoạn điểm 0 — điểm **sau làm tròn** 6 chữ số
-   bằng 0 (`src/dashboard/src/lib/ragDemo/rank.ts:50#rankBm25`; đến 2026-11-10 đây là `rankScores` của `bm25.ts`, hàm
+   bằng 0 (`src/dashboard/src/lib/ragDemo/rank.ts:50#rankBm25`; trước commit engine đầu tiên (2026-11-10) đây là `rankScores` của `bm25.ts`, hàm
    vừa bỏ điểm 0 vừa xếp hạng; đoạn không khớp từ nào luôn thuộc nhóm này); các bước khác xếp hạng mọi đoạn, kể cả
    điểm ≤ 0 (`src/dashboard/src/lib/ragDemo/rank.ts:27#rankRange`).
 3. **Hoà ở bước giữ thứ tự** (rerank Haiku, MMR): cùng điểm thì giữ thứ tự bước trước (sắp xếp ổn định).
@@ -125,8 +126,8 @@
    gian trong một bước (m của weighted, điểm chuẩn hoá DBSF, rel của MMR) giữ số thực 64 bit; giá trị MMR ở mỗi lượt
    tính bằng số thực rồi làm tròn 6 chữ số **chỉ để so hoà** (lượt chọn đoạn có giá trị đã làm tròn lớn nhất, bằng
    nhau → đoạn đứng trước ở bước trước); điểm xuất của mỗi bước làm tròn, bằng đúng một hàm của engine
-   (`src/dashboard/src/lib/ragDemo/rank.ts:11#roundScore`, `Number(x.toFixed(6))`: giá trị đúng nửa ô làm tròn ra xa
-   số 0). Giá trị mong đợi viết bằng Python trong test (đo
+   (`src/dashboard/src/lib/ragDemo/rank.ts:11#roundScore`, `Number(x.toFixed(6)) + 0`: giá trị đúng nửa ô làm tròn ra xa
+   số 0, `+ 0` đổi −0 thành 0 như `_score` của Python). Giá trị mong đợi viết bằng Python trong test (đo
    2026-11-10, Python 3.12.4 trên Windows, node):
    - Khớp từng bit với engine chỉ được bảo đảm cho `+ − × ÷` và căn bậc hai (IEEE 754 bắt các phép này làm tròn
      đúng). Bình phương viết `d * d` ở cả hai ngôn ngữ (Python `x ** 2` khác `x * x` ở 84 / 200.000 số `random.seed(0)` + `random.uniform`,
@@ -150,8 +151,8 @@
      đổi. Dựng lại sang định dạng 2: đúng ô đó đổi, `rounding_ties` không đổi (dense 7, cross-encoder 0).
 
    Giá trị thanh kéo (α, λ, ngưỡng gần trùng, k1, b) = số nguyên i / 100 trước khi dùng, và
-   1 − α, 1 − λ, 1 − b tính là (100 − i) / 100, để bước 0,1 không thành 0,30000000000000004. Đến 2026-11-10
-   `scoreDocs` nhận b rồi tự tính `1 - b`; từ commit engine đầu tiên (2026-11-10) nó nhận cả 1 − b tính sẵn từ vị
+   1 − α, 1 − λ, 1 − b tính là (100 − i) / 100, để bước 0,1 không thành 0,30000000000000004. Trước commit engine đầu tiên
+   (2026-11-10) `scoreDocs` nhận b rồi tự tính `1 - b`; từ commit đó nó nhận cả 1 − b tính sẵn từ vị
    trí thanh kéo (`src/dashboard/src/lib/ragDemo/bm25.ts:89#bm25Params`; α qua `rank.ts:69#slider`) (đo 2026-11-09 trên lưới thanh kéo b 0–1 bước 0,05 × k1 0–3 bước 0,05 × 10 câu gốc
    × 7 cách chia × mọi chunk: 6 / 21 giá trị b cho `1 - i/100` khác `(100 - i)/100`; 149.406 / 5.866.980 điểm thô
    khác (2,5 %), 0 điểm khác sau làm tròn 6 chữ số — không đổi thứ hạng nào, nhưng engine và test đối chiếu cần một
@@ -313,10 +314,11 @@
   đầu tiên (2026-11-10): tách phần lọc điểm ≤ 0 khỏi hàm khoảng hạng `rankScores` cũ của `bm25.ts` (đúng cho BM25, sai
   cho bước khác) thành `rankRange` (mọi bước, phá hoà theo mã chunk gốc) + `rankBm25`; đổi chữ ký `scoreDocs` /
   `searchBm25` để nhận 1 − b tính theo Luật chung 5 và sửa test đối chiếu `bm25s` (`tests/rag_demo/test_bm25_engine.py`)
-  theo; bộ đọc file, bước tìm, gộp câu con, trộn. `assemble` ghi tháng đăng + topic của mỗi bài, dựng lại file. Hai loại test:
+  theo; bộ đọc file, bước tìm, gộp câu con, trộn. Commit engine thứ hai (2026-11-10): rerank top-N, ba bước lọc, MMR, cắt
+  top-K, hạng của đáp án (công thức đóng, `src/dashboard/src/lib/ragDemo/answer.ts:64#goldAnswer`), so A/B, mũi tên. `assemble` ghi tháng đăng + topic của mỗi bài, dựng lại file. Hai loại test:
   test luật dùng **dữ liệu tổng hợp** với giá trị mong đợi viết tay, chạy được trên CI; test trên file demo thật
-  (`data/rag_demo/demo.json`, gitignored vì chứa chữ bài) chỉ chạy ở máy có file (bỏ qua khi thiếu `DEMO_PATH`) và là
-  **ảnh chụp hồi quy** của số đo ở Bối cảnh — các số đó sinh từ chính `bm25.ts`, không phải bài giải độc lập. Ảnh chụp
+  (`data/rag_demo/demo.json`, gitignored vì chứa chữ bài) chỉ chạy ở máy có file (bỏ qua khi thiếu file) và là
+  **ảnh chụp hồi quy** của số đo ở Bối cảnh — các số đó sinh từ chính engine (`bm25.ts`, nay cùng `rank.ts`), không phải bài giải độc lập. Ảnh chụp
   hồi quy chạy đúng cấu hình đã đo — BM25 cả hai bên, không rerank, mọi bước lọc và MMR tắt, k1 = 1,2, b = 0,75 — và
   so số chính theo mục "Hạng của đáp án" (khoảng hạng khi hoà): expand 2 danh sách + RRF ở 63 ô và mốc không biến đổi
   ở 63 ô (bảng ở Bối cảnh); cột chuỗi ghép không chụp (phương án đã bỏ, engine không có đường chạy này). Mọi mục khác
@@ -333,13 +335,13 @@
   DBSF mọi điểm bằng nhau, A/B câu không có đáp án, mũi tên chỉ ở rerank / MMR và không vẽ khi khoảng chồng nhau,
   hybrid một bộ tìm rỗng, hybrid rơi về BM25 + A/B (bên kia hybrid thật / BM25 thật / cũng rơi về BM25; BM25 so với
   hybrid thật do người xem chọn), công tắc câu
-  ngữ cảnh ở cách "không chia", thanh kéo 0,1 / 0,3, dense trần cần phần còn chờ + lọc metadata loại đáp án → "in progress". Mục 2 của 3e (sau PR 1) embed chunk kèm câu ngữ cảnh theo đúng chuỗi BM25 dùng (câu ngữ cảnh, xuống dòng, chunk; `context =
+  ngữ cảnh ở cách "không chia", thanh kéo 0,1 / 0,3, dense trần cần phần còn chờ + lọc metadata loại đáp án → "in progress". Mục 2 của 3e (sau PR 1, chưa làm): embed chunk kèm câu ngữ cảnh theo đúng chuỗi BM25 dùng (câu ngữ cảnh, xuống dòng, chunk; `context =
   null` → chunk trần), và embed `transforms.expand` riêng (không
-  embed chuỗi ghép), vì expand đi theo 2 danh sách. Nâng `DEMO_FILE_FORMAT` lên 2 kèm bỏ mục
-  thứ ba khỏi `PENDING_PARTS` (Luật chung 8) và đổi `_score` sang ROUND_HALF_UP (Luật chung 5). Hằng 6 chữ số có 2
+  embed chuỗi ghép), vì expand đi theo 2 danh sách. Phần định dạng file thì đã làm, ở commit dựng file định dạng 2 (2026-11-10): nâng
+  `DEMO_FILE_FORMAT` lên 2, bỏ mục thứ ba khỏi `PENDING_PARTS` (Luật chung 8) và đổi `_score` sang ROUND_HALF_UP (Luật chung 5). Hằng 6 chữ số có 2
   bản (`src/rag_demo/demo_file.py:71#SCORE_DECIMALS`, `src/dashboard/src/lib/ragDemo/rank.ts:7#SCORE_DECIMALS`):
   engine từ chối file có `provenance.score_decimals` khác hằng của mình
-  (`src/dashboard/src/lib/ragDemo/demoFile.ts:108#parseDemoFile`).
+  (`src/dashboard/src/lib/ragDemo/demoFile.ts:123#parseDemoFile`).
 - **Docs:** `docs/claude/data-model.md` (mục demo RAG), `docs/claude/architecture.md`, `docs/status.md`,
   `docs/design/ui-contract.md`, `docs/decisions/README.md`, dòng
   trạng thái ADR-0038, comment hằng `SCORE_DECIMALS` và hàm `rounding_ties` ở `src/rag_demo/demo_file.py`. Chữ hiển thị
@@ -358,7 +360,14 @@
 - **Xem lại khi:**
   1. Đổi thang điểm Haiku hoặc số chữ số làm tròn → đo lại số hoà.
   2. Có phần còn chờ (dense của câu hỏi biến đổi, chunk kèm câu ngữ cảnh) → đo lại hoà trong từng cách chia.
-  3. Engine xong → đo số lần hoà chạm đáp án ở RRF; thường xuyên thì xem lại cách hiện khoảng hạng.
+  3. Engine xong → đo số lần hoà chạm đáp án ở RRF; thường xuyên thì xem lại cách hiện khoảng hạng. Đo 2026-11-10
+     (engine xong, `data/rag_demo/measure/rrf_ties.mjs`, 9 câu có đáp án × 7 cách chia = 63 ô mỗi cấu hình; số ô có
+     chunk trúng nằm trong nhóm hoà / hạng một bài là khoảng / số chính là khoảng): trộn RRF mặc định (hybrid, không
+     biến đổi) 9 / 3 / 2; gộp câu con trên BM25: expand 12 / 0 / 0, step-back 6 / 3 / 3, multi-query 0 / 0 / 0,
+     decompose 6 / 2 / 2. **Thy chọn giữ nguyên cách hiện khoảng hạng (2026-11-10).** Lý do: số chính ra khoảng
+     ở 0–3 / 63 ô mỗi cấu hình (mặc định 2 / 63, ≈ 3 %), không phải "thường xuyên"; khi có hoà, khoảng hạng là cách
+     hiện trung thực — một hạng đơn sẽ cho thứ tự do mã chunk quyết định trông như do điểm quyết định. Đo lại (cùng
+     script) khi làm mới bộ bài (xem lại 4) hoặc có phần còn chờ (xem lại 2), vì cả hai đổi số hoà.
   4. Làm mới bộ bài (ADR-0037 xem lại 5) → đo lại cosine chunk × chunk trước khi giữ ngưỡng gần trùng 0,95.
 
 ### Hệ quả UI

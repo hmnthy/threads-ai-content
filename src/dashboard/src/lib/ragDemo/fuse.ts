@@ -44,7 +44,7 @@ function sortedChunks(candidates: readonly number[]): number[] {
 
 // min-max (x − min) / (max − min); max = min → 0 (lựa chọn thiết kế: danh sách không phân biệt gì thì
 // không góp vào điểm trộn).
-function minMax(values: readonly number[]): number[] {
+export function minMax(values: readonly number[]): number[] {
   let low = Infinity;
   let high = -Infinity;
   for (const value of values) {

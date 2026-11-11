@@ -5,7 +5,8 @@ ngữ cảnh tắt, k1 = 1,2, b = 0,75 — cho 9 câu có đáp án × 7 cách c
 expand (câu gốc + câu mở rộng, gộp RRF). Các số này sinh từ chính engine, không phải bài giải độc
 lập: test chỉ giữ cho chúng không trôi khi sửa code. Số chính (hạng của bài tìm thấy sau cùng ở câu
 3 và 7) tính ở đây bằng vét cạn mọi cách đặt chunk đáp án vào các vị trí của nhóm hoà chứa nó, đúng
-định nghĩa mục "Hạng của đáp án" — cách tính độc lập với công thức đóng engine sẽ có.
+định nghĩa mục "Hạng của đáp án" — cách tính độc lập với công thức đóng của engine (`answer.ts`), và
+hai cách phải ra cùng số ở mọi ô, kể cả ở các cấu hình có rerank, lọc, MMR (`SWEEP`).
 
 `data/rag_demo/demo.json` gitignored (chứa chữ bài): thiếu file thì bỏ qua — CI không chạy test này.
 """
@@ -14,6 +15,7 @@ import itertools
 import json
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -24,21 +26,27 @@ WAYS = ["whole", "post", "fixed_300", "fixed_500", "fixed_800", "recursive_500",
 # Giới hạn vét cạn: số đo 2026-11-10 tối đa 4 cách đặt mỗi ô; vượt xa thì dữ liệu đã đổi hẳn
 MAX_PLACEMENTS = 100_000
 
+# Mỗi ca: danh sách cuối (chunk, khoảng hạng) + số chính engine tính bằng công thức đóng.
 DRIVER = """
 import { readFileSync } from "node:fs";
 const dir = process.argv[2];
 const { parseDemoFile } = await import(dir + "demoFile.ts");
 const retrieve = await import(dir + "retrieve.ts");
+const pipeline = await import(dir + "pipeline.ts");
+const answer = await import(dir + "answer.ts");
 const { path, cases } = JSON.parse(readFileSync(process.argv[3], "utf8"))[0];
 const demo = parseDemoFile(JSON.parse(readFileSync(path, "utf8")));
 const indexes = new Map();
 const out = cases.map((c) => {
-  const base = { ...retrieve.DEFAULT_RETRIEVAL, retriever: "bm25" };
-  const config = { ...base, way: c.way, transform: c.transform };
-  if (!indexes.has(c.way)) indexes.set(c.way, retrieve.buildWayIndex(demo, c.way, false));
+  const config = { ...pipeline.DEFAULT_PIPELINE, retriever: "bm25", ...c.config };
+  const key = config.way + "/" + config.context;
+  if (!indexes.has(key)) indexes.set(key, retrieve.buildWayIndex(demo, config.way, config.context));
   const question = demo.questions.find((q) => q.number === c.number);
-  const result = retrieve.retrieve(demo, indexes.get(c.way), { question }, config);
-  return result.list.map((r) => [r.chunk, r.tiedFrom, r.tiedTo]);
+  const result = pipeline.runPipeline(demo, indexes.get(key), { question }, config);
+  return {
+    list: result.final === null ? null : result.final.map((r) => [r.chunk, r.tiedFrom, r.tiedTo]),
+    main: answer.goldAnswer(question, result)?.main ?? null,
+  };
 });
 console.log(JSON.stringify([out]));
 """
@@ -78,8 +86,8 @@ def main_number(ranked: list[list[int]], gold: dict[str, list[int]], rule: str) 
             for chunk, position in placed:
                 unit = owner[chunk]
                 best[unit] = min(best.get(unit, position), position)
-        # câu 1 bài: hạng bài đó; câu 3 và 7: hạng của bài tìm thấy sau cùng
-        values.add(max(best.values()) if rule == "both" else next(iter(best.values())))
+        # câu 1 bài: hạng bài đó (gold có đúng 1 bài); câu 3 và 7: hạng của bài tìm thấy sau cùng
+        values.add(max(best.values()) if rule == "both" else min(best.values()))
     low, high = min(values), max(values)
     return low if low == high else (low, high)
 
@@ -115,22 +123,80 @@ def test_main_numbers_match_the_measured_snapshot(tmp_path: Path) -> None:
     demo = json.loads(DEMO.read_text(encoding="utf-8"))
     questions = [q for q in demo["questions"] if q["gold_unit_ids"]]
     cases = [
-        {"number": q["number"], "way": way, "transform": transform}
+        {"number": q["number"], "config": {"way": way, "transform": transform}}
         for q in questions
         for transform in ("none", "expand")
         for way in WAYS
     ]
-    lists = run_driver(tmp_path, DRIVER, [{"path": str(DEMO), "cases": cases}])[0]
+    out = run_driver(tmp_path, DRIVER, [{"path": str(DEMO), "cases": cases}])[0]
     got: dict[int, tuple[list[Rank], list[Rank]]] = {}
+    engine_main: dict[int, tuple[list[Rank], list[Rank]]] = {}
     for q in questions:
+        own = [(c, o) for c, o in zip(cases, out, strict=True) if c["number"] == q["number"]]
         cells = [
-            main_number(lists[cases.index(c)], q["gold_chunks"][c["way"]], q["rule"])
-            for c in cases
-            if c["number"] == q["number"]
+            main_number(o["list"], q["gold_chunks"][c["config"]["way"]], q["rule"]) for c, o in own
         ]
+        formula = [as_rank(o["main"]) for _, o in own]
         got[q["number"]] = (cells[:7], cells[7:])
+        engine_main[q["number"]] = (formula[:7], formula[7:])
     expected = {n: (parse_row(a), parse_row(b)) for n, (a, b) in EXPECTED.items()}
     assert got == expected
+    # công thức đóng của engine = vét cạn ở mọi ô
+    assert engine_main == expected
+
+
+def as_rank(main: dict[str, Any]) -> Rank:
+    """Số chính của engine theo cách viết của `main_number`."""
+    if main["kind"] != "rank":
+        return "not found"
+    return main["from"] if main["from"] == main["to"] else (main["from"], main["to"])
+
+
+# Cấu hình phủ mọi bước sau bước tìm (rerank, lọc, MMR, cắt K) — số chính phải bằng vét cạn trên
+# danh sách cuối của chính engine, và engine không được crash ở cấu hình nào.
+SWEEP: list[dict[str, Any]] = [
+    {},
+    {"retriever": "hybrid"},
+    {"retriever": "dense"},
+    {"retriever": "hybrid", "fusion": "weighted", "alpha": 30},
+    {"retriever": "hybrid", "fusion": "dbsf"},
+    {"retriever": "hybrid", "rerank": "cross_encoder", "topN": 5},
+    {"retriever": "hybrid", "rerank": "haiku", "topN": 10},
+    {"retriever": "hybrid", "rerank": "haiku", "haikuFilter": True},
+    {"retriever": "hybrid", "nearDuplicate": True, "nearDuplicateThreshold": 70},
+    {"retriever": "hybrid", "mmr": True, "lambda": 30},
+    {"retriever": "hybrid", "rerank": "cross_encoder", "mmr": True, "topN": 5},
+    {"transform": "multi_query", "rerank": "haiku", "topN": 5, "mmr": True},
+    {"transform": "decompose", "haikuFilter": True},
+    {"retriever": "hybrid", "transform": "step_back", "context": True},
+    {"retriever": "dense", "transform": "hyde"},
+]
+
+
+@pytest.mark.skipif(not DEMO.is_file(), reason="cần data/rag_demo/demo.json (gitignored)")
+def test_closed_formula_matches_exhaustive_reordering_on_the_real_file(tmp_path: Path) -> None:
+    demo = json.loads(DEMO.read_text(encoding="utf-8"))
+    questions = {q["number"]: q for q in demo["questions"]}
+    cases = [
+        {"number": n, "config": {"way": way, **config}}
+        for n in questions
+        for way in WAYS
+        for config in SWEEP
+    ]
+    out = run_driver(tmp_path, DRIVER, [{"path": str(DEMO), "cases": cases}])[0]
+    compared = 0
+    for c, o in zip(cases, out, strict=True):
+        q = questions[c["number"]]
+        if q["rule"] == "none" or o["list"] is None:
+            assert o["main"] is None or o["main"]["kind"] == "in-progress"
+            continue
+        exhaustive = main_number(o["list"], q["gold_chunks"][c["config"]["way"]], q["rule"])
+        if o["main"]["kind"] == "rank":
+            assert as_rank(o["main"]) == exhaustive, c
+            compared += 1
+        else:
+            assert exhaustive == "not found", c
+    assert compared > 0.8 * len(cases)
 
 
 def test_exhaustive_main_number_on_hand_built_tie_groups() -> None:

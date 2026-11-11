@@ -85,9 +85,12 @@ export function chunkTexts(demo: DemoFile, way: Way, context: boolean): string[]
 }
 
 // Index BM25 trên mọi chunk của cách chia (thống kê của cả kho, kể cả khi lọc). Trang giữ sẵn theo
-// (cách chia, công tắc có hiệu lực).
-export function buildWayIndex(demo: DemoFile, way: Way, context: boolean): ChunkIndex {
-  return buildChunkIndex(chunkTexts(demo, way, context));
+// (cách chia, công tắc có hiệu lực); index ghi kèm hai giá trị đó để `retrieve` từ chối index lệch cấu hình.
+export type WayIndex = ChunkIndex & { way: Way; context: boolean };
+
+export function buildWayIndex(demo: DemoFile, way: Way, context: boolean): WayIndex {
+  const effective = contextEffective(way, context);
+  return { ...buildChunkIndex(chunkTexts(demo, way, effective)), way, context: effective };
 }
 
 export type RetrievalStatus = "ok" | "bm25-only" | "in-progress";
@@ -127,8 +130,9 @@ export type RetrieverBlock = {
   merged: RankedChunk[] | null; // null khi biến đổi không qua bước gộp câu con
   list: RankedChunk[]; // danh sách bộ tìm đưa sang bước sau
 };
-// Bước đầu tiên ra danh sách rỗng (Luật chung 6); trang ghi "no passages left after: <bước>".
-export type RetrievalStep = "metadata filter" | "bm25" | "dense" | "sub-query merge" | "fusion";
+// Bước đầu tiên ra danh sách rỗng (Luật chung 6); trang ghi "no passages left after: <bước>" (chữ hiển
+// thị của từng mã do trang giữ, Thy duyệt).
+export type RetrievalStep = "metadata" | "bm25" | "dense" | "merge" | "fusion";
 export type RetrievalResult = {
   plan: RetrievalPlan;
   bm25: RetrieverBlock | null;
@@ -172,28 +176,45 @@ function denseBlock(
 
 function emptyStep(block: RetrieverBlock, single: RetrievalStep): RetrievalStep | null {
   if (block.list.length > 0) return null;
-  return block.merged === null ? single : "sub-query merge";
+  return block.merged === null ? single : "merge";
+}
+
+// Mã chunk còn lại sau lọc metadata: số nguyên trong cách chia, không trùng (phá hoà theo mã chunk).
+function checkCandidates(candidates: readonly number[], count: number): void {
+  const seen = new Set<number>();
+  for (const chunk of candidates) {
+    if (!Number.isInteger(chunk) || chunk < 0 || chunk >= count || seen.has(chunk)) {
+      throw new RangeError(`candidates must be distinct chunk ids of the way, got ${chunk}`);
+    }
+    seen.add(chunk);
+  }
 }
 
 // Chạy bước tìm tới hết bước trộn. `index` = buildWayIndex(demo, config.way, config.context);
-// `candidates` = chunk còn lại sau lọc metadata (mặc định mọi chunk).
+// `candidates` = chunk còn lại sau lọc metadata (mặc định mọi chunk). Khối của một bước không chạy
+// (lọc đã loại hết, "in progress") là null; `plan` vẫn là kế hoạch theo cấu hình.
 export function retrieve(
   demo: DemoFile,
-  index: ChunkIndex,
+  index: WayIndex,
   query: Query,
   config: RetrievalConfig,
   candidates?: readonly number[],
 ): RetrievalResult {
   const question = "question" in query ? query.question : null;
   const plan = retrievalPlan(config, question === null);
-  const pool = candidates ?? allChunks(demo.ways[config.way].length);
+  if (index.way !== config.way || index.context !== contextEffective(config.way, config.context)) {
+    throw new Error("the BM25 index was built for another chunking way or context switch");
+  }
+  const count = demo.ways[config.way].length;
+  if (candidates !== undefined) checkCandidates(candidates, count);
+  const pool = candidates ?? allChunks(count);
   if (plan.status === "in-progress") {
     return { plan, bm25: null, dense: null, fused: null, list: null, emptyAfter: null };
   }
   // Lọc metadata loại hết đoạn: bước làm rỗng là bước lọc, không phải bước tìm (Luật chung 6);
   // "in progress" ở trên vẫn thắng (Luật chung 8).
   if (pool.length === 0) {
-    return { plan, bm25: null, dense: null, fused: null, list: [], emptyAfter: "metadata filter" };
+    return { plan, bm25: null, dense: null, fused: null, list: [], emptyAfter: "metadata" };
   }
   const texts =
     question === null ? [(query as { freeText: string }).freeText] : subQueries(question, config.transform);

@@ -66,9 +66,54 @@ export function averageRank(row: RankedChunk): number {
 // không thành 0,30000000000000004 (ADR-0041 Luật chung 5).
 export type SliderValue = { value: number; complement: number };
 
-export function slider(hundredths: number): SliderValue {
-  if (!Number.isInteger(hundredths) || hundredths < 0) {
-    throw new RangeError(`slider position must be a non-negative integer, got ${hundredths}`);
+export function slider(hundredths: number, min: number = 0, max: number = 100): SliderValue {
+  return { value: position(hundredths, min, max) / 100, complement: (100 - hundredths) / 100 };
+}
+
+// Vị trí nguyên của một thanh kéo trong khoảng của nó; ngoài khoảng là lỗi lập trình của trang. Bước
+// (VD N bước 5) do thanh kéo của trang giữ, không kiểm ở đây: ADR-0041 Luật chung 5 ghi khoảng và bước
+// là lựa chọn thiết kế, không đổi thứ hạng của một cấu hình cho trước.
+export function position(value: number, min: number, max: number): number {
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new RangeError(`slider position must be an integer in [${min}, ${max}], got ${value}`);
   }
-  return { value: hundredths / 100, complement: (100 - hundredths) / 100 };
+  return value;
+}
+
+// Một dòng của danh sách sau bước tìm. `notReranked` = đuôi ngoài top-N của rerank (giữ điểm, nhóm hoà
+// của bước trước); `tiedAtPick` = MMR: số đoạn khác cùng giá trị ở lượt chọn đoạn này (null = không
+// qua MMR; ADR-0041, bảng từng bước).
+export type Row = RankedChunk & { notReranked: boolean; tiedAtPick: number | null };
+
+export function toRows(list: readonly RankedChunk[]): Row[] {
+  return list.map((row) => ({ ...row, notReranked: false, tiedAtPick: null }));
+}
+
+// Nhóm hoà = các dòng liền nhau cùng khoảng hạng: khoảng tính theo vị trí nên hai nhóm khác nhau
+// không bao giờ cùng khoảng (ADR-0041 Luật chung 6: nhóm là tập thành viên mang theo, không so điểm).
+export function groupsOf<T extends RankedChunk>(rows: readonly T[]): T[][] {
+  const groups: T[][] = [];
+  for (const row of rows) {
+    const last = groups[groups.length - 1];
+    if (last && last[0].tiedFrom === row.tiedFrom && last[0].tiedTo === row.tiedTo) last.push(row);
+    else groups.push([row]);
+  }
+  return groups;
+}
+
+// Đánh lại hạng theo vị trí sau một bước lọc: nhóm hoà = thành viên còn lại, khoảng tính lại theo vị
+// trí mới, còn 1 thành viên thì hết hoà (Luật chung 6). `rows` = danh sách đã lọc, giữ thứ tự cũ.
+export function renumber<T extends RankedChunk>(rows: readonly T[]): T[] {
+  const out: T[] = [];
+  for (const group of groupsOf(rows)) {
+    const start = out.length + 1;
+    const end = out.length + group.length;
+    for (const row of group) out.push({ ...row, rank: out.length + 1, tiedFrom: start, tiedTo: end });
+  }
+  return out;
+}
+
+// Hai khoảng hạng chồng nhau, kể cả chung một đầu mút (ADR-0041 mục A/B bước 5, mục mũi tên).
+export function overlaps(a: [number, number], b: [number, number]): boolean {
+  return a[0] <= b[1] && b[0] <= a[1];
 }
