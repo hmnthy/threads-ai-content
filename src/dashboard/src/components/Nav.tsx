@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartLineUp, ChartPieSlice, CaretDown, Compass } from "@phosphor-icons/react/dist/ssr";
+import { ChartLineUp, ChartPieSlice, CaretDown, Compass, FlowArrow } from "@phosphor-icons/react/dist/ssr";
 import { BrandLogo } from "@/components/BrandLogo";
 
 // Topbar + tab pill — docs/claude/design-system.md §7 Tầng A: topbar (logo +
@@ -12,6 +12,8 @@ const TABS = [
   { href: "/overview", label: "Overview", Icon: ChartPieSlice },
   { href: "/analytics", label: "Analytics", Icon: ChartLineUp },
   { href: "/topics", label: "Topic Explorer", Icon: Compass },
+  // ADR-0037 D1: tab "RAG pipeline"
+  { href: "/rag-pipeline", label: "RAG pipeline", Icon: FlowArrow },
 ];
 
 export function Nav() {

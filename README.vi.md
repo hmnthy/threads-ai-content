@@ -27,7 +27,7 @@ Engineer. Không phải SaaS, không multi-tenant, và không có tham vọng tr
 
 ## Ảnh chụp màn hình
 
-Sản phẩm qua 4 bước — từ tuyên ngôn tới các chủ đề khám phá được và cách mỗi chủ đề so với phần còn lại của kênh.
+Sản phẩm qua 5 bước — từ tuyên ngôn tới các chủ đề khám phá được, cách mỗi chủ đề so với phần còn lại của kênh, và một demo truy xuất trên chính các bài của kênh.
 
 <p align="center">
   <img src="docs/screenshots/landing.png" alt="Landing page: one content unit placed against its channel, the three layers, three dashboard panels, the pipeline diagram" width="820"><br>
@@ -47,6 +47,11 @@ Sản phẩm qua 4 bước — từ tuyên ngôn tới các chủ đề khám ph
 <p align="center">
   <img src="docs/screenshots/topics.png" alt="Topic Explorer: topics found from the text alone on a colour-coded 3D map, with each topic's keywords and most typical posts" width="820"><br>
   <sub><b>4. Topic Explorer</b> — chủ đề khám phá chỉ từ văn bản (UMAP 3D + HDBSCAN), mỗi chủ đề so với phần còn lại của kênh trên 3 tỉ lệ, hiện đủ mọi phép so, effect size và p đã hiệu chỉnh Holm.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/rag-pipeline.png" alt="RAG pipeline: a map of the nine pipeline steps with what this page covers, then how the content units are loaded" width="820"><br>
+  <sub><b>5. RAG pipeline</b> — bản đầu của demo truy xuất trên 19 content unit đóng băng và 10 câu hỏi cố định: bản đồ 9 bước của một pipeline RAG chuẩn cho biết trang làm bước nào; xem mỗi content unit được nạp từ thread Threads thế nào, rồi chọn cách chia đoạn, cách tìm BM25 / dense / hybrid và bộ xếp lại (cross-encoder hoặc Claude Haiku), rồi xem đáp án đúng đứng hạng mấy. Trang chỉ xếp hạng đoạn nguồn, không viết câu trả lời.</sub>
 </p>
 
 ---
@@ -124,7 +129,7 @@ threads-ai-content/
 │   ├── db/                Schema SQLite (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — đã có
 │   ├── pipeline/           Ingest, cron snapshot 4h, cầu nối clustering Windows↔WSL2 — đã có
 │   ├── main.py             Entry point FastAPI — đã có
-│   └── dashboard/          App Next.js: landing page + Overview/Analytics/Topic Explorer — đã có
+│   └── dashboard/          App Next.js: landing page + Overview/Analytics/Topic Explorer/RAG pipeline — đã có
 └── tests/                bộ test pytest, ruff + mypy strict sạch
 ```
 
@@ -168,7 +173,8 @@ Một vài quyết định dự án coi là nền tảng, mỗi quyết định 
 ## Trạng thái dự án
 
 **Đã có:** client Threads API, pipeline NLP khám phá chủ đề, kiến trúc metric 6-index, thống kê
-theo cửa sổ thời gian, dashboard 3 tab (Overview, Analytics, Topic Explorer) cộng landing page này —
+theo cửa sổ thời gian, dashboard 4 tab (Overview, Analytics, Topic Explorer, và RAG pipeline — bản đầu
+của demo truy xuất, chỉ xếp hạng đoạn nguồn, không viết câu trả lời) cộng landing page này —
 tất cả chạy thật trên data production (toàn bộ test pass, ruff + mypy strict sạch).
 
 **Tiếp theo — phạm vi hẹp có chủ đích ("less is more"):**

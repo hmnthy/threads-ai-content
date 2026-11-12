@@ -6,7 +6,8 @@ import { axisPct, count, HERO_ENGLISH, pct, rankAmongOthers, rowSwarm, type Land
 
 // "How it solves" (handoff §3.3): 3 tầng sản phẩm — thống kê, NLP, knowledge base — theo 1 content unit thật. Trạng
 // thái theo code đang chạy, không theo roadmap (UI-L20260903-stack-real-status). Knowledge base là `next`, không ô hỏi
-// đáp trước cổng Phase F (UI-0001-kb-next). Thy 2026-11-01 (ADR-0032): tên tầng là tiêu đề khối thật (h3 26px), 3 tầng
+// đáp trước cổng Phase F (UI-0001-kb-next; trang demo `/rag-pipeline` chỉ xếp hạng đoạn nguồn, không phải knowledge base
+// — ADR-0037). Thy 2026-11-01 (ADR-0032): tên tầng là tiêu đề khối thật (h3 26px), 3 tầng
 // cùng lưới với Q1–Q3 của "Problem"; dưới 1024px xếp dọc (không cuộn ngang), mũi tên đổi hướng theo bố cục.
 
 function Layer({

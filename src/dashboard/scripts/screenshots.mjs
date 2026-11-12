@@ -25,6 +25,8 @@ const PAGES = {
   overview: { route: "/overview" },
   analytics: { route: "/analytics" },
   topics: { route: "/topics", maxHeight: 3600 },
+  // Trang dài (chữ đoạn nguồn 2 thứ tiếng) → chỉ phần đầu: đầu trang, khối 01, đầu khối 02 (ADR-0037)
+  "rag-pipeline": { route: "/rag-pipeline", maxHeight: 3600 },
 };
 
 const only = process.argv.slice(2);

@@ -57,6 +57,7 @@ POST /me/threads                         # Đăng bài — KHÔNG dùng: dự á
 | `is_ghost_post`, `poll_attachment`, `gif_attachment`, `location_id` | ⚠️ Không lỗi nhưng **0/100 item có data** (test 50 post + 50 reply, 2026-08-30) | Nhiều khả năng tác giả chưa từng dùng các tính năng này — KHÔNG kết luận field sai, nhưng cũng chưa có bằng chứng field đúng. Lưu schema nullable, không dùng trong scoring tới khi có post thật dùng chúng |
 | `enable_reply_approvals` | ⚠️ Tương tự — có thể chỉ là param lúc publish, không đọc lại được | Không dùng trong V1 |
 | Metric **"shares"** | ❌ Không tồn tại — post-level insights chỉ có `views, likes, replies, reposts, quotes` (verify 2026-08-28) | Loại khỏi mọi công thức Engagement/Share rate tới khi tìm được field thật (nếu có) |
+| `text` — emoji riêng của Threads | ⚠️ API trả emoji chỉ có trên Threads thành ký tự `▓` (U+2593 "DARK SHADE"); emoji Unicode thường (🇨🇵, 😋…) trả đúng. Thy đối chiếu ứng dụng Threads 2026-11-12 trên **1 bài, 1 vị trí** (post `18078938867456185`); DB lúc đó có 224 post chứa ký tự này | Tokeniser BM25 của demo RAG bỏ qua nó (không phải chữ / số); `/rag-pipeline` chỉ lúc hiển thị thay bằng nhãn `[emoji]` (Thy chọn 2026-11-12, `src/dashboard/src/lib/ragPage.ts:244#showEmoji`). Trang khác vẫn hiện `▓` — chưa xử lý; embedding / gom cụm đọc nguyên ký tự |
 
 ### Metrics lấy từ API
 
