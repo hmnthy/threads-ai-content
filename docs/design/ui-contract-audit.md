@@ -484,3 +484,67 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
   is not a topic." · "Kept: the topic is found again (J above 0.5), has enough content units to
   test, and stands out again with corrected p below 0.05 in the same direction (▲ or ▼)." · "A rerun where the topic is
   missing or cannot be tested counts as not kept; the count is always out of 100."
+
+### `/rag-pipeline` — trang bản đầu thu hẹp, giao theo đợt (Thy chốt 2026-11-12)
+
+**Quyết định.** PR 1 (Draft PR #41) đưa lên web một trang bản đầu gồm 3 khối, chỉ ghép từ component có sẵn của
+`AppBlock.tsx` (không thêm component mới). Các bước còn lại bật dần ở PR 2–4, mỗi PR có thẻ phạm vi riêng. Trang
+đích không đổi: vẫn là toàn bộ ADR-0037 → ADR-0041. Đổi ở đây chỉ là **thứ tự giao**.
+
+**Bản đầu có gì.**
+- Khối 01 "Pick a question": 10 câu hỏi cố định (nhãn "precomputed"); 7 cách chia đoạn (mỗi cách 1 câu giải thích + số
+  đoạn); cách tìm BM25 / dense / hybrid (trộn bằng RRF); rerank none / cross-encoder / Haiku. Các thông số còn lại giữ
+  mặc định của `DEFAULT_PIPELINE`: không biến đổi câu hỏi, câu ngữ cảnh tắt, lọc và MMR tắt, top-N = 20, top-K = 10,
+  k1 = 1,2, b = 0,75 (ghi nguồn).
+- Khối 02 "Result": câu trả lời = hạng đáp án đúng (định nghĩa ADR-0038, khoảng hạng khi hoà, "outside top K", câu 10
+  không có đáp án); Key numbers; danh sách top-K (nhóm hoà vắt mốc K hiện cả nhóm) + chú giải nhãn.
+- Khối 03 "How it works": Method mở sẵn (công thức BM25, cosine, RRF, cross-encoder, thang Haiku 0–3); giới hạn
+  ("minh hoạ cơ chế, không phải đánh giá" kèm n; 1 bài bị xoá sau mốc đóng băng; số đoạn ngoài đáp án Haiku chấm
+  "partly answers"; bản dịch máy); bảng thuật ngữ; dòng ghi công repo mẫu.
+
+**Lý do (vì sao đổi quyết định 2026-11-09).**
+- 2026-11-09 Thy chọn "trang bản đầu đủ phạm vi ADR-0037" (mọi bước, A/B, ô gõ tự do), dù Claude đã đề xuất bản gọn.
+  Cùng ngày, mục tiêu đặt ra là "lên web ngay". Hai mục tiêu kéo ngược nhau: bản đủ cần đặc tả xếp hạng cho mọi bước
+  (ADR-0041: 25 vòng consistency-auditor, 24 vòng code-reviewer), rồi engine cho mọi bước, rồi một trang 12–13 khối.
+- Đo 2026-11-11 / 12: nhánh có 16 commit trên `main`, từ commit ADR-0037 đầu tiên (2026-11-05) chưa phần nào lên web.
+  Ước lượng tới khi bản đủ lên web: 7–11 phiên (2026-11-10), còn 5–7 phiên (2026-11-11) — báo con số nhưng không có
+  mốc buộc hỏi lại phạm vi.
+- 2026-11-12, bản phác bố cục bản đủ lệch sổ luật `design-system.md` §3b ở 6 chỗ (Method thu gọn trên trang app; dải
+  "STAGE" không có vai; dòng đoạn thiếu dòng "original language"; nhãn thiếu chú giải — N3; cột điểm trần — N1; 2 cột
+  chữ A/B cạnh nhau — L5) và cần thêm 4 vai mới. Mỗi phần tử mới là một chỗ có thể lệch phong cách giữa các trang.
+- Bản đầu thu hẹp lên được trong một ngày. Nó chỉ dùng component đã qua máy đo `ux-shots.mjs` + `ux-reviewer` trên
+  3 trang hiện có, nên thống nhất trình bày có sẵn từ cách dựng, không phụ thuộc việc tự đọc luật.
+- Không phải làm lại gì: engine TypeScript cho mọi bước đã xong và có test (ảnh chụp hồi quy khớp Bối cảnh ADR-0041).
+  Phần hoãn chỉ là giao diện.
+
+**Vì sao ghi ở đây mà không mở ADR mới (Thy chọn phương án A trong 2, 2026-11-12).**
+- Đây là thứ tự giao, không phải quyết định kiến trúc / methodology / metric — 3 loại `CLAUDE.md` bắt ghi ADR. File
+  này là chỗ đã dùng để ghi "chỗ trang lệch hợp đồng đã biết".
+- Phương án B (ADR-0042 qua `/record-decision`) cần consistency-auditor sạch trước commit (ADR-0015): ước 1–2 giờ
+  (ADR-0040 mất 2 vòng, ADR-0041 mất 25), cạnh tranh với mục tiêu lên web trong ngày.
+- **Cái giá của A, ghi để không ai hiểu sai:** gạch đầu dòng đầu tiên của mục "Bối cảnh" trong ADR-0041 viết "Trang
+  `/rag-pipeline` bản đầu (Thy chốt 2026-11-09: đủ phạm vi ADR-0037) có mọi bước". Câu đó **sai với bản đầu thực tế**
+  từ PR 1 tới khi PR 4 merge; ADR Accepted không được sửa để đổi ý, nên lời giải thích nằm ở đây. Người chỉ đọc bộ
+  ADR sẽ không thấy việc giao theo đợt.
+
+**Dòng hợp đồng (`ui-contract.md`) chưa đáp ứng đủ ở bản đầu → PR làm.**
+
+| Dòng | Bản đầu | Phần còn lại → PR |
+|---|---|---|
+| `UI-0037-rag-pipeline-page` | tên trang, route, tab; hạng đáp án đúng; dòng ghi công; câu về bài bị xoá | mỗi bước một khối Indexing → Query, hạng ở từng bước, số đoạn bị lọc, mũi tên đổi hạng, A/B → mỗi PR thêm khối cho bước của nó; A/B + mũi tên + bảng hạng qua từng bước → PR 4 |
+| `UI-0037-free-query-bm25-only` | chưa có ô gõ | PR 2 |
+| `UI-0037-explain-every-step` | đủ cho các bước có trên trang | mỗi PR giải thích bước nó thêm |
+| `UI-0038-bm25-controls` | k1 / b mặc định, có nguồn | 2 thanh kéo → PR 2 |
+| `UI-0038-gold-definition` | đủ, trừ 2 phần bên phải | "filtered out at" → PR 3; phán quyết A/B → PR 4 |
+| `UI-0039-chunking-options` | 7 cách chia | công tắc câu ngữ cảnh → PR 2 (cùng biến đổi câu hỏi: cả hai dùng trạng thái "BM25 only" / "in progress" của ADR-0041 Luật chung 8) |
+| `UI-0041-stable-rerank-ties` | rerank top-N = 20 cố định, nhãn "not reranked", keep / drop | thanh kéo N → PR 3 |
+| `UI-0041-step-order` | thứ tự bước đúng (engine), lọc và MMR tắt | khối từng bước, câu về lọc gần trùng, MMR → PR 3 |
+| `UI-0041-metadata-filter` | chưa có | PR 3 |
+| trộn weighted / DBSF (`UI-0041-step-order`) | chỉ RRF | PR 4 |
+
+Đáp ứng đủ ở bản đầu: `UI-0037-static-precomputed`, `UI-0038-tied-rank`, `UI-0040-honest-data-notes`.
+
+**Xem lại khi.** (1) Bắt đầu PR 2: Thy xác nhận lại thứ tự PR 2 → 4 (gợi ý của Claude, không phải ràng buộc kỹ thuật;
+đổi thứ tự không tốn thêm vì engine đã đủ). (2) PR 4 merge: trang đạt trang đích, câu Bối cảnh ADR-0041 đúng trở lại
+→ đóng mục này. (3) Nếu Thy muốn bộ ADR tự đứng được cho người đọc portfolio: chạy `/record-decision` ghi lại đúng
+nội dung mục này.
