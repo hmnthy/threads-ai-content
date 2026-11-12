@@ -29,6 +29,13 @@ export function LandingCta() {
           >
             Explore all topics
           </Link>
+          {/* Nút 3 (Thy chọn 2026-11-12): trang demo truy xuất `/rag-pipeline` (ADR-0037), cùng kiểu nút phụ */}
+          <Link
+            href="/rag-pipeline"
+            className={`flex h-12 items-center rounded-full border border-white/28 bg-transparent px-[22px] ${TYPE.cta} text-dark-text`}
+          >
+            Try the RAG pipeline demo
+          </Link>
         </div>
       </div>
     </section>

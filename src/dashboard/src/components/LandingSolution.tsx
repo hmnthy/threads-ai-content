@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from "@phosphor-icons/react/dist/ssr";
 import { TYPE } from "@/lib/typeScale";
 import { SECTION, SectionHead, StatusPill, type RoadmapStatus } from "@/components/LandingParts";
@@ -15,6 +16,7 @@ function Layer({
   title,
   status,
   body,
+  extra,
   slotLabel,
   children,
 }: {
@@ -22,6 +24,7 @@ function Layer({
   title: string;
   status: RoadmapStatus;
   body: string;
+  extra?: ReactNode; // câu phụ ngay dưới thân lớp (VD link tới trang demo của lớp 03)
   slotLabel: string;
   children: ReactNode;
 }) {
@@ -41,6 +44,7 @@ function Layer({
       {/* Cùng màu với mọi tiêu đề khối (T3); "chưa làm" thấy qua pill trạng thái + viền đứt nét */}
       <h3 className={`m-0 ${TYPE.h2}`}>{title}</h3>
       <p className={`m-0 ${TYPE.body}`}>{body}</p>
+      {extra}
       <div
         className={`mt-auto flex flex-col gap-2.5 rounded-xl px-4 py-3.5 ${live ? "bg-bg-sunken" : "bg-bg-card"}`}
       >
@@ -208,6 +212,17 @@ export function LandingSolution({ data }: { data: LandingData | null }) {
             title="Search"
             status="next"
             body="Answers Q3. Content units and the answers to followers will become one knowledge base, searched by keyword and by meaning. It will be scored on a test set of real follower questions, once their privacy review is done."
+            // Thy chọn 2026-11-12: lớp 03 giữ `next` (ADR-0037 khung đầu), thêm 1 câu + link tới trang demo; trang demo
+            // không được gọi là knowledge base (UI-0001-kb-next cột E)
+            extra={
+              <p className={`m-0 ${TYPE.note}`}>
+                The retrieval steps can already be tried in a separate demo on a frozen set of content units: it ranks
+                source passages and writes no answer.{" "}
+                <Link href="/rag-pipeline" className="font-medium text-amber-700 underline underline-offset-4">
+                  Open the RAG pipeline demo
+                </Link>
+              </p>
+            }
             slotLabel="This content unit, once built"
           >
             <span className={`${TYPE.mono} text-text-secondary`}>

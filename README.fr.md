@@ -96,7 +96,7 @@ citée, jamais dans l'intuition.
 |---|---|---|
 | **Couche statistique** | En ligne | Six indices intrinsèques gardés séparés — popularité, engagement, taux de partage, conversation, vélocité, longévité — jamais fusionnés en un seul score. Chaque groupe de publications (un sujet, une heure, une fenêtre temporelle) affiche sa médiane, son IQR (écart interquartile : l'intervalle où se situent les 50 % de publications du milieu) et son nombre de publications (n), avec une alerte quand n est trop petit pour être interprété. Les paliers de portée (via l'API) se mesurent par rapport au niveau récent du compte (médiane d'au plus 20 publications précédentes), pas avec un seuil fixe arbitraire. Les comparaisons de groupes utilisent un test de Brunner-Munzel par permutation (un test sur les rangs qui ne suppose pas que les deux groupes ont la même dispersion) et rapportent le delta de Cliff, P(A > B) − P(A < B), avec un intervalle de confiance à 95 % ; les p-valeurs sont corrigées par Holm sur chaque famille de comparaisons (pour les sujets : chaque sujet × engagement, taux de partage et conversation), pas les intervalles. Le job quotidien compare chaque sujet au reste du compte après chaque clustering ; la page d'accueil affiche les résultats d'engagement, et la page Topics montre chaque test avec sa taille d'effet, son intervalle et sa p-valeur corrigée, ainsi qu'un glossaire de chaque terme employé. Les tableaux de meilleures publications ne classent que les publications ayant au moins les vues du 25e centile du compte, car un taux mesuré sur peu de vues varie trop pour être comparé. |
 | **Couche NLP** | En ligne | Des embeddings de phrases multilingues (le contenu mélange naturellement vietnamien, français et anglais, donc aucun tokenizer propre à une langue avant l'embedding ; les mots-clés des sujets utilisent un segmenteur de mots vietnamien) alimentent UMAP + HDBSCAN pour une découverte de sujets non supervisée, puis Claude nomme chaque cluster découvert en anglais. Un Code-Mixing Index — un score continu, pas un simple booléen — mesure à quel point une publication mélange réellement les langues. |
-| **Base de connaissances** | Prochaine étape | Les publications du compte et les réponses de l'autrice aux questions des abonnés, transformées en base de connaissances interrogeable : recherche hybride (mots-clés BM25 + sémantique) avec reranker, évaluée sur de vraies questions d'abonnés (recall@k, MRR, nDCG) avant de construire quoi que ce soit — comme un assistant de questions-réponses — par-dessus. |
+| **Base de connaissances** | Prochaine étape | Les publications du compte et les réponses de l'autrice aux questions des abonnés, transformées en base de connaissances interrogeable : recherche hybride (mots-clés BM25 + sémantique) avec reranker, évaluée sur de vraies questions d'abonnés (recall@k, MRR, nDCG) avant de construire quoi que ce soit — comme un assistant de questions-réponses — par-dessus. Une démo figée de ces étapes de recherche d'information est déjà en ligne dans l'onglet RAG pipeline ; elle classe des passages sources, ne rédige aucune réponse et n'est pas la base de connaissances. |
 
 ## Stack technique
 
@@ -109,7 +109,7 @@ l'est pas.
 | Gestionnaire de paquets | uv (`pyproject.toml` + `uv.lock`) | En ligne |
 | Client API Threads | httpx (async) | En ligne |
 | Validation | Pydantic v2 | En ligne |
-| IA / LLM | Claude API (`claude-sonnet-5-5`, nommage des clusters) | En ligne |
+| IA / LLM | Claude API (`claude-sonnet-5-5`, nommage des clusters ; `claude-haiku-5-5` pour la démo RAG, précalculé : une traduction anglaise de chaque passage et un score de pertinence 0–3 pour chaque paire question–passage ; ses reformulations de questions et phrases de contexte sont stockées pour une version ultérieure de la page) | En ligne |
 | Dashboard | Next.js 16 + Tailwind v4, graphiques HTML/CSS faits main (SVG pour le graphique des vues par jour) + Plotly (carte des sujets en 3D) | En ligne |
 | Base de données | SQLite — un fichier, un seul processus d'écriture ; la base de connaissances y vivra aussi | En ligne |
 | Scoring des métriques | Architecture à 6 indices (popularité/engagement/taux de partage/conversation/vélocité/longévité) | En ligne |
@@ -118,6 +118,7 @@ l'est pas.
 | Découverte de sujets | UMAP + HDBSCAN (clustering non supervisé) | En ligne |
 | Qualité du code | ruff (lint+format), mypy (strict), pytest, pre-commit | En ligne |
 | Classification à catégories fixes | SVM-RBF + Régression logistique (échelle de baselines vs. clusters non supervisés) | Recherche, non commencé |
+| Démo RAG pipeline | Calculé une fois à l'avance : similarités OpenAI `text-embedding-3-small` (API OpenAI), scores du cross-encoder `bge-reranker-v2-m3` (GPU du laptop), sorties de Claude Haiku (API Anthropic) ; classement dans le navigateur (BM25, fusion RRF, ordre du reranking) en TypeScript ; fichier de données sur Vercel Blob privé | En ligne (première version) |
 | Recherche dans la base de connaissances | SQLite FTS5 (BM25) + embeddings denses + reranker cross-encoder | Prochaine étape |
 
 ## Architecture
@@ -132,8 +133,10 @@ threads-ai-content/
 │   ├── nlp/              Détection de langue, embeddings multilingues, clustering UMAP+HDBSCAN — en ligne
 │   ├── db/                Schéma SQLite (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — en ligne
 │   ├── pipeline/           Ingestion, cron de snapshot toutes les 4h, pont de clustering Windows↔WSL2 — en ligne
+│   ├── rag_demo/           Construction de la démo RAG : content units figées, 7 découpages, 10 questions, scores précalculés — en ligne
 │   ├── main.py             Point d'entrée FastAPI — en ligne
 │   └── dashboard/          App Next.js : landing page + Overview/Analytics/Topic Explorer/RAG pipeline — en ligne
+├── scripts/              jobs et rapports ; rag_demo_build.py vérifie, assemble et publie le fichier de la démo — en ligne
 └── tests/                suite pytest, ruff + mypy strict propres
 ```
 
@@ -144,6 +147,9 @@ Threads Graph API  ──(cron 4h)──>  SQLite  ──>  FastAPI  ──>  Da
         │                              │
         └── posts, replies,            └── Pipeline NLP (WSL2 : embeddings, UMAP, HDBSCAN)
             vues quotidiennes              re-clusterise chaque jour, Claude nomme les clusters
+
+Démo RAG : content units figées ──(laptop, à la main)──> un fichier de démo sur Blob privé
+          ──> FastAPI GET /rag-demo/common ──> /rag-pipeline classe dans le navigateur
 ```
 
 Le pipeline ML batch (embeddings, clustering) tourne comme un job séparé qui écrit dans SQLite —

@@ -90,7 +90,7 @@ Three layers, built in that order — each grounded in cited methodology, not in
 |---|---|---|
 | **Statistics layer** | Live | Six intrinsic indices kept separate — popularity, engagement, share rate, conversation, velocity, longevity — never blended into one score. Every group of posts (a topic, an hour, a time window) shows its median, its IQR (interquartile range: the range the middle 50% of posts fall in) and its number of posts (n), flagged when n is too small to interpret. Reach tiers (via the API) are measured against the channel's recent level (median of up to 20 prior posts), not an arbitrary fixed threshold. Group comparisons use a Brunner-Munzel permutation test (a rank test that does not assume both groups are equally spread) and report Cliff's delta, P(A > B) − P(A < B), with a 95% confidence interval; p-values are Holm-corrected across each family of comparisons (for topics: every topic × engagement, share rate and conversation), the intervals are not. Each topic is compared with the rest of the channel by the daily job after every clustering run; the landing page shows the engagement results, and the Topics page shows every test with its effect size, interval and corrected p, plus a glossary of every term it uses. Top-post tables rank only posts with at least the channel's 25th-percentile views, because a rate measured on few views swings too much to compare. |
 | **NLP layer** | Live | Multilingual sentence embeddings (content mixes Vietnamese, French and English naturally, so no per-language tokenizer before embedding; topic keywords use a Vietnamese word segmenter) feed UMAP + HDBSCAN for unsupervised topic discovery, then Claude labels each discovered cluster in English. A Code-Mixing Index — a continuous score, not a boolean flag — measures how much a post actually switches languages. |
-| **Knowledge base** | Next | The channel's own posts and the author's answers to follower questions, turned into a searchable knowledge base: hybrid keyword (BM25) + semantic retrieval with a reranker, evaluated against real follower questions (recall@k, MRR, nDCG) before anything — such as a Q&A assistant — is built on top of it. |
+| **Knowledge base** | Next | The channel's own posts and the author's answers to follower questions, turned into a searchable knowledge base: hybrid keyword (BM25) + semantic retrieval with a reranker, evaluated against real follower questions (recall@k, MRR, nDCG) before anything — such as a Q&A assistant — is built on top of it. A frozen demo of these retrieval steps is already live as the RAG pipeline tab; it ranks source passages, writes no answer, and is not the knowledge base. |
 
 ## Tech stack
 
@@ -102,7 +102,7 @@ Shown as it actually stands today — nothing implied that isn't built yet.
 | Package manager | uv (`pyproject.toml` + `uv.lock`) | Live |
 | Threads API client | httpx (async) | Live |
 | Validation | Pydantic v2 | Live |
-| AI / LLM | Claude API (`claude-sonnet-5-5`, cluster labeling) | Live |
+| AI / LLM | Claude API (`claude-sonnet-5-5`, cluster labeling; `claude-haiku-5-5` for the RAG demo, precomputed: an English translation of every passage and a 0–3 relevance score for every question–passage pair; its question rewrites and context sentences are stored for a later version of the page) | Live |
 | Dashboard | Next.js 16 + Tailwind v4, hand-built HTML/CSS charts (SVG for the daily-views chart) + Plotly (3D topic map) | Live |
 | Database | SQLite — one file, one writer; the knowledge base will live in it too | Live |
 | Metric scoring | 6-index architecture (popularity/engagement/share rate/conversation/velocity/longevity) | Live |
@@ -111,6 +111,7 @@ Shown as it actually stands today — nothing implied that isn't built yet.
 | Topic discovery | UMAP + HDBSCAN (unsupervised clustering) | Live |
 | Code quality | ruff (lint+format), mypy (strict), pytest, pre-commit | Live |
 | Fixed-category classification | SVM-RBF + Logistic Regression (baseline ladder vs. the unsupervised clusters) | Research, not started |
+| RAG pipeline demo | Computed once in advance: OpenAI `text-embedding-3-small` similarities (OpenAI API), `bge-reranker-v2-m3` cross-encoder scores (laptop GPU), Claude Haiku outputs (Anthropic API); ranked in the browser (BM25, RRF fusion, reranking order) in TypeScript; data file on private Vercel Blob | Live (first version) |
 | Knowledge base retrieval | SQLite FTS5 (BM25) + dense embeddings + cross-encoder reranker | Next |
 
 ## Architecture
@@ -125,8 +126,10 @@ threads-ai-content/
 │   ├── nlp/              language ID, multilingual embeddings, UMAP+HDBSCAN clustering — live
 │   ├── db/                SQLite schema (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — live
 │   ├── pipeline/           ingest, 4h snapshot cron, Windows↔WSL2 clustering bridge — live
+│   ├── rag_demo/           RAG demo build: frozen content units, 7 chunkers, 10 questions, precomputed scores — live
 │   ├── main.py             FastAPI entry point — live
 │   └── dashboard/          Next.js app: landing page + Overview/Analytics/Topic Explorer/RAG pipeline — live
+├── scripts/              jobs and reports; rag_demo_build.py checks, assembles and publishes the demo file — live
 └── tests/                pytest suite, ruff + mypy strict clean
 ```
 
@@ -137,6 +140,9 @@ Threads Graph API  ──(4h cron)──>  SQLite  ──>  FastAPI  ──>  Ne
         │                              │
         └── posts, replies,            └── NLP pipeline (WSL2: embeddings, UMAP, HDBSCAN)
             account daily views            re-clusters daily, Claude labels clusters
+
+RAG demo: frozen content units ──(laptop, by hand)──> one demo file on private Blob
+          ──> FastAPI GET /rag-demo/common ──> /rag-pipeline ranks in the browser
 ```
 
 The batch ML pipeline (embeddings, clustering) runs as a separate job that writes to SQLite —

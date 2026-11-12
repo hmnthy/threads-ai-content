@@ -93,7 +93,7 @@ phải cảm tính.
 |---|---|---|
 | **Statistics layer** | Đã có | 6 index tách biệt — popularity, engagement, share rate, conversation, velocity, longevity — không bao giờ gộp lại thành 1 điểm số duy nhất. Mỗi nhóm bài (1 topic, 1 khung giờ, 1 cửa sổ thời gian) hiện median, IQR (khoảng tứ phân vị: khoảng giá trị chứa 50% bài ở giữa) và số bài (n), kèm cờ khi n quá nhỏ để diễn giải. Tầng reach (qua API) đo so với mức gần đây của kênh (median của tối đa 20 bài trước), không theo 1 ngưỡng cố định tùy tiện. So sánh nhóm dùng kiểm định Brunner-Munzel hoán vị (kiểm định theo thứ hạng, không giả định 2 nhóm phân tán như nhau) và báo Cliff's delta, P(A > B) − P(A < B), kèm khoảng tin cậy 95%; p được hiệu chỉnh Holm trên từng họ phép so (với topic: mọi topic × engagement, share rate và conversation), khoảng tin cậy thì không. Job hằng ngày so mỗi topic với phần còn lại của kênh sau mỗi lần gom cụm; trang landing hiện kết quả engagement, còn trang Topics hiện mọi phép so kèm effect size, khoảng tin cậy và p đã hiệu chỉnh, cùng bảng định nghĩa mọi thuật ngữ trang dùng. Bảng top bài chỉ xếp bài có views ít nhất bằng phân vị 25% của kênh, vì tỉ lệ đo trên ít views dao động quá mạnh để so. |
 | **NLP layer** | Đã có | Embedding đa ngôn ngữ (content trộn tự nhiên VI/FR/EN nên không dùng tokenizer riêng cho 1 ngôn ngữ trước khi embed; từ khoá topic dùng bộ tách từ tiếng Việt) đưa vào UMAP + HDBSCAN để tự động khám phá chủ đề (unsupervised), sau đó Claude gán tên tiếng Anh cho từng cluster tìm được. Code-Mixing Index — một điểm số liên tục, không phải cờ boolean — đo mức độ 1 bài thực sự chuyển đổi ngôn ngữ. |
-| **Knowledge base** | Tiếp theo | Bài đăng của kênh và câu trả lời của tác giả cho câu hỏi của follower, biến thành cơ sở tri thức tra cứu được: tìm kiếm hybrid (từ khoá BM25 + ngữ nghĩa) kèm reranker, được đo trên câu hỏi thật của follower (recall@k, MRR, nDCG) trước khi xây bất cứ thứ gì — như trợ lý hỏi đáp — lên trên. |
+| **Knowledge base** | Tiếp theo | Bài đăng của kênh và câu trả lời của tác giả cho câu hỏi của follower, biến thành cơ sở tri thức tra cứu được: tìm kiếm hybrid (từ khoá BM25 + ngữ nghĩa) kèm reranker, được đo trên câu hỏi thật của follower (recall@k, MRR, nDCG) trước khi xây bất cứ thứ gì — như trợ lý hỏi đáp — lên trên. Một demo đóng băng của các bước truy xuất này đã chạy thật ở tab RAG pipeline; demo chỉ xếp hạng đoạn nguồn, không viết câu trả lời, và không phải knowledge base. |
 
 ## Tech stack
 
@@ -105,7 +105,7 @@ Liệt kê đúng trạng thái thật của code hiện tại — không hứa 
 | Package manager | uv (`pyproject.toml` + `uv.lock`) | Đã có |
 | Threads API client | httpx (async) | Đã có |
 | Validation | Pydantic v2 | Đã có |
-| AI / LLM | Claude API (`claude-sonnet-5-5`, gán tên cluster) | Đã có |
+| AI / LLM | Claude API (`claude-sonnet-5-5`, gán tên cluster; `claude-haiku-5-5` cho demo RAG, tính sẵn: bản dịch tiếng Anh của mọi đoạn và điểm liên quan 0–3 cho mọi cặp câu hỏi–đoạn; câu hỏi viết lại và câu ngữ cảnh đã lưu cho bản sau của trang) | Đã có |
 | Dashboard | Next.js 16 + Tailwind v4, chart HTML/CSS tự dựng (SVG cho biểu đồ views theo ngày) + Plotly (bản đồ topic 3D) | Đã có |
 | Database | SQLite — 1 file, 1 tiến trình ghi; knowledge base cũng sẽ nằm trong đó | Đã có |
 | Metric scoring | Kiến trúc 6 index (popularity/engagement/share rate/conversation/velocity/longevity) | Đã có |
@@ -114,6 +114,7 @@ Liệt kê đúng trạng thái thật của code hiện tại — không hứa 
 | Topic discovery | UMAP + HDBSCAN (clustering không giám sát) | Đã có |
 | Code quality | ruff (lint+format), mypy (strict), pytest, pre-commit | Đã có |
 | Fixed-category classification | SVM-RBF + Logistic Regression (bậc thang baseline so với cluster không giám sát) | Nghiên cứu, chưa bắt đầu |
+| Demo RAG pipeline | Tính sẵn một lần: độ tương đồng OpenAI `text-embedding-3-small` (qua API OpenAI), điểm cross-encoder `bge-reranker-v2-m3` (GPU laptop), output Claude Haiku (qua API Anthropic); xếp hạng trong trình duyệt (BM25, trộn RRF, thứ tự rerank) bằng TypeScript; file dữ liệu trên Vercel Blob riêng tư | Đã có (bản đầu) |
 | Knowledge base retrieval | SQLite FTS5 (BM25) + dense embedding + cross-encoder reranker | Tiếp theo |
 
 ## Kiến trúc
@@ -128,8 +129,10 @@ threads-ai-content/
 │   ├── nlp/              Language ID, embedding đa ngôn ngữ, clustering UMAP+HDBSCAN — đã có
 │   ├── db/                Schema SQLite (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — đã có
 │   ├── pipeline/           Ingest, cron snapshot 4h, cầu nối clustering Windows↔WSL2 — đã có
+│   ├── rag_demo/           Dựng demo RAG: content unit đóng băng, 7 cách chia đoạn, 10 câu hỏi, điểm tính sẵn — đã có
 │   ├── main.py             Entry point FastAPI — đã có
 │   └── dashboard/          App Next.js: landing page + Overview/Analytics/Topic Explorer/RAG pipeline — đã có
+├── scripts/              job và báo cáo; rag_demo_build.py kiểm, ghép và publish file demo — đã có
 └── tests/                bộ test pytest, ruff + mypy strict sạch
 ```
 
@@ -140,6 +143,9 @@ Threads Graph API  ──(cron 4h)──>  SQLite  ──>  FastAPI  ──>  Da
         │                              │
         └── posts, replies,            └── Pipeline NLP (WSL2: embedding, UMAP, HDBSCAN)
             views theo ngày                cluster lại mỗi ngày, Claude gán tên cluster
+
+Demo RAG: content unit đóng băng ──(laptop, chạy tay)──> một file demo trên Blob riêng tư
+          ──> FastAPI GET /rag-demo/common ──> /rag-pipeline xếp hạng trong trình duyệt
 ```
 
 Pipeline ML batch (embedding, clustering) chạy như 1 job riêng, ghi kết quả vào SQLite — FastAPI

@@ -595,3 +595,13 @@ câu hỏi biến đổi có trong file nhưng bản đầu chưa hiện, Method
 đổi thứ tự không tốn thêm vì engine đã đủ — trừ phần dense / hybrid của bước 7 (câu biến đổi) và của câu ngữ cảnh ở bước 2: cả hai cần tính điểm dense rồi publish lại file demo trước, đúng 2 mục của `provenance.pending`). (2) PR 4 merge: trang đạt trang đích, câu Bối cảnh ADR-0041 đúng trở lại
 → đóng mục này. (3) Nếu Thy muốn bộ ADR tự đứng được cho người đọc portfolio: chạy `/record-decision` ghi lại đúng
 nội dung mục này.
+
+### Landing dẫn tới `/rag-pipeline` (Thy chọn 2026-11-12)
+
+- Lớp 03 "Search" giữ `next` (ADR-0037 khung đầu: knowledge base thật chưa làm), thêm 1 câu + link: "The retrieval
+  steps can already be tried in a separate demo on a frozen set of content units: it ranks source passages and writes
+  no answer. Open the RAG pipeline demo" (`src/dashboard/src/components/LandingSolution.tsx`, prop `extra` của `Layer`).
+- Khối CTA cuối thêm nút thứ ba "Try the RAG pipeline demo" → `/rag-pipeline`, cùng kiểu nút phụ "Explore all topics".
+- **Lý do:** trang demo đã live nhưng landing không có đường dẫn tới nó (Thy hỏi 2026-11-12). Phương án đã cân nhắc: chỉ
+  câu ở lớp 03 (ít chữ hơn, kém nổi với người xem portfolio); không sửa landing (theo quy tắc "landing chỉ sửa khi sai kỹ
+  thuật" — landing không sai, nhưng trang demo không ai tìm thấy). Đây là lời hứa mới → `/promise-audit` đo lại sau merge.
