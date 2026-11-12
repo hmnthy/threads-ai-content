@@ -43,7 +43,7 @@ def _isolate_from_git_hook_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 # `pytest.fail` (BaseException) chứ không AssertionError: code cron bắt `except Exception` — một
 # AssertionError sẽ bị nuốt thành dòng "FAILED" và test lỡ chạm tác dụng phụ thật vẫn xanh.
-def _refuse_real_upload(pathname: str, body: bytes, token: str) -> None:
+def _refuse_real_upload(pathname: str, body: bytes, token: str, content_type: str = "") -> None:
     pytest.fail(f"a test tried to upload {len(body)} bytes to Vercel Blob ({pathname})")
 
 

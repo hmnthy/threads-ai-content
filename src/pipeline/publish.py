@@ -138,12 +138,13 @@ def publish(
     return state
 
 
-def vercel_upload(pathname: str, body: bytes, token: str) -> None:
+def vercel_upload(pathname: str, body: bytes, token: str, content_type: str = CONTENT_TYPE) -> None:
     """Tải lên Blob riêng tư bằng SDK chính thức (`vercel-blob`, nhóm thư viện `pipeline` — không
     nằm trong gói API). Credential ghim tường minh vào token đọc-ghi: mặc định SDK ưu tiên OIDC khi
     môi trường có `BLOB_STORE_ID` + `VERCEL_OIDC_TOKEN` (VD sau `vercel env pull`) — token đó hết
     hạn ~12h và có thể trỏ store khác. `store_from_read_write_token` là helper nội bộ của SDK →
-    phiên bản ghim `==` trong pyproject + test hợp đồng (tests/pipeline/test_publish.py)."""
+    phiên bản ghim `==` trong pyproject + test hợp đồng (tests/pipeline/test_publish.py).
+    `content_type`: mặc định là bản sao SQLite; file demo RAG truyền `application/json`."""
     from vercel.api import session
     from vercel.blob._internal.credentials import store_from_read_write_token
     from vercel.blob.sync import (
@@ -162,7 +163,7 @@ def vercel_upload(pathname: str, body: bytes, token: str) -> None:
             pathname,
             body,
             access="private",
-            content_type=CONTENT_TYPE,
+            content_type=content_type,
             add_random_suffix=False,
             allow_overwrite=True,
         )

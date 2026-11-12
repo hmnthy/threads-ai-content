@@ -16,7 +16,7 @@ import path from "node:path";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 // Mọi trang của sản phẩm — thêm trang mới vào đây (luật T3 so các trang với nhau)
-const ALL_ROUTES = ["/", "/overview", "/analytics", "/topics"];
+const ALL_ROUTES = ["/", "/overview", "/analytics", "/topics", "/rag-pipeline"];
 // Git Bash đổi "/topics" thành "C:/Program Files/Git/topics" (MSYS path conversion) — bỏ phần đó
 const args = process.argv.slice(2).map((arg) => {
   const route = arg.replace(/^[A-Za-z]:\/.*?\/Git(?=\/)/, "").replace(/^\/?/, "/");

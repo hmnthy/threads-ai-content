@@ -65,6 +65,15 @@ from src.analysis.stats import (
 from src.analysis.topic_comparison import CONCLUSION_ALPHA, METRICS, GroupKind, Metric
 from src.api.models import PostInsights, ThreadsPost
 from src.db.published import OIDC_HEADER, PublishedDb, PublishedDbUnavailableError
+from src.db.published_demo import (
+    CACHE_CONTROL,
+    DEMO_FILE_NAMES,
+    DemoFileUnavailableError,
+    PublishedDemo,
+    check_demo_bytes,
+    etag_of,
+    read_local,
+)
 from src.db.schema import (
     DEFAULT_DB_PATH,
     cluster_run_topic_events,
@@ -100,6 +109,9 @@ app = FastAPI(
 # Chế độ chỉ đọc trên Vercel (ADR-0025): có `DB_BLOB_PATH` → đọc bản sao DB tải từ Blob riêng tư
 # (`src/db/published.py`); không có → `data/threads.db` như cũ.
 _PUBLISHED: PublishedDb | None = PublishedDb.from_env()
+# File demo RAG (ADR-0037 D3): cùng cổng `VERCEL=1`, đọc Blob riêng tư; laptop đọc file dựng sẵn.
+_PUBLISHED_DEMO: PublishedDemo | None = PublishedDemo.from_env()
+RAG_DEMO_ROUTE = "/rag-demo/"
 
 
 # Khai báo TRƯỚC CORSMiddleware → CORS là lớp ngoài cùng, phản hồi 503 vẫn có header CORS (không
@@ -108,8 +120,10 @@ _PUBLISHED: PublishedDb | None = PublishedDb.from_env()
 async def _load_published_db(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
-    # /health = process còn sống (liveness), không phụ thuộc Blob; lỗi bản sao hiện ở route khác
-    if _PUBLISHED is not None and request.url.path != "/health":
+    # /health = process còn sống (liveness), không phụ thuộc Blob; lỗi bản sao hiện ở route khác.
+    # File demo RAG không đọc DB → không tải bản sao DB, không 503 theo nó.
+    path = request.url.path
+    if _PUBLISHED is not None and path != "/health" and not path.startswith(RAG_DEMO_ROUTE):
         try:
             # tải/hỏi lại Blob là I/O chặn → chạy ngoài event loop
             await run_in_threadpool(_PUBLISHED.ensure, request.headers.get(OIDC_HEADER))
@@ -1113,3 +1127,35 @@ def get_pipeline_summary() -> PipelineSummaryOut:
             noise_excluded_no_views=noise_excluded,
             min_posts_to_compare=MIN_N_PER_BUCKET,
         )
+
+
+@app.get(RAG_DEMO_ROUTE + "{name}")
+def get_rag_demo_file(name: str, request: Request) -> Response:
+    """Phát nguyên file demo RAG (ADR-0037 D3) — không truy xuất phía máy chủ. Chỉ tên trong
+    danh sách cố định; tên khác → 404 trước mọi lần đọc."""
+    if name not in DEMO_FILE_NAMES:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    try:
+        if _PUBLISHED_DEMO is None:
+            body = read_local(name)
+            check_demo_bytes(body)
+        else:
+            body = _PUBLISHED_DEMO.get(name, request.headers.get(OIDC_HEADER))
+    except DemoFileUnavailableError:
+        # chi tiết ở log, không trả ra ngoài
+        return JSONResponse({"detail": "Demo data is temporarily unavailable."}, status_code=503)
+    etag = etag_of(body)
+    # `Vary: Origin` cả khi request không có `Origin` (CORS chỉ thêm khi có): bản trình duyệt lưu
+    # từ một lần mở thẳng link không bị dùng lại cho lần gọi CORS
+    headers = {"Cache-Control": CACHE_CONTROL, "ETag": etag, "Vary": "Origin"}
+    tags = _etags_of(request.headers.get("if-none-match"))
+    if etag in tags or "*" in tags:
+        return Response(status_code=304, headers=headers)
+    return Response(content=body, media_type="application/json", headers=headers)
+
+
+def _etags_of(if_none_match: str | None) -> set[str]:
+    # header có thể liệt kê nhiều ETag, phân cách dấu phẩy; tiền tố weak `W/` so như ETag mạnh
+    if not if_none_match:
+        return set()
+    return {tag.strip().removeprefix("W/") for tag in if_none_match.split(",")}

@@ -31,10 +31,11 @@ threads-ai-content/
 │   ├── processing/            # thread_reconstruction (root + continuation), text (NFC, dấu thanh)
 │   ├── nlp/                   # language (CMI + LID cấp từ), embeddings (bge-m3), topics (UMAP+HDBSCAN+Claude label), topic_profile (c-TF-IDF trên từ tách bằng underthesea, bài đại diện, ARI), stopwords (stopword từ khoá có nhãn, ADR-0022), topic_identity (danh tính cụm bền, ADR-0018)
 │   ├── analysis/              # 6 index (share_rate…) + reach (tầng, ADR-0012) + stats/significance/topic_comparison/reply_thread/topic_affinity
-│   ├── db/schema.py           # SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs, topic_label_history, topic_comparison_runs, topic_comparisons, data_migrations
+│   ├── db/                    # published (bản sao DB trên Blob, ADR-0025) · published_demo (file demo RAG trên Blob, ADR-0037) · schema.py — SQLite: posts, content_units, insights_snapshots, account_daily_views, topics, post_topic_labels, embeddings, cluster_runs, topic_label_history, topic_comparison_runs, topic_comparisons, data_migrations
 │   ├── pipeline/              # ingest, snapshot, daily_views, scheduled_job + nlp_cluster_job (cron, pythonw — ADR-0013), job_log, cầu nối clustering Win↔WSL2 (bỏ ở Phase C), compare_topics (bước cuối job NLP, ADR-0023)
+│   ├── rag_demo/              # demo RAG (ADR-0037), chỉ chạy trên laptop, API không import: corpus (19 bài đóng băng, ADR-0040), chunking (7 cách chia đoạn), questions (10 câu + đáp án), embedding (OpenAI + cache), llm_jobs + llm_batch (Haiku qua Message Batches), cross_encoder (+ `cross_encoder_wsl`, chỉ WSL2), demo_file (ghép file demo cho trình duyệt), unit_metadata (tháng đăng + topic mỗi bài, ADR-0041)
 │   ├── main.py                # FastAPI — chỉ đọc SQLite, không load model trong request
-│   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics`;
+│   └── dashboard/             # Next.js 16 + Tailwind v4: landing `/` + `/overview` `/analytics` `/topics` `/rag-pipeline`;
 │                              # scripts/screenshots.mjs (Playwright + Edge → docs/screenshots/)
 ├── tools/ui-ux-pro-max/       # CLI tra cứu UI (vendored, MIT của Next Level Builder — giữ LICENSE gốc) — gọi qua skill ui-lookup
 ├── scripts/                   # consistency/check.py (cảnh sát nhất quán), precommit/ (wrapper dashboard), job_health.py (sức khoẻ cron), configure_jobs.ps1 (cấu hình Task Scheduler: Action, lịch, cờ pin), snapshot_coverage.py (độ phủ chuỗi snapshot — nguồn số liệu giới hạn lấy mẫu, ADR-0017), topic_identity_eval.py (thí nghiệm quy tắc danh tính cụm, ADR-0018), git_hygiene.py (nhắc quy ước git ở hook đầu phiên, ADR-0019), review_gate.py (cổng review tầng 2 ADR-0015: ghi dấu + kiểm ở git hook pre-commit)
@@ -56,11 +57,12 @@ threads-ai-content/
 | Language ID | lingua-py + Code-Mixing Index (Gambäck & Das 2014) | Live |
 | Embedding | sentence-transformers `BAAI/bge-m3` (1024D, 8.192 token, MIT) | Live, chạy trong WSL2 |
 | Topic discovery | UMAP (3D) + HDBSCAN (`leaf`, `min_cluster_size=4`, `n_neighbors=8` — calibrate lại 2026-10-01, ADR-0004) | Live, re-cluster hằng ngày |
-| LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — CHỈ đặt tên cluster (tiếng Anh) | Live |
+| LLM | Claude API `claude-sonnet-5-5` (ADR-0016) — trong job NLP CHỈ đặt tên cluster (tiếng Anh); demo RAG: `claude-haiku-5-5` cho các vai trung gian, tính sẵn (ADR-0037) | Live (demo: tính sẵn một lần bằng Message Batches 2026-11-07) |
 | Thống kê | median/IQR, Brunner-Munzel hoán vị + Cliff's δ kèm CI + Holm (numpy/scipy, ADR-0023) — so sánh topic vs phần còn lại tính trong job NLP, landing live (`GET /topics/comparisons`); trang Topics hiện đủ họ Holm (mọi topic × 3 chỉ số) + bảng thuật ngữ (Việc 4, 2026-10-29) | Live |
 | Dashboard | Next.js 16 + Tailwind v4 + chart HTML/CSS tự dựng (SVG cho biểu đồ views theo ngày) + Plotly (bản đồ topic 3D) + Phosphor icons | Live — công khai tại https://unthreaded-analytics.vercel.app (mục "Deploy") |
-| Hosting | Vercel (Hobby): 2 project từ cùng repo + Vercel Blob riêng tư cho bản sao DB (ADR-0025) | Live từ 2026-10-28 |
+| Hosting | Vercel (Hobby): 2 project từ cùng repo + Vercel Blob riêng tư cho bản sao DB (ADR-0025) và file demo RAG (ADR-0037) | Live từ 2026-10-28 |
 | Knowledge base | SQLite FTS5 (BM25) + dense numpy + RRF + `bge-reranker-v2-m3` | Roadmap E |
+| Demo RAG `/rag-pipeline` | 19 content unit đóng băng (ADR-0040); tính sẵn: OpenAI `text-embedding-3-small` + `bge-reranker-v2-m3` (WSL2) + Claude Haiku 5.5; trình duyệt: BM25, RRF / weighted / DBSF, MMR; file JSON trên Vercel Blob riêng tư (ADR-0037 → ADR-0041) | Trang bản đầu (Thy chốt 2026-11-12, 5 khối: bản đồ 9 bước theo chuẩn repo mẫu, nạp dữ liệu, chọn câu hỏi, cách chia + cách tìm + rerank → hạng đáp án, ghi chú dữ liệu; phạm vi + phần hoãn sang PR 2–4: `docs/design/ui-contract-audit.md`, mục "`/rag-pipeline` — trang bản đầu thu hẹp"); engine TypeScript đã đủ mọi bước (đặc tả ADR-0041) |
 | Supervised classifier | bậc thang baseline → SVM-RBF (RQ-08) | Roadmap D |
 | Chất lượng code | ruff, mypy strict, pytest; pre-commit chặn: ruff, mypy, sổ luật nhất quán (toàn repo, `--commit`), cổng review tầng 2 (chỉ commit của Claude, ADR-0015), pytest nhanh, eslint+tsc, commit-msg | Live |
 | CI | GitHub Actions (`.github/workflows/ci.yml`: job py + web, ADR-0014) | Live — chạy lần đầu 2026-10-05 (PR #1: `web` đỏ vì `LayoutProps` → `67c3bf8` → xanh); chỉ chạy khi mở/cập nhật PR, push vào `main` hoặc chạy tay (Roadmap G, ADR-0019) |
@@ -90,6 +92,7 @@ SQLite data/threads.db ◄──(hằng ngày 12:30: src/pipeline/nlp_cluster_jo
 | Trang công khai | Vercel project `unthreaded`, root `src/dashboard` → **https://unthreaded-analytics.vercel.app** (`unthreaded-psi.vercel.app` chuyển 301 về đây) | Next.js; landing fetch phía server, 3 tab fetch trong trình duyệt |
 | API công khai | Vercel project `unthreaded-api`, root repo, preset FastAPI → https://unthreaded-api.vercel.app | `src/main.py` chỉ đọc; gói = `[project].dependencies` (Vercel chạy `uv sync --no-dev` từ `uv.lock`), ~203 MiB / 500 MB — `tests/test_api_bundle.py` |
 | Bản sao DB | Vercel Blob `unthreaded-db` (Private, Paris `cdg1`), pathname `threads.db` | Laptop ghi sau mỗi job; API tải về thư mục tạm, mở `mode=ro` (`src/db/published.py`) |
+| File demo RAG | Cùng Blob, pathname `rag-demo/common.json` (ADR-0037 D3) | Laptop ghi tay (`scripts/rag_demo_build.py publish`, sau `live-check`); API `GET /rag-demo/common` phát nguyên file, giữ trong bộ nhớ (`src/db/published_demo.py`) |
 | Job | Laptop (Task Scheduler, ADR-0013/0017) | Snapshot 4h + NLP 12:30; bước cuối `publish_after_job()`; `job_health` có dòng "published copy" |
 
 Code deploy tự động: mỗi commit vào `main` → Vercel build lại cả 2 project (Git integration). Số liệu đi đường riêng
@@ -101,6 +104,7 @@ ADR-0025). Landing ghi mốc "Data as of …" (`UI-0025-published-snapshot`).
 | Nơi | Biến | Ghi chú |
 |---|---|---|
 | Laptop `.env` (thư mục chính) | `DB_BLOB_PATH=threads.db`, `BLOB_READ_WRITE_TOKEN` | Thiếu → publish bỏ qua. Chỉ đọc từ `.env` của chính checkout; worktree không bao giờ publish |
+| Laptop `.env` | `OPENAI_API_KEY` | Chỉ bước dựng demo RAG (embedding, ADR-0037 D6); không bao giờ đặt trên Vercel. Khoá chỉ cần quyền Embeddings |
 | Vercel `unthreaded-api` | `DB_BLOB_PATH`, `CORS_ALLOW_ORIGINS` (Config, các origin trang công khai, phân cách dấu phẩy) | `VERCEL=1` do Vercel tự đặt (cổng bật chế độ Blob) |
 | Vercel `unthreaded-api` (do "Connect store" tạo, prefix `BLOB`) | `BLOB_STORE_ID`, `BLOB_READ_WRITE_TOKEN`, `BLOB_WEBHOOK_PUBLIC_KEY` | API đọc bằng token OIDC trong header request (đã kiểm log: "credential from header"); token RW chỉ là dự phòng |
 | Vercel `unthreaded` | `NEXT_PUBLIC_API_BASE_URL=https://unthreaded-api.vercel.app` | Gắn vào bản build → đổi phải redeploy |
@@ -121,6 +125,7 @@ không 3 tab trống (landing vẫn chạy vì fetch phía server).
 - **Batch tách khỏi serving**: pipeline ML ghi kết quả vào SQLite; FastAPI chỉ đọc.
 - **Metric không gộp**: 6 index riêng + contextual score; mọi hằng số chưa calibrate ghi rõ là hypothesis.
 - **Narrative Layering**: số thô → rate → median/IQR → percentile kênh → kiểm định + effect size + CI → diễn giải (`data-model.md`).
-- **Claude không làm NLP core**: không classify, không embed — chỉ đặt tên cluster đã có.
+- **Claude không làm NLP core** của pipeline kênh: không classify, không embed — trong job NLP chỉ đặt tên cluster đã
+  có. Ngoại lệ có phạm vi: các vai LLM trung gian, tính sẵn, của demo RAG (ADR-0037) — không bao giờ là kết quả.
 - **Output hướng ra ngoài tiếng Anh**; docs/code comment tiếng Việt.
 - **Bằng chứng thực nghiệm thắng lý thuyết ban đầu** (VD HDBSCAN trên UMAP space, `data-model.md` methodology log).

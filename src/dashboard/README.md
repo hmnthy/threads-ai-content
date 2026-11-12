@@ -1,6 +1,6 @@
 # Dashboard (Next.js 16)
 
-Giao diện của Unthreaded (repo `threads-ai-content`): landing `/` + tool `/overview`, `/analytics`, `/topics`.
+Giao diện của Unthreaded (repo `threads-ai-content`): landing `/` + tool `/overview`, `/analytics`, `/topics`, `/rag-pipeline` (demo truy xuất, ADR-0037; bản đầu thu hẹp — `docs/design/ui-contract-audit.md`).
 Tài liệu chính ở README gốc của repo; design system: `docs/claude/design-system.md`.
 
 ```bash

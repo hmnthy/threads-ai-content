@@ -3,7 +3,7 @@
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-1061%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1559%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -26,7 +26,7 @@ multi-tenant, not trying to be.
 
 ## Screenshots
 
-The product in four steps — from the pitch to the discovered topics and how each compares with the rest of the channel.
+The product in five steps — from the pitch to the discovered topics, how each compares with the rest of the channel, and a retrieval demo on the channel's own posts.
 
 <p align="center">
   <img src="docs/screenshots/landing.png" alt="Landing page: one content unit placed against its channel, the three layers, three dashboard panels, the pipeline diagram" width="820"><br>
@@ -46,6 +46,11 @@ The product in four steps — from the pitch to the discovered topics and how ea
 <p align="center">
   <img src="docs/screenshots/topics.png" alt="Topic Explorer: topics found from the text alone on a colour-coded 3D map, with each topic's keywords and most typical posts" width="820"><br>
   <sub><b>4. Topic Explorer</b> — topics discovered from the text alone (UMAP 3D + HDBSCAN), each compared with the rest of the channel on three rates, with every test, its effect size and its Holm-corrected p shown.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/rag-pipeline.png" alt="RAG pipeline: a map of the nine pipeline steps with what this page covers, then how the content units are loaded" width="820"><br>
+  <sub><b>5. RAG pipeline</b> — a first version of a retrieval demo on 19 frozen content units and 10 fixed questions: a map of the nine steps of a standard RAG pipeline shows which ones the page covers; see how each content unit is loaded from its Threads thread, then choose the chunking, BM25 / dense / hybrid retrieval and a reranker (cross-encoder or Claude Haiku), and see where the correct answer lands. It ranks source passages only; no answer is written.</sub>
 </p>
 
 ---
@@ -121,7 +126,7 @@ threads-ai-content/
 │   ├── db/                SQLite schema (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — live
 │   ├── pipeline/           ingest, 4h snapshot cron, Windows↔WSL2 clustering bridge — live
 │   ├── main.py             FastAPI entry point — live
-│   └── dashboard/          Next.js app: landing page + Overview/Analytics/Topic Explorer — live
+│   └── dashboard/          Next.js app: landing page + Overview/Analytics/Topic Explorer/RAG pipeline — live
 └── tests/                pytest suite, ruff + mypy strict clean
 ```
 
@@ -164,8 +169,10 @@ A few decisions this project treats as load-bearing, each recorded in
 ## Project status
 
 **Live:** Threads API client, NLP topic-discovery pipeline, 6-index metric architecture, windowed
-statistics, and a three-tab dashboard (Overview, Analytics, Topic Explorer) plus this landing page,
-all running against real production data (full test suite passing, ruff + mypy strict clean).
+statistics, and a four-tab dashboard (Overview, Analytics, Topic Explorer, and RAG pipeline — a
+first version of a retrieval demo that ranks source passages and writes no answer) plus this
+landing page, all running against real production data (full test suite passing, ruff + mypy
+strict clean).
 
 **Next — deliberately narrow scope ("less is more"):**
 1. Deeper NLP analysis written up as explicit research questions (cluster stability, embedding

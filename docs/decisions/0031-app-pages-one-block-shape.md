@@ -18,7 +18,7 @@
   - cùng một đối tượng mang 3 tên: "content units" (Topics), "posts" / "root posts" (Analytics, Overview).
 - `@agent-copy-reviewer` thêm: câu trả lời khối Analytics chỉ nói phạm vi, không trả lời câu hỏi; định nghĩa
   engagement trên thẻ chỉ số sai ("share of views that led to any reaction" — một người xem có thể phản ứng nhiều lần).
-- API `/analytics/overview` chỉ trả phân phối toàn kênh của engagement rate (`src/main.py:278#engagement`), nên tab share rate và
+- API `/analytics/overview` chỉ trả phân phối toàn kênh của engagement rate (`src/main.py:292#engagement`), nên tab share rate và
   conversation rate không so được top với kênh.
 
 ## Quyết định
@@ -38,7 +38,7 @@
    median toàn kênh của đúng tỉ lệ đó; Analytics 02 nêu khoảng median của các ô đọc được, không nêu tên ô cao nhất;
    Overview 01 nêu median engagement rate của cửa sổ kèm median của mọi content unit đã thu, ghi "(not tested)".
    `/analytics/overview` thêm `share_rate` và `conversation` (median + IQR + n toàn kênh, cùng tập bài đo được như
-   `engagement`, `src/main.py:281-282#share_rate`, `:801-802#share_rate`).
+   `engagement`, `src/main.py:295-296#share_rate`, `:815-816#share_rate`).
 5. **Eyebrow nối với lớp của landing**: "MEASURE · ONE TIME WINDOW", "MEASURE · RANKINGS AND POSTING TIME",
    "GROUP · TOPICS FROM TEXT".
 

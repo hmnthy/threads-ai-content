@@ -273,3 +273,7 @@ def test_vercel_upload_pins_read_write_credentials(monkeypatch: pytest.MonkeyPat
     assert seen["kwargs"]["access"] == "private"
     assert seen["kwargs"]["allow_overwrite"] is True
     assert seen["kwargs"]["add_random_suffix"] is False
+    assert seen["kwargs"]["content_type"] == "application/vnd.sqlite3"  # mặc định: bản sao SQLite
+    _real_vercel_upload("rag-demo/common.json", b"{}", FAKE_TOKEN, content_type="application/json")
+    assert seen["pathname"] == "rag-demo/common.json"
+    assert seen["kwargs"]["content_type"] == "application/json"

@@ -36,8 +36,8 @@
    Key numbers + "What to know" chỉ ở `/analytics`; landing giữ panel hero như ADR-0032 và thêm link tới `/analytics#unit`.
    Cột chấm trùng giá trị cao hơn khung được vẽ gọn kèm nhãn đếm đúng số bài (chiều cao biểu đồ giữ nguyên giữa 3 tỉ lệ).
 2. API: `/topics` trả thêm `share_rate` + `conversation` theo topic, cùng tập bài đo được và cùng công thức với
-   `/analytics/overview` (`src/main.py:240-241#share_rate`); `/pipeline/summary` trả n của 2 ARI (`ari_n_common`,
-   `ari_n_clustered_both`) đọc từ `transitions_json` (`src/main.py:1034#_ari_counts`) — không đổi schema. Khối độ bền
+   `/analytics/overview` (`src/main.py:254-255#share_rate`); `/pipeline/summary` trả n của 2 ARI (`ari_n_common`,
+   `ari_n_clustered_both`) đọc từ `transitions_json` (`src/main.py:1048#_ari_counts`) — không đổi schema. Khối độ bền
    ghi n cạnh mỗi ARI (chỉ khi có ARI), cách DBCV tính trọng số (n gồm cả unclustered, kéo điểm về 0) và giờ gom cụm.
 3. Thay một phần ADR-0031 cho trang Analytics: thứ tự khối 01 xếp hạng → 02 một content unit → 03 giờ và ngày đăng
    (`src/dashboard/src/lib/appSections.ts:10#ANALYTICS_SECTIONS`; mục 1 và câu "Analytics 02" ở mục 4 của ADR-0031),

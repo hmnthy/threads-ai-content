@@ -1685,6 +1685,63 @@ LEARNED_RULES = [
         "                That measurement will set the rule a result must pass.",
         "                A result becomes a finding only if it passes a rule fixed in advance.",
     ),
+    # ADR-0040: mã bài đã xoá dạng chuỗi trong code; comment nhắc bằng backtick là câu đúng
+    (
+        "ADR0040-deleted-unit-in-code",
+        "src/rag_demo/corpus.py",
+        '    FrozenUnit("18117744790996401", 2707, "f513adf8"),',
+        "# đóng băng 20 bài; `18117744790996401` bị xoá trên Threads sau mốc nên bỏ (ADR-0040)",
+    ),
+    (
+        "ADR0040-deleted-unit-in-code",
+        "tests/rag_demo/test_questions.py",
+        '    assert QUESTIONS[3].gold_unit_ids == ("17923191900443021", "18117744790996401")',
+        '    assert QUESTIONS[3].gold_unit_ids == ("17923191900443021",)',
+    ),
+    # Câu cũ mô tả tập hiện tại là 20 bài; số đo "trên 20 bài" của lần đo cũ vẫn đúng
+    (
+        "ADR0040-twenty-frozen-units",
+        "docs/claude/architecture.md",
+        "│   ├── rag_demo/   # demo RAG (ADR-0037): corpus (20 bài đóng băng), chunking",
+        "│   ├── rag_demo/   # demo RAG (ADR-0037): corpus (19 bài đóng băng, ADR-0040), chunking",
+    ),
+    (
+        "ADR0040-twenty-frozen-units",
+        "docs/design/ui-contract.md",
+        '| … | ghi rõ "minh hoạ cơ chế, không phải đánh giá" kèm n (20 bài, 10 câu hỏi) |',
+        '| … | ghi rõ "minh hoạ cơ chế, không phải đánh giá" kèm n (19 bài, 10 câu hỏi) |',
+    ),
+    (
+        "ADR0040-twenty-frozen-units",
+        "src/rag_demo/chunking.py",
+        '"""20 content unit đóng băng của demo RAG (ADR-0037 D2): danh sách mã."""',
+        "# Đo 2026-11-06 trên 20 bài đóng băng lúc đó: 8 lần khớp, cả 8 là số thứ tự",
+    ),
+    # ADR-0040: luật câu 4 cũ; câu kể lại lịch sử không bị bắt
+    (
+        "ADR0040-q4-any-of-two",
+        "src/rag_demo/questions.py",
+        "        rule=AnswerRule.ANY_OF_TWO,",
+        "        rule=AnswerRule.SINGLE,  # câu 4 từng có 2 bài gần trùng, 1 bài đã xoá (ADR-0040)",
+    ),
+    (
+        "ADR0040-q4-any-of-two",
+        "tests/rag_demo/test_questions.py",
+        "    4: (AnswerRule.ANY_OF_TWO, 2),",
+        "# ADR-0040 bỏ AnswerRule.ANY_OF_TWO vì câu 4 còn một bài đáp án",
+    ),
+    (
+        "ADR0040-q4-any-of-two",
+        "src/rag_demo/questions.py",
+        '    ANY_OF_TWO = "any_of_two"',
+        '    """Luật ANY_OF_TWO cũ của câu 4 đã bỏ (ADR-0040)."""',
+    ),
+    (
+        "ADR0040-q4-any-of-two",
+        "docs/design/ui-contract.md",
+        "| … | Đáp án đúng theo mã bài: câu 3 và 7 cần cả 2 bài, câu 4 một trong 2 bài, câu 10 |",
+        "| … | Đáp án đúng theo mã bài: câu 3 và 7 cần cả 2 bài, câu 4 một bài (ADR-0040) |",
+    ),
 ]
 
 

@@ -57,6 +57,7 @@ POST /me/threads                         # Đăng bài — KHÔNG dùng: dự á
 | `is_ghost_post`, `poll_attachment`, `gif_attachment`, `location_id` | ⚠️ Không lỗi nhưng **0/100 item có data** (test 50 post + 50 reply, 2026-08-30) | Nhiều khả năng tác giả chưa từng dùng các tính năng này — KHÔNG kết luận field sai, nhưng cũng chưa có bằng chứng field đúng. Lưu schema nullable, không dùng trong scoring tới khi có post thật dùng chúng |
 | `enable_reply_approvals` | ⚠️ Tương tự — có thể chỉ là param lúc publish, không đọc lại được | Không dùng trong V1 |
 | Metric **"shares"** | ❌ Không tồn tại — post-level insights chỉ có `views, likes, replies, reposts, quotes` (verify 2026-08-28) | Loại khỏi mọi công thức Engagement/Share rate tới khi tìm được field thật (nếu có) |
+| `text` — emoji riêng của Threads | ⚠️ API trả emoji chỉ có trên Threads thành ký tự `▓` (U+2593 "DARK SHADE"); emoji Unicode thường (🇨🇵, 😋…) trả đúng. Thy đối chiếu ứng dụng Threads 2026-11-12 trên **1 bài, 1 vị trí** (post `18078938867456185`); DB lúc đó có 224 post chứa ký tự này | Tokeniser BM25 của demo RAG bỏ qua nó (không phải chữ / số); `/rag-pipeline` chỉ lúc hiển thị thay bằng nhãn `[emoji]` (Thy chọn 2026-11-12, `src/dashboard/src/lib/ragPage.ts:244#showEmoji`). Trang khác vẫn hiện `▓` — chưa xử lý; embedding / gom cụm đọc nguyên ký tự |
 
 ### Metrics lấy từ API
 
@@ -531,9 +532,9 @@ CMI = 0                                 nếu n = u
 
 **Vì sao SVM-RBF làm model chính, LogisticRegression chỉ là baseline**: LogReg là mô hình tuyến tính, chỉ nên đóng vai trò benchmark để biết SVM-RBF (bắt được ranh giới phi tuyến trên embedding) có thực sự tốt hơn không — không phải chọn 1 trong 2 rồi bỏ, mà giữ cả 2 trong bảng kết quả để so sánh minh bạch.
 
-**Vì sao LLM chỉ dùng ở bước labeling cluster, không dùng để classify trực tiếp**: dùng LLM đúng việc nó giỏi nhất — tóm tắt ngôn ngữ tự nhiên sau khi đã có cấu trúc thật từ NLP pipeline (HDBSCAN), không thay thế phần NLP core bằng 1 API call.
+**Vì sao trong job NLP, LLM chỉ dùng ở bước labeling cluster, không dùng để classify trực tiếp**: dùng LLM đúng việc nó giỏi nhất — tóm tắt ngôn ngữ tự nhiên sau khi đã có cấu trúc thật từ NLP pipeline (HDBSCAN), không thay thế phần NLP core bằng 1 API call.
 
-**Ranh giới Claude LLM trong pipeline (chốt tường minh 2026-09-03)** — khảo sát thị trường (ghi chép nghiên cứu riêng, 2026-09) xác nhận kiến trúc hiện tại ĐÚNG hướng, không cần sửa code, chỉ cần công bố rõ: Claude **CHỈ** dùng ở duy nhất 1 điểm — `label_cluster_with_claude()` (`src/nlp/topics.py`), tóm tắt 1 cluster đã tồn tại (do HDBSCAN tìm ra) thành tên + mô tả tiếng Anh. Claude **KHÔNG BAO GIỜ**: (a) classify/gán nhãn topic trực tiếp cho 1 post (việc đó là HDBSCAN; bộ phân loại có giám sát chỉ tồn tại trong RQ-08), (b) tạo embedding (việc đó là `sentence-transformers`), (c) tham gia bất kỳ bước NLP core nào khác (LID, clustering, tokenization). Ranh giới này khớp nguyên tắc chung của dự án: dùng LLM đúng việc "tóm tắt ngôn ngữ tự nhiên", không dùng LLM như black-box thay thế phương pháp luận NLP có cấu trúc — giữ tính reproducible/explainable của pipeline (HDBSCAN cho kết quả xác định lại được từ embedding, LLM không).
+**Ranh giới Claude LLM trong pipeline (chốt tường minh 2026-09-03)** — khảo sát thị trường (ghi chép nghiên cứu riêng, 2026-09) xác nhận kiến trúc hiện tại ĐÚNG hướng, không cần sửa code, chỉ cần công bố rõ: trong pipeline kênh (job NLP) Claude **CHỈ** dùng ở duy nhất 1 điểm — `label_cluster_with_claude()` (`src/nlp/topics.py`), tóm tắt 1 cluster đã tồn tại (do HDBSCAN tìm ra) thành tên + mô tả tiếng Anh. Claude **KHÔNG BAO GIỜ**: (a) classify/gán nhãn topic trực tiếp cho 1 post (việc đó là HDBSCAN; bộ phân loại có giám sát chỉ tồn tại trong RQ-08), (b) tạo embedding (việc đó là `sentence-transformers`), (c) tham gia bất kỳ bước NLP core nào khác (LID, clustering, tokenization). Ranh giới này khớp nguyên tắc chung của dự án: dùng LLM đúng việc "tóm tắt ngôn ngữ tự nhiên", không dùng LLM như black-box thay thế phương pháp luận NLP có cấu trúc — giữ tính reproducible/explainable của pipeline (HDBSCAN cho kết quả xác định lại được từ embedding, LLM không). Ngoại lệ có phạm vi: các vai LLM trung gian, tính sẵn, của demo RAG (ADR-0037) — không bao giờ là kết quả.
 
 > Velocity/Momentum/Longevity/Freshness/Topic Affinity — xem "Metric Architecture" phía trên, không lặp lại ở đây.
 
@@ -636,6 +637,189 @@ Sau khi bỏ câu trả lời follower khỏi `full_text`, chạy lại đúng t
 1. **Retrieval**: hybrid BM25 + dense → RRF → cross-encoder rerank → top-k, kèm nguồn (permalink)
 2. **Eval**: gold set từ cặp (câu hỏi follower, câu trả lời tác giả) thật — recall@k, MRR, nDCG, bootstrap CI
 3. **Generation** (chatbot) — CHỈ sau khi KB đạt cổng chất lượng (roadmap Phase F), không làm trước
+
+**Demo trước KB (ADR-0037):** trang `/rag-pipeline` minh hoạ cơ chế truy xuất trên 19 content unit đóng băng (đóng băng
+20, 1 bài bị tác giả xoá trên Threads sau mốc — ADR-0040), không phải KB: phần cần model tính sẵn cho 10 câu hỏi cố định (embedding OpenAI `text-embedding-3-small` — chỉ trong demo,
+gom cụm vẫn bge-m3; cross-encoder `BAAI/bge-reranker-v2-m3`; các vai LLM trung gian bằng Claude Haiku 5.5, LLM rerank
+chấm từng đoạn độc lập), trình duyệt chạy BM25 / trộn / MMR; output là đoạn nguồn xếp hạng, không câu trả lời LLM.
+BM25 của demo (ADR-0038): công thức Lucene, `IDF = log(1 + (N − n + 0,5) / (n + 0,5))`, k1 = 1,2 và b = 0,75 có nhãn nguồn;
+token theo âm tiết, không stopword, câu có dấu so khớp có dấu, câu không dấu so khớp bản bỏ dấu; hoà điểm xếp theo mã
+chunk (luật này dùng chung cho dense, gộp câu con, trộn, cross-encoder; Haiku và MMR giữ thứ tự bước trước — ADR-0041,
+mục "Luật xếp hạng cho mọi bước" bên dưới). Đáp án đúng theo mã bài, câu 5 và 8 thêm vị trí ký tự, bước dựng bằng Python tính sẵn chunk nào trúng.
+Chi tiết token (ADR-0039 D4, `src/dashboard/src/lib/ragDemo/bm25.ts:42#tokenize`): bỏ ký tự đi kèm emoji; token mở đầu bằng
+chữ hoặc số; số thập phân chỉ áp cho token toàn số (`2,5kg` thành `2,5` + `kg`, `15km` giữ một token, `12.5.2026` là một
+token); dấu thanh trên nguyên âm sau ở cụm oa, oe, uy gộp về nguyên âm đầu (`tuỳ` = `tùy`), chỉ ở cuối token và không sau
+`q`. `œ`, `æ` không đổi: 0 lần trong 20 bài lúc đóng băng.
+Chia đoạn (ADR-0039): 7 cách (không chia, theo từng post, cố định 300 / 500 / 800 ký tự, recursive 500, semantic), chunk lấy
+từ `full_text`, câu ngữ cảnh là công tắc, rerank chấm trên chữ gốc của chunk.
+Tập bài đóng băng bằng danh sách mã + độ dài + hash (`src/rag_demo/corpus.py:31#FROZEN_UNITS`), không bằng "20 bài mới nhất": bài mới
+không đẩy bài cũ ra; bài biến mất khỏi DB, đổi chữ hoặc có thêm post viết tiếp thì `src/rag_demo/corpus.py:165#load_units` dừng.
+Bài gốc xoá trên Threads vẫn nằm trong DB (ingest không xoá hàng nào) nên chốt này không bắt được: lệnh `live-check` của
+bước dựng (`src/rag_demo/corpus.py:201#live_mismatches`) so với danh sách post + reply đang sống, đọc thẳng API không qua
+cache, và chạy trước mỗi lần publish; bài mất hoặc đổi chữ thì dừng, Thy quyết (ADR-0040 D3). Ca thật 2026-11-08: bài
+đáp án câu 4 bị xoá → Thy bỏ, còn 19 bài (ADR-0040 D1). Tách câu
+(`src/rag_demo/chunking.py:113#split_sentences`): mảnh chỉ có emoji hoặc ký hiệu gắn vào câu trước, nên mọi ký tự đều nằm trong
+chunk; số thứ tự danh sách ("2.") gắn vào câu sau, không thành câu riêng; ranh giới post không phải điểm ngắt câu cứng
+(rất ít câu chứa chữ của 2 post, số đo ghi trong docstring module); cỡ cố định không tính dấu cách nằm đúng ở mép cửa sổ, có thể mất 1 từ cuối đoạn mà
+đoạn sau thường có lại nhờ chồng lấn (`src/rag_demo/chunking.py:147#_fixed_spans`; cả 3 điểm Thy chốt 2026-11-07). Ngưỡng
+semantic tính chung trên mọi cặp câu liền kề của cả tập, không riêng từng bài (Thy chốt 2026-11-06). CI không có DB thật:
+test chạy `src/rag_demo/questions.py:125#check_gold` trên bài giả có đúng độ dài đóng băng, nên vẫn kiểm được mã đáp án và 2
+vị trí; lệnh `check` của bước dựng kiểm lại trên bài thật (độ dài lưu sẵn, vị trí đáp án, mỗi bài đáp án có chunk trúng ở
+cả 7 cách chia, file cặp cross-encoder đúng là file code hiện tại ghi).
+
+### Methodology log: tính sẵn của demo RAG (chặng 3, thực nghiệm 2026-11-07 → 08)
+
+Thy yêu cầu (2026-11-07, 2026-11-08): mỗi lựa chọn kỹ thuật được lưu kèm đủ lý luận, và trang `/rag-pipeline` giải thích
+được cho người đọc. Số đo dưới đây là của lần dựng 2026-11-07 → 08, trên 20 bài lúc đó (trước ADR-0040); số của tập 19
+bài ở mục cuối.
+
+- **Chunk semantic** (`src/rag_demo/chunking.py`): câu → vector OpenAI → cosine giữa 2 câu liền kề → ngưỡng = phân vị 25
+  của mọi cặp câu liền kề trong cả tập (0,309 trên 330 cặp) → cắt ở cặp dưới ngưỡng, tối đa 800 ký tự. Ra 111 chunk; 19
+  chunk dưới 40 ký tự, đều là 1 câu ngắn: 12 ở giữa bài có cosine dưới ngưỡng với cả câu trước lẫn câu sau, 7 ở đầu
+  (2) hoặc cuối bài (5) chỉ có một câu liền kề và cosine với câu đó dưới ngưỡng. Thy giữ nguyên (S1 A, 2026-11-07),
+  không thêm luật gộp, vì đây là điểm yếu thật của cách chia này; trang nói rõ vì sao có chunk 1 câu và câu ngữ cảnh giúp
+  được gì.
+- **Vai Haiku** (`src/rag_demo/llm_jobs.py`, Thy chốt 2026-11-07): rerank thang 0–3 có định nghĩa từng mức, giữ khi
+  điểm ≥ 2 (C1 A); suy nghĩ thích ứng mức `low` (C2 A); gửi qua Message Batches, rẻ hơn 50 % (C3 A); chỉ chấm trên câu hỏi
+  gốc, không trên câu đã biến đổi (C4 A), để số cặp không nhân 7. Câu trích phải là chuỗi con nguyên văn của chunk, sai
+  thì bỏ câu trích (giữ điểm). Haiku 5.5 không đổi được `temperature`, nên kết quả được lưu và không tự chạy lại; mỗi
+  việc có phiên bản prompt riêng, test ghim dấu vân tay (sha256 của tham số request thật — model, trần token, effort,
+  schema, system, chữ prompt — dựng từ một đầu vào giả cố định) theo từng phiên bản, nên sửa prompt hay cách dựng request
+  mà quên tăng phiên bản thì test đỏ, và nhãn phiên bản của kết quả là của lúc gửi lô. Mỗi dòng kết quả mang mã lô và dấu
+  vân tay của lúc gửi, nhưng chỉ từ các lô sau 2026-11-08: 5.182 dòng của 3 lô (transform 10, context 472 gồm 20 bản dịch,
+  rerank 4.700) ngày 2026-11-07 → 08
+  được thu trước khi có hai trường này (không điền bù — điền dấu vân tay hiện tại sẽ là một khẳng định không kiểm được), nên
+  bước đóng file demo phải chấp nhận dòng thiếu chúng. Từ nay mỗi dòng còn lưu output thô (`raw`) trước mọi bước chuẩn
+  hoá, để đổi luật hậu kiểm (mức giữ, cách so nguyên văn) vẫn áp lại được; 5.182 dòng cũ chỉ có bản đã chuẩn hoá, nên 228
+  câu trích đã bỏ (kể cả ca `not_verbatim` duy nhất) không xem lại được trừ khi tải lại kết quả lô — Batch API giữ kết
+  quả 29 ngày sau khi tạo (skill claude-api, `batches.md`), tức tới khoảng 2026-12-06 cho 3 lô này. Kết quả rerank
+  (4.700 cặp, 0 lỗi): 257 cặp giữ; 228 câu trích bị bỏ, trong đó 227 vì model vẫn trả câu trích khi điểm 0–1 (đúng luật)
+  và chỉ 1 vì không nguyên văn ở điểm ≥ 2 (`quote_drop_reason` tách hai lý do; chỉ con số sau đo được lỗi bịa chữ). Chi
+  phí thật theo bảng giá (giảm 50 % của lô cộng dồn với giá cache ×1,25 ghi / ×0,1 đọc): $0,273 cho 3 việc Haiku,
+  $0,002 cho embedding.
+- **Chunk trùng cả bài thì chỉ dịch, không có câu ngữ cảnh** (`src/rag_demo/llm_jobs.py`, `context_requests`): không chỉ
+  cách "không chia" (19 chunk) mà mọi chunk có chữ bằng cả bài ở các cách khác (bài ngắn hơn cỡ cửa sổ): lần dựng này 15
+  chunk (theo post 2, cố định 300 2, cố định 500 3, cố định 800 3, recursive 500 3, semantic 2). Cùng lý do ADR-0039 D2:
+  câu ngữ cảnh "đặt chunk vào bài" vô nghĩa khi chunk đã là cả bài. Trang hiển thị các chunk này là "the chunk is the
+  whole post", không để trống.
+- **Câu 1 gõ không dấu**: mọi biến đổi câu hỏi của Haiku đọc sai câu này. Thy giữ nguyên (Q1 A, 2026-11-07): không chạy
+  lại, không sửa prompt riêng cho câu này (chọn kết quả đẹp hoặc dạy theo đề), trang trình bày đây là kiểu lỗi thật của
+  bước viết lại câu hỏi bằng LLM.
+- **Cross-encoder** (`src/rag_demo/cross_encoder.py`, chạy trong WSL2 bằng `src/rag_demo/cross_encoder_wsl.py`):
+  `BAAI/bge-reranker-v2-m3` khoá commit Hugging Face, chấm mọi cặp câu hỏi gốc × chữ chunk (4.700 cặp trên 20 bài trước ADR-0040; nay 4.280 trên 19 bài), chữ gốc không
+  kèm câu ngữ cảnh (ADR-0039 D2). Lưu logit thô; sigmoid chỉ để hiển thị, thứ hạng không đổi. fp32, không fp16 (model card
+  nói fp16 giảm nhẹ chất lượng; fp32 vẫn chỉ mất 141 giây trên RTX 4070 ở lần chấm 20 bài). Các số kiểm lặp dưới đây đo ở lần chấm trên 20 bài, trước ADR-0040. Kiểm lặp lại trên mẫu 150 cặp, chấm lại từng
+  cặp một (không đệm chung lô): 100 cặp lấy cách đều trên danh sách (10 cặp mỗi câu hỏi) cộng cả 50 cặp dài hơn 512 token
+  (nơi phần đệm trong lô khác nhiều nhất). Trên mẫu này, độ lệch lớn nhất so với chấm theo lô là δ = 2,7 × 10⁻⁵ logit
+  (riêng 50 cặp dài: 9,5 × 10⁻⁶); δ là max trên mẫu, không phải trên mọi cặp. Hai hạng liền kề chỉ có thể đổi chỗ khi
+  khoảng cách < 2δ (mỗi bên lệch một phía). Ở 20 hạng đầu mỗi câu hỏi, khoảng cách nhỏ nhất là 2,0 × 10⁻⁴ (gấp 3,8 lần
+  2δ), nên trên mẫu này thứ tự phần đầu bảng không phụ thuộc cách gom lô; trên cả 470 hạng (20 bài, trước ADR-0040), 596 / 4.690 khoảng cách nhỏ
+  hơn 2δ và có 4 cặp hoà điểm tuyệt đối (số đo trên 20 bài, xếp toàn cục mỗi câu hỏi; trên 19 bài: 3 cặp khi gộp mọi
+  đoạn của câu hỏi, 0 trong từng cách chia — trang xếp trong từng cách chia; đo 2026-11-10), nên ở phần đuôi thứ tự có thể đổi. Luật phá hoà: ADR-0041 (như BM25 — làm tròn 6 chữ số, mã
+  chunk gốc, đáp án hoà hiện khoảng hạng).
+- **Độ dài tối đa của cross-encoder = 1024 token** (Thy chốt 2026-11-08, phương án A). Đo trên 4.700 cặp: dài nhất 790
+  token, trung vị 120; 50 cặp vượt 512, đều thuộc 5 chunk của cách "không chia", 4 trong 5 là bài đáp án (câu 2, 4, 7, 8).
+  Mức 512 (mặc định FlagEmbedding) cắt đuôi đúng các bài đó, kể cả có thể mất đáp án câu 8 (ký tự 1141–1363 của bài dài
+  2625 ký tự): cách "không chia" sẽ thua vì bị cắt, không vì cách chia, làm lệch phép so sánh mà trang muốn cho thấy. Mức
+  1024 không cắt cặp nào; model có 8194 vị trí, và ví dụ chấm điểm chính thức của FlagEmbedding cho model này dùng 1024.
+  Giới hạn: tài liệu không nói model được fine-tune trên cặp dài bao nhiêu, nên điểm của 5 chunk dài có thể kém tin cậy
+  hơn. Bước WSL2 dừng nếu có cặp vượt mức, không bao giờ cắt ngầm; bước đọc trên Windows từ chối file điểm không ghi độ dài
+  cặp dài nhất.
+- **Tập 19 bài (ADR-0040, đo 2026-11-08).** Bỏ bài đã xoá không đổi chữ chunk nào của 19 bài còn lại ở cả 7 cách chia
+  (ngưỡng semantic tính chung trên cả tập nhưng không chỗ ngắt nào đổi bên), nên không gọi lại OpenAI hay Haiku: kết quả
+  đã trả tiền dùng lại nguyên, dòng của bài đã xoá vẫn nằm trong file kết quả nhưng không vào file demo. Số chunk: không
+  chia 19, theo post 63, cố định 300 / 500 / 800 là 102 / 64 / 43, recursive 500 65, semantic 102; 428 chữ chunk khác
+  nhau → 4.280 cặp cross-encoder, dài nhất vẫn 790 token, 40 cặp vượt 512 (4 chunk của cách không chia). Chấm lại trong
+  WSL2 (126 giây): 4.280 / 4.280 cặp còn giữ ra cùng điểm với lần chấm 20 bài, lệch lớn nhất 6,8 × 10⁻⁵ logit, cùng cỡ
+  với độ lệch khi tự chấm lặp lại (lần này 9,5 × 10⁻⁶ trên mẫu 139 cặp gồm cả 40 cặp dài). `check` và `live-check` ra
+  0 lỗi.
+- **Đáp án chốt trước giữ nguyên** (ADR-0040 D4). Haiku chấm 2 / 3 điểm cho 43 chữ chunk không thuộc đáp án (câu 1: 7,
+  câu 2: 7, câu 4: 4, câu 7: 16, câu 8: 9), không chữ chunk ngoài đáp án nào được 3, câu 10 (không có đáp án) 0. Có đoạn
+  trả lời một phần thật (VD câu 7: thực đơn đồ Việt nấu tại nhà) và đoạn nhầm rõ (VD câu 1: một đoạn của bài đổi ngành).
+  Thêm chúng vào đáp án sau khi thấy kết quả là chọn hậu nghiệm, và lấy điểm Haiku làm đáp án để chấm chính Haiku là đo
+  vòng tròn; trang công bố con số kèm ví dụ cả hai loại. Hệ quả: 43 đoạn này vẫn tính là trượt.
+- **Bản dịch máy** (ADR-0040 D5). 27 dòng `chunk_en` / `context_en` có một cụm ≥ 3 từ mang chữ cái chỉ tiếng Việt mới có;
+  22 dòng là tên món, nhãn hàng (giữ tiếng Việt là đúng), 5 dòng sót thật, cả 5 ở đầu một chunk bắt đầu giữa câu (chunk
+  cố định cắt ngang câu). Giữ nguyên, trang ghi chú; không dịch lại để khỏi tăng phiên bản prompt cho 5 dòng.
+- **File demo** (`src/rag_demo/demo_file.py`, lệnh `assemble`; Thy chọn 2026-11-08). Không gọi mạng: chạy lại mọi phép
+  kiểm của `check` và `ce-check`, dựng lại danh sách request từ code hiện tại rồi chỉ nhận đúng các mã đó. Dòng thành
+  công của phiên bản prompt khác bản hiện tại là dòng đã bị thay (lô mới ghi thêm dòng cùng mã), bỏ qua — cùng định
+  nghĩa "còn hiệu lực" với bước gửi lô (`is_current`). Thiếu một mã, một mã có 2 kết quả thành công cùng phiên bản, sai
+  model, output sai dạng (kiểm lại ngay lúc dùng, cả các bất biến như "điểm dưới 2 không mang câu trích", vì file trên
+  đĩa có thể đã bị sửa tay), câu trích không nguyên văn trong đoạn (ADR-0037 D8) → dừng, không ghi file; mọi phép đếm in
+  ra cũng chạy trước khi ghi. Dòng thiếu dấu vân tay vẫn nhận, có thì phải khớp (lần ghép 2026-11-08: 0 / 4.718 dòng có
+  dấu vân tay, nên phép đối chiếu này chưa được dùng trên dữ liệu thật). Mã request Haiku chỉ ghi số câu, không băm chữ
+  câu hỏi, nên `check` và `assemble` so hash chữ 10 câu hỏi với hash lúc gửi lô (`PAID_QUESTION_TEXTS_SHA256`); sửa chữ
+  một câu thì phải tăng phiên bản prompt và gửi lại lô. Đơn vị lưu là "đoạn" = cặp (bài, chữ chunk) khác nhau: 458 chunk
+  của 7 cách chia là 428 đoạn, mỗi điểm lưu một lần. **Mọi điểm làm tròn 6 chữ số thập phân** (Thy chọn A1; từ định dạng 2 nửa ô làm tròn ra xa số 0 đúng như `toFixed`
+  của trang, ADR-0041 Luật chung 5): cùng mức
+  với hằng hoà của BM25 (ADR-0038 D4), để luật hoà của dense / cross-encoder / trộn (ADR-0041 Luật chung 2) dùng
+  chung một hằng với BM25; 4 chữ số nhẹ hơn nhưng sinh thêm hoà, và cỡ file không phải ràng buộc. Làm tròn chia trục số
+  thành ô rộng 10⁻⁶: hai điểm cùng ô thành bằng nhau, hai điểm khác ô vẫn khác nhau dù lệch rất ít. Đo trên file
+  (`provenance.rounding_ties`): ở dense 7 cặp đoạn cùng câu hỏi thành hoà chỉ vì làm tròn, nhưng không cặp nào nằm trong
+  cùng một cách chia (trang xếp hạng trong từng cách chia), nên làm tròn không đổi thứ hạng nào (dense và cross-encoder
+  của câu hỏi gốc, trong từng cách chia; phần còn chờ chưa đo); cross-encoder 0 — con số dùng trong ADR-0041 (luật hoà: mục "Luật xếp hạng cho mọi bước" bên dưới). **Vị trí ký tự ghi theo đơn
+  vị UTF-16** (cách chuỗi JavaScript đếm), đổi từ điểm mã của Python: 263 / 458 chunk bắt đầu sau ít
+  nhất một emoji ngoài BMP, không đổi thì vị trí của chúng lệch trên trang; kiểm bằng node: cắt `full_text` theo vị trí
+  ghi trong file ra đúng chữ 458 / 458 chunk, ghép post ra đúng 19 / 19 bài. Lần ghép 2026-11-08: 1.369.248 byte (34 %
+  ngân sách 4.000.000, ADR-0037 D3); lần ghép định dạng 2 ngày 2026-11-10: 1.370.744 byte (34 %), so với định dạng 1
+  đúng 1 ô đổi giá trị (cross-encoder câu 9, đoạn 403: −11,039062 → −11,039063), `rounding_ties` không đổi. Lần ghép
+  2026-11-08 dùng 4.718 kết quả Haiku (10 biến đổi + 428 câu ngữ cảnh / bản dịch + 4.280
+  rerank), bỏ qua 464 dòng không thuộc tập hiện tại (0 thất bại, 0 khác phiên bản prompt hiện tại) = 420 rerank + 44 câu
+  ngữ cảnh / bản dịch của bài đã xoá; điểm Haiku 0 / 1 / 2 / 3 trên 19 bài = 3.647 / 403 / 185 / 45; đếm lại từ file: 43
+  đoạn giữ mà không trúng đáp án, khớp mục trên. Chưa có (mục 2 của 3e): điểm dense của câu hỏi biến đổi và của chunk
+  kèm câu ngữ cảnh; file ghi rõ ở `provenance.pending` (định dạng 2 bỏ mục cosine kèm câu ngữ cảnh: lọc gần trùng và
+  MMR dùng cosine của chữ gốc, ADR-0041 Luật chung 8). **Định dạng 2** (ADR-0041, `src/rag_demo/unit_metadata.py`):
+  mỗi bài thêm `month` ("YYYY-MM", giờ Paris của post mở đầu, ADR-0034) và `topic` `{id, label_en}` của lần gom cụm
+  mới nhất lúc ghép; bài không có nhãn (nhiễu hoặc ngoài lần gom cụm đó) ghi `{id: null, label_en: "Unclustered"}`
+  (Thy chọn 2026-11-10). Nhãn và mã lần gom cụm đọc trong một giao dịch, vì job gom cụm ghi cả hai trong một commit;
+  `provenance.topics` ghi mã + giờ lần gom cụm; `publish` từ chối file định dạng 1 và bài thiếu 2 trường. Lần ghép
+  2026-11-10: lần gom cụm 37, 10 / 19 bài có topic, 9 Unclustered; tháng 2026-10: 17 bài, 2026-11: 2. `provenance.inputs` ghi hash file cặp + file điểm cross-encoder,
+  hash file kết quả Haiku (băm đúng các byte đã đọc và đã kiểm), và số dòng dùng / bỏ qua theo lý do, để truy được file
+  ghép từ lần chấm nào; `provenance.embedding_vectors_sha256` là hash các vector đã dùng. `--out` chỉ được nằm hẳn trong
+  `data/rag_demo/` (`data/` không bị gitignore cả thư mục), là `.json` và không trùng file đầu vào nào.
+- **Luật xếp hạng cho mọi bước** (ADR-0041, Thy chốt 2026-11-09 / 10; bảng đầy đủ trong ADR). Thứ tự: lọc metadata (topic,
+  tháng đăng, phần của thread — chunk chạm phần nào khớp phần đó, 105 / 458 chunk chạm cả post mở đầu lẫn một post viết tiếp; BM25 giữ thống kê cả kho) →
+  tìm (BM25 / dense, mỗi câu con một lần; câu con gộp bằng RRF) → trộn (RRF k = 60 theo bài gốc + Elasticsearch, nhóm hoà
+  nhận hạng trung bình; weighted min-max α = 0,5; DBSF mean ± 3σ, σ mẫu, không kẹp) → rerank trên top-N (N = 20; nhóm
+  hoà ở mốc lấy cả nhóm; đoạn ngoài N "not reranked"; luôn chấm theo câu hỏi gốc) → lọc Haiku (bước độc lập) → lọc gần
+  trùng (mặc định 0,95: trên 19 bài cosine chunk × chunk cao nhất 0,804, nên mặc định không bỏ gì) → MMR (rel = điểm
+  bước chấm gần nhất min-max, λ = 0,5) → top-K (K = 10). Hoà ở điểm liên tục: làm tròn 6 chữ số, mã chunk gốc, khoảng
+  hạng tính lại sau mỗi lọc; chỉ BM25 bỏ điểm 0 và có "not found" (giữ nguyên ở rerank khi đáp án vắng trong danh sách vào) — cross-encoder (logit, 24 / 77 bộ đáp án ≤ 0), dense
+  và trộn xếp hạng mọi đoạn. Rerank Haiku (0–3) giữ thứ tự bước trước; MMR hoà ở một lượt → một hạng + nhãn "tied at
+  this pick". Khoảng hạng của đáp án = mọi cách xếp lại trong nhóm hoà; so A/B theo cả khoảng. Mặc định khi mở trang:
+  câu 1, không biến đổi câu hỏi, câu ngữ cảnh tắt, recursive 500, BM25 + dense RRF, chưa rerank, các bước lọc và MMR tắt. Biến đổi câu hỏi: mỗi lần một cách; câu con
+  (multi-query, decompose) không gồm câu gốc; rewrite / HyDE thay câu gốc; expand và step-back tìm 2 lần (câu gốc + câu
+  biến đổi) rồi gộp RRF (expand: 0 / 10 câu mở rộng của Haiku giữ nguyên câu gốc; nối thành một chuỗi làm câu 1 tụt
+  hạng ở mọi cách chia vì chế độ dấu; đánh đổi: câu 7 kém 1–5 hạng so với chuỗi ghép; so với không biến đổi, expand làm câu 1 kém 0–3 hạng, giúp câu 6
+  rõ rệt, câu 7 tốt hơn ở 5 / 7 cách chia nhưng kém 1 hạng ở recursive 500 (cách chia mặc định) — bảng đủ trong ADR-0041). A/B xét theo thứ tự:
+  câu không có đáp án thì không phán quyết; một bên "in progress", hoặc một bên "hybrid rơi về BM25" còn bên kia có dense thật →
+  "no clear winner"; một bên rơi về BM25 so với BM25 thật (hoặc cả hai rơi về) → so bình thường; có hạng thắng không
+  hạng, cả hai không có hạng → "no clear winner"; khoảng chồng nhau → "no clear winner". Mũi tên đổi hạng chỉ ở rerank và MMR,
+  khoảng chồng nhau thì không vẽ. Phần dense còn chờ có 2 trường hợp: "hybrid rơi về BM25" (chỉ chạy BM25, các bước
+  sau vẫn chạy, nhãn "BM25 only") và "dense trần cần phần còn chờ" (khối dense "in progress", các bước sau bỏ qua); lọc
+  gần trùng và MMR luôn dùng cosine của chữ gốc. Câu tự gõ: chỉ BM25, kèm lọc metadata, lọc gần trùng, MMR, cắt top-K,
+  công tắc câu ngữ cảnh.
+- **Publish + endpoint** (lệnh `publish`, `src/db/published_demo.py`; Thy chọn B1 2026-11-08, rồi 2026-11-09 đổi thứ tự:
+  lên web ngay, không chờ mục 2 — phần còn chờ: "hybrid rơi về BM25" chỉ chạy BM25 (nhãn "BM25 only"), "dense trần cần phần còn chờ" ghi
+  "in progress", ADR-0041 Luật chung 8). `publish` chỉ chạy ở thư mục chính, đọc
+  token Blob + token Threads từ `.env` của chính checkout, chạy `live-check` trước (ADR-0040 D3), rồi kiểm file: dưới
+  ngân sách cỡ, đúng định dạng, đúng mã + hash chữ các bài đóng băng hiện tại và hash chữ câu hỏi hiện tại (file dựng
+  trước một thay đổi như ADR-0040 không được đè bản công khai); lỗi bất kỳ thì không tải gì. Pathname cố định
+  `rag-demo/common.json` trên Blob riêng tư. API `GET /rag-demo/{name}` chỉ nhận tên trong danh sách cố định (`common`;
+  tên khác → 404 trước mọi lần đọc), phát nguyên byte, không đọc DB nên không chờ bản sao DB; trên Vercel giữ file
+  trong bộ nhớ instance, hỏi lại Blob theo ETag mỗi 15 phút, tải lỗi thì giữ bản cũ. Cache: `private, max-age=300` +
+  ETag = sha256 nội dung (trình duyệt hỏi lại, không đổi thì 304 rỗng). **Không cho CDN giữ**: header CORS chỉ có khi
+  request mang `Origin` được phép, một bản CDN giữ từ request không có `Origin` (mở thẳng link, bot) sẽ làm trang lỗi
+  CORS với mọi người tới khi hết hạn (code-reviewer 2026-11-09); đổi lại mỗi lượt xem mới là một lượt Function. Bản mới
+  lên trang sau tối đa ~21 phút (15 phút bộ nhớ API + 5 phút trình duyệt + ~1 phút cache đọc của Blob), khi các lần hỏi
+  lại Blob thành công (lỗi tạm thì API giữ bản cũ). Gỡ gấp (VD bài vừa bị xoá, mà `live-check` chặn publish bản mới cho
+  tới khi đổi bộ bài đóng băng): xoá object `rag-demo/common.json` trên Blob (API coi 404 là "đã gỡ", bỏ cả bản trong bộ
+  nhớ ở lần hỏi lại kế tiếp) rồi redeploy project API để ngừng ngay; redeploy một mình thì API tải lại đúng file cũ. `publish` còn so phần provenance do code quyết định (`code_provenance`: model,
+  phiên bản prompt, phần còn chờ…). Chưa bắt được: sửa code chia đoạn hay vị trí / mã bài đáp án (`questions.py`) mà quên
+  `assemble` — file không ghi phiên bản của chúng (code-reviewer 2026-11-09 đề xuất `publish` dựng lại file trong bộ nhớ
+  rồi so byte; để sau). Dữ liệu dựng (cặp + điểm cross-encoder, `llm/`, `demo.json`) chỉ ở `data/rag_demo/` của worktree
+  `rag-visualizer`: chép về thư mục chính trước `publish` và trước khi dọn worktree.
 
 ### Phạm vi hiện tại
 

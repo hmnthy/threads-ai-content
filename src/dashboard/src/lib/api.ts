@@ -343,3 +343,15 @@ export function getWindowAnalytics(start: string, end: string): Promise<WindowAn
 }
 
 export const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+// File demo RAG (ADR-0037 D3: một file JSON < 4 MB, API phát nguyên file, chỉ tên `common`). Gọi từ trình duyệt;
+// không `no-store` như các API số liệu: file chỉ đổi khi publish lại, endpoint trả `Cache-Control` + ETag
+// (`src/main.py:1132#get_rag_demo_file`) nên trình duyệt hỏi lại bằng If-None-Match và nhận 304. Trả `unknown`:
+// bộ đọc `parseDemoFile` kiểm cấu trúc trước khi engine dùng.
+export async function getRagDemoFile(): Promise<unknown> {
+  const response = await fetch(`${API_BASE_URL}/rag-demo/common`);
+  if (!response.ok) {
+    throw new Error(`Request to /rag-demo/common failed with status ${response.status}`);
+  }
+  return response.json() as Promise<unknown>;
+}

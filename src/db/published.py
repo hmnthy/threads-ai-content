@@ -66,6 +66,26 @@ def _store_host_id(store_id: str) -> str:
     return store_id.removeprefix("store_").lower()
 
 
+def blob_url(store_id: str, pathname: str) -> str:
+    """URL đọc một file của Blob riêng tư (tài liệu Vercel "Private storage")."""
+    host = _store_host_id(store_id)
+    return f"https://{host}.private.blob.vercel-storage.com/{quote(pathname.lstrip('/'))}"
+
+
+def blob_credential(oidc_token: str | None) -> tuple[str, str]:
+    """(token, nguồn) — nguồn chỉ để log chẩn đoán, không bao giờ log giá trị token.
+    Header của request (trên Vercel) → biến môi trường (`vercel dev`, hoặc chạy chế độ này ở
+    laptop bằng token đọc-ghi trong .env). Dùng chung cho bản sao DB và file demo RAG."""
+    for source, token in (
+        ("header", oidc_token),
+        ("env VERCEL_OIDC_TOKEN", os.environ.get("VERCEL_OIDC_TOKEN")),
+        ("env BLOB_READ_WRITE_TOKEN", os.environ.get("BLOB_READ_WRITE_TOKEN")),
+    ):
+        if token:
+            return token, source
+    raise PublishedDbUnavailableError("no Blob credential (OIDC header or token)")
+
+
 @dataclass
 class PublishedDb:
     blob_path: str
@@ -97,8 +117,7 @@ class PublishedDb:
 
     @property
     def url(self) -> str:
-        host = _store_host_id(self.store_id)
-        return f"https://{host}.private.blob.vercel-storage.com/{quote(self.blob_path.lstrip('/'))}"
+        return blob_url(self.store_id, self.blob_path)
 
     def _has_copy(self) -> bool:
         # chỉ tính bản do process này tải: file còn sót trong thư mục tạm từ lần chạy trước (laptop)
@@ -146,23 +165,10 @@ class PublishedDb:
             logger.warning("published DB refresh failed, serving the previous copy: %s", reason)
         return self.local_path
 
-    def _token(self, oidc_token: str | None) -> tuple[str, str]:
-        """(token, nguồn) — nguồn chỉ để log chẩn đoán, không bao giờ log giá trị token.
-        Header của request (trên Vercel) → biến môi trường (`vercel dev`, hoặc chạy chế độ này ở
-        laptop bằng token đọc-ghi trong .env)."""
-        for source, token in (
-            ("header", oidc_token),
-            ("env VERCEL_OIDC_TOKEN", os.environ.get("VERCEL_OIDC_TOKEN")),
-            ("env BLOB_READ_WRITE_TOKEN", os.environ.get("BLOB_READ_WRITE_TOKEN")),
-        ):
-            if token:
-                return token, source
-        raise PublishedDbUnavailableError("no Blob credential (OIDC header or token)")
-
     def _refresh(self, oidc_token: str | None) -> None:
         if not self.store_id:
             raise PublishedDbUnavailableError(f"{STORE_ID_ENV} is not set")
-        token, source = self._token(oidc_token)
+        token, source = blob_credential(oidc_token)
         headers = {"Authorization": f"Bearer {token}"}
         if self._etag is not None and self._has_copy():
             headers["If-None-Match"] = self._etag

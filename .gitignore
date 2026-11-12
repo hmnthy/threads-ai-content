@@ -18,6 +18,8 @@ data/audits/
 # ảnh chụp cho @agent-ux-reviewer (src/dashboard/scripts/ux-shots.mjs) — chứa chữ bài thật
 data/ux-shots/
 data/experiments/
+# bước dựng demo RAG (scripts/rag_demo_build.py): vector, kết quả Haiku, file demo — chứa chữ bài thật
+data/rag_demo/
 data/raw/*
 !data/raw/.gitkeep
 output/

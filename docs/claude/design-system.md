@@ -387,7 +387,8 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 **Tầng A · App shell** (ưu tiên — `src/dashboard/`, sản phẩm thật): `max-width 1280`, padding 24. Thứ tự dọc: topbar (logo + tagline + account pill + avatar) → tab pill → đầu trang `PageHeader` → các khối `Section` (§3b C1). Overview (ADR-0031; thứ tự khối 01 Thy đổi 2026-11-01, ADR-0032): khối 01 = chart + timeline brush ngay dưới đầu khối (kéo tới đâu số ngay dưới đổi theo, không phải cuộn lên) → **dải hero gradient** → câu trả lời + Key numbers → Method; chuỗi views bắt đầu từ ngày có content unit đầu tiên; khối 02 = top content units; khối 03 = metric architecture. Top nav tab pill, không sidebar.
 
 Mỗi trang app trả lời đúng 1 câu hỏi chính (ADR-0023): `/overview` — kênh đang thế nào trong cửa sổ đã chọn? ·
-`/analytics` — bài nào, giờ nào hiệu quả? · `/topics` — kênh viết về gì, và chủ đề có liên quan tới engagement không?
+`/analytics` — bài nào, giờ nào hiệu quả? · `/topics` — kênh viết về gì, và chủ đề có liên quan tới engagement không? ·
+`/rag-pipeline` (ADR-0037) — với một câu hỏi cố định, mỗi cấu hình truy xuất xếp đoạn nào lên đầu, đáp án đúng đứng hạng mấy?
 Mỗi khối nội dung tầng A đi theo thứ tự đọc của landing: **câu hỏi → câu trả lời 1 dòng → bằng chứng (chart/bảng) →
 "Method and limits"** (công thức, phương pháp, n, giới hạn) — nhưng **giữ hình khối tầng A**: card 12px có viền
 hairline trên nền sáng, không dải tối, không dùng display-1/2 của landing. Câu trả lời chỉ khẳng định khi phép so có ý nghĩa

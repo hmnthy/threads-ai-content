@@ -40,6 +40,12 @@ planned_paths = [
   # Gói Claude Design 2026-10-05: file các việc kế tiếp sẽ tạo (brief Topics Việc 0–4)
   "docs/design/topics-data-audit.md",
   "src/dashboard/mockups/topics.dc.html",
+  # ADR-0037: trang demo "RAG pipeline visualization" (code ở PR sau trên cùng nhánh)
+  "src/rag_demo", "src/rag_demo/**",
+  "scripts/rag_demo_build.py",
+  "src/dashboard/src/lib/ragDemo", "src/dashboard/src/lib/ragDemo/**",
+  "src/dashboard/src/app/rag-pipeline", "src/dashboard/src/app/rag-pipeline/**",
+  "tests/rag_demo", "tests/rag_demo/**",
 ]
 # Có thật trên máy nhưng gitignored → không tồn tại ở clone mới/CI; chấp nhận khi được nhắc tới
 known_untracked = [
@@ -1208,4 +1214,37 @@ pattern = '(?i)no stability rule is set yet|that rule is not set yet|the rule wi
 why = "Từ ADR-0036: luật bền đã chốt trước; điều chưa có là các lần gom cụm lại với seed khác (RQ-01), không phải luật"
 fix = "Ghi 'That rule is fixed in advance, but the reruns with other seeds that apply it have not been done yet' (UI-0036-rule-set-not-run)"
 paths = ["docs/**", "src/**", "README*.md"]
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
+
+[[forbid]]
+id = "ADR0040-deleted-unit-in-code"
+adr = "0040"
+# Bài 18117744790996401 bị tác giả xoá trên Threads sau mốc đóng băng → bỏ khỏi FROZEN_UNITS và đáp án câu 4. Chỉ bắt
+# mã bài dạng chuỗi trong code (danh sách đóng băng, đáp án, test); comment nhắc mã bài bằng backtick không bị bắt
+pattern = '"18117744790996401"'
+why = "Từ ADR-0040: bài này đã bị xoá trên Threads, demo còn 19 bài"
+fix = "Bỏ khỏi `FROZEN_UNITS` / `gold_unit_ids`; nhắc lại thì ghi trong comment kèm ADR-0040"
+paths = ["src/**", "scripts/**", "tests/**"]
+
+[[forbid]]
+id = "ADR0040-twenty-frozen-units"
+adr = "0040"
+# Câu cũ mô tả TẬP HIỆN TẠI là 20 bài (code, docs, hợp đồng UI). Chỉ bắt đúng nguyên văn cũ: số đo đã làm "trên 20 bài"
+# là số của lần đo đó và vẫn đúng (ADR-0040 Hệ quả), nên không cấm cụm "20 bài" nói chung
+pattern = '20 content unit đóng băng của demo RAG|Chốt chặn 20 bài đóng băng|corpus \(20 bài đóng băng\)|dữ liệu là 20 content unit đóng băng|\| 20 content unit đóng băng;|truy xuất trên 20 content unit đóng băng|— 20 content unit đóng băng, 10 câu hỏi|n \(20 bài, 10 câu hỏi\)|so 20 bài với bài đang sống'
+why = "Từ ADR-0040: tập demo còn 19 bài (1 bài bị xoá trên Threads sau mốc đóng băng)"
+fix = "Ghi 19 bài (đóng băng 20, 1 bài bị xoá — ADR-0040)"
+paths = ["docs/**", "src/**", "scripts/**", "tests/**", "README*.md"]
+allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
+
+[[forbid]]
+id = "ADR0040-q4-any-of-two"
+adr = "0040"
+# Luật cũ của câu 4 (ADR-0038 D7 "một trong 2 bài"): bài cũ đã bị xoá nên câu 4 còn một bài đáp án, không câu nào còn
+# dùng luật "một trong hai". Bắt chỗ khai báo / dùng luật trong code (không bắt câu kể lịch sử "ADR-0040 bỏ
+# AnswerRule.ANY_OF_TWO") và câu cũ trong docs
+pattern = 'rule=AnswerRule\.ANY_OF_TWO|ANY_OF_TWO = "|AnswerRule\.ANY_OF_TWO, \d|"any_of_two"|câu 4 một trong 2 bài|câu 4: hai bài gần trùng'
+why = "Từ ADR-0040: câu 4 còn một bài đáp án (17923191900443021)"
+fix = "Dùng luật một bài (`AnswerRule.SINGLE`); docs ghi 'câu 4 một bài (ADR-0040)'"
+paths = ["docs/**", "src/**", "scripts/**", "tests/**", "README*.md"]
 allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]

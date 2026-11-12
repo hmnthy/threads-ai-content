@@ -1,0 +1,207 @@
+"""Chốt chặn các bài đóng băng của demo RAG (ADR-0037 D2, ADR-0040). DB tự chế, không DB thật."""
+
+import json
+import re
+import sqlite3
+from pathlib import Path
+
+import pytest
+
+from src.db.schema import connect, connect_readonly, create_schema
+from src.rag_demo.corpus import (
+    FROZEN_UNITS,
+    CorpusChangedError,
+    FrozenUnit,
+    PostSpan,
+    Unit,
+    content_hash,
+    live_mismatches,
+    load_units,
+)
+
+FIRST_POST = "Bài tự đặt, post đầu."
+SECOND_POST = "Post viết tiếp."
+FULL_TEXT = f"{FIRST_POST} {SECOND_POST}"
+
+
+def freeze(unit_id: str, text: str) -> tuple[FrozenUnit, ...]:
+    return (FrozenUnit(unit_id, len(text), content_hash(text)),)
+
+
+def add_post(conn: sqlite3.Connection, post_id: str, text: str | None) -> None:
+    conn.execute(
+        "INSERT INTO posts (id, text, timestamp, media_type, raw_json) VALUES (?, ?, ?, ?, ?)",
+        (post_id, text, "2026-10-01T00:00:00+00:00", "TEXT_POST", "{}"),
+    )
+
+
+def add_unit(
+    conn: sqlite3.Connection, unit_id: str, full_text: str, continuation_ids: list[str]
+) -> None:
+    conn.execute(
+        """INSERT INTO content_units
+           (id, continuation_ids_json, raw_text, normalized_text, full_text)
+           VALUES (?, ?, ?, ?, ?)""",
+        (unit_id, json.dumps(continuation_ids), full_text, full_text, full_text),
+    )
+
+
+@pytest.fixture
+def conn(tmp_path: Path) -> sqlite3.Connection:
+    connection = connect(tmp_path / "demo.db")
+    create_schema(connection)
+    add_post(connection, "root", FIRST_POST)
+    add_post(connection, "next", SECOND_POST)
+    add_unit(connection, "root", FULL_TEXT, ["next"])
+    connection.commit()
+    return connection
+
+
+def test_frozen_list_has_19_distinct_units_with_length_and_full_sha256() -> None:
+    """20 bài lúc đóng băng, 1 bài bị xoá trên Threads sau mốc (ADR-0040)."""
+    assert len(FROZEN_UNITS) == 19
+    assert len({unit.id for unit in FROZEN_UNITS}) == 19
+    assert len({unit.sha256 for unit in FROZEN_UNITS}) == 19
+    for unit in FROZEN_UNITS:
+        assert unit.id.isdigit()
+        assert unit.length > 0
+        assert re.fullmatch(r"[0-9a-f]{64}", unit.sha256)
+
+
+def test_content_hash_is_sha256_of_utf8() -> None:
+    assert content_hash("abc") == (
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    )
+    # "é" dạng UTF-8 là 2 byte c3 a9; giá trị lấy từ `sha256sum`, không qua code đang kiểm
+    assert content_hash("é") == ("4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c")
+
+
+def test_load_units_reads_text_and_post_positions(conn: sqlite3.Connection) -> None:
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    assert len(units) == 1
+    assert units[0].id == "root"
+    assert units[0].full_text == FULL_TEXT
+    assert units[0].posts == (PostSpan("root", 0, 21), PostSpan("next", 22, 37))
+    first, second = units[0].posts
+    assert FULL_TEXT[first.start : first.end] == FIRST_POST
+    assert FULL_TEXT[second.start : second.end] == SECOND_POST
+
+
+def test_load_units_keeps_the_order_of_the_frozen_list(conn: sqlite3.Connection) -> None:
+    add_post(conn, "other", "Bài khác.")
+    add_unit(conn, "other", "Bài khác.", [])
+    order = freeze("other", "Bài khác.") + freeze("root", FULL_TEXT)
+    assert [unit.id for unit in load_units(conn, order)] == ["other", "root"]
+
+
+def test_load_units_works_on_a_read_only_connection(
+    conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    conn.close()
+    readonly = connect_readonly(tmp_path / "demo.db")
+    assert len(load_units(readonly, freeze("root", FULL_TEXT))) == 1
+    readonly.close()
+
+
+def test_load_units_skips_empty_posts_without_shifting_offsets(
+    conn: sqlite3.Connection,
+) -> None:
+    add_post(conn, "blank", "")
+    conn.execute(
+        "UPDATE content_units SET continuation_ids_json = ? WHERE id = 'root'",
+        (json.dumps(["blank", "next"]),),
+    )
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    assert units[0].posts == (PostSpan("root", 0, 21), PostSpan("next", 22, 37))
+
+
+def test_stops_when_a_unit_is_gone(conn: sqlite3.Connection) -> None:
+    with pytest.raises(CorpusChangedError, match="missing: không còn"):
+        load_units(conn, freeze("missing", "x"))
+
+
+def test_stops_when_text_changed_at_the_same_length_and_error_shows_no_post_text(
+    conn: sqlite3.Connection,
+) -> None:
+    """Cùng độ dài nên chỉ hash bắt được."""
+    old_text = FULL_TEXT[::-1]
+    assert len(old_text) == len(FULL_TEXT)
+    with pytest.raises(CorpusChangedError) as caught:
+        load_units(conn, freeze("root", old_text))
+    message = str(caught.value)
+    assert "root: full_text đã đổi" in message
+    assert FIRST_POST not in message
+
+
+def test_stops_when_the_stored_length_is_wrong(conn: sqlite3.Connection) -> None:
+    """Hash đúng mà độ dài sai: số CI dùng để kiểm vị trí đáp án không được lệch bài thật."""
+    wrong = (FrozenUnit("root", len(FULL_TEXT) + 1, content_hash(FULL_TEXT)),)
+    with pytest.raises(CorpusChangedError, match="root: độ dài"):
+        load_units(conn, wrong)
+
+
+def test_stops_when_posts_no_longer_rebuild_full_text(conn: sqlite3.Connection) -> None:
+    conn.execute("UPDATE posts SET text = 'Post đã sửa.' WHERE id = 'next'")
+    with pytest.raises(CorpusChangedError, match="không ghép lại đúng"):
+        load_units(conn, freeze("root", FULL_TEXT))
+
+
+def test_stops_when_a_new_continuation_appears(conn: sqlite3.Connection) -> None:
+    """Thêm post viết tiếp làm `full_text` dài ra: không lọt qua."""
+    longer = f"{FULL_TEXT} Post mới."
+    conn.execute("UPDATE content_units SET full_text = ? WHERE id = 'root'", (longer,))
+    with pytest.raises(CorpusChangedError, match="root: độ dài"):
+        load_units(conn, freeze("root", FULL_TEXT))
+
+
+# --- so với bài đang sống trên Threads (lệnh live-check) ---
+
+
+def test_live_check_passes_when_every_post_is_alive_and_unchanged(
+    conn: sqlite3.Connection,
+) -> None:
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    live = {"root": FIRST_POST, "next": SECOND_POST, "other": "Bài khác của kênh."}
+    assert live_mismatches(units, live) == []
+
+
+def test_live_check_reports_a_deleted_post_by_id_only(conn: sqlite3.Connection) -> None:
+    """Ca thật 2026-11-08: bài gốc bị xoá, các post viết tiếp vẫn còn."""
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    assert live_mismatches(units, {"next": SECOND_POST}) == [
+        "root: post không còn trên Threads: root"
+    ]
+
+
+def test_live_check_reports_edited_text_without_showing_it(conn: sqlite3.Connection) -> None:
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    edited = "Post viết lại."
+    problems = live_mismatches(units, {"root": FIRST_POST, "next": edited})
+    assert problems == ["root: chữ trên Threads khác lúc đóng băng"]
+    assert edited not in problems[0] and FIRST_POST not in problems[0]
+
+
+def test_live_check_reports_a_deleted_continuation_while_the_root_lives(
+    conn: sqlite3.Connection,
+) -> None:
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    assert live_mismatches(units, {"root": FIRST_POST}) == [
+        "root: post không còn trên Threads: next"
+    ]
+
+
+def test_live_check_reports_a_deleted_root_that_has_no_text() -> None:
+    """Bài gốc chỉ có ảnh không nằm trong `posts` (`_post_spans` bỏ post rỗng): vẫn phải bắt."""
+    unit = Unit("root", SECOND_POST, (PostSpan("next", 0, len(SECOND_POST)),))
+    assert live_mismatches([unit], {"next": SECOND_POST}) == [
+        "root: post không còn trên Threads: root"
+    ]
+    assert live_mismatches([unit], {"root": "", "next": SECOND_POST}) == []
+
+
+def test_live_check_reports_a_post_emptied_on_threads(conn: sqlite3.Connection) -> None:
+    """Post còn nhưng chữ bị làm rỗng: bài ghép lại đã khác hash lúc đóng băng."""
+    units = load_units(conn, freeze("root", FULL_TEXT))
+    assert live_mismatches(units, {"root": FIRST_POST, "next": ""}) == [
+        "root: chữ trên Threads khác lúc đóng băng"
+    ]

@@ -3,7 +3,7 @@
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-1061%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1559%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -29,7 +29,7 @@ multi-tenant, et ça n'a pas vocation à le devenir.
 
 ## Captures d'écran
 
-Le produit en quatre étapes — du pitch jusqu'aux sujets découverts et à la façon dont chacun se compare au reste du compte.
+Le produit en cinq étapes — du pitch jusqu'aux sujets découverts, à la façon dont chacun se compare au reste du compte, et à une démo de recherche sur les propres posts du compte.
 
 <p align="center">
   <img src="docs/screenshots/landing.png" alt="Landing page: one content unit placed against its channel, the three layers, three dashboard panels, the pipeline diagram" width="820"><br>
@@ -49,6 +49,11 @@ Le produit en quatre étapes — du pitch jusqu'aux sujets découverts et à la 
 <p align="center">
   <img src="docs/screenshots/topics.png" alt="Topic Explorer: topics found from the text alone on a colour-coded 3D map, with each topic's keywords and most typical posts" width="820"><br>
   <sub><b>4. Topic Explorer</b> — sujets découverts à partir du seul texte (UMAP 3D + HDBSCAN), chacun comparé au reste du compte sur trois taux, avec chaque test, sa taille d'effet et sa p-valeur corrigée par Holm.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/rag-pipeline.png" alt="RAG pipeline: a map of the nine pipeline steps with what this page covers, then how the content units are loaded" width="820"><br>
+  <sub><b>5. RAG pipeline</b> — première version d'une démo de recherche sur 19 content units figées et 10 questions fixes : une carte des neuf étapes d'un pipeline RAG standard indique celles que la page couvre ; voir comment chaque content unit est chargée depuis son fil Threads, puis choisir le découpage, la recherche BM25 / dense / hybride et un reranker (cross-encoder ou Claude Haiku), puis voir à quel rang arrive la bonne réponse. La page classe seulement des passages sources ; aucune réponse n'est rédigée.</sub>
 </p>
 
 ---
@@ -128,7 +133,7 @@ threads-ai-content/
 │   ├── db/                Schéma SQLite (posts, content_units, insights_snapshots, topics, embeddings, cluster_runs) — en ligne
 │   ├── pipeline/           Ingestion, cron de snapshot toutes les 4h, pont de clustering Windows↔WSL2 — en ligne
 │   ├── main.py             Point d'entrée FastAPI — en ligne
-│   └── dashboard/          App Next.js : landing page + Overview/Analytics/Topic Explorer — en ligne
+│   └── dashboard/          App Next.js : landing page + Overview/Analytics/Topic Explorer/RAG pipeline — en ligne
 └── tests/                suite pytest, ruff + mypy strict propres
 ```
 
@@ -175,8 +180,9 @@ Quelques décisions considérées comme structurantes pour ce projet, chacune co
 ## État du projet
 
 **En ligne :** client API Threads, pipeline NLP de découverte de sujets, architecture à 6
-indices, statistiques par fenêtre temporelle, et un dashboard à 3 onglets (Overview, Analytics,
-Topic Explorer) plus cette landing page, en conditions réelles sur des données de production
+indices, statistiques par fenêtre temporelle, et un dashboard à 4 onglets (Overview, Analytics,
+Topic Explorer, et RAG pipeline — première version d'une démo de recherche qui classe des passages
+sources sans rédiger de réponse) plus cette landing page, en conditions réelles sur des données de production
 (suite de tests complète au vert, ruff + mypy strict propres).
 
 **Prochaines étapes — un périmètre volontairement resserré (« less is more ») :**
