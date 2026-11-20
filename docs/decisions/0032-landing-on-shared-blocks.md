@@ -33,7 +33,7 @@
    (`StabilityPanel`, `TopicsView.tsx:627#StabilityPanel`). Bản landing riêng của panel engagement và panel cấu trúc bỏ.
 2. **Panel hero theo khuôn khối chung**: tiêu đề = chính câu hỏi (h3 26px), câu trả lời trong khung ANSWER trải hết bề
    rộng, không hộp Key numbers (dải 4 số phía trên đã đủ), nút chọn tập so sánh là `ToggleGroup` "Compare with", Method
-   có từng bước + công thức (`LandingHero.tsx:127#example`; từ 2026-11-02 thân panel là component chung
+   có từng bước + công thức (`LandingHero.tsx:148#example`; từ 2026-11-02 thân panel là component chung
    `src/dashboard/src/components/UnitVsChannel.tsx:383#MethodSection`, dùng cả ở khối 02 của /analytics).
 3. **Sổ luật thêm 3 điểm**:
    - ngoại lệ T5 duy nhất (§3b X7): tiêu đề khối của panel hero landing (`[data-ux="hero-panel"]`) được nằm ngay dưới

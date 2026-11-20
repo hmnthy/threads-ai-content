@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
+import { ChannelLink } from "@/components/ChannelLink";
 import { LandingBlocks, rich, Section, TYPE } from "@/components/AppBlock";
 import { formatIqrRange } from "@/components/DistributionCaption";
 import { UnitVsChannel } from "@/components/UnitVsChannel";
@@ -17,15 +18,35 @@ export function LandingHero({ data }: { data: LandingData | null }) {
       <div className="flex flex-col items-center gap-6 text-center">
         {/* Hoạt cảnh chạy 1 lần mỗi 15 giây (Thy 2026-10-29); reduced-motion → bản tĩnh (BrandLogoReplay) */}
         <BrandLogo variant="lockup-replay" height={64} />
+        {/* Định vị sản phẩm (Thy 2026-11-19): sản phẩm AI = ứng dụng NLP + RAG pipeline visualizer, nói ngay trên H1;
+            vai eyebrow trang (label 12px w600 amber, như PageHeader của trang app). H1 giữ tagline (ADR-0009). */}
+        <span className="text-[12px] font-semibold tracking-[0.14em] text-amber-700">
+          AN AI PRODUCT · NLP ANALYTICS + RAG PIPELINE VISUALIZER
+        </span>
         <h1 className="m-0 text-[clamp(44px,6.4vw,76px)] font-extrabold leading-none tracking-[-0.04em] [text-wrap:balance]">
           The algorithm, read back to you.
         </h1>
-        <p className="m-0 max-w-[640px] text-[18px] leading-[1.6] text-text-secondary [text-wrap:pretty]">
-          Unthreaded shows how each content unit on a Threads channel did compared with the rest of that channel, not
-          with Threads as a whole. Every figure says how many content units it rests on.
-        </p>
+        {/* Pitch 2 đoạn (Thy 2026-11-19): đoạn 1 = ý tưởng sản phẩm — kênh nào, của ai, so với gì (tên kênh là link tới
+            Threads thật); đoạn 2 = công nghệ. Cô đọng, rộng 880px (Thy: dùng bớt khoảng trắng 2 bên — nới X8 ~720px).
+            Hai đoạn CÙNG trải hết bề rộng khung (L5; `pretty`, không `balance` — balance co từng đoạn một kiểu, 2 lề lệch
+            nhau, Thy bắt 2026-11-19). */}
+        <div className="flex max-w-[880px] flex-col gap-3">
+          <p className="m-0 text-[18px] leading-[1.6] text-text-secondary [text-wrap:pretty]">
+            Unthreaded is an AI product that reads <ChannelLink />, Thy&apos;s Threads channel for Vietnamese students and
+            workers in France, and ranks content units by engagement rate within the channel.
+          </p>
+          <p className="m-0 text-[18px] leading-[1.6] text-text-secondary [text-wrap:pretty]">
+            An NLP pipeline finds topics in the Vietnamese text by meaning. A RAG pipeline visualizer shows which
+            passages each search setup ranks first for a fixed question.
+          </p>
+        </div>
         {/* Định nghĩa ngay sau lần đầu dùng từ (Thy 2026-11-01: người lạ không gặp từ trước khi biết nghĩa) */}
-        <p className={`m-0 max-w-[720px] ${TYPE.note}`}>{rich(CONTENT_UNIT)}</p>
+        {/* Cùng khung 880px với pitch ngay trên (L5: một bề rộng cho khối chữ căn giữa của hero). Lớp phụ, nhạt hơn pitch
+            (Thy 2026-11-20: định nghĩa cần biết thêm, không phải hook — không được lấn pitch): chữ text-muted (#6b7280,
+            4.67:1 trên bg-page #fbfbfc, qua AA 4.5:1), cụm in đậm hạ từ text-primary xuống text-secondary */}
+        <p className={`m-0 max-w-[880px] ${TYPE.note} !text-text-muted [&_strong]:!text-text-secondary`}>
+          {rich(CONTENT_UNIT)}
+        </p>
         <div className="flex flex-wrap justify-center gap-3">
           {/* Vai nút CTA 15px w600 của trang giới thiệu (Thy 2026-11-01, ADR-0032) */}
           <Link

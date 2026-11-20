@@ -605,3 +605,40 @@ nội dung mục này.
 - **Lý do:** trang demo đã live nhưng landing không có đường dẫn tới nó (Thy hỏi 2026-11-12). Phương án đã cân nhắc: chỉ
   câu ở lớp 03 (ít chữ hơn, kém nổi với người xem portfolio); không sửa landing (theo quy tắc "landing chỉ sửa khi sai kỹ
   thuật" — landing không sai, nhưng trang demo không ai tìm thấy). Đây là lời hứa mới → `/promise-audit` đo lại sau merge.
+
+### Landing nói rõ kênh nào + định vị sản phẩm AI (Thy duyệt chữ 2026-11-20; `copy-reviewer` 3 lượt, `ux-reviewer` 2 lượt)
+
+Thy hỏi 2026-11-19: landing không chỗ nào nói dữ liệu là của ai, kênh gì, nội dung gì. Bản cũ chỉ có `@thydilammuon`
+dạng chữ trần ở Problem + About, pill tài khoản ở topbar app là nút giả (mũi tên thả xuống không mở gì).
+
+- **Eyebrow trên H1**: "AN AI PRODUCT · NLP ANALYTICS + RAG PIPELINE VISUALIZER". H1 giữ tagline (ADR-0009).
+- **Pitch 2 đoạn** (đoạn 1 = ý tưởng sản phẩm, đoạn 2 = công nghệ; Thy: cô đọng, tách dòng):
+  - "Unthreaded is an AI product that reads @thydilammuon, Thy's Threads channel for Vietnamese students and workers in
+    France, and ranks content units by engagement rate within the channel."
+  - "An NLP pipeline finds topics in the Vietnamese text by meaning. A RAG pipeline visualizer shows which passages each
+    search setup ranks first for a fixed question."
+- **Dòng định nghĩa content unit** dưới pitch: chữ `text-muted`, cụm in đậm `text-secondary` — lớp phụ, không lấn pitch
+  (Thy 2026-11-20).
+- **Tên kênh = link** tới `https://www.threads.com/@thydilammuon` (tab mới) ở hero, Problem, tiêu đề About, và pill +
+  avatar ở topbar app (một link, mũi tên ↗, chữ ẩn "on Threads (opens in a new tab)"). Một nguồn URL:
+  `src/dashboard/src/components/ChannelLink.tsx:7#CHANNEL_URL`.
+- **Meta description**: "An AI product built on one real Threads channel, @thydilammuon: NLP topic analytics and a RAG
+  pipeline visualizer, statistics first."
+- **Bề rộng**: pitch + định nghĩa chung khung 880px (nới X8 — design-system §3b, Thy 2026-11-20).
+
+**Lý do chọn chữ.** `copy-reviewer` lượt 1 chặn 3 câu nói quá: gán việc xếp hạng cho NLP (xếp hạng là thống kê
+engagement rate); ngụ ý mọi content unit có topic (HDBSCAN để một phần content unit là nhiễu, không thuộc topic nào); "finds the
+passages that answer it" (demo chỉ xếp hạng đoạn, không viết câu trả lời). Lượt 2 chặn "ranks each content unit" (có
+content unit chưa có views nên không được xếp) → "ranks content units". Phương án bị bác: "A case study on one real
+Threads channel" (Thy: chưa đủ mạnh, cần định vị sản phẩm AI).
+
+**NIT để sau (không sửa ở PR này).** (1) Meta description kết thúc bằng cụm "statistics first" rời. (2) Trên 375px nút
+CTA hero nằm dưới màn hình đầu (pitch 6 + 5 dòng). (3) Chấm xanh trong pill topbar chưa rõ nghĩa — Thy quyết giữ/bỏ.
+(4) Trang RAG mang 2 tên ("RAG pipeline visualizer" ở hero, "RAG pipeline demo" ở lớp 03 + CTA cuối) — Thy chọn một
+tên. (5) Hero chưa có nút thứ ba tới `/rag-pipeline`. (6) Topic Explorer chưa có định nghĩa content unit ở đầu trang
+như Overview / Analytics (ADR-0031 quyết định 2 chỉ áp 2 trang đó) → PR nhỏ riêng ngay sau PR này (Thy chọn 2026-11-20). (7) Link kênh ở hero / Problem / About mở tab mới
+nhưng chưa báo cho trình đọc màn hình (chỉ pill topbar có "opens in a new tab") — đưa câu ẩn vào nhánh mặc định của
+`ChannelLink`. (8) Eyebrow hero viết class tại chỗ, trùng eyebrow của `PageHeader` → thêm vai `TYPE` riêng. (9) "the
+Vietnamese text" — kênh trộn Việt + Pháp; cân nhắc "the mostly Vietnamese text" khi chạm lại hero. (10) Luật máy đề xuất
+(lỗi lặp lần 2): tham chiếu dạng khoảng `:a-b#Tên` không tự dời khi code phía trên thêm dòng — `check` nên đòi dòng đầu
+khoảng chứa tên neo.

@@ -1,5 +1,6 @@
 import { TYPE } from "@/lib/typeScale";
 import { LAYER_GRID, SECTION, SectionHead } from "@/components/LandingParts";
+import { ChannelLink } from "@/components/ChannelLink";
 import { count, type LandingData } from "@/lib/landing";
 
 // "Problem" — 3 câu hỏi của người làm kênh (handoff §3.2). Thy 2026-11-01 (ADR-0032): đầu section trải ngang, Q1–Q3
@@ -48,7 +49,7 @@ export function LandingProblem({ data }: { data: LandingData | null }) {
             : "Hundreds of content units and answers to followers. Threads can't say what they add up to."
         }
       >
-        @thydilammuon writes for Vietnamese students and workers in France: alternance, job hunting, everyday life.
+        <ChannelLink /> writes for Vietnamese students and workers in France: alternance, job hunting, everyday life.
         Running the channel raises three questions the Threads app has no screen for.
       </SectionHead>
       <div className={`grid grid-cols-1 gap-y-10 ${LAYER_GRID}`}>
