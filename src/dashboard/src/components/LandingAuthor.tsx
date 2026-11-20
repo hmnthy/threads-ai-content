@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Bullets } from "@/components/AppBlock";
+import { ChannelLink } from "@/components/ChannelLink";
 import { SECTION, SectionHead } from "@/components/LandingParts";
 import { count, parisDate, type LandingData } from "@/lib/landing";
 
@@ -28,7 +29,16 @@ export function LandingAuthor({ data }: { data: LandingData | null }) {
       </div>
       <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-[18px]">
         {/* Cùng đầu section display-2 với mọi section (T3: một kiểu display-2 trên cả trang — ADR-0032) */}
-        <SectionHead eyebrow="05 · About the channel" title="Thy · @thydilammuon">
+        {/* Tên kênh trong tiêu đề là link tới Threads thật (Thy 2026-11-19); giữ màu chữ tiêu đề, gạch chân amber */}
+        <SectionHead
+          eyebrow="05 · About the channel"
+          title={
+            <>
+              Thy ·{" "}
+              <ChannelLink className="text-inherit underline decoration-amber-600 decoration-2 underline-offset-[6px] hover:text-amber-700" />
+            </>
+          }
+        >
           Thy is a Vietnamese creator living and working in France. She writes on Threads about alternance, job hunting
           and everyday life as an expat. Unthreaded started as a way to understand her own channel from its real posts,
           and grew into the statistics and NLP case study on this site.

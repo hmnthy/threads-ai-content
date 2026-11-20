@@ -307,8 +307,11 @@ Landing chỉ được khác trang app ở các điểm dưới đây. Điểm n
 - **X7** Panel hero (`[data-ux="hero-panel"]`, một panel duy nhất ngay dưới H1): tiêu đề khối của nó được nằm thẳng
   dưới display-1, bỏ qua T5 (cha hợp lệ + bước h1 → h3). Chỉ chính tiêu đề đầu tiên của panel; heading khác trong
   panel theo T5 như thường (Thy 2026-11-01, ADR-0032; máy đo + trang mẫu ở `ux-shots-fixtures.mjs`).
-- **X8** Chữ căn giữa của hero và khối CTA cuối (câu dẫn, định nghĩa dưới dải số) giới hạn ~640–720px vì độ dài
-  dòng — ngoại lệ của L5. Chữ căn trái của mọi section vẫn trải hết bề rộng khung (Thy 2026-11-01, ADR-0032).
+- **X8** Chữ căn giữa của hero và khối CTA cuối giới hạn bề rộng vì độ dài dòng — ngoại lệ của L5: pitch hero và dòng
+  định nghĩa ngay dưới nó chung một khung 880px (Thy 2026-11-20: dùng bớt khoảng trắng hai bên; dòng dài nhất ~100 ký
+  tự ở 18px), câu dẫn của khối CTA cuối ~640px (Thy 2026-11-01, ADR-0032). Các đoạn căn giữa đứng cạnh nhau dùng chung
+  một khung + `[text-wrap:pretty]`, không `balance` (balance co từng đoạn một kiểu, hai lề lệch nhau). Chữ căn trái
+  của mọi section vẫn trải hết bề rộng khung.
 
 Landing không viết lại khối của trang app: bọc khối trong `LandingBlocks` (`AppBlock.tsx`) — tiêu đề tự lùi 1 cấp qua
 component `H` (X1), card bo 20px + đệm dọc 36px + `scroll-mt` 88px dưới `LandingNav` dính (X3), Method thu gọn sẵn

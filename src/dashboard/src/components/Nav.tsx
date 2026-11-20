@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartLineUp, ChartPieSlice, CaretDown, Compass, FlowArrow } from "@phosphor-icons/react/dist/ssr";
+import { ArrowUpRight, ChartLineUp, ChartPieSlice, Compass, FlowArrow } from "@phosphor-icons/react/dist/ssr";
 import { BrandLogo } from "@/components/BrandLogo";
+import { CHANNEL_HANDLE, ChannelLink } from "@/components/ChannelLink";
 
 // Topbar + tab pill — docs/claude/design-system.md §7 Tầng A: topbar (logo +
 // tagline + account pill + avatar) rồi tab pill ngay dưới, không sidebar.
@@ -30,26 +31,26 @@ export function Nav() {
           <span className="hidden text-[15px] font-medium text-text-secondary sm:inline">The algorithm, read back to you.</span>
         </Link>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            className="flex h-11 items-center gap-2 rounded-full border border-border-hairline bg-bg-surface px-3.5 text-[13px] font-medium text-text-primary"
-          >
+        {/* Pill tài khoản + avatar = MỘT link tới kênh Threads thật (Thy 2026-11-19). Trước đây là nút giả có mũi tên
+            thả xuống nhưng không mở gì; mũi tên chéo ↗ báo link ra ngoài, mở tab mới. */}
+        <ChannelLink className="group flex items-center gap-2.5 rounded-full">
+          <span className="flex h-11 items-center gap-2 rounded-full border border-border-hairline bg-bg-surface px-3.5 text-[13px] font-medium text-text-primary group-hover:border-amber-600">
             <span className="h-1.5 w-1.5 rounded-full bg-positive" aria-hidden="true" />
-            <span>thydilammuon</span>
-            <CaretDown size={13} className="text-text-secondary" aria-hidden="true" />
-          </button>
-          <div className="h-8 w-8 overflow-hidden rounded-full border border-border-hairline bg-bg-surface">
+            <span>@{CHANNEL_HANDLE}</span>
+            <span className="sr-only"> on Threads (opens in a new tab)</span>
+            <ArrowUpRight size={13} className="text-text-secondary group-hover:text-amber-700" aria-hidden="true" />
+          </span>
+          <span className="h-8 w-8 overflow-hidden rounded-full border border-border-hairline bg-bg-surface">
             <Image
               src="/photo-author.jpg"
-              alt="Channel author"
+              alt=""
               width={32}
               height={32}
               className="h-full w-full object-cover"
               style={{ transform: "scale(1.75)", transformOrigin: "50% 34%" }}
             />
-          </div>
-        </div>
+          </span>
+        </ChannelLink>
       </div>
 
       <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-1 px-6 pb-3">

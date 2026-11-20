@@ -18,7 +18,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Unthreaded",
   description:
-    "A statistics-first NLP analytics and knowledge-base project, built on one real Threads channel's own data.",
+    "An AI product built on one real Threads channel, @thydilammuon: NLP topic analytics and a RAG pipeline visualizer, statistics first.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
