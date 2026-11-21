@@ -365,7 +365,12 @@ Không dùng khối bar biểu đồ thu nhỏ, không dùng khung chữ nhật 
 ## 6. Component
 
 - **Đầu trang app** — `PageHeader` (`AppBlock.tsx`), một component cho mọi trang app (Thy 2026-10-31): eyebrow trang →
-  h1 40px → câu hỏi của trang 18px → chip mốc dữ liệu → mục lục khối (số + tên ngắn, cùng chữ với nhãn trên mỗi khối).
+  h1 40px → câu hỏi của trang 18px → dòng định nghĩa 15px (content unit ở Overview / Analytics / Topics; RAG + passage
+  ở RAG pipeline) → chip mốc dữ liệu
+  → mục lục khối (số + tên ngắn, cùng chữ với nhãn trên mỗi khối). Câu hỏi và định nghĩa chung khung 720px,
+  `[text-wrap:pretty]` (không `balance` — co từng đoạn một kiểu, hai lề lệch nhau; L5, Thy 2026-11-20). Dòng định nghĩa
+  là lớp phụ ở mọi trang có nó: tông `DEFINITION_TONE` (`typeScale.ts`, chữ text-muted, cụm in đậm text-secondary), chung với dòng định
+  nghĩa dưới pitch hero landing (Thy 2026-11-20: không lấn câu hỏi / pitch).
 - **Nhóm nút bật/tắt** — `ToggleGroup` (`AppBlock.tsx`), một kiểu cho mọi trang: chọn = viền + nền amber nhạt, chưa chọn
   = viền mảnh + nền trắng, 13px w600 (mono 12.5px khi nhãn là số như `30d`), vùng chạm 44px, `aria-pressed`.
 - **Số của cửa sổ thời gian (Overview)** — dải hero gradient (số chính) + hộp Key numbers của khối (§3b K). Dải KPI 6 số

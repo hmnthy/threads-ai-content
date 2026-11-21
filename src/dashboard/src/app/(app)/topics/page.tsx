@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/AppBlock";
+import { CONTENT_UNIT, RATE_DEFINITION } from "@/lib/appSections";
 import { ReloadError } from "@/components/ReloadError";
 import { TopicsView } from "@/components/TopicsView";
 import { noTopicsSentence, parisTime } from "@/lib/landing";
@@ -21,6 +22,9 @@ export default async function TopicsPage() {
         eyebrow="Group · Topics from text"
         title="Topic Explorer"
         question="What does the channel write about, and does any topic's engagement differ from the rest of the channel?"
+        // Định nghĩa đơn vị đếm ngay dưới câu hỏi, cùng câu với Overview / Analytics (Thy 2026-11-20: trang nào cũng
+        // định nghĩa ở đầu trang; khối 01 "How to read this page" giữ nguyên — Thy chọn)
+        definition={`${CONTENT_UNIT} ${RATE_DEFINITION}`}
         chips={
           summary
             ? [

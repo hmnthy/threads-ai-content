@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ChannelLink } from "@/components/ChannelLink";
-import { LandingBlocks, rich, Section, TYPE } from "@/components/AppBlock";
+import { DEFINITION_TONE, LandingBlocks, rich, Section, TYPE } from "@/components/AppBlock";
 import { formatIqrRange } from "@/components/DistributionCaption";
 import { UnitVsChannel } from "@/components/UnitVsChannel";
 import { CONTENT_UNIT } from "@/lib/appSections";
@@ -42,9 +42,9 @@ export function LandingHero({ data }: { data: LandingData | null }) {
         </div>
         {/* Định nghĩa ngay sau lần đầu dùng từ (Thy 2026-11-01: người lạ không gặp từ trước khi biết nghĩa) */}
         {/* Cùng khung 880px với pitch ngay trên (L5: một bề rộng cho khối chữ căn giữa của hero). Lớp phụ, nhạt hơn pitch
-            (Thy 2026-11-20: định nghĩa cần biết thêm, không phải hook — không được lấn pitch): chữ text-muted (#6b7280,
-            4.67:1 trên bg-page #fbfbfc, qua AA 4.5:1), cụm in đậm hạ từ text-primary xuống text-secondary */}
-        <p className={`m-0 max-w-[880px] ${TYPE.note} !text-text-muted [&_strong]:!text-text-secondary`}>
+            (Thy 2026-11-20: định nghĩa cần biết thêm, không phải hook — không được lấn pitch): tông DEFINITION_TONE,
+            chung với mọi dòng định nghĩa của `PageHeader` (4 trang app, kể cả RAG pipeline) */}
+        <p className={`m-0 max-w-[880px] ${TYPE.note} ${DEFINITION_TONE}`}>
           {rich(CONTENT_UNIT)}
         </p>
         <div className="flex flex-wrap justify-center gap-3">

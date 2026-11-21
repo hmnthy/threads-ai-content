@@ -41,3 +41,10 @@ export const TYPE = {
   // Thy 2026-10-29: chữ chạy hết bề rộng khung chứa — không chừa khoảng trắng bên phải (bỏ giới hạn 72ch)
   measure: "",
 } as const;
+
+// Tông màu của dòng định nghĩa dưới câu dẫn — hero landing + mọi `PageHeader` có `definition` (4 trang app, kể cả RAG)
+// (Thy 2026-11-20: định nghĩa là thông tin cần biết thêm, không phải trọng tâm — không được lấn câu dẫn). Ghép sau
+// vai cỡ chữ (TYPE.note ở landing, TYPE.body ở trang app): chữ text-muted #6b7280 (4.83:1 trên nền trắng, 4.67:1 trên
+// bg-page #fbfbfc — qua AA 4.5:1); cụm in đậm do `rich()` sinh hạ từ text-primary xuống text-secondary. `!` vì vai cỡ
+// chữ đã mang màu riêng.
+export const DEFINITION_TONE = "!text-text-muted [&_strong]:!text-text-secondary";

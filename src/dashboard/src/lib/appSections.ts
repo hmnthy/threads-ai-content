@@ -13,7 +13,7 @@ export const ANALYTICS_SECTIONS = [
   ["posting-time", "03", "Posting time"],
 ] as const;
 
-// Định nghĩa đơn vị đếm dưới câu hỏi đầu trang Overview + Analytics (Thy 2026-10-31: một tên "content units" cho mọi
+// Định nghĩa đơn vị đếm dưới câu hỏi đầu trang Overview / Analytics / Topics (Thy 2026-10-31: một tên "content units" cho mọi
 // trang; copy-reviewer: trang nào dùng thì trang đó định nghĩa). Cùng câu với khối 01 của /topics
 export const CONTENT_UNIT =
   "A **content unit** is one post as published, plus the follow-up parts its author added in the same thread; comments are left out.";
