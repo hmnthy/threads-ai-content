@@ -3,9 +3,9 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { CaretDown } from "@phosphor-icons/react";
 import { partOfWhole } from "@/lib/landing";
-import { TYPE } from "@/lib/typeScale";
+import { DEFINITION_TONE, TYPE } from "@/lib/typeScale";
 
-export { TYPE };
+export { DEFINITION_TONE, TYPE };
 
 // Biến thể khối theo tầng (design-system §3b X1/X3/X5, ADR-0032): app là mặc định. Landing dùng LẠI chính các khối
 // của trang app (C2 — một vai, một component; Thy 2026-11-01: panel Proof của landing = panel của /topics) qua
@@ -90,8 +90,12 @@ export function PageHeader({
       <div className="mx-auto flex w-full max-w-[1280px] flex-col items-center gap-4 px-6 pb-10 pt-12 text-center">
         <span className="text-[12px] font-semibold tracking-[0.14em] text-amber-700">{eyebrow.toUpperCase()}</span>
         <h1 className="m-0 text-[40px] font-bold leading-[1.1] tracking-[-0.025em] text-text-primary">{title}</h1>
-        <p className="m-0 max-w-[720px] text-[18px] leading-[1.55] text-text-secondary [text-wrap:balance]">{question}</p>
-        {definition ? <p className={`m-0 max-w-[720px] ${TYPE.body} [text-wrap:balance]`}>{rich(definition)}</p> : null}
+        {/* Câu hỏi + định nghĩa: CÙNG khung 720px, `pretty` (Thy chọn 2026-11-20). `balance` co từng đoạn một kiểu nên
+            hai lề lệch nhau (đo 1440px: /topics câu hỏi 469px, định nghĩa 522px) — L5, cùng lỗi hero 2026-11-19 */}
+        <p className="m-0 max-w-[720px] text-[18px] leading-[1.55] text-text-secondary [text-wrap:pretty]">{question}</p>
+        {definition ? (
+          <p className={`m-0 max-w-[720px] ${TYPE.body} ${DEFINITION_TONE} [text-wrap:pretty]`}>{rich(definition)}</p>
+        ) : null}
         {shown.length > 0 ? (
           <p className="m-0 flex flex-wrap justify-center gap-2 font-mono text-[12.5px] text-text-secondary">
             {shown.map((chip, i) => (

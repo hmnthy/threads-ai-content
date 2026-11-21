@@ -642,3 +642,31 @@ nhưng chưa báo cho trình đọc màn hình (chỉ pill topbar có "opens in 
 Vietnamese text" — kênh trộn Việt + Pháp; cân nhắc "the mostly Vietnamese text" khi chạm lại hero. (10) Luật máy đề xuất
 (lỗi lặp lần 2): tham chiếu dạng khoảng `:a-b#Tên` không tự dời khi code phía trên thêm dòng — `check` nên đòi dòng đầu
 khoảng chứa tên neo.
+
+### Định nghĩa content unit ở đầu Topic Explorer + tông nhạt chung (Thy chốt 2026-11-20)
+
+- Topic Explorer in cùng dòng định nghĩa với Overview / Analytics dưới câu hỏi đầu trang (`CONTENT_UNIT` +
+  `RATE_DEFINITION`). **Lý do:** Thy hỏi 2026-11-19 vì sao 2 trang có mà Topics không — nguyên nhân: khối 01 "How to read
+  this page" của Topics có trước khuôn `PageHeader` của ADR-0031, và ADR-0031 quyết định 2 chỉ áp định nghĩa đầu trang
+  cho Overview / Analytics. Khối 01 giữ nguyên câu của nó (Thy chọn: PR nhỏ nhất; ý lặp lại vẫn đúng, khối 01 còn các ý
+  riêng). Phương án bị bác: viết lại câu đầu khối 01 (cần thêm vòng duyệt chữ); không thêm lên đầu trang.
+- Mọi dòng định nghĩa của `PageHeader` (4 trang app: content unit ở Overview / Analytics / Topics, RAG + passage ở RAG
+  pipeline — Thy chọn RAG nhạt luôn cho một vai một kiểu) + hero landing dùng một tông `DEFINITION_TONE` (`typeScale.ts`): chữ text-muted
+  `#6b7280`, cụm in đậm text-secondary `#4b5563`. **Lý do:** Thy 2026-11-20 — định nghĩa là thông tin cần biết thêm, không
+  được lấn câu hỏi / pitch.
+- Câu hỏi + định nghĩa của `PageHeader` đổi `balance` → `pretty`, chung khung 720px (Thy chọn sau khi xem ảnh 2 kiểu).
+  **Lý do:** đo 1440px, `balance` làm 2 đoạn rộng khác nhau (/topics câu hỏi 469px, định nghĩa 522px; /analytics 555 vs
+  522). Đánh đổi Thy chấp nhận: dòng cuối ngắn — định nghĩa kết bằng "(its first post)." ~99px, câu hỏi /topics kết bằng
+  "the rest of the channel?" ~200px. Áp cả câu hỏi + định nghĩa của `/rag-pipeline` (dùng chung `PageHeader`; đo 1440px: câu hỏi 716px, định nghĩa
+  714/688/715px + dòng cuối "you choose." 87px).
+
+**NIT để sau (không sửa ở PR này).** (1) ADR-0031 quyết định 2 vẫn chỉ nêu Overview / Analytics — người đọc ADR không
+thấy quyết định 2026-11-20 (ADR Accepted giữ nguyên; nếu muốn bộ ADR tự đứng được → `/record-decision`). (2) Comment trên
+`PageHeader` (`AppBlock.tsx`) liệt kê thứ tự thiếu dòng định nghĩa (có từ trước). (3) Bảng màu design-system §2: vai của
+`--text-muted` chưa ghi "dòng định nghĩa phụ". (4) Chip mốc dữ liệu (#4b5563) đậm hơn dòng định nghĩa ngay trên nó
+(#6b7280). (5) /topics lặp ý định nghĩa ở đầu trang + khối 01 (Thy chọn giữ khối 01). (6) Cỡ chữ dòng định nghĩa: landing
+13px (`TYPE.note`), app 15px (`TYPE.body`) — chỉ màu là chung; Thy quyết: ghi ngoại lệ X9 cho hero, hay đưa landing lên
+15px (T3). (7) `UI-0031-content-unit-term` nêu `CONTENT_UNIT` mà chưa nêu `RATE_DEFINITION`. (8) Thứ tự import ở
+`topics/page.tsx`. (9) Ảnh 375px chụp bằng script tay (ngoài `ux-shots`) có thể bị nút công cụ Next.js che góc trái
+dưới — `ux-shots.mjs` đã ẩn `nextjs-portal`; script tay nên làm giống. (10) Luật làm việc đề xuất: đổi component dùng chung (`PageHeader`, `Section`,
+`KeyNumbers`) → grep mọi chỗ gọi và liệt kê đủ trong docs + phép đo (lần này sót `/rag-pipeline`, `code-reviewer` bắt).
