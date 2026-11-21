@@ -632,6 +632,11 @@ passages that answer it" (demo chỉ xếp hạng đoạn, không viết câu tr
 content unit chưa có views nên không được xếp) → "ranks content units". Phương án bị bác: "A case study on one real
 Threads channel" (Thy: chưa đủ mạnh, cần định vị sản phẩm AI).
 
+**Xem lại khi.** (1) Có tên miền riêng hoặc đổi tên kênh Threads: sửa một chỗ `CHANNEL_URL` (`ChannelLink.tsx`), kiểm
+link live (200). (2) Chatbot / knowledge base lên (sau cổng chất lượng ADR-0001): eyebrow + đoạn công nghệ của pitch phải
+nói thêm phần đó — hiện chỉ "NLP analytics + RAG pipeline visualizer". (3) Pitch hero thêm chữ hoặc đổi cỡ: đo lại bề rộng
+dòng (dòng dài nhất ≤ 880px, dòng cuối không < 25% dòng dài nhất) ở 1440 / 1024 / 375 trước khi gửi Thy (X8).
+
 **NIT để sau (không sửa ở PR này).** (1) Meta description kết thúc bằng cụm "statistics first" rời. (2) Trên 375px nút
 CTA hero nằm dưới màn hình đầu (pitch 6 + 5 dòng). (3) Chấm xanh trong pill topbar chưa rõ nghĩa — Thy quyết giữ/bỏ.
 (4) Trang RAG mang 2 tên ("RAG pipeline visualizer" ở hero, "RAG pipeline demo" ở lớp 03 + CTA cuối) — Thy chọn một
@@ -659,6 +664,12 @@ khoảng chứa tên neo.
   522). Đánh đổi Thy chấp nhận: dòng cuối ngắn — định nghĩa kết bằng "(its first post)." ~99px, câu hỏi /topics kết bằng
   "the rest of the channel?" ~200px. Áp cả câu hỏi + định nghĩa của `/rag-pipeline` (dùng chung `PageHeader`; đo 1440px: câu hỏi 716px, định nghĩa
   714/688/715px + dòng cuối "you choose." 87px).
+
+**Xem lại khi.** (1) Viết lại khối 01 "How to read this page" của Topics: bỏ câu trùng với dòng định nghĩa đầu trang.
+(2) Định nghĩa đổi chữ hoặc dài thêm: đo lại dòng cuối (hiện "(its first post)." ~99px) — nếu < 10% dòng dài nhất, cân
+nhắc rút câu hoặc đổi khung. (3) Thêm trang app mới dùng `PageHeader` có `definition`: tự nhận tông nhạt + `pretty` —
+liệt kê trang đó ở đây và trong `design-system.md`. (4) Firefox hỗ trợ `text-wrap: pretty`: không cần làm gì (hiện ngắt
+thường, cùng khung nên lề vẫn thẳng).
 
 **NIT để sau (không sửa ở PR này).** (1) ADR-0031 quyết định 2 vẫn chỉ nêu Overview / Analytics — người đọc ADR không
 thấy quyết định 2026-11-20 (ADR Accepted giữ nguyên; nếu muốn bộ ADR tự đứng được → `/record-decision`). (2) Comment trên
