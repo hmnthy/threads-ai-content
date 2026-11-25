@@ -10,6 +10,7 @@ import {
   MethodSection,
   Section,
   SubSection,
+  ControlLabel,
   ToggleGroup,
   topicOfUnit,
   TYPE,
@@ -353,7 +354,7 @@ function UnitBlock({
         keyNumbers
         controls={
           <div className="flex flex-wrap items-center gap-3">
-            <span className={TYPE.label}>Rate</span>
+            <ControlLabel>Rate</ControlLabel>
             <ToggleGroup label="Rate to compare" options={RATES} value={rate} onChange={onRate} />
           </div>
         }

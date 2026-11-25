@@ -145,6 +145,13 @@ export function SectionIndex({
   );
 }
 
+// Nhãn hiện của một nhóm nút (ToggleGroup) — một kiểu chữ cho mọi trang (label 12px, §3 vai "label · th"; reviewer
+// 2026-11-12: /rag-pipeline dùng TYPE.th, /analytics dùng TYPE.label). Bố cục (cạnh hay trên nhóm nút) do trang chọn.
+// Trang gọi: /analytics (`AnalyticsBreakdown`), /rag-pipeline (`RagPipelineView`).
+export function ControlLabel({ children }: { children: ReactNode }) {
+  return <span className={TYPE.label}>{children}</span>;
+}
+
 // Nhóm nút bật/tắt — MỘT kiểu cho mọi trang (ux-reviewer 2026-10-31: 3 kiểu toggle trên 3 trang, C2/C3): chọn = viền +
 // nền amber nhạt, chưa chọn = viền mảnh + nền trắng (vẫn trông bấm được), 13px w600, vùng chạm 44px, `aria-pressed`
 export function ToggleGroup<K extends string>({

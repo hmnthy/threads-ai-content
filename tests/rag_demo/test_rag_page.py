@@ -1,0 +1,309 @@
+"""Hàm chữ / số của trang /rag-pipeline (`src/dashboard/src/lib/ragPage.ts`).
+
+PR 2a (Thy chốt 2026-11-25). Chạy đúng file TypeScript của sản phẩm bằng node (như các test
+engine). Giá trị mong đợi viết tay, không đọc từ chính hàm đang thử; `nonGoldKept` còn được đối
+chiếu với bản Python `non_gold_kept` (một định nghĩa cho trang và bước dựng file).
+"""
+
+import copy
+from pathlib import Path
+from typing import Any
+
+from src.rag_demo.demo_file import non_gold_kept
+from tests.rag_demo.demo_fixture import WAYS, make_demo
+from tests.rag_demo.node_engine import run_driver
+
+DRIVER = """
+import { readFileSync } from "node:fs";
+const dir = process.argv[2];
+const page = await import(dir + "../ragPage.ts");
+const demoFile = await import(dir + "demoFile.ts");
+const cases = JSON.parse(readFileSync(process.argv[3], "utf8"));
+const out = cases.map((c) => {
+  if (c.fn === "nonGoldKept") return page.nonGoldKept(demoFile.parseDemoFile(c.demo), c.max);
+  if (c.fn === "honestExamples") {
+    return page.honestExamples(demoFile.parseDemoFile(c.demo)).map((e) => [e.question, e.passage]);
+  }
+  return page[c.fn](...c.args);
+});
+process.stdout.write(JSON.stringify(out));
+"""
+
+
+def call(tmp_path: Path, cases: list[dict[str, Any]]) -> list[Any]:
+    return run_driver(tmp_path, DRIVER, cases)
+
+
+def test_quartiles_inclusive_method(tmp_path: Path) -> None:
+    # statistics.quantiles([1, 2, 3, 4], n=4, method="inclusive") = [1.75, 2.5, 3.25];
+    # đầu vào chưa sắp xếp
+    got = call(
+        tmp_path,
+        [
+            {"fn": "quartiles", "args": [[4, 1, 3, 2]]},
+            {"fn": "quartiles", "args": [[7]]},
+        ],
+    )
+    assert got[0] == {"q1": 1.75, "median": 2.5, "q3": 3.25}
+    assert got[1] == {"q1": 7, "median": 7, "q3": 7}
+
+
+def test_character_count_counts_code_points_not_utf16_units(tmp_path: Path) -> None:
+    # 🇨🇵 = 2 điểm mã (4 đơn vị UTF-16): "🇨🇵a" có `.length` = 5 trong JS,
+    # nhưng 3 ký tự như len() của Python
+    got = call(tmp_path, [{"fn": "characterCount", "args": ["🇨🇵a"]}])
+    assert got == [len("🇨🇵a")] == [3]
+
+
+def test_show_emoji_spaces_glued_placeholders_and_names_flags(tmp_path: Path) -> None:
+    got = call(
+        tmp_path,
+        [
+            {"fn": "showEmoji", "args": ["▓But this"]},  # dính chữ sau → chèn 1 dấu cách
+            {"fn": "showEmoji", "args": ["rice ▓) and"]},  # dính dấu câu cũng tách
+            {"fn": "showEmoji", "args": ["end ▓ next"]},  # đã có dấu cách → không nhân đôi
+            {"fn": "showEmoji", "args": ["▓▓x"]},  # 2 emoji liền nhau → chỉ tách trước chữ
+            {"fn": "showEmoji", "args": ["the end▓"]},
+            {"fn": "showEmoji", "args": ["France 🇨🇵 and 🇫🇷!"]},
+            {"fn": "showEmoji", "args": ["Hanoi 🇻🇳"]},  # cờ khác → nhãn chung
+            {"fn": "showEmoji", "args": ["no placeholder"]},
+        ],
+    )
+    assert got == [
+        "[emoji] But this",
+        "rice [emoji] ) and",
+        "end [emoji] next",
+        "[emoji][emoji] x",
+        "the end[emoji]",
+        "France [French flag] and [French flag]!",
+        "Hanoi [flag]",
+        "no placeholder",
+    ]
+
+
+def test_score_text_haiku_is_a_whole_number(tmp_path: Path) -> None:
+    got = call(
+        tmp_path,
+        [
+            {"fn": "scoreText", "args": [3, "haiku", False]},
+            {"fn": "scoreText", "args": [0, "haiku", False]},
+            # dòng "not reranked" giữ điểm của bước trước → 6 chữ số
+            {"fn": "scoreText", "args": [0.0163934426, "haiku", True]},
+            {"fn": "scoreText", "args": [-2.5, "cross_encoder", False]},
+            {"fn": "scoreText", "args": [3, "none", False]},
+        ],
+    )
+    assert got == ["3", "0", "0.016393", "-2.500000", "3.000000"]
+
+
+def test_outcome_text_every_kind_and_the_k_boundary(tmp_path: Path) -> None:
+    rank = {"kind": "rank"}
+    got = call(
+        tmp_path,
+        [
+            {"fn": "outcomeText", "args": [{**rank, "from": 3, "to": 3}, 10]},
+            {"fn": "outcomeText", "args": [{**rank, "from": 10, "to": 10}, 10]},
+            {"fn": "outcomeText", "args": [{**rank, "from": 11, "to": 11}, 10]},
+            # khoảng hoà vắt mốc K → tính là trong top-K khi đầu khoảng ≤ K (ADR-0041)
+            {"fn": "outcomeText", "args": [{**rank, "from": 9, "to": 12}, 10]},
+            {"fn": "outcomeText", "args": [{"kind": "not-found"}, 10]},
+            {"fn": "outcomeText", "args": [{"kind": "filtered", "step": "haiku-filter"}, 10]},
+            {"fn": "outcomeText", "args": [{"kind": "filtered", "step": "near-duplicate"}, 10]},
+            {"fn": "outcomeText", "args": [{"kind": "filtered", "step": "metadata"}, 10]},
+            {"fn": "outcomeText", "args": [{"kind": "in-progress"}, 10]},
+        ],
+    )
+    assert got == [
+        "rank 3, inside the top 10",
+        "rank 10, inside the top 10",
+        "rank 11 (outside top 10)",
+        "rank 9–12 (tied), inside the top 10",
+        "not found: BM25 gives it a score of 0, because it shares no word with the question",
+        "filtered out at: Haiku relevance filter",
+        "filtered out at: near-duplicate filter",
+        "filtered out at: metadata filter",
+        "in progress",
+    ]
+
+
+def _question(rule: str, number: int = 4, spans: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {"number": number, "rule": rule, "gold_spans": spans or {}, "gold_unit_ids": []}
+
+
+def test_answer_sentence_is_grammatical_for_every_outcome(tmp_path: Path) -> None:
+    one = _question("single")
+    both = _question("both")
+
+    def sentence(question: dict[str, Any], main: dict[str, Any] | None) -> dict[str, Any]:
+        return {
+            "fn": "answerSentence",
+            "args": [question, None if main is None else {"main": main}, 10],
+        }
+
+    got = call(
+        tmp_path,
+        [
+            sentence(one, {"kind": "rank", "from": 2, "to": 2}),
+            sentence(both, {"kind": "rank", "from": 14, "to": 14}),
+            sentence(one, {"kind": "not-found"}),
+            sentence(both, {"kind": "not-found"}),
+            sentence(one, {"kind": "filtered", "step": "near-duplicate"}),
+            sentence(one, {"kind": "in-progress"}),
+            sentence(_question("none", number=10), None),
+        ],
+    )
+    assert got == [
+        "The correct answer is at rank 2, inside the top 10.",
+        "The answer needs 2 content units; the later one to appear is at rank 14 (outside top 10).",
+        "The correct answer is not found: BM25 gives it a score of 0, "
+        "because it shares no word with the question.",
+        "The answer needs 2 content units; the later one to appear is not found: "
+        "BM25 gives it a score of 0, because it shares no word with the question.",
+        "The correct answer was removed by the near-duplicate filter.",
+        "The correct answer cannot be ranked yet: this setup is in progress.",
+        "No content unit answers Q10, so there is no correct passage to rank. "
+        "The list shows what retrieval returns anyway: the top passage is only the closest match.",
+    ]
+    # nhánh cũ ghép "is at" với câu not-found → "is at not found" (lỗi reviewer 2026-11-12)
+    assert not any("at not found" in s for s in got)
+
+
+def test_gold_rank_note_by_question_rule(tmp_path: Path) -> None:
+    got = call(
+        tmp_path,
+        [
+            {"fn": "goldRankNote", "args": [_question("none"), 10]},
+            {"fn": "goldRankNote", "args": [_question("both"), 10]},
+            {"fn": "goldRankNote", "args": [_question("single", spans={"u1": [[0, 5]]}), 10]},
+            {"fn": "goldRankNote", "args": [_question("single"), 7]},
+        ],
+    )
+    assert got == [
+        "This question has no answer in the content units.",
+        "The answer needs 2 content units: this is the rank of the one found later "
+        "(each counted at its best-ranked passage), before the top-10 cut.",
+        "Rank of the best-ranked passage that contains part of the answering text, "
+        "before the top-10 cut.",
+        "Rank of the best-ranked passage from the answering content unit, before the top-7 cut.",
+    ]
+
+
+def _scored_demo() -> dict[str, Any]:
+    """2 câu hỏi × 4 đoạn.
+
+    Câu 1: đáp án = đoạn 1 ở cách chia "whole", đoạn 0 ở mọi cách khác (đáp án gộp qua mọi cách
+    chia → đoạn 0 và 1); Haiku chấm 3, 2, 3, 1 → ngoài đáp án giữ đoạn 2 (điểm 3).
+    Câu 2: không đáp án, chấm 2, 0, 3, 2."""
+    demo = make_demo(["a", "b", "c", "d"])
+    first = demo["questions"][0]
+    first["rule"] = "single"
+    first["gold_unit_ids"] = ["u1"]
+    first["gold_chunks"] = {way: {"u1": [0]} for way in WAYS}
+    first["gold_chunks"]["whole"] = {"u1": [1]}
+
+    def llm(scores: list[int]) -> list[dict[str, Any]]:
+        return [
+            {"score": s, "quote": None, "quote_en": None, "quote_dropped": None} for s in scores
+        ]
+
+    first["llm"] = llm([3, 2, 3, 1])
+    second = copy.deepcopy(first)
+    second.update(number=2, rule="none", gold_unit_ids=[], gold_chunks={way: {} for way in WAYS})
+    second["llm"] = llm([2, 0, 3, 2])
+    demo["questions"] = [first, second]
+    return demo
+
+
+def test_non_gold_kept_denominator_is_pairs_outside_the_answers(tmp_path: Path) -> None:
+    demo = _scored_demo()
+    [got] = call(tmp_path, [{"fn": "nonGoldKept", "demo": demo, "max": 3}])
+    # câu 1: ngoài đáp án = đoạn 2, 3 → giữ 1 (đoạn 2, điểm 3);
+    # câu 2: cả 4 đoạn → giữ 3 (một ở điểm 3)
+    assert got == {"total": 4, "top": 2, "pairs": 2 + 4, "allPairs": 2 * 4}
+    # một định nghĩa với bản Python mà bước dựng file dùng
+    assert got["total"] == sum(non_gold_kept(demo).values())
+
+
+# Khoá của 2 ví dụ (`HONEST_EXAMPLES` trong ragPage.ts) — viết tay ở đây, không đọc từ code đang thử
+UNIT_55 = "18153699859548704"
+UNIT_52 = "18645332647003724"
+
+
+def _example_demo(
+    *,
+    score_2: int = 2,
+    score_7: int = 2,
+    gold_7: bool = False,
+    unit_55: str = UNIT_55,
+    text_52: str = "Có trên Amazon. Lượt đánh giá cỡ này chỉ có thể là cây bút quốc dân.",
+) -> dict[str, Any]:
+    """Đủ 56 đoạn để chạm 2 cặp cố định (câu 2 · đoạn 55, câu 7 · đoạn 52).
+
+    Đoạn 55 thuộc bài `unit_55`, đoạn 52 thuộc bài UNIT_52; câu tự đặt, chỉ mang mẩu chữ neo."""
+    demo = make_demo([f"t{i}" for i in range(56)])
+    base_unit = demo["units"][0]
+    for uid in {unit_55, UNIT_52} - {"u1"}:
+        demo["units"].append(
+            {
+                **copy.deepcopy(base_unit),
+                "id": uid,
+                "posts": [{"id": f"p{uid}", "start": 0, "end": 20}],
+            }
+        )
+    for index, uid, text in (
+        (55, unit_55, "Chợ có đồ marque của Gant, Tommy kiểu déstockage."),
+        (52, UNIT_52, text_52),
+    ):
+        demo["passages"][index].update(unit=uid, text=text, en=text)
+        for way in WAYS:
+            demo["ways"][way][index]["unit"] = uid
+    base = demo["questions"][0]
+    questions = []
+    for number, passage, score in ((2, 55, score_2), (7, 52, score_7)):
+        q = copy.deepcopy(base)
+        q["number"] = number
+        q["llm"] = [dict(cell) for cell in base["llm"]]
+        q["llm"][passage] = {**q["llm"][passage], "score": score}
+        questions.append(q)
+    if gold_7:
+        questions[1].update(rule="single", gold_unit_ids=[UNIT_52])
+        questions[1]["gold_chunks"] = {way: {UNIT_52: [52]} for way in WAYS}
+    demo["questions"] = questions
+    return demo
+
+
+def test_honest_examples_keep_only_pairs_that_still_match_their_key(tmp_path: Path) -> None:
+    cases = [
+        _example_demo(score_7=3),
+        _example_demo(score_2=1),  # câu 2 chấm 1 < mức giữ → bỏ
+        _example_demo(gold_7=True),  # đoạn 52 nay là đáp án câu 7 → bỏ
+        # file dựng lại: đoạn số 55 nay thuộc bài khác (vẫn được giữ, ngoài đáp án) → bỏ
+        _example_demo(unit_55="u1"),
+        # đoạn 52 vẫn đúng bài nhưng không còn mẩu chữ neo → bỏ
+        _example_demo(text_52="Một đoạn khác của cùng bài."),
+        make_demo(["only"]),  # không có câu 2 / 7 → không ví dụ nào
+    ]
+    got = call(tmp_path, [{"fn": "honestExamples", "demo": demo} for demo in cases])
+    assert got == [[[2, 55], [7, 52]], [[7, 52]], [[2, 55]], [[7, 52]], [[2, 55]], []]
+
+
+def test_example_count_words_follow_how_many_examples_are_shown(tmp_path: Path) -> None:
+    got = call(
+        tmp_path,
+        [
+            {"fn": "examplesHeading", "args": [2, 43]},
+            {"fn": "examplesHeading", "args": [1, 43]},
+            {"fn": "examplesHeading", "args": [2, 1043]},
+            {"fn": "examplesPointer", "args": [2]},
+            {"fn": "examplesPointer", "args": [1]},
+            {"fn": "examplesPointer", "args": [0]},
+        ],
+    )
+    assert got == [
+        "Two of the 43 extra pairs",
+        "One of the 43 extra pairs",
+        "Two of the 1,043 extra pairs",
+        " (real examples below)",
+        " (a real example below)",
+        "",
+    ]

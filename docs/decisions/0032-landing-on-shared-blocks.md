@@ -27,7 +27,7 @@
 1. **Landing dùng lại chính các khối của trang app** (C2): ngữ cảnh `LandingBlocks`
    (`src/dashboard/src/components/AppBlock.tsx:25#LandingBlocks`) đổi hình khối theo tầng B — tiêu đề lùi 1 cấp (X1, component tiêu
    đề `H`, `:43#H`), panel bo 20px (X3), "Method and limits" thu gọn sẵn (X5), link thuật ngữ trỏ sang bảng thuật ngữ của
-   /topics (`TermMore`, `:521#TermMore`), số + tên ngắn của khối theo id. Section Proof (`LandingProofSection.tsx:23#LandingProof`) = 3 khối
+   /topics (`TermMore`, `:528#TermMore`), số + tên ngắn của khối theo id. Section Proof (`LandingProofSection.tsx:23#LandingProof`) = 3 khối
    của /topics: chủ đề + bản đồ 3D nhiều màu (`TopicProfilePanel`, bỏ bảng mọi content unit, `TopicsView.tsx:151#TopicProfilePanel`),
    topic so với kênh (`TopicEngagementPanel`, `LandingProof.tsx:39#TopicEngagementPanel` — câu hỏi "differ" như /topics), độ bền
    (`StabilityPanel`, `TopicsView.tsx:627#StabilityPanel`). Bản landing riêng của panel engagement và panel cấu trúc bỏ.
