@@ -14,6 +14,7 @@
 jour toutes les 4 heures quand l'ordinateur portable de l'autrice est allumé ; sinon, il garde la
 dernière mise à jour, datée sur la page.
 
+Threads n'explique pas aux créateurs pourquoi une publication décolle et la suivante non.
 Ce projet prend un vrai compte Threads, **[@thydilammuon](https://www.threads.net/@thydilammuon)**
 (une créatrice vietnamienne vivant en France), comme cas d'étude en conditions réelles : chaque
 chiffre affiché sur le dashboard provient d'une formule documentée et citée — jamais d'un score
@@ -27,13 +28,18 @@ chiffre affiché sur le dashboard provient d'une formule documentée et citée �
 - **Statistiques :** chaque groupe affiche sa médiane, son IQR et son n ; les sujets sont comparés
   par des tests de permutation de Brunner-Munzel, le delta de Cliff avec un intervalle de confiance
   à 95 %, et la correction de Holm.
-- **Démo RAG :** recherche BM25, dense et hybride, puis reranking par cross-encoder ou LLM, sur 10
-  questions dont les bonnes réponses ont été fixées à l'avance. Elle classe des passages sources ;
-  elle n'écrit aucune réponse.
+- **Démo de recherche (RAG) :** sur 19 fils figés (chacun une publication d'ouverture et, s'il y en
+  a, les suites de l'autrice) et 10 questions de test dont les bonnes réponses ont été fixées à l'avance (l'une n'a
+  pas de réponse dans ces fils, pour repérer les fausses correspondances), comparer la recherche BM25, dense et hybride, avec un reranking
+  optionnel par cross-encoder ou LLM. Elle classe des passages sources ; elle n'écrit aucune
+  réponse.
 - **Ingénierie :** les décisions sont consignées dans des ADR (Architecture Decision Records), la
   plupart appuyés par des règles vérifiées automatiquement ; la CI tourne sur chaque pull request ;
   et les commits faits par l'IA qui touchent la logique doivent passer une revue obligatoire
   ([comment](#comment-ce-dépôt-est-construit)).
+- **Où il va :** une base de connaissances interrogeable, faite des publications du compte et des
+  réponses de l'autrice aux questions des abonnés ; un assistant de questions-réponses seulement une
+  fois que cette base atteint un seuil de qualité de recherche.
 
 ---
 
@@ -214,7 +220,8 @@ testent ; l'autrice prend chaque décision. Chaque changement passe les mêmes c
   dashboard change. La CI les relance sur une machine propre pour chaque pull request, avec un
   `next build` complet.
 - **Une branche, une pull request.** Chaque changement vit sur sa propre branche dans un git
-  worktree séparé, n'est fusionné qu'avec une CI verte, et arrive par un merge commit. Le dossier
+  worktree séparé, n'est fusionné qu'une fois la CI passée (une règle de travail ; pas encore de
+  protection de branche), et arrive par un merge commit. Le dossier
   principal reste sur `main`, car les tâches planifiées s'exécutent depuis lui.
 - **Des agents IA derrière une revue obligatoire.** Des sous-agents spécialisés (code-reviewer,
   consistency-auditor, qa-tester, ux-reviewer avec de vraies captures d'écran à plusieurs largeurs
@@ -224,8 +231,13 @@ testent ; l'autrice prend chaque décision. Chaque changement passe les mêmes c
   Un git hook bloque tout commit fait par un agent qui touche la logique, sauf si code-reviewer a
   relu exactement ce contenu ([`review_gate.py`](scripts/review_gate.py), ADR-0015). La
   configuration des agents elle-même reste privée (ADR-0027).
-- **Des règles fixées avant les résultats.** RQ-01 a fixé sa règle de décision avant de lancer
-  l'expérience. 0 conclusion sur les sujets l'a passée, et le résultat est rapporté tel quel
+- **Des règles fixées avant les résultats.** La question de recherche RQ-01 demandait si les
+  conclusions « sujet plus haut ou plus bas que le reste du compte » tiennent quand on refait le
+  clustering avec une autre graine aléatoire et un autre ordre des fils : 100 fois sur les 165 fils,
+  100 fois en retirant 3 % d'entre eux (5 fils). Sa règle de validation (tenir dans au
+  moins 75 des 100 relances avec retrait) a été fixée avant l'exécution. Aucune conclusion ne l'a
+  satisfaite : aucune n'était significative même lors de l'exécution d'origine, et le résultat est
+  rapporté tel quel
   ([`RQ-01`](docs/rq/RQ-01-seed-stability.md)).
 
 ## État du projet

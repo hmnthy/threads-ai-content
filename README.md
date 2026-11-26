@@ -12,6 +12,7 @@
 **Live site:** [unthreaded-analytics.vercel.app](https://unthreaded-analytics.vercel.app) — updated
 every 4 hours while the author's laptop is on; otherwise it keeps the last update, dated on the page.
 
+Threads doesn't tell creators why one post takes off and the next one doesn't.
 This project treats one real Threads channel, **[@thydilammuon](https://www.threads.net/@thydilammuon)**
 (a Vietnamese creator living in France), as a live case study: every number on the dashboard is
 computed from a documented, cited formula — never a black-box score.
@@ -22,12 +23,17 @@ computed from a documented, cited formula — never a black-box score.
   by Claude; a Code-Mixing Index for posts that mix Vietnamese, French and English.
 - **Statistics:** every group shows its median, IQR and n; topics are compared with Brunner-Munzel
   permutation tests, Cliff's delta with a 95% confidence interval, and Holm correction.
-- **RAG demo:** BM25, dense and hybrid retrieval, then cross-encoder or LLM reranking, on 10
-  questions whose correct answers were fixed in advance. It ranks source passages; it writes no
-  answer.
+- **Retrieval (RAG) demo:** on 19 frozen threads (each an opening post plus any follow-up posts
+  by the author) and 10 questions whose correct answers were fixed in advance (one has no answer in these
+  threads, to catch false matches), compare BM25, dense and hybrid retrieval, with optional
+  cross-encoder or LLM reranking. It ranks source passages; it
+  writes no answer.
 - **Engineering:** decisions are recorded as ADRs (Architecture Decision Records), most backed by
   machine-checked rules; CI runs on every pull request; and AI-made commits that touch logic must
   pass a mandatory review gate ([how](#how-this-repo-is-built)).
+- **Where it's heading:** a searchable knowledge base of the channel's posts and the author's
+  answers to follower questions; a Q&A assistant only once that knowledge base passes a
+  retrieval-quality bar.
 
 ---
 
@@ -198,7 +204,8 @@ makes every decision. Every change passes the same gates a team would set.
   fast pytest suite, plus ESLint and TypeScript checks when the dashboard changes. CI re-runs them
   on a clean machine for every pull request, including a full `next build`.
 - **One branch, one pull request.** Each change lives on its own branch in a separate git worktree,
-  merges only with green CI, and lands as a merge commit. The main checkout stays on `main` because
+  is merged only after CI passes (a working rule; no branch protection yet), and lands as a merge
+  commit. The main checkout stays on `main` because
   the scheduled jobs run from it.
 - **AI agents behind a review gate.** Specialised subagents (code-reviewer, consistency-auditor,
   qa-tester, ux-reviewer with real screenshots at several widths and accessibility checks,
@@ -207,8 +214,13 @@ makes every decision. Every change passes the same gates a team would set.
   Face Hub, Context7 library docs). A git hook blocks any agent-made commit that touches logic
   unless code-reviewer reviewed exactly that content ([`review_gate.py`](scripts/review_gate.py),
   ADR-0015). The agent configuration itself stays private (ADR-0027).
-- **Rules fixed before results.** RQ-01 fixed its decision rule before the experiment ran. 0 topic
-  conclusions passed, and the result is reported as it is
+- **Rules fixed before results.** Research question RQ-01 asked whether a topic's "higher or lower
+  than the rest of the channel" conclusions survive re-running the clustering with a new random
+  seed and thread order: 100 times on all 165 threads, and 100 times with 3% of them (5 threads)
+  dropped. Its pass rule (hold in at least 75 of the 100 runs with threads dropped) was fixed
+  before the run.
+  No conclusion passed: none was significant even on the original run, and the result is reported
+  as is
   ([`RQ-01`](docs/rq/RQ-01-seed-stability.md)).
 
 ## Project status

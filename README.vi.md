@@ -14,6 +14,7 @@
 nhật 4 giờ một lần khi laptop của tác giả đang mở; lúc laptop tắt, trang giữ lần cập nhật cuối, có ghi
 ngày trên trang.
 
+Threads không cho creator biết vì sao bài này "nổ" còn bài kia thì không.
 Dự án này chọn đúng 1 kênh Threads thật, **[@thydilammuon](https://www.threads.net/@thydilammuon)**
 (một người Việt đang sống tại Pháp), làm case study thật: mọi con số trên dashboard đều được tính
 từ một công thức đã ghi chép rõ ràng, có nguồn tham khảo — không bao giờ là một điểm số "hộp đen".
@@ -24,11 +25,16 @@ từ một công thức đã ghi chép rõ ràng, có nguồn tham khảo — kh
   tiếng Anh; Code-Mixing Index đo các bài trộn tiếng Việt, tiếng Pháp và tiếng Anh.
 - **Thống kê:** mỗi nhóm bài hiện median, IQR và n; chủ đề được so bằng phép kiểm hoán vị
   Brunner-Munzel, Cliff's delta kèm khoảng tin cậy 95%, và hiệu chỉnh Holm.
-- **Demo RAG:** truy xuất BM25, dense và hybrid, rồi rerank bằng cross-encoder hoặc LLM, trên 10
-  câu hỏi có đáp án đúng chốt trước. Demo xếp hạng đoạn nguồn; không viết câu trả lời.
+- **Demo truy xuất (RAG):** trên 19 thread đóng băng (mỗi thread = bài mở đầu + các bài tác giả viết
+  tiếp, nếu có) và 10 câu hỏi thử có đáp án đúng chốt trước (một câu không có đáp án trong các thread này,
+  để bắt khớp nhầm), so sánh truy xuất BM25, dense và hybrid, có
+  thể rerank thêm bằng cross-encoder hoặc LLM. Demo xếp hạng đoạn nguồn; không viết câu trả lời.
 - **Kỹ thuật:** quyết định được ghi thành ADR (Architecture Decision Record — biên bản quyết định
   kiến trúc), phần lớn có luật máy kiểm đi kèm; CI chạy ở mọi pull request; và commit do AI làm mà
   chạm logic phải qua một cổng review bắt buộc ([cách làm](#repo-này-được-xây-dựng-thế-nào)).
+- **Hướng tới:** một knowledge base tra cứu được, gồm các bài của kênh và câu trả lời của tác giả cho
+  câu hỏi của follower; trợ lý hỏi đáp chỉ làm khi knowledge base đó qua được ngưỡng chất lượng truy
+  xuất.
 
 ---
 
@@ -201,7 +207,8 @@ review và test; tác giả ra mọi quyết định. Mọi thay đổi qua đú
   nhanh, thêm ESLint và kiểm TypeScript khi dashboard đổi. CI chạy lại các cổng đó trên máy sạch ở
   mọi pull request, gồm cả một lần `next build` đầy đủ.
 - **Một nhánh, một pull request.** Mỗi thay đổi nằm trên nhánh riêng trong một git worktree riêng,
-  chỉ merge khi CI xanh, và vào `main` bằng merge commit. Thư mục chính luôn ở `main` vì các job
+  chỉ được merge sau khi CI xanh (quy ước làm việc; GitHub chưa bật branch protection), và vào
+  `main` bằng merge commit. Thư mục chính luôn ở `main` vì các job
   định kỳ chạy từ đó.
 - **AI agent sau một cổng review.** Các subagent chuyên trách (code-reviewer, consistency-auditor,
   qa-tester, ux-reviewer với ảnh chụp thật ở nhiều khổ màn hình và kiểm tra accessibility,
@@ -211,8 +218,11 @@ review và test; tác giả ra mọi quyết định. Mọi thay đổi qua đú
   logic, trừ khi code-reviewer đã review đúng nội dung đó
   ([`review_gate.py`](scripts/review_gate.py), ADR-0015). Bản thân cấu hình agent được giữ riêng
   tư (ADR-0027).
-- **Luật chốt trước khi có kết quả.** RQ-01 chốt luật quyết định trước khi chạy thí nghiệm. 0 kết
-  luận về chủ đề qua luật, và kết quả được báo cáo đúng như vậy
+- **Luật chốt trước khi có kết quả.** Câu hỏi nghiên cứu RQ-01 hỏi: các kết luận "chủ đề cao hơn
+  hoặc thấp hơn phần còn lại của kênh" có còn đứng vững khi gom cụm lại với seed và thứ tự thread khác
+  không: 100 lần trên đủ 165 thread, 100 lần bỏ bớt 3% (5 thread). Luật qua (giữ được ở ít nhất 75
+  trong 100 lần bỏ thread) được chốt trước khi chạy. Không kết luận nào qua: ngay ở lần chạy gốc đã không kết luận nào có ý nghĩa thống kê, và kết
+  quả được báo cáo đúng như vậy
   ([`RQ-01`](docs/rq/RQ-01-seed-stability.md)).
 
 ## Trạng thái dự án
