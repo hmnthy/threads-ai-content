@@ -20,8 +20,10 @@ import {
 // Màu = color-mix giữa 2 token amber (không hex rời). Trần 65% amber-700: tính trên
 // OKLab, ô đậm nhất có luminance ~0.26 → chữ --text-primary vẫn đạt ~4.9:1, nên mọi
 // ô dùng chung 1 màu chữ, không phải đổi trắng/đen theo nền.
-const MIX_MIN = 8;
-const MIX_MAX = 65;
+// Export (PR 2b): heatmap cosine của /rag-pipeline (`RagPipelineView.tsx#EmbeddingBlock`) dùng CÙNG thang — một thang
+// tuần tự amber cho mọi heatmap của sản phẩm (§9). Trang gọi: /analytics (file này), /rag-pipeline.
+export const MIX_MIN = 8;
+export const MIX_MAX = 65;
 
 const CLOCKS = [
   { timezone: "Europe/Paris", label: "Paris time" },

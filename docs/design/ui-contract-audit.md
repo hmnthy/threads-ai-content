@@ -508,7 +508,7 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
   |---|---|---|---|
   | 1 | Loader | khối Loading (thống kê + xem từng bài theo post) | tổng ký tự, bảng thống kê cả 19 bài → PR 2 |
   | 2 | Chunking | 7 cách chia trong khối "Ranked passages" | **xong ở PR 2b**: khối riêng 03 "Chunking" — bảng cỡ đoạn 7 cách (Thy D3), đoạn của 1 bài, công tắc câu ngữ cảnh; một lựa chọn chung với khối kết quả (Thy D2). Dense của đoạn kèm câu ngữ cảnh → PR 3 |
-  | 3 | Embedding | tính sẵn, giải thích trong Method | bước riêng: bản đồ nhiệt cosine, láng giềng gần (ma trận đã có trong file) → PR 2 |
+  | 3 | Embedding | tính sẵn, giải thích trong Method | **xong ở PR 2b**: khối riêng 04 "Embedding" — heatmap cosine 19 × 19 bài (cách "whole") + 5 đoạn gần nhất của 1 đoạn ở cách chia đang chọn (Thy D1); cùng thang màu amber với heatmap giờ đăng `/analytics` |
   | 4 | Vector DB | không có, có chủ đích (ADR-0037 D3: điểm tính sẵn trong 1 file + chỉ mục BM25 trong trình duyệt) | — (bản đồ nói rõ) |
   | 7 | Pre-retrieval | chưa có (câu biến đổi đã lưu, BM25 tìm được; điểm dense của chúng còn chờ — `provenance.pending`; engine sẵn) | PR 3 (cùng ô gõ tự do); `self_query`, `route` của chuẩn không có trong ADR-0037 D7 |
   | 8 | Retrieval | BM25 / dense / hybrid RRF | weighted / DBSF → PR 4; `parent_document`, `sentence_window`, `multi_hop` không có trong ADR |

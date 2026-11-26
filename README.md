@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml/badge.svg)](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-1572%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1574%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.

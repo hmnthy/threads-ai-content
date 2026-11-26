@@ -3,6 +3,7 @@
 // copy-reviewer đọc rồi Thy duyệt. File thường (không "use client") để server component import được.
 import type { DemoFile, Question, Way } from "./ragDemo/demoFile.ts";
 import type { Outcome } from "./ragDemo/answer.ts";
+import { cosineOf } from "./ragDemo/filters.ts";
 import type { Rerank } from "./ragDemo/rerank.ts";
 import type { Retriever, RetrievalStatus } from "./ragDemo/retrieve.ts";
 
@@ -16,10 +17,11 @@ export const RAG_SECTIONS = [
   ["pipeline", "01", "Pipeline map"],
   ["loading", "02", "Loading"],
   ["chunking", "03", "Chunking"],
-  ["question", "04", "Question"],
-  ["passages", "05", "Ranked passages"],
-  ["about", "06", "About this demo"],
-  ["terms", "07", "Terms"],
+  ["embedding", "04", "Embedding"],
+  ["question", "05", "Question"],
+  ["passages", "06", "Ranked passages"],
+  ["about", "07", "About this demo"],
+  ["terms", "08", "Terms"],
 ] as const;
 
 // Bản đồ pipeline: các bước theo đúng số + tên của repo mẫu (README vietnh1009/RAG-pipeline-visualizer, đọc
@@ -73,9 +75,10 @@ export const PIPELINE_STEPS: readonly PipelineStep[] = [
     stage: "indexing",
     optional: false,
     status: "fixed",
-    block: "passages",
+    block: "embedding",
     // copy-reviewer 2026-11-12: "BM25 needs no vectors" dễ bị bắt bẻ — BM25 vẫn là một vector thưa (đếm từ)
-    what: "Dense: OpenAI text-embedding-3-small vectors, made before publishing. Sparse: BM25 represents a passage by its word counts instead of a learned vector; those counts are rebuilt in your browser for the chunking you pick. A view of how similar the passages are to each other (cosine similarity, already in the file) comes in a later version.",
+    // PR 2b: khối Embedding riêng; BM25 dựng lại cả khi bật / tắt câu ngữ cảnh (copy-reviewer PR 2b vòng 1)
+    what: "Dense: OpenAI text-embedding-3-small vectors, made before publishing; the page shows how similar the content units and passages are to each other. Sparse: BM25 represents a passage by its word counts instead of a learned vector; those counts are rebuilt in your browser for the chunking and context-sentence setting you pick.",
   },
   {
     number: 4,
@@ -175,6 +178,55 @@ export function chunkStats(demo: DemoFile, way: Way): ChunkStats {
     withContext,
     lengths: { ...quartiles(lengths), min: Math.min(...lengths), max: Math.max(...lengths) },
   };
+}
+
+// Khối Embedding (PR 2b, Thy chọn D1 2026-11-26): heatmap cosine giữa các bài (cách "whole") + láng giềng gần của 1 đoạn.
+// Cosine đọc từ file (`cosine[way]`, tam giác trên theo hàng, thứ tự mã chunk — `cosineOf`), không tính lại.
+export type CosinePair = { value: number; a: number; b: number }; // a < b: mã chunk của cách chia
+export type CosineSpread = { pairs: number; q1: number; median: number; q3: number; low: CosinePair; high: CosinePair };
+
+// Phân bố cosine mọi cặp đoạn khác nhau của một cách chia; null khi < 2 đoạn (không có cặp nào). Hoà ở cặp thấp / cao
+// nhất → cặp đứng trước theo thứ tự hàng (mã chunk nhỏ hơn) — một luật, để câu chữ không đổi giữa hai lần dựng trang
+export function cosineSpread(demo: DemoFile, way: Way): CosineSpread | null {
+  const n = demo.ways[way].length;
+  const values = demo.cosine[way];
+  if (n < 2 || values.length === 0) return null;
+  let low: CosinePair | null = null;
+  let high: CosinePair | null = null;
+  let k = 0;
+  for (let a = 0; a < n; a += 1) {
+    for (let b = a + 1; b < n; b += 1) {
+      const value = values[k];
+      if (low === null || value < low.value) low = { value, a, b };
+      if (high === null || value > high.value) high = { value, a, b };
+      k += 1;
+    }
+  }
+  return { pairs: values.length, ...quartiles(values), low: low!, high: high! };
+}
+
+// Số láng giềng gần hiện cho một đoạn: lựa chọn thiết kế (Thy D1: "top-5"), không có bằng chứng tối ưu
+export const NEIGHBOURS = 5;
+
+// `count` đoạn có cosine cao nhất với đoạn `chunk` (không tính chính nó); cosine bằng nhau → đoạn đứng trước theo mã
+// chunk (sắp xếp ổn định trên thứ tự mã)
+export function nearestPassages(
+  demo: DemoFile,
+  way: Way,
+  chunk: number,
+  count: number,
+): { chunk: number; cosine: number }[] {
+  const n = demo.ways[way].length;
+  const others: { chunk: number; cosine: number }[] = [];
+  for (let other = 0; other < n; other += 1) {
+    if (other !== chunk) others.push({ chunk: other, cosine: cosineOf(demo, way, chunk, other) });
+  }
+  return others.sort((x, y) => y.cosine - x.cosine || x.chunk - y.chunk).slice(0, count);
+}
+
+// Cosine hiện trên trang: 3 chữ số (file lưu 6 — Method nói rõ)
+export function cosineText(value: number): string {
+  return value.toFixed(3);
 }
 
 // Bộ tìm thật sự xếp danh sách: "hybrid rơi về BM25" (câu ngữ cảnh có hiệu lực, dense còn chờ — ADR-0041 Luật chung 8)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AnswerRow,
   ControlLabel,
@@ -15,6 +15,7 @@ import {
   UnitText,
   type KeyNumber,
 } from "@/components/AppBlock";
+import { MIX_MAX, MIX_MIN } from "@/components/PostingTimeHeatmap";
 import { TermGroups, type TermGroup } from "@/components/TermGlossary";
 import { getRagDemoFile } from "@/lib/api";
 import { count } from "@/lib/landing";
@@ -29,7 +30,7 @@ import {
   type Unit,
   type Way,
 } from "@/lib/ragDemo/demoFile.ts";
-import { chunkParts, haikuKeeps } from "@/lib/ragDemo/filters.ts";
+import { chunkParts, cosineOf, haikuKeeps } from "@/lib/ragDemo/filters.ts";
 import { DEFAULT_PIPELINE, runPipeline, type PipelineResult } from "@/lib/ragDemo/pipeline.ts";
 import { RRF_K } from "@/lib/ragDemo/fuse.ts";
 import { TOP_N_DEFAULT, type Rerank } from "@/lib/ragDemo/rerank.ts";
@@ -40,10 +41,15 @@ import {
   characterCount,
   chunkStats,
   CONTEXT_SHOWN,
+  cosineSpread,
+  cosineText,
   IN_PROGRESS_SHOWN,
+  NEIGHBOURS,
+  nearestPassages,
   rankedBy,
   unitPassagesNote,
   type ChunkStats,
+  type CosineSpread,
   examplesHeading,
   examplesPointer,
   goldRankNote,
@@ -210,6 +216,7 @@ export function RagPipelineView() {
       <PipelineMapBlock />
       <LoadingBlock demo={demo} />
       <ChunkingBlock demo={demo} settings={settings} update={update} />
+      <EmbeddingBlock demo={demo} way={settings.way} />
       <QuestionBlock demo={demo} question={question} onPick={(n) => update({ question: n })} />
       <PassagesBlock demo={demo} question={question} settings={settings} result={result} gold={gold} update={update} />
       <AboutBlock demo={demo} />
@@ -1136,6 +1143,277 @@ function ChunkingTable({ rows, selected }: { rows: { way: Way; stats: ChunkStats
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// Màu ô heatmap cosine: cùng thang tuần tự amber với heatmap giờ đăng của /analytics (MIX_MIN–MIX_MAX), trải tuyến tính
+// từ cosine thấp nhất tới cao nhất của các cặp đang vẽ
+function heatBackground(value: number, lo: number, hi: number): string {
+  const mix = hi <= lo ? (MIX_MIN + MIX_MAX) / 2 : MIX_MIN + ((value - lo) / (hi - lo)) * (MIX_MAX - MIX_MIN);
+  return `color-mix(in oklab, var(--amber-700) ${mix.toFixed(1)}%, var(--amber-soft))`;
+}
+
+function topicName(unit: Unit): string {
+  return unitTopic(unit) ?? "Unclustered";
+}
+
+// Khối Embedding (PR 2b, Thy chọn D1 2026-11-26): heatmap 19 × 19 cosine giữa các content unit (cách "whole": mỗi đoạn
+// là cả bài, mã chunk = thứ tự bài — đo 2026-11-26) + top-5 láng giềng gần của 1 đoạn ở cách chia đang chọn (lưới đủ
+// đoạn 102 × 102 ~3px / ô trên điện thoại). Không có thiết lập làm đổi xếp hạng → bước 3 của bản đồ vẫn "fixed"
+function EmbeddingBlock({ demo, way }: { demo: DemoFile; way: Way }) {
+  const [unitIndex, setUnitIndex] = useState(0);
+  const [passageIndex, setPassageIndex] = useState(0);
+  const [active, setActive] = useState<{ a: number; b: number } | null>(null);
+  const units = demo.units;
+  const whole = cosineSpread(demo, "whole");
+  const embedding = provenanceText(demo, (p) => p.embedding_model, "text-embedding-3-small");
+  const unit = units[Math.min(unitIndex, units.length - 1)];
+  const chunks = demo.ways[way].filter((chunk) => chunk.unit === unit.id).sort((a, b) => a.start - b.start);
+  const chosen = chunks[Math.min(passageIndex, chunks.length - 1)];
+  const neighbours = chosen ? nearestPassages(demo, way, chosen.id, NEIGHBOURS) : [];
+  const unitNumber = (id: string) => units.findIndex((u) => u.id === id) + 1;
+  const pairText = (a: number, b: number) =>
+    `#${a + 1} (${topicName(units[a])}) and #${b + 1} (${topicName(units[b])}): cosine ${cosineText(cosineOf(demo, "whole", a, b))}`;
+  return (
+    <Section
+      id="embedding"
+      n={ragNumber("embedding")}
+      short={ragShort("embedding")}
+      title="Turn passages into vectors"
+      purpose={`How similar the content units and their passages are once each is turned into a vector: the similarity that dense retrieval in block ${ragNumber("passages")} ranks by.`}
+    >
+      <AnswerRow
+        answer={
+          whole === null
+            ? "There are too few content units to compare."
+            : `Between any two of the ${count(units.length)} content units, cosine similarity runs from ${cosineText(whole.low.value)} to ${cosineText(whole.high.value)}, with a median of ${cosineText(whole.median)}.`
+        }
+        points={[
+          `**Embedding:** before the demo was published, OpenAI ${embedding} turned every passage into a vector, a list of numbers in which texts with a similar meaning point in a similar direction.`,
+          "**Cosine similarity:** compares the directions of two vectors; 1 means the same direction. It is a relative measure, not a share of meaning in common, so read the cells against each other.",
+          `**Where it is used:** dense retrieval ranks the passages by the cosine between the question and each passage (block ${ragNumber("passages")}).`,
+        ]}
+        keyNumbers={
+          whole === null
+            ? undefined
+            : [
+                {
+                  value: cosineText(whole.median),
+                  label: "Cosine between two content units (median)",
+                  term: "dense",
+                  note: `Middle half ${cosineText(whole.q1)}–${cosineText(whole.q3)} (IQR), n = ${count(whole.pairs)} pairs.`,
+                },
+                {
+                  value: cosineText(whole.high.value),
+                  label: "Most similar pair",
+                  note: `#${whole.high.a + 1} (${topicName(units[whole.high.a])}) and #${whole.high.b + 1} (${topicName(units[whole.high.b])}).`,
+                },
+                {
+                  value: cosineText(whole.low.value),
+                  label: "Least similar pair",
+                  note: `#${whole.low.a + 1} (${topicName(units[whole.low.a])}) and #${whole.low.b + 1} (${topicName(units[whole.low.b])}).`,
+                },
+              ]
+        }
+        below={
+          <div className="flex flex-col gap-2">
+            {whole === null ? null : (
+              <SubSection
+                title={`Similarity between the ${count(units.length)} content units`}
+                note="Each cell is the cosine between two whole content units; darker means more similar. Rows and columns are the content units, #1 = newest. Point at a cell to read the pair."
+              >
+                <CosineMap
+                  demo={demo}
+                  spread={whole}
+                  active={active}
+                  onActivate={setActive}
+                  readout={active ? pairText(active.a, active.b) : "Point at a cell for the two content units and their cosine."}
+                />
+              </SubSection>
+            )}
+            <SubSection
+              title="The nearest passages to one passage"
+              note={`Cut with ${WAYS_SHOWN[way].label} (block ${ragNumber("chunking")}): the ${NEIGHBOURS} passages with the highest cosine to the chosen one, from all content units (${NEIGHBOURS} is a design choice).`}
+            >
+              <Control label="Content unit (#1 = newest)">
+                <ToggleGroup
+                  label="Content unit for nearest passages"
+                  mono
+                  options={units.map((_, i) => ({ key: String(i), label: `#${i + 1}` }))}
+                  value={String(unitIndex)}
+                  onChange={(key) => {
+                    setUnitIndex(Number(key));
+                    setPassageIndex(0);
+                  }}
+                />
+              </Control>
+              {chunks.length > 1 ? (
+                <Control label="Passage of that content unit">
+                  <ToggleGroup
+                    label="Passage for nearest passages"
+                    mono
+                    options={chunks.map((_, i) => ({ key: String(i), label: `P${i + 1}` }))}
+                    value={String(Math.min(passageIndex, chunks.length - 1))}
+                    onChange={(key) => setPassageIndex(Number(key))}
+                  />
+                </Control>
+              ) : null}
+              {chosen ? (
+                <>
+                  <div className="flex flex-col gap-2 rounded-xl border border-border-hairline bg-bg-sunken px-5 py-4">
+                    <span className={`${TYPE.mono} font-semibold text-text-primary`}>
+                      chosen passage · #{unitNumber(chosen.unit)} · passage {chunks.indexOf(chosen) + 1} of {chunks.length}
+                    </span>
+                    <PassageText demo={demo} passage={demo.passages[chosen.passage]} unit={unit} />
+                  </div>
+                  <ol className="m-0 flex list-none flex-col p-0">
+                    {neighbours.map((neighbour, i) => {
+                      const chunk = demo.ways[way][neighbour.chunk];
+                      const owner = units.find((u) => u.id === chunk.unit)!;
+                      return (
+                        <li
+                          key={neighbour.chunk}
+                          className="grid grid-cols-1 gap-3 border-t border-border-hairline py-5 first:border-t-0 sm:grid-cols-[96px_minmax(0,1fr)] sm:gap-6"
+                        >
+                          <div className="flex flex-row flex-wrap items-baseline gap-x-3 gap-y-1 sm:flex-col sm:gap-1">
+                            <span className={`${TYPE.mono} whitespace-nowrap font-semibold text-text-primary`}>
+                              nearest {i + 1}
+                            </span>
+                            <span className={`${TYPE.mono} text-text-secondary`}>{cosineText(neighbour.cosine)}</span>
+                            <span className={TYPE.label}>cosine similarity</span>
+                          </div>
+                          <div className="flex min-w-0 flex-col gap-2">
+                            <span className={TYPE.label}>
+                              #{unitNumber(chunk.unit)} · {chunk.unit === chosen.unit ? "same content unit" : "another content unit"}
+                            </span>
+                            <PassageText demo={demo} passage={demo.passages[chunk.passage]} unit={owner} />
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              ) : null}
+            </SubSection>
+          </div>
+        }
+      />
+      <MethodSection
+        steps={[
+          {
+            title: "Embedding",
+            plain: `Every passage of every chunking method, and every question, was sent once to OpenAI ${embedding} through its API before the demo was published. The vectors themselves are not in the demo file; only the cosines computed from them are.`,
+          },
+          {
+            title: "Cosine similarity",
+            plain:
+              "Each vector is first scaled to length 1, so the cosine of two vectors is their dot product. The file stores every cosine rounded to 6 decimals; the page shows 3.",
+            formula: ["cos(a, b) = (a · b) ÷ (‖a‖ ‖b‖)", "a, b: the vectors of two passages · a · b: sum of the products of their coordinates · ‖a‖: length of a"],
+          },
+          {
+            title: "Colours",
+            plain:
+              "The colour of a cell grows linearly from the lowest to the highest cosine among the pairs drawn, on the same amber scale as the posting-time heatmap of the Analytics page. The diagonal (a content unit with itself) is not stored and stays grey.",
+          },
+          {
+            title: "Nearest passages",
+            // code-reviewer + copy-reviewer vòng 1 (lỗi chặn): hoà theo mã chunk của cách chia (`nearestPassages`), không
+            // theo mảng `passages` của file (đã gộp chữ trùng, thứ tự khác ở 6/7 cách chia). Mã chunk dựng theo bài
+            // (bài mới trước) rồi vị trí trong bài (`src/rag_demo/chunking.py#build_chunks`)
+            plain: `For the chosen passage, every other passage of the same chunking method is sorted by its cosine to it, highest first; the first ${NEIGHBOURS} are shown. Equal cosines keep that chunking method’s order of passages: newest content unit first, then position in the text.`,
+          },
+        ]}
+        limits={[
+          "The vectors are of the original text, without the context sentence.",
+          `The map compares whole content units only. A passage-by-passage map would need up to ${count(Math.max(...WAYS.map((w) => demo.ways[w].length)) ** 2)} cells, about 3 pixels each on a phone (a design choice); the nearest-passage list shows passages instead.`,
+          `${count(units.length)} content units are too few to read groups of topics from the map.`,
+        ]}
+      />
+    </Section>
+  );
+}
+
+// Lưới 19 × 19 (D1). Ô không nhận focus (361 điểm dừng Tab quá nhiều cho bàn phím): người dùng bàn phím / trình đọc
+// màn hình đọc 3 số trong Key numbers + câu trả lời; lưới là `role="img"` có nhãn tóm tắt. Ở màn hẹp lưới cuộn ngang
+// trong khung riêng (như bảng), không bóp ô dưới cỡ đọc được
+function CosineMap({
+  demo,
+  spread,
+  active,
+  onActivate,
+  readout,
+}: {
+  demo: DemoFile;
+  spread: CosineSpread;
+  active: { a: number; b: number } | null;
+  onActivate: (pair: { a: number; b: number } | null) => void;
+  readout: string;
+}) {
+  const n = demo.ways.whole.length;
+  const lo = spread.low.value;
+  const hi = spread.high.value;
+  const columns = { gridTemplateColumns: `32px repeat(${n}, minmax(0, 1fr))` };
+  return (
+    // ≥ lg: chú giải + dòng đọc cặp đứng cạnh lưới (lưới giới hạn 760px — không để ~400px trống bên phải, L5)
+    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,760px)_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Cosine similarity map, scrolls sideways on small screens">
+        <div
+          role="img"
+          aria-label={`Cosine similarity between every pair of the ${n} content units, from ${cosineText(lo)} to ${cosineText(hi)}; median ${cosineText(spread.median)}.`}
+          // ở 1440 lưới trải hết card thì ô ~55px, cả lưới cao ~1.100px — cột 760px cho ô ~37px, vẫn đọc rõ
+          className="grid min-w-[520px] gap-[2px]"
+          style={columns}
+          onMouseLeave={() => onActivate(null)}
+        >
+          <span aria-hidden="true" />
+          {Array.from({ length: n }, (_, b) => (
+            <span key={`c${b}`} aria-hidden="true" className={`${TYPE.mono} text-center text-text-secondary`}>
+              {b + 1}
+            </span>
+          ))}
+          {Array.from({ length: n }, (_, a) => (
+            <Fragment key={`r${a}`}>
+              <span aria-hidden="true" className={`${TYPE.mono} pr-1 text-right text-text-secondary`}>
+                #{a + 1}
+              </span>
+              {Array.from({ length: n }, (_, b) => {
+                const on = active !== null && ((active.a === a && active.b === b) || (active.a === b && active.b === a));
+                return (
+                  <span
+                    key={`${a}-${b}`}
+                    aria-hidden="true"
+                    onMouseEnter={() => onActivate(a === b ? null : { a: Math.min(a, b), b: Math.max(a, b) })}
+                    className={`aspect-square rounded-[3px] border ${on ? "border-text-primary" : "border-border-hairline"}`}
+                    style={{ background: a === b ? "var(--bg-sunken)" : heatBackground(cosineOf(demo, "whole", a, b), lo, hi) }}
+                  />
+                );
+              })}
+            </Fragment>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-3 lg:sticky lg:top-6">
+        <p className={`m-0 min-h-[20px] ${TYPE.note} text-text-primary`} aria-live="polite">
+          {readout}
+        </p>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-text-secondary">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-mono tabular-nums">{cosineText(lo)}</span>
+            <span
+              aria-hidden="true"
+              className="h-2.5 w-28 rounded-full border border-border-hairline"
+              style={{ background: `linear-gradient(90deg, ${heatBackground(lo, lo, hi)}, ${heatBackground(hi, lo, hi)})` }}
+            />
+            <span className="font-mono tabular-nums">{cosineText(hi)}</span>
+            <span>cosine similarity</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span aria-hidden="true" className="h-3 w-5 rounded-[3px] border border-border-hairline bg-bg-sunken" />
+            <span>a content unit with itself (not stored)</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

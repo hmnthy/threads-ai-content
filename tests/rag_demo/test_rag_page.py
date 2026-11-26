@@ -9,6 +9,8 @@ import copy
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from src.rag_demo.demo_file import non_gold_kept
 from tests.rag_demo.demo_fixture import WAYS, make_demo
 from tests.rag_demo.node_engine import run_driver
@@ -22,6 +24,10 @@ const cases = JSON.parse(readFileSync(process.argv[3], "utf8"));
 const out = cases.map((c) => {
   if (c.fn === "nonGoldKept") return page.nonGoldKept(demoFile.parseDemoFile(c.demo), c.max);
   if (c.fn === "chunkStats") return page.chunkStats(demoFile.parseDemoFile(c.demo), c.way);
+  if (c.fn === "cosineSpread") return page.cosineSpread(demoFile.parseDemoFile(c.demo), c.way);
+  if (c.fn === "nearestPassages") {
+    return page.nearestPassages(demoFile.parseDemoFile(c.demo), c.way, c.chunk, c.count);
+  }
   if (c.fn === "honestExamples") {
     return page.honestExamples(demoFile.parseDemoFile(c.demo)).map((e) => [e.question, e.passage]);
   }
@@ -363,6 +369,56 @@ def test_unit_passages_note_follows_the_passages_shown(tmp_path: Path) -> None:
         "so it has no context sentence.",
         "Cut with Semantic; 2 of 3 passages have a context sentence, shown above them.",
     ]
+
+
+def _cosine_demo() -> dict[str, Any]:
+    """4 đoạn; cosine của cách "post" theo cặp (0,1) (0,2) (0,3) (1,2) (1,3) (2,3), tam giác trên
+    theo hàng; cặp (0,2) và (2,3) cùng 0.5 (hoà). Cách "whole" chỉ 1 đoạn: không có cặp nào."""
+    demo = make_demo(["a", "b", "c", "d"])
+    demo["cosine"]["post"] = [0.1, 0.5, 0.3, 0.9, 0.2, 0.5]
+    demo["ways"]["whole"] = [{"id": 0, "unit": "u1", "start": 0, "end": 1, "passage": 0}]
+    demo["cosine"]["whole"] = []
+    return demo
+
+
+def test_cosine_spread_reads_the_upper_triangle(tmp_path: Path) -> None:
+    demo = _cosine_demo()
+    got = call(
+        tmp_path,
+        [{"fn": "cosineSpread", "demo": demo, "way": way} for way in ("post", "whole")],
+    )
+    # 6 giá trị đã sắp: 0.1 0.2 0.3 0.5 0.5 0.9 → quantiles inclusive = [0.225, 0.4, 0.5]
+    assert got[0]["pairs"] == 6
+    assert got[0]["q1"] == pytest.approx(0.225)
+    assert got[0]["median"] == pytest.approx(0.4)
+    assert got[0]["q3"] == pytest.approx(0.5)
+    # thấp nhất = cặp (0,1), cao nhất = cặp (1,2): vị trí đúng trong tam giác trên
+    assert got[0]["low"] == {"value": 0.1, "a": 0, "b": 1}
+    assert got[0]["high"] == {"value": 0.9, "a": 1, "b": 2}
+    # 1 đoạn: không có cặp → null (trang không in median của tập rỗng)
+    assert got[1] is None
+
+
+def test_nearest_passages_sort_by_cosine_then_passage_order(tmp_path: Path) -> None:
+    demo = _cosine_demo()
+    got = call(
+        tmp_path,
+        [
+            {"fn": "nearestPassages", "demo": demo, "way": "post", "chunk": 0, "count": 2},
+            # đoạn 2: với 0 = 0.5, với 1 = 0.9, với 3 = 0.5 → hoà 0.5 giữa đoạn 0 và 3: đoạn 0 trước
+            {"fn": "nearestPassages", "demo": demo, "way": "post", "chunk": 2, "count": 3},
+            {"fn": "nearestPassages", "demo": demo, "way": "whole", "chunk": 0, "count": 5},
+            {"fn": "cosineText", "args": [0.693652]},
+        ],
+    )
+    assert got[0] == [{"chunk": 2, "cosine": 0.5}, {"chunk": 3, "cosine": 0.3}]
+    assert got[1] == [
+        {"chunk": 1, "cosine": 0.9},
+        {"chunk": 0, "cosine": 0.5},
+        {"chunk": 3, "cosine": 0.5},
+    ]
+    assert got[2] == []
+    assert got[3] == "0.694"
 
 
 def test_ranked_by_names_bm25_only_when_hybrid_falls_back(tmp_path: Path) -> None:
