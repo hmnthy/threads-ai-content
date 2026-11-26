@@ -2,6 +2,7 @@
 
 **Ngôn ngữ:** [English](README.md) · Tiếng Việt · [Français](README.fr.md)
 
+[![CI](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml/badge.svg)](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
 ![Tests](https://img.shields.io/badge/tests-1569%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
@@ -13,15 +14,21 @@
 nhật 4 giờ một lần khi laptop của tác giả đang mở; lúc laptop tắt, trang giữ lần cập nhật cuối, có ghi
 ngày trên trang.
 
-Thuật toán xếp hạng của Threads là một hộp đen — creator không có cách nào truy vấn tại sao bài này
-"nổ" còn bài kia thì không. Dự án này chọn đúng 1 kênh Threads thật, **[@thydilammuon](https://www.threads.net/@thydilammuon)**
-(một người Việt đang sống tại Pháp, chia sẻ về alternance, xin việc, và cuộc sống người Việt xa xứ),
-làm case study thật: mọi con số trên dashboard đều được tính từ một công thức đã ghi chép rõ ràng,
-có nguồn tham khảo — không bao giờ là một điểm số "hộp đen".
+Dự án này chọn đúng 1 kênh Threads thật, **[@thydilammuon](https://www.threads.net/@thydilammuon)**
+(một người Việt đang sống tại Pháp), làm case study thật: mọi con số trên dashboard đều được tính
+từ một công thức đã ghi chép rõ ràng, có nguồn tham khảo — không bao giờ là một điểm số "hộp đen".
 
-Đây là một **dự án phân tích + nghiên cứu NLP cho riêng 1 kênh**, hướng tới một **cơ sở tri thức
-(knowledge base)** cập nhật liên tục về những gì kênh đã chia sẻ với follower — được xây dựng đồng thời làm sản phẩm portfolio cho vị trí NLP/ML
-Engineer. Không phải SaaS, không multi-tenant, và không có tham vọng trở thành vậy.
+**Tóm tắt nhanh**
+
+- **NLP:** sentence embedding đa ngôn ngữ → chủ đề tìm bằng UMAP + HDBSCAN, được Claude đặt nhãn
+  tiếng Anh; Code-Mixing Index đo các bài trộn tiếng Việt, tiếng Pháp và tiếng Anh.
+- **Thống kê:** mỗi nhóm bài hiện median, IQR và n; chủ đề được so bằng phép kiểm hoán vị
+  Brunner-Munzel, Cliff's delta kèm khoảng tin cậy 95%, và hiệu chỉnh Holm.
+- **Demo RAG:** truy xuất BM25, dense và hybrid, rồi rerank bằng cross-encoder hoặc LLM, trên 10
+  câu hỏi có đáp án đúng chốt trước. Demo xếp hạng đoạn nguồn; không viết câu trả lời.
+- **Kỹ thuật:** quyết định được ghi thành ADR (Architecture Decision Record — biên bản quyết định
+  kiến trúc), phần lớn có luật máy kiểm đi kèm; CI chạy ở mọi pull request; và commit do AI làm mà
+  chạm logic phải qua một cổng review bắt buộc ([cách làm](#repo-này-được-xây-dựng-thế-nào)).
 
 ---
 
@@ -63,6 +70,7 @@ Sản phẩm qua 5 bước — từ tuyên ngôn tới các chủ đề khám ph
 - [Tech stack](#tech-stack)
 - [Kiến trúc](#kiến-trúc)
 - [Điểm nhấn về methodology](#điểm-nhấn-về-methodology)
+- [Repo này được xây dựng thế nào](#repo-này-được-xây-dựng-thế-nào)
 - [Trạng thái dự án](#trạng-thái-dự-án)
 - [Chạy thử ở local](#chạy-thử-ở-local)
 - [Về kênh](#về-kênh)
@@ -175,6 +183,37 @@ Một vài quyết định dự án coi là nền tảng, mỗi quyết định 
   code-switching, language ID ở cấp document trên văn bản ngắn không đáng tin cậy và không nên
   dùng để "gate" các bước xử lý phía sau — Code-Mixing Index đo *mức độ* 1 bài trộn ngôn ngữ thay
   vì phân loại nhị phân.
+
+## Repo này được xây dựng thế nào
+
+Xây dựng cùng Claude Code như một AI pair programmer (lập trình viên đi cặp). Các agent đề xuất,
+review và test; tác giả ra mọi quyết định. Mọi thay đổi qua đúng các cổng mà một team sẽ đặt.
+
+- **Quyết định được ghi lại.** Từ 2026-09-30, mỗi quyết định về kiến trúc, methodology hay metric
+  là một ADR trong [`docs/decisions/`](docs/decisions/) (viết bằng tiếng Việt): bối cảnh, các
+  phương án đã cân nhắc, lý do, và khi nào xem lại. Các quyết định trước đó nằm trong một
+  [nhật ký cũ](docs/decisions/legacy-log.md).
+- **Quyết định thành luật máy kiểm.** Phần lớn ADR thêm luật vào một sổ luật
+  ([`invariants.toml`](docs/decisions/invariants.toml)): ví dụ một cụm chữ mà quyết định đã bỏ, hay
+  một ảnh chụp màn hình chưa chụp lại từ khi quyết định đổi trang nó minh hoạ. Một checker quét toàn
+  repo ở mọi commit và trong CI; một vi phạm là chặn commit hoặc làm CI đỏ.
+- **Cổng trước mọi commit.** pre-commit chạy ruff, mypy (strict), checker sổ luật và bộ pytest
+  nhanh, thêm ESLint và kiểm TypeScript khi dashboard đổi. CI chạy lại các cổng đó trên máy sạch ở
+  mọi pull request, gồm cả một lần `next build` đầy đủ.
+- **Một nhánh, một pull request.** Mỗi thay đổi nằm trên nhánh riêng trong một git worktree riêng,
+  chỉ merge khi CI xanh, và vào `main` bằng merge commit. Thư mục chính luôn ở `main` vì các job
+  định kỳ chạy từ đó.
+- **AI agent sau một cổng review.** Các subagent chuyên trách (code-reviewer, consistency-auditor,
+  qa-tester, ux-reviewer với ảnh chụp thật ở nhiều khổ màn hình và kiểm tra accessibility,
+  copy-reviewer, researcher, promise-auditor), skill cho các quy trình lặp lại (`/checkpoint`,
+  `/record-decision`, `/decision-sweep`, `/git-flow`), và MCP server để tìm nguồn có trích dẫn
+  (Hugging Face Hub, tài liệu thư viện Context7). Một git hook chặn mọi commit do agent tạo có chạm
+  logic, trừ khi code-reviewer đã review đúng nội dung đó
+  ([`review_gate.py`](scripts/review_gate.py), ADR-0015). Bản thân cấu hình agent được giữ riêng
+  tư (ADR-0027).
+- **Luật chốt trước khi có kết quả.** RQ-01 chốt luật quyết định trước khi chạy thí nghiệm. 0 kết
+  luận về chủ đề qua luật, và kết quả được báo cáo đúng như vậy
+  ([`RQ-01`](docs/rq/RQ-01-seed-stability.md)).
 
 ## Trạng thái dự án
 

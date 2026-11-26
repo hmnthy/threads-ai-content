@@ -2,6 +2,7 @@
 
 **Language:** English · [Tiếng Việt](README.vi.md) · [Français](README.fr.md)
 
+[![CI](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml/badge.svg)](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
 ![Tests](https://img.shields.io/badge/tests-1569%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
@@ -11,16 +12,22 @@
 **Live site:** [unthreaded-analytics.vercel.app](https://unthreaded-analytics.vercel.app) — updated
 every 4 hours while the author's laptop is on; otherwise it keeps the last update, dated on the page.
 
-Threads' ranking algorithm is a black box — creators can't query why one post takes off and the
-next one doesn't. This project treats one real Threads channel, **[@thydilammuon](https://www.threads.net/@thydilammuon)**
-(a Vietnamese creator living in France, posting about *alternance*, job hunting, and expat life),
-as a live case study: every number on the dashboard is computed from a documented, cited formula —
-never a black-box score.
+This project treats one real Threads channel, **[@thydilammuon](https://www.threads.net/@thydilammuon)**
+(a Vietnamese creator living in France), as a live case study: every number on the dashboard is
+computed from a documented, cited formula — never a black-box score.
 
-It is a working **analytics + NLP research project** for that one channel, heading toward a
-continuously updated **knowledge base** of what the channel has already taught its followers —
-built as an NLP/ML engineering portfolio piece. Not a SaaS, not
-multi-tenant, not trying to be.
+**At a glance**
+
+- **NLP:** multilingual sentence embeddings → topics found with UMAP + HDBSCAN, labeled in English
+  by Claude; a Code-Mixing Index for posts that mix Vietnamese, French and English.
+- **Statistics:** every group shows its median, IQR and n; topics are compared with Brunner-Munzel
+  permutation tests, Cliff's delta with a 95% confidence interval, and Holm correction.
+- **RAG demo:** BM25, dense and hybrid retrieval, then cross-encoder or LLM reranking, on 10
+  questions whose correct answers were fixed in advance. It ranks source passages; it writes no
+  answer.
+- **Engineering:** decisions are recorded as ADRs (Architecture Decision Records), most backed by
+  machine-checked rules; CI runs on every pull request; and AI-made commits that touch logic must
+  pass a mandatory review gate ([how](#how-this-repo-is-built)).
 
 ---
 
@@ -62,6 +69,7 @@ The product in five steps — from the pitch to the discovered topics, how each 
 - [Tech stack](#tech-stack)
 - [Architecture](#architecture)
 - [Methodology highlights](#methodology-highlights)
+- [How this repo is built](#how-this-repo-is-built)
 - [Project status](#project-status)
 - [Local setup](#local-setup)
 - [About the channel](#about-the-channel)
@@ -171,6 +179,37 @@ A few decisions this project treats as load-bearing, each recorded in
   literature, document-level language ID on short text is unreliable and shouldn't gate downstream
   pipeline steps — the Code-Mixing Index quantifies *how much* a post mixes languages instead of
   classifying it into one.
+
+## How this repo is built
+
+Built with Claude Code as an AI pair programmer. The agents propose, review and test; the author
+makes every decision. Every change passes the same gates a team would set.
+
+- **Decisions are written down.** Since 2026-09-30, each architecture, methodology or metric
+  decision is an ADR in [`docs/decisions/`](docs/decisions/) (written in Vietnamese): context,
+  options considered, the reason, and when to revisit it. Earlier decisions are kept in a
+  [legacy log](docs/decisions/legacy-log.md).
+- **Decisions become machine checks.** Most ADRs add rules to a rule book
+  ([`invariants.toml`](docs/decisions/invariants.toml)): for example, a phrase the decision
+  retired, or a screenshot not retaken since the decision changed the page it shows. A checker
+  scans the whole repo on every commit and in CI; one violation blocks the commit or fails the CI
+  run.
+- **Gates before every commit.** pre-commit runs ruff, mypy (strict), the rule-book checker and the
+  fast pytest suite, plus ESLint and TypeScript checks when the dashboard changes. CI re-runs them
+  on a clean machine for every pull request, including a full `next build`.
+- **One branch, one pull request.** Each change lives on its own branch in a separate git worktree,
+  merges only with green CI, and lands as a merge commit. The main checkout stays on `main` because
+  the scheduled jobs run from it.
+- **AI agents behind a review gate.** Specialised subagents (code-reviewer, consistency-auditor,
+  qa-tester, ux-reviewer with real screenshots at several widths and accessibility checks,
+  copy-reviewer, researcher, promise-auditor), skills for repeatable workflows (`/checkpoint`,
+  `/record-decision`, `/decision-sweep`, `/git-flow`), and MCP servers for cited sources (Hugging
+  Face Hub, Context7 library docs). A git hook blocks any agent-made commit that touches logic
+  unless code-reviewer reviewed exactly that content ([`review_gate.py`](scripts/review_gate.py),
+  ADR-0015). The agent configuration itself stays private (ADR-0027).
+- **Rules fixed before results.** RQ-01 fixed its decision rule before the experiment ran. 0 topic
+  conclusions passed, and the result is reported as it is
+  ([`RQ-01`](docs/rq/RQ-01-seed-stability.md)).
 
 ## Project status
 

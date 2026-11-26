@@ -2,6 +2,7 @@
 
 **Langue :** [English](README.md) · [Tiếng Việt](README.vi.md) · Français
 
+[![CI](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml/badge.svg)](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
 ![Tests](https://img.shields.io/badge/tests-1569%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
@@ -13,17 +14,26 @@
 jour toutes les 4 heures quand l'ordinateur portable de l'autrice est allumé ; sinon, il garde la
 dernière mise à jour, datée sur la page.
 
-L'algorithme de classement de Threads est une boîte noire — les créateurs n'ont aucun moyen de
-comprendre pourquoi une publication décolle et la suivante non. Ce projet prend un vrai compte
-Threads, **[@thydilammuon](https://www.threads.net/@thydilammuon)** (une créatrice vietnamienne
-vivant en France, qui parle d'alternance, de recherche d'emploi et de vie d'expatriée), comme cas
-d'étude en conditions réelles : chaque chiffre affiché sur le dashboard provient d'une formule
-documentée et citée — jamais d'un score « boîte noire ».
+Ce projet prend un vrai compte Threads, **[@thydilammuon](https://www.threads.net/@thydilammuon)**
+(une créatrice vietnamienne vivant en France), comme cas d'étude en conditions réelles : chaque
+chiffre affiché sur le dashboard provient d'une formule documentée et citée — jamais d'un score
+« boîte noire ».
 
-C'est un **projet d'analyse et de recherche NLP** dédié à ce seul compte, qui vise une **base de
-connaissances** mise à jour en continu à partir de ce que le compte a déjà partagé avec ses abonnés —
-construit en parallèle comme pièce de portfolio d'ingénierie NLP/ML. Ce n'est pas un SaaS, pas
-multi-tenant, et ça n'a pas vocation à le devenir.
+**En bref**
+
+- **NLP :** embeddings de phrases multilingues → sujets trouvés avec UMAP + HDBSCAN, étiquetés en
+  anglais par Claude ; un Code-Mixing Index pour les publications qui mélangent vietnamien, français
+  et anglais.
+- **Statistiques :** chaque groupe affiche sa médiane, son IQR et son n ; les sujets sont comparés
+  par des tests de permutation de Brunner-Munzel, le delta de Cliff avec un intervalle de confiance
+  à 95 %, et la correction de Holm.
+- **Démo RAG :** recherche BM25, dense et hybride, puis reranking par cross-encoder ou LLM, sur 10
+  questions dont les bonnes réponses ont été fixées à l'avance. Elle classe des passages sources ;
+  elle n'écrit aucune réponse.
+- **Ingénierie :** les décisions sont consignées dans des ADR (Architecture Decision Records), la
+  plupart appuyés par des règles vérifiées automatiquement ; la CI tourne sur chaque pull request ;
+  et les commits faits par l'IA qui touchent la logique doivent passer une revue obligatoire
+  ([comment](#comment-ce-dépôt-est-construit)).
 
 ---
 
@@ -65,6 +75,7 @@ Le produit en cinq étapes — du pitch jusqu'aux sujets découverts, à la faç
 - [Stack technique](#stack-technique)
 - [Architecture](#architecture)
 - [Points forts de la méthodologie](#points-forts-de-la-méthodologie)
+- [Comment ce dépôt est construit](#comment-ce-dépôt-est-construit)
 - [État du projet](#état-du-projet)
 - [Installation en local](#installation-en-local)
 - [À propos du compte](#à-propos-du-compte)
@@ -182,6 +193,40 @@ Quelques décisions considérées comme structurantes pour ce projet, chacune co
   pas fiable et ne devrait pas conditionner les étapes suivantes du pipeline — le Code-Mixing
   Index quantifie *à quel point* une publication mélange les langues plutôt que de la classer en
   binaire.
+
+## Comment ce dépôt est construit
+
+Construit avec Claude Code comme binôme de programmation IA. Les agents proposent, relisent et
+testent ; l'autrice prend chaque décision. Chaque changement passe les mêmes contrôles qu'une
+équipe mettrait en place.
+
+- **Les décisions sont écrites.** Depuis le 2026-09-30, chaque décision d'architecture, de
+  méthodologie ou de métrique est un ADR dans [`docs/decisions/`](docs/decisions/) (rédigé en
+  vietnamien) : contexte, options envisagées, raison, et quand la revoir. Les décisions antérieures
+  sont conservées dans un [journal historique](docs/decisions/legacy-log.md).
+- **Les décisions deviennent des vérifications automatiques.** La plupart des ADR ajoutent des
+  règles à un registre ([`invariants.toml`](docs/decisions/invariants.toml)) : par exemple, une
+  formulation que la décision a retirée, ou une capture d'écran pas refaite depuis que la décision a
+  changé la page qu'elle montre. Un vérificateur parcourt tout le dépôt à chaque commit et dans la
+  CI ; une seule violation bloque le commit ou fait échouer la CI.
+- **Des contrôles avant chaque commit.** pre-commit lance ruff, mypy (strict), le vérificateur du
+  registre et la suite pytest rapide, plus ESLint et les vérifications TypeScript quand le
+  dashboard change. La CI les relance sur une machine propre pour chaque pull request, avec un
+  `next build` complet.
+- **Une branche, une pull request.** Chaque changement vit sur sa propre branche dans un git
+  worktree séparé, n'est fusionné qu'avec une CI verte, et arrive par un merge commit. Le dossier
+  principal reste sur `main`, car les tâches planifiées s'exécutent depuis lui.
+- **Des agents IA derrière une revue obligatoire.** Des sous-agents spécialisés (code-reviewer,
+  consistency-auditor, qa-tester, ux-reviewer avec de vraies captures d'écran à plusieurs largeurs
+  et des contrôles d'accessibilité, copy-reviewer, researcher, promise-auditor), des skills pour les
+  procédures répétées (`/checkpoint`, `/record-decision`, `/decision-sweep`, `/git-flow`), et des
+  serveurs MCP pour des sources citées (Hugging Face Hub, documentation de bibliothèques Context7).
+  Un git hook bloque tout commit fait par un agent qui touche la logique, sauf si code-reviewer a
+  relu exactement ce contenu ([`review_gate.py`](scripts/review_gate.py), ADR-0015). La
+  configuration des agents elle-même reste privée (ADR-0027).
+- **Des règles fixées avant les résultats.** RQ-01 a fixé sa règle de décision avant de lancer
+  l'expérience. 0 conclusion sur les sujets l'a passée, et le résultat est rapporté tel quel
+  ([`RQ-01`](docs/rq/RQ-01-seed-stability.md)).
 
 ## État du projet
 
