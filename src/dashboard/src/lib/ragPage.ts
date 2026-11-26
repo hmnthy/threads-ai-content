@@ -9,12 +9,14 @@ import type { Retriever } from "./ragDemo/retrieve.ts";
 // Một nguồn cho dải mục lục đầu trang và nhãn trên tiêu đề mỗi khối (như `topicSections.ts`)
 // Thy 2026-11-12 (phương án A): thêm khối Loading đứng đầu — bước đầu của pipeline trong repo mẫu (Loader)
 // Thy 2026-11-12: thêm bản đồ pipeline đứng đầu — đối chiếu từng bước với chuẩn repo mẫu của thầy Thy
+// PR 2a (Thy chốt 2026-11-25): thêm bảng thuật ngữ đứng cuối, như khối 06 của /topics
 export const RAG_SECTIONS = [
   ["pipeline", "01", "Pipeline map"],
   ["loading", "02", "Loading"],
   ["question", "03", "Question"],
   ["passages", "04", "Ranked passages"],
   ["about", "05", "About this demo"],
+  ["terms", "06", "Terms"],
 ] as const;
 
 // Bản đồ pipeline: các bước theo đúng số + tên của repo mẫu (README vietnh1009/RAG-pipeline-visualizer, đọc
@@ -69,7 +71,8 @@ export const PIPELINE_STEPS: readonly PipelineStep[] = [
     optional: false,
     status: "fixed",
     block: "passages",
-    what: "Dense: OpenAI text-embedding-3-small vectors, made before publishing. Sparse: BM25 needs no vectors; its word counts are rebuilt in your browser for the chunking you pick. A view of how similar the passages are to each other (cosine similarity, already in the file) comes in a later version.",
+    // copy-reviewer 2026-11-12: "BM25 needs no vectors" dễ bị bắt bẻ — BM25 vẫn là một vector thưa (đếm từ)
+    what: "Dense: OpenAI text-embedding-3-small vectors, made before publishing. Sparse: BM25 represents a passage by its word counts instead of a learned vector; those counts are rebuilt in your browser for the chunking you pick. A view of how similar the passages are to each other (cosine similarity, already in the file) comes in a later version.",
   },
   {
     number: 4,
@@ -153,19 +156,22 @@ export function ragShort(id: (typeof RAG_SECTIONS)[number][0]): string {
   return RAG_SECTIONS.find(([key]) => key === id)![2];
 }
 
-// Hiện tượng mỗi câu hỏi phô ra — bảng D10 của ADR-0037 (Thy duyệt 2026-11-05), dịch sang tiếng Anh
+// Hiện tượng mỗi câu hỏi phô ra — bảng D10 của ADR-0037 (Thy duyệt 2026-11-05), dịch sang tiếng Anh. Mỗi mục là
+// cụm danh từ đứng sau "Q{n} tests …" (copy-reviewer 2026-11-25: "tests one difficulty: …" sai ngữ pháp ở Q1, Q7,
+// và Q3, Q7 có 2 khó khăn)
 export const QUESTION_TESTS: Record<number, string> = {
-  1: "typed without Vietnamese diacritics",
-  2: "the answer uses other words, partly in another language",
-  3: "one question with several parts; the answer needs 2 content units",
-  // ADR-0040: bài gần trùng thứ hai bị xoá trên Threads sau mốc đóng băng → còn 1 bài đáp án
-  4: "near-duplicate posts; the second one was deleted from Threads after the freeze, so one content unit answers it",
-  5: "the answer sits in a follow-up post of the thread",
-  6: "asked in French about a post written in Vietnamese",
-  7: "vague; the answer needs 2 content units",
+  1: "a question typed without Vietnamese diacritics",
+  2: "an answer that uses other words, partly in another language",
+  3: "one question with several parts, whose answer needs 2 content units",
+  // ADR-0040: bài bị xoá trên Threads sau mốc đóng băng là bài ĐĂNG TRƯỚC (18117744790996401, 2026-10-12); bài còn
+  // lại đăng 2026-10-26 → còn 1 bài đáp án (Thy chốt ý 2026-11-25; 2 reviewer vòng 1: "the second copy" nói ngược)
+  4: "near-duplicate posts, but the earlier of the two was deleted from Threads after the freeze, so only one answering content unit remains",
+  5: "an answer that sits in a follow-up post of the thread",
+  6: "a question asked in French about a post written in Vietnamese",
+  7: "a vague question whose answer needs 2 content units",
   8: "a keyword trap: another post also talks about prices",
   9: "numbers and product names",
-  10: "no content unit answers it",
+  10: "a question that no content unit answers",
 };
 
 // 7 cách chia (ADR-0039 D1): nhãn nút + một câu giải thích
@@ -188,10 +194,11 @@ export const WAYS_SHOWN: Record<Way, { label: string; sentence: string }> = {
     label: "Recursive 500",
     sentence: "Split by paragraph, then by sentence, and merged back up to 500 characters.",
   },
+  // ADR-0039 D1: ngưỡng 1/4 thấp nhất + trần 800 là lựa chọn thiết kế (reviewer 2026-11-12: hằng số thiếu nhãn)
   semantic: {
     label: "Semantic",
     sentence:
-      "Cut between two sentences when their meanings are among the least similar quarter of all neighbouring pairs, at most 800 characters.",
+      "Cut between two sentences when their meanings are among the least similar quarter of all neighbouring pairs, at most 800 characters (both limits are design choices).",
   },
 };
 
@@ -221,6 +228,20 @@ export function rankText(from: number, to: number): string {
   return from === to ? String(from) : `${from}–${to}`;
 }
 
+// Điểm hiện cạnh một dòng: điểm Haiku là số nguyên 0–3 (ADR-0041 Luật chung 3) → "3", không "3.000000"; điểm
+// khác làm tròn 6 chữ số như lúc so hoà (`provenance.score_decimals`)
+export function scoreText(score: number, rerank: Rerank, notReranked: boolean): string {
+  return rerank === "haiku" && !notReranked ? String(Math.round(score)) : score.toFixed(6);
+}
+
+// Tên bước lọc như ADR-0041 ghi ("filtered out at: near-duplicate filter") — engine trả mã bước, không phải chữ
+type FilterStep = Extract<Outcome, { kind: "filtered" }>["step"];
+export const FILTER_SHOWN: Record<FilterStep, string> = {
+  metadata: "metadata filter",
+  "haiku-filter": "Haiku relevance filter",
+  "near-duplicate": "near-duplicate filter",
+};
+
 // Câu cho một kết quả hạng (UI-0038-gold-definition): hạng tính trước khi cắt top-K
 export function outcomeText(outcome: Outcome, k: number): string {
   switch (outcome.kind) {
@@ -231,7 +252,7 @@ export function outcomeText(outcome: Outcome, k: number): string {
     case "not-found":
       return "not found: BM25 gives it a score of 0, because it shares no word with the question";
     case "filtered":
-      return `filtered out at: ${outcome.step}`;
+      return `filtered out at: ${FILTER_SHOWN[outcome.step]}`;
     case "in-progress":
       return "in progress";
   }
@@ -239,34 +260,127 @@ export function outcomeText(outcome: Outcome, k: number): string {
 
 // Emoji riêng của Threads: API trả về thành ký tự ▓ (U+2593) trong chữ bài — Thy đối chiếu ứng dụng Threads trên
 // 1 bài 2026-11-12. Thy chọn: chỉ lúc hiển thị thay bằng nhãn "[emoji]" (dữ liệu, điểm số không đổi; BM25 vốn bỏ qua
-// ký tự này vì không phải chữ / số). Bản dịch Haiku chép lại ký tự nên cũng thay.
+// ký tự này vì không phải chữ / số). Bản dịch Haiku chép lại ký tự nên cũng thay. Ký tự dính chữ sau (35 / 428 đoạn,
+// đo 2026-11-25) → chèn 1 dấu cách, không thì "[emoji]But" đọc như một từ.
 export const THREADS_EMOJI = "▓";
+// Cờ = cặp "regional indicator" (U+1F1E6–U+1F1FF). Windows không có hình cờ nên hiện 2 chữ cái ("CP"). Trong 19 bài
+// chỉ có 🇨🇵 và 🇫🇷 (đo 2026-11-25) — cả hai dùng làm cờ Pháp; cặp khác → "[flag]"
+const FLAG = /[\u{1F1E6}-\u{1F1FF}]{2}/gu;
+const FRENCH_FLAGS = new Set(["🇨🇵", "🇫🇷"]);
 export function showEmoji(text: string): string {
-  return text.replaceAll(THREADS_EMOJI, "[emoji]");
+  return text
+    .replace(/▓(?=[^\s▓])/g, "[emoji] ")
+    .replaceAll(THREADS_EMOJI, "[emoji]")
+    .replace(FLAG, (flag) => (FRENCH_FLAGS.has(flag) ? "[French flag]" : "[flag]"));
 }
 
 // Bản TypeScript của `non_gold_kept` (`src/rag_demo/demo_file.py:483#non_gold_kept`): cặp (câu hỏi, đoạn) Haiku
 // giữ (điểm ≥ mức giữ) mà đoạn không trúng đáp án ở cách chia nào, cộng qua các câu hỏi (ADR-0040: trang công bố
-// số này). `pairs` = mẫu số: số câu hỏi × số đoạn khác nhau của cả 7 cách chia; `top` = số cặp trong đó ở điểm tối đa.
-export function nonGoldKept(demo: DemoFile, maxScore: number): { total: number; top: number; pairs: number } {
+// số này). `top` = số cặp trong đó ở điểm tối đa. Mẫu số `pairs` = số cặp NGOÀI đáp án (copy-reviewer 2026-11-12:
+// mẫu số cũ là mọi cặp, tính cả cặp đáp án); `allPairs` = số câu hỏi × số đoạn khác nhau của cả 7 cách chia.
+export function nonGoldKept(
+  demo: DemoFile,
+  maxScore: number,
+): { total: number; top: number; pairs: number; allPairs: number } {
   let total = 0;
   let top = 0;
+  let pairs = 0;
   for (const question of demo.questions) {
-    const gold = new Set<number>();
-    for (const way of Object.keys(question.gold_chunks) as Way[]) {
-      const chunks = demo.ways[way];
-      for (const ids of Object.values(question.gold_chunks[way])) {
-        for (const id of ids) gold.add(chunks[id].passage);
-      }
-    }
+    const gold = goldPassages(demo, question);
     question.llm.forEach((cell, passage) => {
-      if (cell.score >= demo.provenance.llm_keep_min_score && !gold.has(passage)) {
+      if (gold.has(passage)) return;
+      pairs += 1;
+      if (cell.score >= demo.provenance.llm_keep_min_score) {
         total += 1;
         if (cell.score === maxScore) top += 1;
       }
     });
   }
-  return { total, top, pairs: demo.questions.length * demo.passages.length };
+  return { total, top, pairs, allPairs: demo.questions.length * demo.passages.length };
+}
+
+// Đoạn (theo số thứ tự trong `passages`) trúng đáp án của câu hỏi ở ít nhất một cách chia
+function goldPassages(demo: DemoFile, question: Question): Set<number> {
+  const gold = new Set<number>();
+  for (const way of Object.keys(question.gold_chunks) as Way[]) {
+    const chunks = demo.ways[way];
+    for (const ids of Object.values(question.gold_chunks[way])) {
+      for (const id of ids) gold.add(chunks[id].passage);
+    }
+  }
+  return gold;
+}
+
+// 2 ví dụ thật cho số "Extra partly answers" (UI-0040-honest-data-notes, reviewer 2026-11-12): Claude đọc đủ 43 cặp
+// 2026-11-25 rồi chọn, Thy duyệt chữ. Số thứ tự đoạn đổi khi file demo dựng lại (bài bị xoá, đổi cách chia —
+// code-reviewer 2026-11-25), nên mỗi ví dụ còn khoá bằng mã bài + một mẩu chữ gốc riêng của đoạn (đo 2026-11-25:
+// "Gant, Tommy" chỉ có ở các đoạn của bài 18153699859548704, "cây bút" ở bài 18645332647003724).
+// `honestExamples` bỏ ví dụ không còn khớp khoá, hoặc không còn là cặp ngoài đáp án được Haiku giữ.
+export const HONEST_EXAMPLES = [
+  {
+    question: 2,
+    passage: 55,
+    unit: "18153699859548704",
+    anchor: "Gant, Tommy",
+    kind: "Partly answers",
+    // copy-reviewer 2026-11-25: đoạn văn không nói "cheap" → bỏ
+    why: "the stalls sell branded clothes as clearance stock (déstockage), not second-hand.",
+  },
+  {
+    question: 7,
+    passage: 52,
+    unit: "18645332647003724",
+    anchor: "cây bút",
+    kind: "Haiku mistake",
+    why: "the passage recommends a pen sold on Amazon and says nothing about food.",
+  },
+] as const;
+
+export function honestExamples(demo: DemoFile): (typeof HONEST_EXAMPLES)[number][] {
+  return HONEST_EXAMPLES.filter((example) => {
+    const question = demo.questions.find((q) => q.number === example.question);
+    const passage = demo.passages[example.passage];
+    const cell = question?.llm[example.passage];
+    return (
+      question !== undefined &&
+      passage !== undefined &&
+      passage.unit === example.unit &&
+      passage.text.includes(example.anchor) &&
+      cell !== undefined &&
+      cell.score >= demo.provenance.llm_keep_min_score &&
+      !goldPassages(demo, question).has(example.passage)
+    );
+  });
+}
+
+// Chữ đếm ví dụ lấy từ số ví dụ còn hiện (reviewer 2026-11-25: "Two" viết cứng cạnh danh sách đã lọc). Tên giống
+// ô số "Extra “partly answers”" ngay trên (copy-reviewer 2026-11-25)
+const COUNT_WORDS = ["No", "One", "Two"];
+export function examplesHeading(shown: number, extra: number): string {
+  return `${COUNT_WORDS[shown] ?? String(shown)} of the ${extra.toLocaleString("en-US")} extra “partly answers”`;
+}
+export function examplesPointer(shown: number): string {
+  return shown === 0 ? "" : shown === 1 ? " (a real example below)" : " (real examples below)";
+}
+
+// Câu trả lời của khối "Where the answer lands" — một câu đúng ngữ pháp cho từng loại kết quả (reviewer 2026-11-12:
+// nhánh `not-found` từng ra "The correct answer is at not found: …")
+export function answerSentence(question: Question, gold: { main: Outcome } | null, k: number): string {
+  if (gold === null) {
+    return `No content unit answers Q${question.number}, so there is no correct passage to rank. The list shows what retrieval returns anyway: the top passage is only the closest match.`;
+  }
+  const lead = question.rule === "both" ? "The answer needs 2 content units; the later one to appear" : "The correct answer";
+  const outcome = gold.main;
+  switch (outcome.kind) {
+    case "rank":
+      return `${lead} is at ${outcomeText(outcome, k)}.`;
+    case "not-found":
+      return `${lead} is not found: BM25 gives it a score of 0, because it shares no word with the question.`;
+    case "filtered":
+      return `${lead} was removed by the ${FILTER_SHOWN[outcome.step]}.`;
+    case "in-progress":
+      return `${lead} cannot be ranked yet: this setup is in progress.`;
+  }
 }
 
 // Ghi chú của số "Correct answer rank" theo định nghĩa của từng câu (UI-0038-gold-definition): câu 3 / 7 = hạng của

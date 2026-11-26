@@ -583,9 +583,9 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
 | `UI-0041-step-order` | thứ tự bước đúng (engine), lọc và MMR tắt | khối từng bước, câu về lọc gần trùng, MMR → PR 3 |
 | `UI-0041-metadata-filter` | chưa có | PR 3 |
 | trộn weighted / DBSF (`UI-0041-step-order`) | chỉ RRF | PR 4 |
-| `UI-0040-honest-data-notes` | số cặp ngoài đáp án + mẫu số, ghi chú bản dịch | ví dụ thật: 1 đoạn trả lời một phần + 1 đoạn Haiku chấm nhầm → PR 2 |
+| `UI-0040-honest-data-notes` | số cặp ngoài đáp án + mẫu số, ghi chú bản dịch | **xong ở PR 2a**: 2 ví dụ thật (câu 2 · đoạn 55 trả lời một phần, câu 7 · đoạn 52 Haiku chấm nhầm — Claude đọc đủ 43 cặp 2026-11-25 rồi chọn, Thy duyệt chữ; `honestExamples` bỏ ví dụ không còn đúng với file đang chạy); mẫu số đổi thành số cặp ngoài đáp án (đo 2026-11-25: 4.012 trong 4.280) |
 | tô sáng chỗ khớp (ADR-0037 D4) | chưa có | PR 3 (cùng ô gõ tự do: cùng cần token của câu hỏi) |
-| bảng thuật ngữ riêng của trang (luật dashboard: thuật ngữ định nghĩa tại chỗ hoặc bảng thuật ngữ) | định nghĩa tại chỗ: RAG + passage ở đầu trang, mỗi phương pháp trong Method | bảng thuật ngữ + link `#term-*` → PR 2 |
+| bảng thuật ngữ riêng của trang (luật dashboard: thuật ngữ định nghĩa tại chỗ hoặc bảng thuật ngữ) | định nghĩa tại chỗ: RAG + passage ở đầu trang, mỗi phương pháp trong Method | **xong ở PR 2a**: khối 06 "Terms used on this page" (4 nhóm, 17 mục), nhãn Key numbers link `#term-*`; markup chung với khối 06 của `/topics` qua `TermGroups` (`src/dashboard/src/components/TermGlossary.tsx`) |
 
 Đáp ứng đủ ở bản đầu: `UI-0037-static-precomputed` (nhãn "Fixed questions · precomputed"; 2 loại kết quả LLM trang
 hiện — dòng dịch và điểm Haiku khi rerank bằng Haiku — đều ghi model + phiên bản prompt trên từng dòng; câu ngữ cảnh và

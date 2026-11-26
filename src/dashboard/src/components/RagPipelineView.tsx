@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AnswerRow,
+  ControlLabel,
+  H,
   Legend,
   LoadError,
   MethodSection,
@@ -13,6 +15,7 @@ import {
   UnitText,
   type KeyNumber,
 } from "@/components/AppBlock";
+import { TermGroups, type TermGroup } from "@/components/TermGlossary";
 import { getRagDemoFile } from "@/lib/api";
 import { count } from "@/lib/landing";
 import { goldAnswer, type GoldAnswer } from "@/lib/ragDemo/answer.ts";
@@ -33,10 +36,15 @@ import { TOP_N_DEFAULT, type Rerank } from "@/lib/ragDemo/rerank.ts";
 import { buildWayIndex, type Retriever } from "@/lib/ragDemo/retrieve.ts";
 import type { Row } from "@/lib/ragDemo/rank.ts";
 import {
+  answerSentence,
   characterCount,
+  examplesHeading,
+  examplesPointer,
   goldRankNote,
   goldUnitsSentence,
+  honestExamples,
   nonGoldKept,
+  scoreText,
   showEmoji,
   THREADS_EMOJI,
   outcomeText,
@@ -184,6 +192,7 @@ export function RagPipelineView() {
       <QuestionBlock demo={demo} question={question} onPick={(n) => update({ question: n })} />
       <PassagesBlock demo={demo} question={question} settings={settings} result={result} gold={gold} update={update} />
       <AboutBlock demo={demo} />
+      <TermsBlock demo={demo} />
     </div>
   );
 }
@@ -215,11 +224,12 @@ function QuestionBlock({
           onChange={(key) => onPick(Number(key))}
         />
       </Control>
+      {/* reviewer 2026-11-12: khung ANSWER từng chứa chính câu hỏi — nay trả lời "câu này kiểm điều gì" */}
       <AnswerRow
-        answer={`Q${question.number}: ${question.english}`}
+        answer={`Q${question.number} tests ${QUESTION_TESTS[question.number]}.`}
         points={[
+          `**The question in English** (translation, for reading only): “${question.english}”`,
           `**Original wording** (${questionLanguage(question)}, the text every step searches with): “${question.text}”`,
-          `**What it tests:** ${QUESTION_TESTS[question.number]}.`,
           `**Correct answer:** ${goldUnitsSentence(question)} It was fixed by post id before any retrieval ran, so no score decides it.`,
         ]}
       />
@@ -275,16 +285,22 @@ function PassagesBlock({
     {
       value: gold && gold.main.kind === "rank" ? rankText(gold.main.from, gold.main.to) : "—",
       label: "Correct answer rank",
+      term: "answer-rank",
       note: goldRankNote(question, K),
     },
     {
       value: count(ranked.length),
       label: "Passages ranked",
+      term: "passage",
       share: { part: ranked.length, whole: total, of: `${count(total)} passages` },
       note: "BM25 leaves out passages that share no word with the question; dense similarity ranks every passage.",
     },
-    { value: count(shown.length), label: "Passages shown", note: shownNote },
+    { value: count(shown.length), label: "Passages shown", term: "top-k", note: shownNote },
   ];
+  // Nhãn chỉ chú giải khi có dòng mang nó (reviewer 2026-11-12: "Not reranked" không bao giờ hiện vì K = 10 < N = 20,
+  // "tied across the cut" hiện mà không có chú giải)
+  const anyNotReranked = settings.rerank !== "none" && shown.some((row) => row.notReranked);
+  const anyAcrossCut = shown.length > K;
   return (
     <Section
       id="passages"
@@ -313,7 +329,7 @@ function PassagesBlock({
             onChange={(retriever) => update({ retriever })}
           />
         </Control>
-        <Control label={`Reranking (rescoring the top ${TOP_N_DEFAULT} passages)`}>
+        <Control label={`Reranking (rescores the top ${TOP_N_DEFAULT} passages; ${TOP_N_DEFAULT} is a design choice)`}>
           <ToggleGroup
             label="Reranking"
             options={(["none", "cross_encoder", "haiku"] as const).map((key) => ({ key, label: RERANKS_SHOWN[key] }))}
@@ -323,10 +339,11 @@ function PassagesBlock({
         </Control>
       </div>
       <AnswerRow
-        answer={answerSentence(question, gold)}
+        answer={answerSentence(question, gold, K)}
         points={unitPoints(question, gold)}
         keyNumbers={keyNumbers}
-        below={
+        // Chú giải ở cột trái, cạnh hộp Key numbers: lấp khoảng trống ~330px dưới ANSWER ở 1440 (ux-reviewer 2026-11-12)
+        extra={
           <div className="flex flex-col gap-4">
             {/* UI-0041-stable-rerank-ties cột E: câu ngắn cạnh kết quả rerank Haiku */}
             {settings.rerank === "haiku" ? (
@@ -335,7 +352,11 @@ function PassagesBlock({
                 of the retrieval step, so two setups with different retrieval can order the same Haiku scores differently.
               </p>
             ) : null}
-            <PassageLegend rerank={settings.rerank} />
+            <PassageLegend rerank={settings.rerank} notReranked={anyNotReranked} acrossCut={anyAcrossCut} />
+          </div>
+        }
+        below={
+          <div className="flex flex-col gap-4">
             {shown.length === 0 ? (
               <p className={`m-0 ${TYPE.body}`}>No passage shares a word with this question, so BM25 returns nothing.</p>
             ) : (
@@ -391,11 +412,13 @@ function PassagesBlock({
           },
           {
             title: "Cross-encoder reranking",
-            plain: `Rereads the question and each of the top ${TOP_N_DEFAULT} passages together with BAAI/bge-reranker-v2-m3 and sorts them by its score (a raw logit: higher means more relevant). Passages below the top ${TOP_N_DEFAULT} keep their order and are marked “not reranked”.`,
+            // 3 reviewer vòng 1 (2026-11-25): nhóm hoà vắt mốc N vào cả khối rerank (`rerankBlockSize`), mốc cắt K
+            // không vượt khối → với K < N không đoạn "not reranked" nào hiện được
+            plain: `Rereads the question and each of the top ${TOP_N_DEFAULT} passages (a design choice; passages tied with the ${TOP_N_DEFAULT}th are included) together with BAAI/bge-reranker-v2-m3 and sorts them by its score (a raw logit: higher means more relevant). Passages below them keep their order and are marked “not reranked”; since the page shows only the top ${K}, none of them appears here.`,
           },
           {
             title: "Claude Haiku reranking",
-            plain: `Claude Haiku 5.5 (prompt version ${rerankPromptVersion(demo)}) gave each question–passage pair a score from 0 (unrelated) to 3 (answers the question); 2 or more is labelled “keep”. Equal scores keep the order of the step before, so two setups can rank the same passages differently.`,
+            plain: `Claude Haiku 5.5 (prompt version ${rerankPromptVersion(demo)}) gave each question–passage pair a score from 0 (not about the question’s topic) to 3 (answers the question directly); 2 or more is labelled “keep” (a design choice; on the prompt’s scale, 2 means “partly answers”). Equal scores keep the order of the step before, so two setups can rank the same passages differently.`,
           },
           {
             title: "Ranks and ties",
@@ -405,7 +428,7 @@ function PassagesBlock({
         ]}
         limits={[
           "Both rerankers score the original question only.",
-          "The cross-encoder is run with a limit of 1,024 tokens per question–passage pair (a setting; the model accepts more); every pair in this demo fits, so nothing is cut.",
+          "The cross-encoder is run with a limit of 1,024 tokens per question–passage pair (a design choice; the model accepts more); every pair in this demo fits, so nothing is cut.",
           "With 19 content units, a different setup often moves the answer by only a few ranks; the page shows mechanisms, not which setup is best.",
         ]}
       />
@@ -413,23 +436,14 @@ function PassagesBlock({
   );
 }
 
+// Nhãn đứng trên nhóm nút: kiểu chữ chung `ControlLabel` (reviewer 2026-11-12: từng là TYPE.th, lệch /analytics)
 function Control({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className={TYPE.th}>{label}</span>
+      <ControlLabel>{label}</ControlLabel>
       {children}
     </div>
   );
-}
-
-function answerSentence(question: Question, gold: GoldAnswer | null): string {
-  if (gold === null) {
-    return `No content unit answers Q${question.number}, so there is no correct passage to rank. The list shows what retrieval returns anyway: the top passage is only the closest match.`;
-  }
-  const where = outcomeText(gold.main, K);
-  return question.rule === "both"
-    ? `The answer needs 2 content units; the later one to appear is at ${where}.`
-    : `The correct answer is at ${where}.`;
 }
 
 function unitPoints(question: Question, gold: GoldAnswer | null): ReactNode[] {
@@ -439,9 +453,10 @@ function unitPoints(question: Question, gold: GoldAnswer | null): ReactNode[] {
   );
 }
 
-function PassageLegend({ rerank }: { rerank: Rerank }) {
+function PassageLegend({ rerank, notReranked, acrossCut }: { rerank: Rerank; notReranked: boolean; acrossCut: boolean }) {
   const items = [
-    { mark: <Mark>★</Mark>, name: "Correct answer", rule: "the passage belongs to the answer’s content unit (for Q5 and Q8, it also covers the answering part)." },
+    // copy-reviewer 2026-11-12: "covers" nói quá — đoạn chỉ cần chạm phần chứa ý
+    { mark: <Mark>★</Mark>, name: "Correct answer", rule: "the passage belongs to the answer’s content unit (for Q5 and Q8, it must also overlap the part of the text that holds the answer)." },
     {
       mark: <Mark>=</Mark>,
       name: "Tied",
@@ -451,18 +466,28 @@ function PassageLegend({ rerank }: { rerank: Rerank }) {
           : "equal score after rounding; the rank is a range.",
     },
   ];
-  if (rerank !== "none") {
+  if (acrossCut) {
+    items.push({ mark: <Mark>+</Mark>, name: "Tied across the cut", rule: `tied with the ${K}th passage, so it is shown even though it is past the first ${K}.` });
+  }
+  if (notReranked) {
     items.push({ mark: <Mark>·</Mark>, name: "Not reranked", rule: `outside the top ${TOP_N_DEFAULT}; it keeps its rank and score from retrieval.` });
   }
   if (rerank === "haiku") {
     items.push({ mark: <Mark>✓</Mark>, name: "Keep / drop", rule: "Haiku score 2 or more is “keep”, below 2 is “drop”; the label does not remove the passage." });
   }
+  // `[emoji]` / `[French flag]` hiện trong chữ đoạn → chú giải tại chỗ (reviewer 2026-11-12)
+  items.push({
+    mark: <Mark>[ ]</Mark>,
+    name: "[emoji], [French flag]",
+    rule: "placeholders in the text: an emoji that exists only on Threads, and a flag that some systems show as two letters.",
+  });
   return <Legend items={items} />;
 }
 
 function Mark({ children }: { children: ReactNode }) {
   return (
-    <span aria-hidden="true" className="font-mono text-[12.5px] font-semibold text-amber-700">
+    // whitespace-nowrap: ký hiệu "[ ]" rộng hơn cột 20px của Legend, từng ngắt thành 2 dòng (ux-reviewer vòng 1)
+    <span aria-hidden="true" className="whitespace-nowrap font-mono text-[12.5px] font-semibold text-amber-700">
       {children}
     </span>
   );
@@ -492,15 +517,19 @@ function PassageRow({
   const labels = [
     isGold ? "★ correct answer" : null,
     tied ? "= tied" : null,
-    position > K ? "tied across the cut" : null,
+    position > K ? "+ tied across the cut" : null,
     row.notReranked && rerank !== "none" ? "· not reranked" : null,
     rerank === "haiku" && !row.notReranked ? (haikuKeeps(row.score) ? "✓ keep" : "✗ drop") : null,
   ].filter((label): label is string => label !== null);
   return (
     <li className="grid grid-cols-1 gap-3 border-t border-border-hairline py-5 first:border-t-0 sm:grid-cols-[96px_minmax(0,1fr)] sm:gap-6">
-      <div className="flex flex-row items-baseline gap-3 sm:flex-col sm:gap-1">
-        <span className={`${TYPE.mono} font-semibold text-text-primary`}>rank {rankText(row.tiedFrom, row.tiedTo)}</span>
-        <span className={`${TYPE.mono} text-text-secondary`}>{row.score.toFixed(6)}</span>
+      {/* ux-reviewer vòng 1: ở 375 + Haiku, 4 mục trên 1 hàng bóp "rank 1" còn 30px, xuống dòng và đọc thành "rank 3" →
+          hạng không bao giờ ngắt, các mục xuống hàng nguyên khối */}
+      <div className="flex flex-row flex-wrap items-baseline gap-x-3 gap-y-1 sm:flex-col sm:gap-1">
+        <span className={`${TYPE.mono} shrink-0 whitespace-nowrap font-semibold text-text-primary`}>
+          rank {rankText(row.tiedFrom, row.tiedTo)}
+        </span>
+        <span className={`${TYPE.mono} text-text-secondary`}>{scoreText(row.score, rerank, row.notReranked)}</span>
         <span className={TYPE.label}>{scoreName(retriever, rerank, row.notReranked)}</span>
         {/* UI-0037-static-precomputed: điểm Haiku là kết quả LLM → ghi model + phiên bản prompt (code-reviewer vòng 1) */}
         {rerank === "haiku" && !row.notReranked ? (
@@ -519,8 +548,19 @@ function PassageRow({
 }
 
 // Chữ một đoạn: bản dịch tiếng Anh trước (kèm model + phiên bản prompt), rồi chữ gốc có dòng "Topic … · original
-// language" (UnitText) — một cách hiện cho khối Loading và danh sách xếp hạng
-function PassageText({ demo, passage, unit }: { demo: DemoFile; passage: Passage; unit: Unit }) {
+// language" (UnitText) — một cách hiện cho khối Loading và danh sách xếp hạng. `withTopic` = false khi các đoạn cùng
+// một content unit đứng liền nhau (khối Loading): topic ghi 1 lần ở đầu, không lặp ở mọi post (reviewer 2026-11-12)
+function PassageText({
+  demo,
+  passage,
+  unit,
+  withTopic = true,
+}: {
+  demo: DemoFile;
+  passage: Passage;
+  unit: Unit;
+  withTopic?: boolean;
+}) {
   return (
     <>
       <span className="flex flex-col gap-0.5">
@@ -530,9 +570,20 @@ function PassageText({ demo, passage, unit }: { demo: DemoFile; passage: Passage
         </span>
         <span className={`${TYPE.body} text-text-primary`}>{showEmoji(passage.en)}</span>
       </span>
-      <UnitText text={showEmoji(passage.text)} topic={unit.topic.id === null ? null : unit.topic.label_en} />
+      {withTopic ? (
+        <UnitText text={showEmoji(passage.text)} topic={unitTopic(unit)} />
+      ) : (
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className={TYPE.label}>Original language</span>
+          <span className={`${TYPE.body} text-text-primary`}>{showEmoji(passage.text)}</span>
+        </span>
+      )}
     </>
   );
+}
+
+function unitTopic(unit: Unit): string | null {
+  return unit.topic.id === null ? null : unit.topic.label_en;
 }
 
 // Bản đồ pipeline (Thy chốt 2026-11-12, sau khi hỏi "đã so với chuẩn của thầy chưa?"): đủ các bước của repo mẫu theo
@@ -542,7 +593,12 @@ function PipelineMapBlock() {
   // số ít / số nhiều theo số đếm (code-reviewer: câu không được viết cứng theo số hôm nay)
   const verb = (n: number, one: string, many: string) => (n === 1 ? one : many);
   const stages = [
-    { key: "indexing", title: "Stage 1 — Indexing", note: "Prepares the content units so they can be searched; run once, before any question." },
+    // reviewer 2026-11-12: "run once" lệch với BM25 dựng lại trong trình duyệt mỗi khi đổi cách chia
+    {
+      key: "indexing",
+      title: "Stage 1 — Indexing",
+      note: "Prepares the content units so they can be searched, before any question is asked. Here most of it was done in advance; the BM25 word counts are rebuilt in your browser when you change the chunking.",
+    },
     { key: "generation", title: "Stage 2 — Generation", note: "Runs for each question: find, rerank, then (in a full RAG system) write an answer." },
   ] as const;
   return (
@@ -576,10 +632,12 @@ function PipelineMapBlock() {
                       >
                         <span className={`${TYPE.mono} font-semibold text-amber-600`}>{step.number}</span>
                         <div className="flex min-w-0 flex-col gap-1">
-                          <span className={TYPE.bodyStrong}>
+                          {/* ux-reviewer 2026-11-12: tên bước là tiêu đề thật (h4 dưới h3 của giai đoạn) để trình đọc
+                              màn hình nhảy theo bước */}
+                          <H level={4} className={TYPE.h4}>
                             {step.name}
                             {step.optional ? <span className={`${TYPE.note} font-normal`}> · optional</span> : null}
-                          </span>
+                          </H>
                           <span className={`${TYPE.note} flex flex-wrap items-baseline gap-x-1.5`}>
                             <Mark>{status.mark}</Mark>
                             <span className="font-semibold text-text-primary">{status.name}</span>
@@ -645,15 +703,21 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
       <AnswerRow
         answer={`${count(units.length)} content units were loaded, ${count(posts)} posts in all: each content unit is an opening post plus the follow-up posts its author added in the same thread.`}
         points={[
-          "**Source:** the Threads API (Meta’s official interface) returns the author’s posts and replies; a scheduled job stores them in a SQLite database every 4 hours, and this demo reads a frozen copy.",
+          "**Source:** the Threads API (Meta’s official interface) returns the author’s posts and replies; a scheduled job stores them in a SQLite database about every 4 hours, and this demo reads a frozen copy.",
           // ADR-0004 quyết định 1 (`src/processing/thread_reconstruction.py:49#reaches_root`): mọi mắt xích là post của tác
-          // giả — code-reviewer + copy-reviewer: câu "lần ngược về post mở đầu" thiếu điều kiện này là luật lỏng cũ
-          "**One thread, one content unit:** a follow-up post is a reply by the author whose chain of “replied to” links reaches the opening post through the author’s own posts only. Comments from other people, and the author’s answers to them, are left out.",
+          // giả — code-reviewer + copy-reviewer: câu "lần ngược về post mở đầu" thiếu điều kiện này là luật lỏng cũ.
+          // copy-reviewer 2026-11-12: "whose" từng gắn nhầm vào "the author"
+          "**One thread, one content unit:** a follow-up post is one of the author’s replies whose chain of “replied to” links leads back to the opening post through the author’s own posts only. Comments from other people, and the author’s answers to them, are left out.",
           `**Frozen:** the channel’s ${FROZEN_UNITS} most recent content units on Nov 5, 2026, each locked by its id, length and a SHA-256 hash. The author later deleted one of them from Threads, so ${count(units.length)} remain; before each publish the text is checked against Threads again.`,
           `**Text only, in its original form:** images and videos are not read, and the text keeps its case and its Vietnamese diacritics. Emoji that exist only on Threads come back from the API as the character ${THREADS_EMOJI} (checked against the Threads app on one post), so the page shows them as **[emoji]**.`,
         ]}
         keyNumbers={[
-          { value: count(units.length), label: "Content units", note: `${monthCounts.join(", ")} (month of the opening post, Paris time).` },
+          {
+            value: count(units.length),
+            label: "Content units",
+            term: "content-unit",
+            note: `${monthCounts.join(", ")} (month of the opening post, Paris time).`,
+          },
           {
             value: count(followUps),
             label: "Follow-up posts",
@@ -668,7 +732,9 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
         ]}
         below={
           <div className="flex flex-col gap-4">
-            <Control label="Inspect one content unit">
+            {/* Thứ tự nút = thứ tự đóng băng, bài mới trước (`src/rag_demo/corpus.py:29#FROZEN_UNITS`) — reviewer
+                2026-11-12: nhãn phải nói #1 là bài nào */}
+            <Control label="Inspect one content unit (#1 = newest)">
               <ToggleGroup
                 label="Content unit"
                 mono
@@ -680,7 +746,8 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
             </Control>
             <p className={`m-0 ${TYPE.note}`}>
               {monthText(unit.month)} · {unit.posts.length === 1 ? "1 post" : `${unit.posts.length} posts`} ·{" "}
-              {count(characterCount(unit.text))} characters
+              {count(characterCount(unit.text))} characters ·{" "}
+              {unitTopic(unit) === null ? "Unclustered: fits none of the topics" : `Topic: ${unitTopic(unit)}`}
             </p>
             <ol className="m-0 flex list-none flex-col p-0">
               {postChunks.map((chunk, i) => (
@@ -691,7 +758,7 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
                   <span className={`${TYPE.mono} font-semibold text-text-primary`}>
                     post {i + 1} · {i === 0 ? "opening post" : "follow-up post"}
                   </span>
-                  <PassageText demo={demo} passage={demo.passages[chunk.passage]} unit={unit} />
+                  <PassageText demo={demo} passage={demo.passages[chunk.passage]} unit={unit} withTopic={false} />
                 </li>
               ))}
             </ol>
@@ -703,7 +770,7 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
           {
             title: "Collect",
             plain:
-              "A scheduled job reads the author’s posts and replies from the Threads API and stores them in SQLite, about every 4 hours while the author’s laptop is on.",
+              "A scheduled job reads the author’s posts and replies from the Threads API and stores them in SQLite about every 4 hours, while the author’s laptop is on.",
           },
           {
             title: "Assemble",
@@ -727,7 +794,9 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
 
 function AboutBlock({ demo }: { demo: DemoFile }) {
   const partly = nonGoldKept(demo, LLM_MAX_SCORE);
-  const pairs = `${count(demo.questions.length)} questions × ${count(demo.passages.length)} distinct passages from all ${WAYS.length} chunking methods`;
+  // Mẫu số = cặp NGOÀI đáp án (copy-reviewer 2026-11-12; đo 2026-11-25: 4.012 trong 4.280 cặp)
+  const pairs = `the ${count(partly.allPairs)} pairs of ${count(demo.questions.length)} questions × ${count(demo.passages.length)} distinct passages from all ${WAYS.length} chunking methods, minus the pairs in the fixed answers`;
+  const examples = honestExamples(demo);
   const embedding = provenanceText(demo, (p) => p.embedding_model, "text-embedding-3-small");
   const crossEncoder = provenanceText(
     demo,
@@ -745,8 +814,11 @@ function AboutBlock({ demo }: { demo: DemoFile }) {
       <AnswerRow
         answer={`An illustration of how retrieval steps behave, not an evaluation: ${demo.units.length} content units and ${demo.questions.length} questions are far too few to say which setup is best.`}
         points={[
-          `**The correct answers stay as fixed in advance.** Claude Haiku rated ${count(partly.total)} of ${count(partly.pairs)} question–passage pairs 2 or more (“partly answers” or better) although the passage is not in the fixed answer${partly.top === 0 ? `; none was rated ${LLM_MAX_SCORE}` : `; ${count(partly.top)} were rated ${LLM_MAX_SCORE}`}. Some do answer in part, others are Haiku mistakes. They are still not marked ★ correct answer.`,
-          "**English text is machine translation.** Dish and brand names stay in Vietnamese, and a passage that starts mid-sentence sometimes keeps a few Vietnamese words.",
+          `**The correct answers stay as fixed in advance.** Of the ${count(partly.pairs)} question–passage pairs outside the fixed answers, Claude Haiku rated ${count(partly.total - partly.top)} of them 2 (“partly answers”) and ${partly.top === 0 ? "none" : count(partly.top)} ${LLM_MAX_SCORE} (“answers directly”). Some do answer in part, others are Haiku mistakes${examplesPointer(examples.length)}. These ${count(partly.total)} pairs are still not marked as ★ correct answer.`,
+          // copy-reviewer 2026-11-12: bản dịch còn giữ cả từ tiếng Pháp (logement, classe énergétique…); 2026-11-25:
+          // chỉ tên hãng Việt giữ tiếng Việt (Gant, Tommy thì không) — "Thiên Long" còn trong bản dịch của 7 đoạn (đo
+          // 2026-11-25), UI-0040-honest-data-notes bắt buộc nêu tên hãng
+          "**English text is machine translation.** Dish names and Vietnamese brand names (such as Thiên Long pens) stay in Vietnamese, and French words the author used (such as logement or déstockage) often stay in French. A passage that starts mid-sentence sometimes keeps a few Vietnamese words.",
           <>
             <strong className="font-semibold text-text-primary">Credit:</strong> the page follows the structure of the open-source{" "}
             <a
@@ -765,9 +837,44 @@ function AboutBlock({ demo }: { demo: DemoFile }) {
           {
             value: count(partly.total),
             label: "Extra “partly answers”",
-            note: `Question–passage pairs outside the fixed answers that Claude Haiku rated 2 or more, out of ${count(partly.pairs)} (${pairs}).`,
+            term: "extra-partly",
+            // nhãn ngắn: ở 375 chữ dài tràn mép hộp 18px (ux-shots L2, 2026-11-25); nghĩa đủ ở `note` ngay dưới
+            share: { part: partly.total, whole: partly.pairs, of: `${count(partly.pairs)} other pairs` },
+            note: `Question–passage pairs outside the fixed answers that Claude Haiku rated 2 or more. The ${count(partly.pairs)} are ${pairs}.`,
           },
         ]}
+        below={
+          examples.length > 0 ? (
+            // UI-0040-honest-data-notes: ví dụ thật cho số trên (reviewer 2026-11-12), đọc chữ từ file đang chạy
+            <SubSection title={examplesHeading(examples.length, partly.total)} note="Real pairs from the demo file, in the English translation.">
+              <ol className="m-0 flex list-none flex-col p-0">
+                {examples.map((example) => {
+                  const q = demo.questions.find((item) => item.number === example.question)!;
+                  const passage = demo.passages[example.passage];
+                  return (
+                    <li
+                      key={`${example.question}-${example.passage}`}
+                      className="flex flex-col gap-2 border-t border-border-hairline py-5 first:border-t-0"
+                    >
+                      <span className={`${TYPE.mono} font-semibold text-text-primary`}>
+                        {example.kind} · Q{q.number} · Haiku score {scoreText(q.llm[example.passage].score, "haiku", false)}
+                      </span>
+                      <p className={`m-0 ${TYPE.body}`}>
+                        <span className="font-semibold text-text-primary">Question:</span> “{q.english}”
+                      </p>
+                      <p className={`m-0 ${TYPE.body}`}>
+                        <span className="font-semibold text-text-primary">Passage:</span> “{showEmoji(passage.en)}”
+                      </p>
+                      <p className={`m-0 ${TYPE.body}`}>
+                        <span className="font-semibold text-text-primary">Why:</span> {example.why}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ol>
+            </SubSection>
+          ) : null
+        }
       />
       <MethodSection
         steps={[
@@ -787,6 +894,147 @@ function AboutBlock({ demo }: { demo: DemoFile }) {
           "The frozen content units are not updated by the scheduled data jobs; the rest of the dashboard is.",
         ]}
       />
+    </Section>
+  );
+}
+
+// Bảng thuật ngữ của trang (luật dashboard: thuật ngữ định nghĩa tại chỗ hoặc ở bảng thuật ngữ; PR 2a, Thy chốt
+// 2026-11-25). Cùng markup với /topics (`TermGroups`); nhãn Key numbers link tới đây bằng `term`. Hằng số đọc từ
+// engine / file demo, không gõ số tay. Chữ là bản nháp: copy-reviewer đọc, Thy duyệt.
+function TermsBlock({ demo }: { demo: DemoFile }) {
+  const keep = demo.provenance.llm_keep_min_score;
+  const groups: TermGroup[] = [
+    {
+      title: "1 · The data",
+      lead: "What the demo searches, and what one search result is.",
+      entries: [
+        {
+          id: "rag",
+          term: "RAG",
+          plain:
+            "Retrieval-augmented generation: a system first retrieves passages relevant to a question, then a language model writes an answer from them. This page shows only the retrieval part; it ranks passages and writes no answer.",
+        },
+        {
+          id: "content-unit",
+          term: "Content unit",
+          // copy-reviewer vòng 1: trang này đếm "posts" trong một content unit → "One post" tự mâu thuẫn; /topics giữ
+          // câu của nó (gọi phần sau là "follow-up parts")
+          plain: `One thread as the author published it: the opening post plus the follow-up posts the author added in the same thread. Replies to followers are left out. This demo searches ${count(demo.units.length)} frozen content units.`,
+        },
+        {
+          id: "passage",
+          term: "Passage",
+          plain:
+            "A piece of a content unit that retrieval scores and ranks. The chunking method decides how a content unit is cut into passages; with “No chunking”, a passage is the whole content unit.",
+        },
+        {
+          id: "chunking",
+          term: "Chunking",
+          plain: `Cutting each content unit into passages. The page offers ${WAYS.length} methods; the method changes how many passages there are and how long they are.`,
+        },
+        {
+          id: "precomputed",
+          term: "Precomputed",
+          plain:
+            "Model scores (dense similarity, cross-encoder, Claude Haiku) computed once in advance and stored in the demo file. Your browser ranks and sorts them; it never calls a model.",
+        },
+      ],
+    },
+    {
+      title: "2 · Finding passages",
+      lead: "How retrieval scores each passage against the question.",
+      entries: [
+        {
+          id: "bm25",
+          term: "BM25",
+          plain:
+            "A keyword score: a passage scores higher the more of the question’s words it contains (each repeat adds less); rare words weigh more, and long passages are scored down. A passage that shares no word with the question scores 0 and is not ranked. Formula: block 04, Method.",
+        },
+        {
+          id: "dense",
+          term: "Embedding, dense similarity",
+          plain:
+            "An embedding turns a text into a vector (a list of numbers) so that texts with similar meaning get vectors pointing in similar directions. Dense similarity is the cosine between the question’s vector and a passage’s vector: higher means closer in meaning, even with no shared word.",
+        },
+        {
+          id: "hybrid",
+          term: "Hybrid (RRF)",
+          plain: `Combines the BM25 list and the dense list by rank, not by score: each list gives a passage 1 ÷ (${RRF_K} + its rank), and the two values are added.`,
+        },
+        {
+          id: "tie",
+          term: "Tie, rank range",
+          // 3 reviewer vòng 1: phải khớp ngoại lệ Haiku của Method khối 04 và chú giải "Tied" (`rerankHaiku`)
+          plain:
+            "Passages whose scores are equal after rounding to 6 decimals share a rank range such as “3–4”, because no order between them is more correct. The exception is Claude Haiku reranking: equal Haiku scores keep the order of the step before, so they share a range only if they were already tied there.",
+        },
+      ],
+    },
+    {
+      title: "3 · Reranking",
+      lead: "Rescoring the top of the list with a slower model that reads the question and the passage together.",
+      entries: [
+        {
+          id: "top-n",
+          term: "Top-N",
+          // copy-reviewer vòng 2: khớp `rerankBlockSize` + Method khối 04 — nhóm hoà ở mốc N được rerank cả nhóm
+          plain: `How many passages at the top of the retrieval list a reranker rescores: ${TOP_N_DEFAULT} (a design choice), plus any passages tied with the ${TOP_N_DEFAULT}th. Passages below them keep their order and are marked “not reranked”; with only the top ${K} shown, none appears on this page.`,
+        },
+        {
+          id: "cross-encoder",
+          term: "Cross-encoder",
+          plain:
+            "A model that reads the question and one passage together and returns one relevance score, a logit: any real number, higher means more relevant. Here: BAAI/bge-reranker-v2-m3.",
+        },
+        {
+          id: "haiku-score",
+          term: "Claude Haiku score",
+          plain: `A score from 0 to 3 that Claude Haiku 5.5 gave each question–passage pair: 0 not about the question’s topic, 1 same topic but no help, 2 partly answers, 3 answers directly. ${keep} or more is labelled “keep” (a design choice); on this page the label never removes a passage.`,
+        },
+      ],
+    },
+    {
+      title: "4 · Reading the result",
+      lead: "What the marks and numbers next to the ranked passages mean.",
+      entries: [
+        {
+          id: "correct-answer",
+          term: "Correct answer (★)",
+          plain:
+            "The content units that answer a question, fixed by post id before any retrieval ran. A passage is marked ★ when it belongs to one of them; for Q5 and Q8 it must also overlap the part of the text that holds the answer.",
+        },
+        {
+          id: "answer-rank",
+          term: "Correct answer rank",
+          plain: `The rank of the best-ranked correct passage in the full ranked list, before the top-${K} cut. When the answer needs 2 content units, it is the rank of the one found later.`,
+        },
+        {
+          id: "top-k",
+          term: "Top-K",
+          plain: `How many passages the page shows: the first ${K} (a design choice). Passages tied with the ${K}th are shown too, marked “tied across the cut”.`,
+        },
+        {
+          id: "extra-partly",
+          term: "Extra “partly answers”",
+          plain: `Question–passage pairs outside the fixed answers that Claude Haiku rated ${keep} or more. Some do answer in part, others are Haiku mistakes; the fixed answers are not changed.`,
+        },
+        {
+          id: "placeholders",
+          term: "[emoji], [French flag]",
+          plain: `Placeholders in the text shown on this page. [emoji] stands for an emoji that exists only on Threads and comes back from the API as the character ${THREADS_EMOJI}; [French flag] stands for a flag that some systems show as two letters. The stored text and the scores keep the original characters.`,
+        },
+      ],
+    },
+  ];
+  return (
+    <Section
+      id="terms"
+      n={ragNumber("terms")}
+      short={ragShort("terms")}
+      title="Terms used on this page"
+      purpose="Each term in plain words, in the order the page uses them; the formulas sit in the Method part of each block."
+    >
+      <TermGroups intro="Every term means exactly this everywhere on the page." groups={groups} />
     </Section>
   );
 }

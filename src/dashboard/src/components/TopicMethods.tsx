@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Formula, rich, Section, TYPE } from "@/components/AppBlock";
+import { Formula, Section } from "@/components/AppBlock";
+import { TermGroups, type TermGroup } from "@/components/TermGlossary";
 import { sectionShort } from "@/lib/topicSections";
 import type { ClusterRun, ComparisonMethod } from "@/lib/api";
 import { count } from "@/lib/landing";
@@ -23,15 +24,6 @@ import { count } from "@/lib/landing";
 // Tham số thay đổi được đọc từ API (`run.params`, `method`); API chưa trả thì viết bằng chữ, không
 // gõ số thay. Hằng số cố định của code (8 từ khoá, ≥ 2 unit, 80%, 15 unit đặt tên) ghi kèm file:line ở trên.
 
-interface Entry {
-  id: string; // anchor `term-<id>` — các khối trên trang link tới đây
-  term: string;
-  plain: ReactNode;
-  formula?: string[];
-  where?: ReactNode[];
-  thisRun?: ReactNode;
-}
-
 // Ký hiệu có chỉ số (`w_ij`) → Formula vẽ <sub>; tên hàm/ID trong code (có "." hoặc "=") giữ nguyên
 function Mono({ children }: { children: ReactNode }) {
   if (typeof children === "string" && /[_^]/.test(children) && !/[.=]/.test(children)) {
@@ -40,11 +32,7 @@ function Mono({ children }: { children: ReactNode }) {
   return <code className="font-mono text-[12.5px] text-text-primary">{children}</code>;
 }
 
-function groups(run: ClusterRun | null, method: ComparisonMethod | null, minPosts: number): {
-  title: string;
-  lead: string;
-  entries: Entry[];
-}[] {
+function groups(run: ClusterRun | null, method: ComparisonMethod | null, minPosts: number): TermGroup[] {
   const param = (key: string) => {
     const value = run?.params[key];
     return value === undefined || value === null ? null : String(value);
@@ -468,55 +456,10 @@ export function TopicMethods({
       title="How every number on this page is computed"
       purpose="Each term, its formula and what each symbol means, in the order the page uses them."
     >
-      <div className="flex flex-col gap-2">
-        <p className={`m-0 ${TYPE.measure} ${TYPE.body}`}>
-          Every term means exactly this everywhere on the page; symbols are defined in the entry that uses them. Values marked “this run” are read from the latest
-          clustering run and the latest tests.
-        </p>
-      </div>
-      {groups(run, method, minPosts).map((group) => (
-        <div key={group.title} className="flex flex-col gap-2 border-t border-border-hairline pt-7">
-          <div className="flex flex-col gap-1">
-            <h3 className={`m-0 ${TYPE.h3}`}>{group.title}</h3>
-            <p className={`m-0 ${TYPE.note}`}>{group.lead}</p>
-          </div>
-          <dl className="m-0 flex flex-col">
-            {group.entries.map((entry) => (
-              <div
-                key={entry.id}
-                id={`term-${entry.id}`}
-                className="grid scroll-mt-24 grid-cols-1 gap-x-8 gap-y-2 border-b border-bg-surface py-4 last:border-b-0 md:grid-cols-[220px_minmax(0,1fr)]"
-              >
-                <dt className={TYPE.h4}>{entry.term}</dt>
-                <dd className="m-0 flex flex-col gap-2.5">
-                  <p className={`m-0 ${TYPE.measure} ${TYPE.body} [text-wrap:pretty]`}>{entry.plain}</p>
-                  {entry.formula ? (
-                    // xuống dòng được ở khổ hẹp — không thanh cuộn lồng (luật bố cục)
-                    <div className="flex w-full flex-col gap-0.5 rounded-lg border border-border-hairline bg-bg-sunken px-3.5 py-2.5">
-                      {entry.formula.map((line) => (
-                        <Formula key={line}>{line}</Formula>
-                      ))}
-                    </div>
-                  ) : null}
-                  {entry.where && entry.where.length > 0 ? (
-                    <ul className={`m-0 flex ${TYPE.measure} list-disc flex-col gap-1 pl-5 text-[13px] leading-[1.55] text-text-secondary marker:text-text-muted`}>
-                      {entry.where.map((item, i) => (
-                        <li key={i}>{rich(item)}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {entry.thisRun ? (
-                    <p className={`m-0 ${TYPE.measure} text-[13px] leading-[1.55] text-text-secondary`}>
-                      <span className="font-semibold text-text-primary">This run: </span>
-                      {entry.thisRun}
-                    </p>
-                  ) : null}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      ))}
+      <TermGroups
+        intro="Every term means exactly this everywhere on the page; symbols are defined in the entry that uses them. Values marked “this run” are read from the latest clustering run and the latest tests."
+        groups={groups(run, method, minPosts)}
+      />
     </Section>
   );
 }
