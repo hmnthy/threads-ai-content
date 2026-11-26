@@ -226,9 +226,9 @@ function QuestionBlock({
       </Control>
       {/* reviewer 2026-11-12: khung ANSWER từng chứa chính câu hỏi — nay trả lời "câu này kiểm điều gì" */}
       <AnswerRow
-        answer={`Q${question.number} tests one difficulty: ${QUESTION_TESTS[question.number]}.`}
+        answer={`Q${question.number} tests ${QUESTION_TESTS[question.number]}.`}
         points={[
-          `**The question in English:** “${question.english}” (a translation for reading).`,
+          `**The question in English** (translation, for reading only): “${question.english}”`,
           `**Original wording** (${questionLanguage(question)}, the text every step searches with): “${question.text}”`,
           `**Correct answer:** ${goldUnitsSentence(question)} It was fixed by post id before any retrieval ran, so no score decides it.`,
         ]}
@@ -329,7 +329,7 @@ function PassagesBlock({
             onChange={(retriever) => update({ retriever })}
           />
         </Control>
-        <Control label={`Reranking (rescoring the top ${TOP_N_DEFAULT} passages, a design choice)`}>
+        <Control label={`Reranking (rescores the top ${TOP_N_DEFAULT} passages; ${TOP_N_DEFAULT} is a design choice)`}>
           <ToggleGroup
             label="Reranking"
             options={(["none", "cross_encoder", "haiku"] as const).map((key) => ({ key, label: RERANKS_SHOWN[key] }))}
@@ -418,7 +418,7 @@ function PassagesBlock({
           },
           {
             title: "Claude Haiku reranking",
-            plain: `Claude Haiku 5.5 (prompt version ${rerankPromptVersion(demo)}) gave each question–passage pair a score from 0 (unrelated) to 3 (answers the question); 2 or more is labelled “keep” (a design choice: 2 means “partly answers”). Equal scores keep the order of the step before, so two setups can rank the same passages differently.`,
+            plain: `Claude Haiku 5.5 (prompt version ${rerankPromptVersion(demo)}) gave each question–passage pair a score from 0 (not about the question’s topic) to 3 (answers the question directly); 2 or more is labelled “keep” (a design choice; on the prompt’s scale, 2 means “partly answers”). Equal scores keep the order of the step before, so two setups can rank the same passages differently.`,
           },
           {
             title: "Ranks and ties",
@@ -456,7 +456,7 @@ function unitPoints(question: Question, gold: GoldAnswer | null): ReactNode[] {
 function PassageLegend({ rerank, notReranked, acrossCut }: { rerank: Rerank; notReranked: boolean; acrossCut: boolean }) {
   const items = [
     // copy-reviewer 2026-11-12: "covers" nói quá — đoạn chỉ cần chạm phần chứa ý
-    { mark: <Mark>★</Mark>, name: "Correct answer", rule: "the passage belongs to the answer’s content unit (for Q5 and Q8, it must also overlap the answering part)." },
+    { mark: <Mark>★</Mark>, name: "Correct answer", rule: "the passage belongs to the answer’s content unit (for Q5 and Q8, it must also overlap the part of the text that holds the answer)." },
     {
       mark: <Mark>=</Mark>,
       name: "Tied",
@@ -707,7 +707,7 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
           // ADR-0004 quyết định 1 (`src/processing/thread_reconstruction.py:49#reaches_root`): mọi mắt xích là post của tác
           // giả — code-reviewer + copy-reviewer: câu "lần ngược về post mở đầu" thiếu điều kiện này là luật lỏng cũ.
           // copy-reviewer 2026-11-12: "whose" từng gắn nhầm vào "the author"
-          "**One thread, one content unit:** a follow-up post is a reply by the author that leads back to the opening post through a chain of “replied to” links made only of the author’s own posts. Comments from other people, and the author’s answers to them, are left out.",
+          "**One thread, one content unit:** a follow-up post is one of the author’s replies whose chain of “replied to” links leads back to the opening post through the author’s own posts only. Comments from other people, and the author’s answers to them, are left out.",
           `**Frozen:** the channel’s ${FROZEN_UNITS} most recent content units on Nov 5, 2026, each locked by its id, length and a SHA-256 hash. The author later deleted one of them from Threads, so ${count(units.length)} remain; before each publish the text is checked against Threads again.`,
           `**Text only, in its original form:** images and videos are not read, and the text keeps its case and its Vietnamese diacritics. Emoji that exist only on Threads come back from the API as the character ${THREADS_EMOJI} (checked against the Threads app on one post), so the page shows them as **[emoji]**.`,
         ]}
@@ -814,9 +814,11 @@ function AboutBlock({ demo }: { demo: DemoFile }) {
       <AnswerRow
         answer={`An illustration of how retrieval steps behave, not an evaluation: ${demo.units.length} content units and ${demo.questions.length} questions are far too few to say which setup is best.`}
         points={[
-          `**The correct answers stay as fixed in advance.** Of the ${count(partly.pairs)} question–passage pairs outside the fixed answers, Claude Haiku rated ${count(partly.total)} of them 2 or more (“partly answers” or better)${partly.top === 0 ? `; none was rated ${LLM_MAX_SCORE}` : `; ${count(partly.top)} were rated ${LLM_MAX_SCORE}`}. Some do answer in part, others are Haiku mistakes${examplesPointer(examples.length)}. They are still not marked ★ correct answer.`,
-          // copy-reviewer 2026-11-12: bản dịch còn giữ cả từ tiếng Pháp (logement, classe énergétique…)
-          "**English text is machine translation.** Dish and brand names stay in Vietnamese, French words the author used (such as logement or déstockage) often stay in French, and a passage that starts mid-sentence sometimes keeps a few Vietnamese words.",
+          `**The correct answers stay as fixed in advance.** Of the ${count(partly.pairs)} question–passage pairs outside the fixed answers, Claude Haiku rated ${count(partly.total - partly.top)} of them 2 (“partly answers”) and ${partly.top === 0 ? "none" : count(partly.top)} ${LLM_MAX_SCORE} (“answers directly”). Some do answer in part, others are Haiku mistakes${examplesPointer(examples.length)}. These ${count(partly.total)} pairs are still not marked as ★ correct answer.`,
+          // copy-reviewer 2026-11-12: bản dịch còn giữ cả từ tiếng Pháp (logement, classe énergétique…); 2026-11-25:
+          // chỉ tên hãng Việt giữ tiếng Việt (Gant, Tommy thì không) — "Thiên Long" còn trong bản dịch của 7 đoạn (đo
+          // 2026-11-25), UI-0040-honest-data-notes bắt buộc nêu tên hãng
+          "**English text is machine translation.** Dish names and Vietnamese brand names (such as Thiên Long pens) stay in Vietnamese, and French words the author used (such as logement or déstockage) often stay in French. A passage that starts mid-sentence sometimes keeps a few Vietnamese words.",
           <>
             <strong className="font-semibold text-text-primary">Credit:</strong> the page follows the structure of the open-source{" "}
             <a
@@ -917,7 +919,7 @@ function TermsBlock({ demo }: { demo: DemoFile }) {
           term: "Content unit",
           // copy-reviewer vòng 1: trang này đếm "posts" trong một content unit → "One post" tự mâu thuẫn; /topics giữ
           // câu của nó (gọi phần sau là "follow-up parts")
-          plain: `One thread as the author published it: the opening post plus the follow-up posts the author added in the same thread. This demo searches ${count(demo.units.length)} frozen content units.`,
+          plain: `One thread as the author published it: the opening post plus the follow-up posts the author added in the same thread. Replies to followers are left out. This demo searches ${count(demo.units.length)} frozen content units.`,
         },
         {
           id: "passage",
@@ -946,7 +948,7 @@ function TermsBlock({ demo }: { demo: DemoFile }) {
           id: "bm25",
           term: "BM25",
           plain:
-            "A keyword score: a passage scores higher when it contains more of the question’s words, rare words count more, and long passages count slightly less. A passage that shares no word with the question scores 0 and is not ranked. Formula: block 04, Method.",
+            "A keyword score: a passage scores higher the more of the question’s words it contains (each repeat adds less); rare words weigh more, and long passages are scored down. A passage that shares no word with the question scores 0 and is not ranked. Formula: block 04, Method.",
         },
         {
           id: "dense",
@@ -976,7 +978,7 @@ function TermsBlock({ demo }: { demo: DemoFile }) {
           id: "top-n",
           term: "Top-N",
           // copy-reviewer vòng 2: khớp `rerankBlockSize` + Method khối 04 — nhóm hoà ở mốc N được rerank cả nhóm
-          plain: `How many passages at the top of the retrieval list a reranker rescores: ${TOP_N_DEFAULT} (a design choice), plus any passages tied with the ${TOP_N_DEFAULT}th. Passages below them keep their order and are marked “not reranked”.`,
+          plain: `How many passages at the top of the retrieval list a reranker rescores: ${TOP_N_DEFAULT} (a design choice), plus any passages tied with the ${TOP_N_DEFAULT}th. Passages below them keep their order and are marked “not reranked”; with only the top ${K} shown, none appears on this page.`,
         },
         {
           id: "cross-encoder",

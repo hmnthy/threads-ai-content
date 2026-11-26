@@ -156,19 +156,22 @@ export function ragShort(id: (typeof RAG_SECTIONS)[number][0]): string {
   return RAG_SECTIONS.find(([key]) => key === id)![2];
 }
 
-// Hiện tượng mỗi câu hỏi phô ra — bảng D10 của ADR-0037 (Thy duyệt 2026-11-05), dịch sang tiếng Anh
+// Hiện tượng mỗi câu hỏi phô ra — bảng D10 của ADR-0037 (Thy duyệt 2026-11-05), dịch sang tiếng Anh. Mỗi mục là
+// cụm danh từ đứng sau "Q{n} tests …" (copy-reviewer 2026-11-25: "tests one difficulty: …" sai ngữ pháp ở Q1, Q7,
+// và Q3, Q7 có 2 khó khăn)
 export const QUESTION_TESTS: Record<number, string> = {
-  1: "typed without Vietnamese diacritics",
-  2: "the answer uses other words, partly in another language",
-  3: "one question with several parts; the answer needs 2 content units",
-  // ADR-0040: bài gần trùng thứ hai bị xoá trên Threads sau mốc đóng băng → còn 1 bài đáp án
-  4: "near-duplicate posts; the second one was deleted from Threads after the freeze, so one content unit answers it",
-  5: "the answer sits in a follow-up post of the thread",
-  6: "asked in French about a post written in Vietnamese",
-  7: "vague; the answer needs 2 content units",
+  1: "a question typed without Vietnamese diacritics",
+  2: "an answer that uses other words, partly in another language",
+  3: "one question with several parts, whose answer needs 2 content units",
+  // ADR-0040: bài bị xoá trên Threads sau mốc đóng băng là bài ĐĂNG TRƯỚC (18117744790996401, 2026-10-12); bài còn
+  // lại đăng 2026-10-26 → còn 1 bài đáp án (Thy chốt ý 2026-11-25; 2 reviewer vòng 1: "the second copy" nói ngược)
+  4: "near-duplicate posts, but the earlier of the two was deleted from Threads after the freeze, so only one answering content unit remains",
+  5: "an answer that sits in a follow-up post of the thread",
+  6: "a question asked in French about a post written in Vietnamese",
+  7: "a vague question whose answer needs 2 content units",
   8: "a keyword trap: another post also talks about prices",
   9: "numbers and product names",
-  10: "no content unit answers it",
+  10: "a question that no content unit answers",
 };
 
 // 7 cách chia (ADR-0039 D1): nhãn nút + một câu giải thích
@@ -320,7 +323,8 @@ export const HONEST_EXAMPLES = [
     unit: "18153699859548704",
     anchor: "Gant, Tommy",
     kind: "Partly answers",
-    why: "the stalls sell cheap branded clothes, but as clearance stock (déstockage), not second-hand.",
+    // copy-reviewer 2026-11-25: đoạn văn không nói "cheap" → bỏ
+    why: "the stalls sell branded clothes as clearance stock (déstockage), not second-hand.",
   },
   {
     question: 7,
@@ -349,10 +353,11 @@ export function honestExamples(demo: DemoFile): (typeof HONEST_EXAMPLES)[number]
   });
 }
 
-// Chữ đếm ví dụ lấy từ số ví dụ còn hiện (reviewer 2026-11-25: "Two" viết cứng cạnh danh sách đã lọc)
+// Chữ đếm ví dụ lấy từ số ví dụ còn hiện (reviewer 2026-11-25: "Two" viết cứng cạnh danh sách đã lọc). Tên giống
+// ô số "Extra “partly answers”" ngay trên (copy-reviewer 2026-11-25)
 const COUNT_WORDS = ["No", "One", "Two"];
 export function examplesHeading(shown: number, extra: number): string {
-  return `${COUNT_WORDS[shown] ?? String(shown)} of the ${extra.toLocaleString("en-US")} extra pairs`;
+  return `${COUNT_WORDS[shown] ?? String(shown)} of the ${extra.toLocaleString("en-US")} extra “partly answers”`;
 }
 export function examplesPointer(shown: number): string {
   return shown === 0 ? "" : shown === 1 ? " (a real example below)" : " (real examples below)";

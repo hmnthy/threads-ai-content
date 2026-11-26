@@ -300,9 +300,9 @@ def test_example_count_words_follow_how_many_examples_are_shown(tmp_path: Path) 
         ],
     )
     assert got == [
-        "Two of the 43 extra pairs",
-        "One of the 43 extra pairs",
-        "Two of the 1,043 extra pairs",
+        "Two of the 43 extra “partly answers”",
+        "One of the 43 extra “partly answers”",
+        "Two of the 1,043 extra “partly answers”",
         " (real examples below)",
         " (a real example below)",
         "",
