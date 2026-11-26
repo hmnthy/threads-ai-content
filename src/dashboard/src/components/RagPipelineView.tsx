@@ -33,11 +33,17 @@ import { chunkParts, haikuKeeps } from "@/lib/ragDemo/filters.ts";
 import { DEFAULT_PIPELINE, runPipeline, type PipelineResult } from "@/lib/ragDemo/pipeline.ts";
 import { RRF_K } from "@/lib/ragDemo/fuse.ts";
 import { TOP_N_DEFAULT, type Rerank } from "@/lib/ragDemo/rerank.ts";
-import { buildWayIndex, type Retriever } from "@/lib/ragDemo/retrieve.ts";
+import { buildWayIndex, contextEffective, type Retriever } from "@/lib/ragDemo/retrieve.ts";
 import type { Row } from "@/lib/ragDemo/rank.ts";
 import {
   answerSentence,
   characterCount,
+  chunkStats,
+  CONTEXT_SHOWN,
+  IN_PROGRESS_SHOWN,
+  rankedBy,
+  unitPassagesNote,
+  type ChunkStats,
   examplesHeading,
   examplesPointer,
   goldRankNote,
@@ -66,14 +72,18 @@ import {
 // "`/rag-pipeline` — trang bản đầu thu hẹp"; khối Loading thêm sau, phương án A; bản đồ pipeline thêm sau): 5 khối theo khuôn chung (Section → lựa chọn → câu trả lời + Key
 // numbers → bằng chứng → Method and limits mở sẵn), chỉ component có sẵn của AppBlock. Engine chạy trong trình duyệt
 // (`lib/ragDemo/`); các bước bản đầu chưa hiện giữ mặc định của `DEFAULT_PIPELINE` (không biến đổi câu hỏi, câu ngữ
-// cảnh tắt, lọc và MMR tắt, top-N = 20, top-K = 10).
+// cảnh tắt, lọc và MMR tắt, top-N = 20, top-K = 10). PR 2b: khối Chunking riêng + công tắc câu ngữ cảnh.
 
-type Settings = { question: number; way: Way; retriever: Retriever; rerank: Rerank };
+// Thy chọn D2 (2026-11-26): MỘT lựa chọn cách chia (và công tắc câu ngữ cảnh) chung cho khối Chunking và khối kết quả —
+// hai lựa chọn riêng dễ khiến người xem đọc đoạn của cách A nhưng kết quả tìm là cách B. Cả 2 khối hiện cùng bộ nút
+// (`ChunkingControls`) trỏ vào cùng một state.
+type Settings = { question: number; way: Way; context: boolean; retriever: Retriever; rerank: Rerank };
 
-// Mặc định khi mở trang (ADR-0041): câu 1, recursive 500, hybrid RRF, chưa rerank
+// Mặc định khi mở trang (ADR-0041): câu 1, recursive 500, câu ngữ cảnh tắt, hybrid RRF, chưa rerank
 const START: Settings = {
   question: 1,
   way: DEFAULT_PIPELINE.way,
+  context: DEFAULT_PIPELINE.context,
   retriever: DEFAULT_PIPELINE.retriever,
   rerank: DEFAULT_PIPELINE.rerank,
 };
@@ -154,14 +164,24 @@ export function RagPipelineView() {
     };
   }, [attempt]);
 
-  // Index BM25 dựng lại chỉ khi đổi cách chia (thống kê của cả kho, câu ngữ cảnh tắt ở bản đầu)
-  const index = useMemo(() => (demo ? buildWayIndex(demo, settings.way, false) : null), [demo, settings.way]);
+  // Index BM25 dựng lại khi đổi cách chia hoặc công tắc câu ngữ cảnh (thống kê của cả kho; ở "không chia" công tắc
+  // không có hiệu lực — `buildWayIndex` tự coi là tắt)
+  const index = useMemo(
+    () => (demo ? buildWayIndex(demo, settings.way, settings.context) : null),
+    [demo, settings.way, settings.context],
+  );
   const question = demo?.questions.find((q) => q.number === settings.question) ?? null;
   const result = useMemo(() => {
     if (!demo || !index || !question) return null;
-    const config = { ...DEFAULT_PIPELINE, way: settings.way, retriever: settings.retriever, rerank: settings.rerank };
+    const config = {
+      ...DEFAULT_PIPELINE,
+      way: settings.way,
+      context: settings.context,
+      retriever: settings.retriever,
+      rerank: settings.rerank,
+    };
     return runPipeline(demo, index, { question }, config);
-  }, [demo, index, question, settings.way, settings.retriever, settings.rerank]);
+  }, [demo, index, question, settings.way, settings.context, settings.retriever, settings.rerank]);
 
   if (failed) {
     return (
@@ -189,6 +209,7 @@ export function RagPipelineView() {
     <div className="flex flex-col gap-10">
       <PipelineMapBlock />
       <LoadingBlock demo={demo} />
+      <ChunkingBlock demo={demo} settings={settings} update={update} />
       <QuestionBlock demo={demo} question={question} onPick={(n) => update({ question: n })} />
       <PassagesBlock demo={demo} question={question} settings={settings} result={result} gold={gold} update={update} />
       <AboutBlock demo={demo} />
@@ -271,9 +292,15 @@ function PassagesBlock({
   update: (patch: Partial<Settings>) => void;
 }) {
   const total = demo.ways[settings.way].length;
+  // "dense trần cần phần còn chờ" (câu ngữ cảnh bật + Dense): không có danh sách nào — khối không in số nào, kể cả 0
+  // (0 đoạn đã xếp là kết quả thật của BM25, khác với "chưa tính")
+  const inProgress = result.final === null;
+  const bm25Only = result.retrieval.plan.status === "bm25-only";
+  const ranker = rankedBy(settings.retriever, result.retrieval.plan.status);
   const ranked = result.final ?? [];
   const shown = result.cut ? ranked.slice(0, result.cut.shown) : [];
   const goldChunks = new Set(Object.values(question.gold_chunks[settings.way]).flat());
+  const withContext = contextEffective(settings.way, settings.context);
   // Số dòng thật đang hiện: nhóm hoà vắt mốc K hiện cả nhóm (> K), danh sách ngắn hơn K (< K) — ux-reviewer vòng 1
   const shownNote =
     shown.length > K
@@ -281,6 +308,7 @@ function PassagesBlock({
       : shown.length < K
         ? `Only ${shown.length} passages were ranked, fewer than the ${K} the page shows (a design choice).`
         : `The first ${K} of the ranked list (a design choice).`;
+  // Hộp số chỉ hiện khi có danh sách (`inProgress` → không có hộp, xem AnswerRow bên dưới)
   const keyNumbers: KeyNumber[] = [
     {
       value: gold && gold.main.kind === "rank" ? rankText(gold.main.from, gold.main.to) : "—",
@@ -297,10 +325,6 @@ function PassagesBlock({
     },
     { value: count(shown.length), label: "Passages shown", term: "top-k", note: shownNote },
   ];
-  // Nhãn chỉ chú giải khi có dòng mang nó (reviewer 2026-11-12: "Not reranked" không bao giờ hiện vì K = 10 < N = 20,
-  // "tied across the cut" hiện mà không có chú giải)
-  const anyNotReranked = settings.rerank !== "none" && shown.some((row) => row.notReranked);
-  const anyAcrossCut = shown.length > K;
   return (
     <Section
       id="passages"
@@ -310,17 +334,12 @@ function PassagesBlock({
       purpose="Choose how the content units are cut into passages, how passages are retrieved and whether they are reranked; the ranking below updates at once."
     >
       <div className="flex flex-col gap-5">
-        <Control label="Chunking (how content units are cut into passages)">
-          <ToggleGroup
-            label="Chunking"
-            options={WAYS.map((way) => ({ key: way, label: WAYS_SHOWN[way].label }))}
-            value={settings.way}
-            onChange={(way) => update({ way })}
-          />
-          <p className={`m-0 ${TYPE.note}`}>
-            {WAYS_SHOWN[settings.way].sentence} {count(total)} passages from {count(demo.units.length)} content units.
-          </p>
-        </Control>
+        <ChunkingControls
+          demo={demo}
+          settings={settings}
+          update={update}
+          shared={`The same settings as block ${ragNumber("chunking")}: changing them here changes them there.`}
+        />
         <Control label="Retrieval (how passages are found)">
           <ToggleGroup
             label="Retrieval"
@@ -339,52 +358,38 @@ function PassagesBlock({
         </Control>
       </div>
       <AnswerRow
-        answer={answerSentence(question, gold, K)}
-        points={unitPoints(question, gold)}
-        keyNumbers={keyNumbers}
+        answer={inProgress ? IN_PROGRESS_SHOWN.dense : answerSentence(question, gold, K)}
+        points={inProgress ? [] : unitPoints(question, gold)}
+        // "in progress": không số nào có giá trị, không có danh sách → bỏ hộp số, chú giải và danh sách; câu trả lời
+        // trải hết bề rộng (L5: không chừa cột phải toàn "—", không khung rỗng để lại khoảng trống)
+        keyNumbers={inProgress ? undefined : keyNumbers}
         // Chú giải ở cột trái, cạnh hộp Key numbers: lấp khoảng trống ~330px dưới ANSWER ở 1440 (ux-reviewer 2026-11-12)
-        extra={
-          <div className="flex flex-col gap-4">
-            {/* UI-0041-stable-rerank-ties cột E: câu ngắn cạnh kết quả rerank Haiku */}
-            {settings.rerank === "haiku" ? (
-              <p className={`m-0 ${TYPE.body}`}>
-                Claude Haiku scores are whole numbers from 0 to 3, so many passages share a score. Equal Haiku scores keep the order
-                of the retrieval step, so two setups with different retrieval can order the same Haiku scores differently.
-              </p>
-            ) : null}
-            <PassageLegend rerank={settings.rerank} notReranked={anyNotReranked} acrossCut={anyAcrossCut} />
-          </div>
-        }
+        extra={inProgress ? undefined : <PassagesNotes settings={settings} bm25Only={bm25Only} shown={shown} />}
         below={
-          <div className="flex flex-col gap-4">
-            {shown.length === 0 ? (
-              <p className={`m-0 ${TYPE.body}`}>No passage shares a word with this question, so BM25 returns nothing.</p>
-            ) : (
-              <ol className="m-0 flex list-none flex-col p-0">
-                {shown.map((row, i) => (
-                  <PassageRow
-                    key={row.chunk}
-                    demo={demo}
-                    way={settings.way}
-                    row={row}
-                    position={i + 1}
-                    retriever={settings.retriever}
-                    rerank={settings.rerank}
-                    isGold={goldChunks.has(row.chunk)}
-                  />
-                ))}
-              </ol>
-            )}
-          </div>
+          inProgress ? undefined : shown.length === 0 ? (
+            <p className={`m-0 ${TYPE.body}`}>No passage shares a word with this question, so BM25 returns nothing.</p>
+          ) : (
+            <ol className="m-0 flex list-none flex-col p-0">
+              {shown.map((row, i) => (
+                <PassageRow
+                  key={row.chunk}
+                  demo={demo}
+                  way={settings.way}
+                  row={row}
+                  position={i + 1}
+                  retriever={ranker}
+                  rerank={settings.rerank}
+                  isGold={goldChunks.has(row.chunk)}
+                  withContext={withContext}
+                />
+              ))}
+            </ol>
+          )
         }
       />
       <MethodSection
         steps={[
-          {
-            title: "Chunking",
-            plain:
-              "Each content unit is cut into passages by the chosen method. Fixed windows overlap by about 40, 60 or 100 characters (roughly an eighth of the window), so the words just before a cut also start the next window.",
-          },
+          // Bước Chunking chuyển sang Method của khối Chunking (PR 2b)
           {
             title: "BM25",
             plain:
@@ -427,7 +432,9 @@ function PassagesBlock({
           },
         ]}
         limits={[
-          "Both rerankers score the original question only.",
+          // ADR-0039 D2: rerank chấm chữ gốc của đoạn, không kèm câu ngữ cảnh, để số cặp không nhân đôi
+          "Both rerankers score the original question and the passage alone, without its context sentence, so the number of scored pairs does not double.",
+          "With the context sentence on, only BM25 uses it: dense similarity for passages with their context sentence is not computed yet, so Dense shows “in progress” and Hybrid falls back to BM25.",
           "The cross-encoder is run with a limit of 1,024 tokens per question–passage pair (a design choice; the model accepts more); every pair in this demo fits, so nothing is cut.",
           "With 19 content units, a different setup often moves the answer by only a few ranks; the page shows mechanisms, not which setup is best.",
         ]}
@@ -453,7 +460,42 @@ function unitPoints(question: Question, gold: GoldAnswer | null): ReactNode[] {
   );
 }
 
-function PassageLegend({ rerank, notReranked, acrossCut }: { rerank: Rerank; notReranked: boolean; acrossCut: boolean }) {
+// Cột trái cạnh hộp Key numbers của khối kết quả: câu "in progress — showing BM25 only", câu về điểm Haiku, chú giải.
+// Nhãn chỉ chú giải khi có dòng mang nó (reviewer 2026-11-12: "Not reranked" không bao giờ hiện vì K = 10 < N = 20,
+// "tied across the cut" hiện mà không có chú giải)
+function PassagesNotes({ settings, bm25Only, shown }: { settings: Settings; bm25Only: boolean; shown: Row[] }) {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* UI-0041-step-order cột E: "hybrid rơi về BM25" ghi "in progress — showing BM25 only" cạnh kết quả */}
+      {bm25Only ? <p className={`m-0 ${TYPE.body}`}>{IN_PROGRESS_SHOWN.hybrid}</p> : null}
+      {/* UI-0041-stable-rerank-ties cột E: câu ngắn cạnh kết quả rerank Haiku */}
+      {settings.rerank === "haiku" ? (
+        <p className={`m-0 ${TYPE.body}`}>
+          Claude Haiku scores are whole numbers from 0 to 3, so many passages share a score. Equal Haiku scores keep the order
+          of the retrieval step, so two setups with different retrieval can order the same Haiku scores differently.
+        </p>
+      ) : null}
+      <PassageLegend
+        rerank={settings.rerank}
+        notReranked={settings.rerank !== "none" && shown.some((row) => row.notReranked)}
+        acrossCut={shown.length > K}
+        context={contextEffective(settings.way, settings.context)}
+      />
+    </div>
+  );
+}
+
+function PassageLegend({
+  rerank,
+  notReranked,
+  acrossCut,
+  context,
+}: {
+  rerank: Rerank;
+  notReranked: boolean;
+  acrossCut: boolean;
+  context: boolean;
+}) {
   const items = [
     // copy-reviewer 2026-11-12: "covers" nói quá — đoạn chỉ cần chạm phần chứa ý
     { mark: <Mark>★</Mark>, name: "Correct answer", rule: "the passage belongs to the answer’s content unit (for Q5 and Q8, it must also overlap the part of the text that holds the answer)." },
@@ -474,6 +516,13 @@ function PassageLegend({ rerank, notReranked, acrossCut }: { rerank: Rerank; not
   }
   if (rerank === "haiku") {
     items.push({ mark: <Mark>✓</Mark>, name: "Keep / drop", rule: "Haiku score 2 or more is “keep”, below 2 is “drop”; the label does not remove the passage." });
+  }
+  if (context) {
+    items.push({
+      mark: <Mark>¶</Mark>,
+      name: "Context sentence",
+      rule: "shown above a passage when BM25 searched it together with the passage; a passage that is a whole content unit has none.",
+    });
   }
   // `[emoji]` / `[French flag]` hiện trong chữ đoạn → chú giải tại chỗ (reviewer 2026-11-12)
   items.push({
@@ -501,6 +550,7 @@ function PassageRow({
   retriever,
   rerank,
   isGold,
+  withContext,
 }: {
   demo: DemoFile;
   way: Way;
@@ -509,6 +559,7 @@ function PassageRow({
   retriever: Retriever;
   rerank: Rerank;
   isGold: boolean;
+  withContext: boolean;
 }) {
   const chunk = demo.ways[way][row.chunk];
   const passage = demo.passages[chunk.passage];
@@ -541,9 +592,27 @@ function PassageRow({
           {monthText(unit.month)} · {partText(chunkParts(demo, way, row.chunk))}
           {labels.length > 0 ? ` · ${labels.join(" · ")}` : ""}
         </span>
+        {withContext ? <ContextText demo={demo} passage={passage} /> : null}
         <PassageText demo={demo} passage={passage} unit={unit} />
       </div>
     </li>
+  );
+}
+
+// Câu ngữ cảnh của một đoạn (ADR-0037 D7, Anthropic "Contextual Retrieval" 2024): bản tiếng Anh trước, chữ gốc ngay
+// dưới (luật song ngữ), ghi model + phiên bản prompt (UI-0037-static-precomputed). Đoạn trùng cả bài: không có câu nào
+// → không hiện gì (chú giải "¶ Context sentence" nói điều này)
+function ContextText({ demo, passage }: { demo: DemoFile; passage: Passage }) {
+  if (passage.context === null) return null;
+  return (
+    <span className="flex flex-col gap-0.5 border-l-2 border-amber-600 pl-3">
+      <span className={TYPE.label}>
+        ¶ Context sentence, English (written by Claude Haiku 5.5, prompt version {promptVersion(demo, "context")})
+      </span>
+      <span className={`${TYPE.body} text-text-primary`}>{showEmoji(passage.context_en ?? "")}</span>
+      <span className={TYPE.label}>Context sentence, original language (what BM25 searches)</span>
+      <span className={`${TYPE.body} text-text-primary`}>{showEmoji(passage.context)}</span>
+    </span>
   );
 }
 
@@ -792,6 +861,285 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
   );
 }
 
+// Bộ nút cách chia + công tắc câu ngữ cảnh — một component cho khối Chunking và khối kết quả, cùng một state (Thy D2).
+// `shared` = một câu nói 2 khối dùng chung thiết lập (người xem đổi ở khối này thì khối kia đổi theo)
+function ChunkingControls({
+  demo,
+  settings,
+  update,
+  shared,
+}: {
+  demo: DemoFile;
+  settings: Settings;
+  update: (patch: Partial<Settings>) => void;
+  shared: string;
+}) {
+  const total = demo.ways[settings.way].length;
+  return (
+    <>
+      <Control label="Chunking (how content units are cut into passages)">
+        <ToggleGroup
+          label="Chunking"
+          options={WAYS.map((way) => ({ key: way, label: WAYS_SHOWN[way].label }))}
+          value={settings.way}
+          onChange={(way) => update({ way })}
+        />
+        <p className={`m-0 ${TYPE.note}`}>
+          {WAYS_SHOWN[settings.way].sentence} {count(total)} passages from {count(demo.units.length)} content units.
+        </p>
+      </Control>
+      {/* UI-0039-chunking-options cột E: công tắc tắt ở "không chia", kèm một câu vì sao */}
+      <Control label="Context sentence (added to a passage before it is indexed)">
+        {settings.way === "whole" ? (
+          <p className={`m-0 ${TYPE.note}`}>{CONTEXT_SHOWN.whole}</p>
+        ) : (
+          <>
+            <ToggleGroup
+              label="Context sentence"
+              options={[
+                { key: "off", label: "Off" },
+                { key: "on", label: "On" },
+              ]}
+              value={settings.context ? "on" : "off"}
+              onChange={(key) => update({ context: key === "on" })}
+            />
+            <p className={`m-0 ${TYPE.note}`}>{settings.context ? CONTEXT_SHOWN.on : CONTEXT_SHOWN.off}</p>
+          </>
+        )}
+      </Control>
+      <p className={`m-0 ${TYPE.note}`}>{shared}</p>
+    </>
+  );
+}
+
+// Khối Chunking (PR 2b, thẻ Thy duyệt 2026-11-26): bước 2 của repo mẫu thành khối riêng — cỡ đoạn của cách đang chọn
+// (Key numbers), bảng 7 cách cạnh nhau (Thy D3: bảng 7 dòng, không histogram), các đoạn của một content unit, công
+// tắc câu ngữ cảnh. Mọi số đọc từ file demo đang chạy (`chunkStats`), không viết tay
+function ChunkingBlock({
+  demo,
+  settings,
+  update,
+}: {
+  demo: DemoFile;
+  settings: Settings;
+  update: (patch: Partial<Settings>) => void;
+}) {
+  const [picked, setPicked] = useState(0);
+  const way = settings.way;
+  const rows = WAYS.map((w) => ({ way: w, stats: chunkStats(demo, w) }));
+  const stats = rows.find((row) => row.way === way)!.stats;
+  const spread = stats.lengths;
+  const withContext = contextEffective(way, settings.context);
+  const units = demo.units;
+  const unit = units[Math.min(picked, units.length - 1)];
+  const chunks = demo.ways[way].filter((chunk) => chunk.unit === unit.id).sort((a, b) => a.start - b.start);
+  const name = WAYS_SHOWN[way].label;
+  const embedding = provenanceText(demo, (p) => p.embedding_model, "text-embedding-3-small");
+  return (
+    <Section
+      id="chunking"
+      n={ragNumber("chunking")}
+      short={ragShort("chunking")}
+      title="Cut the content units into passages"
+      purpose="How each content unit is cut into the passages that retrieval scores, how long those passages are, and what a context sentence adds."
+    >
+      <div className="flex flex-col gap-5">
+        <ChunkingControls
+          demo={demo}
+          settings={settings}
+          update={update}
+          shared={`These settings also set the ranking in block ${ragNumber("passages")}.`}
+        />
+      </div>
+      <AnswerRow
+        answer={
+          spread === null
+            ? `${name} gives no passages.`
+            : `${name} cuts the ${count(units.length)} content units into ${count(stats.count)} passages, with a median length of ${count(Math.round(spread.median))} characters.`
+        }
+        points={[
+          `**How it cuts:** ${WAYS_SHOWN[way].sentence}`,
+          spread === null
+            ? null
+            : `**Shortest and longest:** ${count(spread.min)} and ${count(spread.max)} characters; short passages are shown as they are.`,
+          `**Context sentence:** ${
+            way === "whole"
+              ? "not available, because each passage is a whole content unit."
+              : withContext
+                ? `on. BM25 searches each passage together with it; ${count(stats.count - stats.withContext)} of the ${count(stats.count)} passages are a whole content unit and have none.`
+                : // code-reviewer vòng 1: không hứa "câu trên mỗi đoạn" — đoạn trùng cả bài không có câu nào
+                  "off. With it on, each passage below that is not a whole content unit shows its context sentence above it."
+          }`,
+        ]}
+        keyNumbers={[
+          { value: count(stats.count), label: "Passages", term: "passage", note: `From ${count(units.length)} content units.` },
+          {
+            value: spread === null ? "—" : count(Math.round(spread.median)),
+            label: "Characters per passage (median)",
+            note:
+              spread === null
+                ? "No passages."
+                : `Middle half ${count(Math.round(spread.q1))}–${count(Math.round(spread.q3))} (IQR), n = ${count(stats.count)}. Characters are Unicode code points, as the chunker counts them.`,
+          },
+          {
+            value: count(stats.withContext),
+            label: "Passages with a context sentence",
+            term: "context-sentence",
+            share: { part: stats.withContext, whole: stats.count, of: `${count(stats.count)} passages` },
+            note: "A passage that is already a whole content unit has none.",
+          },
+        ]}
+        below={
+          <div className="flex flex-col gap-2">
+            <SubSection
+              title={`All ${WAYS.length} methods side by side`}
+              note={`Passage lengths in characters; the row of the method chosen above is marked “selected”. n = number of passages.`}
+            >
+              <ChunkingTable rows={rows} selected={way} />
+            </SubSection>
+            <SubSection
+              title="The passages of one content unit"
+              note={unitPassagesNote(
+                name,
+                withContext,
+                chunks.filter((chunk) => demo.passages[chunk.passage].context !== null).length,
+                chunks.length,
+              )}
+            >
+              {/* Thứ tự nút như khối Loading: thứ tự đóng băng, bài mới trước (`src/rag_demo/corpus.py:29#FROZEN_UNITS`) */}
+              <Control label="Content unit (#1 = newest)">
+                <ToggleGroup
+                  label="Content unit for chunking"
+                  mono
+                  options={units.map((_, i) => ({ key: String(i), label: `#${i + 1}` }))}
+                  value={String(picked)}
+                  onChange={(key) => setPicked(Number(key))}
+                />
+              </Control>
+              <p className={`m-0 ${TYPE.note}`}>
+                {monthText(unit.month)} · {count(characterCount(unit.text))} characters ·{" "}
+                {chunks.length === 1 ? "1 passage" : `${count(chunks.length)} passages`} ·{" "}
+                {unitTopic(unit) === null ? "Unclustered: fits none of the topics" : `Topic: ${unitTopic(unit)}`}
+              </p>
+              <ol className="m-0 flex list-none flex-col p-0">
+                {chunks.map((chunk, i) => {
+                  const passage = demo.passages[chunk.passage];
+                  return (
+                    <li key={chunk.id} className="flex flex-col gap-2 border-t border-border-hairline py-5 first:border-t-0">
+                      <span className={`${TYPE.mono} font-semibold text-text-primary`}>
+                        passage {i + 1} of {chunks.length} · {count(characterCount(passage.text))} characters ·{" "}
+                        {partText(chunkParts(demo, way, chunk.id))}
+                      </span>
+                      {withContext ? <ContextText demo={demo} passage={passage} /> : null}
+                      <PassageText demo={demo} passage={passage} unit={unit} withTopic={false} />
+                    </li>
+                  );
+                })}
+              </ol>
+            </SubSection>
+          </div>
+        }
+      />
+      <MethodSection
+        steps={[
+          {
+            title: "No chunking, one per post",
+            plain:
+              "No chunking keeps each content unit whole. One per post cuts at the post boundaries the Threads API records, so each passage is one post (a Threads post holds at most 500 characters).",
+          },
+          {
+            title: "Fixed windows",
+            plain:
+              // 3 reviewer vòng 1: câu cũ tự mâu thuẫn ("at the window's edge if there is none" vẫn cắt giữa từ). Đo
+              // 2026-11-26 trên file demo: 152 chỗ cắt bên trong bài (83 / 45 / 24), 0 chỗ không nằm ở dấu cách
+              "A window of 300, 500 or 800 characters ends at the last space in its second half; only if that half had no space would it end at the window’s edge, inside a word, which never happens in these content units. The next window starts at the first word inside the last 40, 60 or 100 characters, so neighbouring passages share a few words. That overlap, about 12% of the window, is within the 10–15% the reference project suggests.",
+          },
+          {
+            title: "Recursive 500",
+            plain:
+              "The text is split into paragraphs; a paragraph longer than 500 characters is split into sentences. Neighbouring pieces are then joined as long as the result stays within 500 characters.",
+          },
+          {
+            title: "Semantic",
+            plain: `Each sentence is turned into a vector with OpenAI ${embedding}, and each sentence is compared with the next one. A cut goes between two sentences whose similarity is below the 25th percentile of all neighbouring pairs in the ${count(units.length)} content units, or where the next sentence would take the passage past 800 characters. The percentile and the 800 are design choices, not tuned values.`,
+            formula: [
+              "cut between s_i and s_(i+1) if cos(s_i, s_(i+1)) < P_25 or end(s_(i+1)) − start(passage) > 800",
+              "s_i: sentence i of a content unit · P_25: 25th percentile of cos over every neighbouring pair of sentences in every content unit · start, end: character positions in the content unit",
+            ],
+          },
+          {
+            title: "Context sentence",
+            // ux-reviewer vòng 1 (lỗi chặn): đoạn trùng cả bài chỉ được dịch, không có câu ngữ cảnh
+            // (`src/rag_demo/demo_file.py:266#_context_of`)
+            plain: `Before the demo was published, Claude Haiku 5.5 read each content unit and each of its passages that is not the whole content unit, and wrote 1–2 sentences that place the passage in the content unit, in the language of the post (prompt version ${promptVersion(demo, "context")}), following Anthropic’s Contextual Retrieval (2024). A passage that is the whole content unit gets no context sentence. With the switch on, BM25 indexes the context sentence and the passage together.`,
+          },
+          {
+            title: "Lengths",
+            plain:
+              "A length is the number of Unicode code points in the passage, the unit the chunker itself counts in. The median and the middle half (IQR) use linear interpolation on the sorted lengths, the same method as the rest of the dashboard.",
+            formula: ["Q(p) = x_(⌊h⌋) + (h − ⌊h⌋) · (x_(⌊h⌋+1) − x_(⌊h⌋)), h = (n − 1) · p, positions from 0 · IQR = Q(0.75) − Q(0.25)"],
+          },
+        ]}
+        limits={[
+          "Lengths are in characters, not in model tokens.",
+          "Fixed windows and Recursive 500 can leave a short last passage, and Semantic can leave very short ones; they are shown as they are.",
+          "The rerankers never see the context sentence: they score the passage alone.",
+          "Dense similarity for passages with their context sentence is not computed yet; it is planned for a later version.",
+          "The context sentences were written once; another model or prompt would write different ones.",
+        ]}
+      />
+    </Section>
+  );
+}
+
+// Bảng 7 cách chia (Thy D3): cột số căn phải, tabular-nums (K6); dòng đang chọn có chữ "selected", không chỉ màu nền.
+// < sm cuộn ngang trong khung riêng (không cuộn cả trang), chọn được bằng bàn phím (axe scrollable-region-focusable)
+function ChunkingTable({ rows, selected }: { rows: { way: Way; stats: ChunkStats }[]; selected: Way }) {
+  const number = (value: number | undefined) => (value === undefined ? "—" : count(Math.round(value)));
+  return (
+    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Passage lengths of every chunking method">
+      <table className="w-full min-w-[560px] border-collapse">
+        <thead>
+          <tr className="border-b border-border-hairline text-left align-bottom">
+            <th scope="col" className={`py-2.5 pr-4 ${TYPE.th}`}>Chunking method</th>
+            <th scope="col" className={`py-2.5 pr-4 text-right ${TYPE.th}`}>Passages (n)</th>
+            <th scope="col" className={`py-2.5 pr-4 text-right ${TYPE.th}`}>Median</th>
+            <th scope="col" className={`py-2.5 pr-4 text-right ${TYPE.th}`}>Middle half (IQR)</th>
+            <th scope="col" className={`py-2.5 pr-4 text-right ${TYPE.th}`}>Shortest</th>
+            <th scope="col" className={`py-2.5 text-right ${TYPE.th}`}>Longest</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ way, stats }) => {
+            const on = way === selected;
+            const spread = stats.lengths;
+            const cell = `py-3 pr-4 text-right tabular-nums ${TYPE.mono} ${on ? "font-semibold text-text-primary" : "text-text-secondary"}`;
+            return (
+              <tr
+                key={way}
+                aria-current={on ? "true" : undefined}
+                className={`border-t border-border-hairline align-baseline ${on ? "bg-warm-surface" : "hover:bg-bg-sunken"}`}
+              >
+                <th scope="row" className={`py-3 pl-2 pr-4 text-left font-normal ${TYPE.body}`}>
+                  <span className={on ? "font-semibold text-text-primary" : ""}>{WAYS_SHOWN[way].label}</span>
+                  {on ? <span className={`${TYPE.label} ml-2`}>selected</span> : null}
+                </th>
+                <td className={cell}>{count(stats.count)}</td>
+                <td className={cell}>{number(spread?.median)}</td>
+                <td className={`${cell} whitespace-nowrap`}>
+                  {spread === null ? "—" : `${number(spread.q1)}–${number(spread.q3)}`}
+                </td>
+                <td className={cell}>{number(spread?.min)}</td>
+                <td className={`${cell} pr-2`}>{number(spread?.max)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AboutBlock({ demo }: { demo: DemoFile }) {
   const partly = nonGoldKept(demo, LLM_MAX_SCORE);
   // Mẫu số = cặp NGOÀI đáp án (copy-reviewer 2026-11-12; đo 2026-11-25: 4.012 trong 4.280 cặp)
@@ -886,7 +1234,8 @@ function AboutBlock({ demo }: { demo: DemoFile }) {
           {
             title: "Claude Haiku’s roles",
             // code-reviewer vòng 1: file còn câu ngữ cảnh + câu hỏi biến đổi (gồm HyDE) do Haiku viết — nói rõ trang chưa dùng
-            plain: `On this page, Claude Haiku 5.5 plays two roles: translating every passage for reading (${translationVersions(demo)}) and scoring every question–passage pair from 0 to 3 (prompt version ${rerankPromptVersion(demo)}). The demo file also holds context sentences and question rewrites it wrote for later versions of this page; none of them is shown or used here. It never writes the final answer: the page only ranks passages from the channel.`,
+            // PR 2b: câu ngữ cảnh nay là vai thứ 3 (công tắc ở khối Chunking); câu hỏi biến đổi vẫn chưa dùng (PR 3)
+            plain: `On this page, Claude Haiku 5.5 plays three roles: translating every passage for reading (${translationVersions(demo)}), writing the context sentence of every passage that is not a whole content unit (prompt version ${promptVersion(demo, "context")}; block ${ragNumber("chunking")}), and scoring every question–passage pair from 0 to 3 (prompt version ${rerankPromptVersion(demo)}). The demo file also holds question rewrites it wrote for a later version of this page; they are not shown or used here. It never writes the final answer: the page only ranks passages from the channel.`,
           },
         ]}
         limits={[
@@ -930,7 +1279,13 @@ function TermsBlock({ demo }: { demo: DemoFile }) {
         {
           id: "chunking",
           term: "Chunking",
-          plain: `Cutting each content unit into passages. The page offers ${WAYS.length} methods; the method changes how many passages there are and how long they are.`,
+          plain: `Cutting each content unit into passages. The page offers ${WAYS.length} methods; the method changes how many passages there are and how long they are. Block ${ragNumber("chunking")} compares them.`,
+        },
+        {
+          id: "context-sentence",
+          term: "Context sentence",
+          plain:
+            "One or two sentences, written in advance by Claude Haiku, that say where a passage sits in its content unit (Anthropic’s Contextual Retrieval). With the switch on, BM25 searches the sentence and the passage together. A passage that is already a whole content unit has none.",
         },
         {
           id: "precomputed",
@@ -947,8 +1302,7 @@ function TermsBlock({ demo }: { demo: DemoFile }) {
         {
           id: "bm25",
           term: "BM25",
-          plain:
-            "A keyword score: a passage scores higher the more of the question’s words it contains (each repeat adds less); rare words weigh more, and long passages are scored down. A passage that shares no word with the question scores 0 and is not ranked. Formula: block 04, Method.",
+          plain: `A keyword score: a passage scores higher the more of the question’s words it contains (each repeat adds less); rare words weigh more, and long passages are scored down. A passage that shares no word with the question scores 0 and is not ranked. Formula: block ${ragNumber("passages")}, Method.`,
         },
         {
           id: "dense",

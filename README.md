@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml/badge.svg)](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-1569%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1572%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -116,7 +116,7 @@ Shown as it actually stands today — nothing implied that isn't built yet.
 | Package manager | uv (`pyproject.toml` + `uv.lock`) | Live |
 | Threads API client | httpx (async) | Live |
 | Validation | Pydantic v2 | Live |
-| AI / LLM | Claude API (`claude-sonnet-5-5`, cluster labeling; `claude-haiku-5-5` for the RAG demo, precomputed: an English translation of every passage and a 0–3 relevance score for every question–passage pair; its question rewrites and context sentences are stored for a later version of the page) | Live |
+| AI / LLM | Claude API (`claude-sonnet-5-5`, cluster labeling; `claude-haiku-5-5` for the RAG demo, precomputed: an English translation of every passage, a context sentence for every passage that is not a whole content unit (BM25 can search with it), and a 0–3 relevance score for every question–passage pair; its question rewrites are stored for a later version of the page) | Live |
 | Dashboard | Next.js 16 + Tailwind v4, hand-built HTML/CSS charts (SVG for the daily-views chart) + Plotly (3D topic map) | Live |
 | Database | SQLite — one file, one writer; the knowledge base will live in it too | Live |
 | Metric scoring | 6-index architecture (popularity/engagement/share rate/conversation/velocity/longevity) | Live |

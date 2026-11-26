@@ -21,6 +21,7 @@ const demoFile = await import(dir + "demoFile.ts");
 const cases = JSON.parse(readFileSync(process.argv[3], "utf8"));
 const out = cases.map((c) => {
   if (c.fn === "nonGoldKept") return page.nonGoldKept(demoFile.parseDemoFile(c.demo), c.max);
+  if (c.fn === "chunkStats") return page.chunkStats(demoFile.parseDemoFile(c.demo), c.way);
   if (c.fn === "honestExamples") {
     return page.honestExamples(demoFile.parseDemoFile(c.demo)).map((e) => [e.question, e.passage]);
   }
@@ -307,3 +308,72 @@ def test_example_count_words_follow_how_many_examples_are_shown(tmp_path: Path) 
         " (a real example below)",
         "",
     ]
+
+
+def _chunking_demo() -> dict[str, Any]:
+    """4 đoạn dài 2, 3, 4, 8 ký tự (đoạn 1 có cờ: 3 điểm mã nhưng 5 đơn vị UTF-16), đoạn 1 và 3
+    có câu ngữ cảnh. Cách "post" dùng cả 4; "whole" chỉ đoạn 3; "semantic" không có đoạn nào."""
+    demo = make_demo(["ab", "🇨🇵a", "abcd", "abcdefgh"], contexts=[None, "c1", None, "c3"])
+    demo["ways"]["whole"] = [{"id": 0, "unit": "u1", "start": 0, "end": 8, "passage": 3}]
+    demo["cosine"]["whole"] = []
+    demo["ways"]["semantic"] = []
+    demo["cosine"]["semantic"] = []
+    return demo
+
+
+def test_chunk_stats_counts_code_points_per_way(tmp_path: Path) -> None:
+    demo = _chunking_demo()
+    got = call(
+        tmp_path,
+        [{"fn": "chunkStats", "demo": demo, "way": way} for way in ("post", "whole", "semantic")],
+    )
+    # statistics.quantiles([2, 3, 4, 8], n=4, method="inclusive") = [2.75, 3.5, 5.0];
+    # độ dài cờ = 3, không 5
+    assert got[0] == {
+        "count": 4,
+        "withContext": 2,
+        "lengths": {"q1": 2.75, "median": 3.5, "q3": 5, "min": 2, "max": 8},
+    }
+    # chỉ đoạn của cách đang hỏi: "whole" có 1 đoạn (đoạn 3, có câu ngữ cảnh)
+    assert got[1] == {
+        "count": 1,
+        "withContext": 1,
+        "lengths": {"q1": 8, "median": 8, "q3": 8, "min": 8, "max": 8},
+    }
+    # cách chia rỗng: không in median của tập rỗng (trang hiện "—")
+    assert got[2] == {"count": 0, "withContext": 0, "lengths": None}
+
+
+def test_unit_passages_note_follows_the_passages_shown(tmp_path: Path) -> None:
+    # code-reviewer PR 2b vòng 1: bài chỉ có 1 đoạn = cả bài (vd bài #13) không có câu ngữ cảnh
+    # nào — câu "each passage with its context sentence" sai ở ca 0 đoạn có câu
+    got = call(
+        tmp_path,
+        [
+            {"fn": "unitPassagesNote", "args": ["Recursive 500", False, 3, 3]},
+            {"fn": "unitPassagesNote", "args": ["Recursive 500", True, 3, 3]},
+            {"fn": "unitPassagesNote", "args": ["Recursive 500", True, 0, 1]},
+            {"fn": "unitPassagesNote", "args": ["Semantic", True, 2, 3]},
+        ],
+    )
+    assert got == [
+        "Cut with Recursive 500.",
+        "Cut with Recursive 500, each passage with its context sentence above it.",
+        "Cut with Recursive 500. This content unit stays one passage, the whole unit, "
+        "so it has no context sentence.",
+        "Cut with Semantic; 2 of 3 passages have a context sentence, shown above them.",
+    ]
+
+
+def test_ranked_by_names_bm25_only_when_hybrid_falls_back(tmp_path: Path) -> None:
+    got = call(
+        tmp_path,
+        [
+            {"fn": "rankedBy", "args": ["hybrid", "bm25-only"]},
+            {"fn": "rankedBy", "args": ["hybrid", "ok"]},
+            {"fn": "rankedBy", "args": ["dense", "in-progress"]},
+            {"fn": "rankedBy", "args": ["dense", "ok"]},
+            {"fn": "rankedBy", "args": ["bm25", "ok"]},
+        ],
+    )
+    assert got == ["bm25", "hybrid", "dense", "dense", "bm25"]

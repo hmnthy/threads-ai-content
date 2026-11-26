@@ -507,7 +507,7 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
   | # | Bước (chuẩn) | Trang bản đầu | Còn thiếu so với chuẩn → PR |
   |---|---|---|---|
   | 1 | Loader | khối Loading (thống kê + xem từng bài theo post) | tổng ký tự, bảng thống kê cả 19 bài → PR 2 |
-  | 2 | Chunking | 7 cách chia trong khối "Ranked passages" | bước riêng: phân bố cỡ đoạn, xem đoạn của 1 bài; công tắc contextual → PR 2 |
+  | 2 | Chunking | 7 cách chia trong khối "Ranked passages" | **xong ở PR 2b**: khối riêng 03 "Chunking" — bảng cỡ đoạn 7 cách (Thy D3), đoạn của 1 bài, công tắc câu ngữ cảnh; một lựa chọn chung với khối kết quả (Thy D2). Dense của đoạn kèm câu ngữ cảnh → PR 3 |
   | 3 | Embedding | tính sẵn, giải thích trong Method | bước riêng: bản đồ nhiệt cosine, láng giềng gần (ma trận đã có trong file) → PR 2 |
   | 4 | Vector DB | không có, có chủ đích (ADR-0037 D3: điểm tính sẵn trong 1 file + chỉ mục BM25 trong trình duyệt) | — (bản đồ nói rõ) |
   | 7 | Pre-retrieval | chưa có (câu biến đổi đã lưu, BM25 tìm được; điểm dense của chúng còn chờ — `provenance.pending`; engine sẵn) | PR 3 (cùng ô gõ tự do); `self_query`, `route` của chuẩn không có trong ADR-0037 D7 |
@@ -578,7 +578,7 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
 | `UI-0037-explain-every-step` | đủ cho các bước có trên trang | mỗi PR giải thích bước nó thêm |
 | `UI-0038-bm25-controls` | k1 / b mặc định, có nguồn | 2 thanh kéo → PR 2 |
 | `UI-0038-gold-definition` | đủ, trừ 2 phần bên phải | "filtered out at" → PR 3; phán quyết A/B → PR 4 |
-| `UI-0039-chunking-options` | 7 cách chia | công tắc câu ngữ cảnh → PR 2 (cùng biến đổi câu hỏi: cả hai dùng trạng thái "BM25 only" / "in progress" của ADR-0041 Luật chung 8) |
+| `UI-0039-chunking-options` | 7 cách chia | **xong ở PR 2b**: công tắc câu ngữ cảnh ở khối Chunking + khối kết quả (cùng một state); ở "No chunking" thay bằng một câu vì sao; khối kết quả hiện "in progress" (Dense) và "in progress — showing BM25 only" (Hybrid) theo ADR-0041 Luật chung 8; điểm dense của đoạn kèm câu ngữ cảnh → PR 3 |
 | `UI-0041-stable-rerank-ties` | rerank top-N = 20 cố định, nhãn "not reranked", keep / drop | thanh kéo N → PR 3 |
 | `UI-0041-step-order` | thứ tự bước đúng (engine), lọc và MMR tắt | khối từng bước, câu về lọc gần trùng, MMR → PR 3 |
 | `UI-0041-metadata-filter` | chưa có | PR 3 |
@@ -589,7 +589,8 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
 
 Đáp ứng đủ ở bản đầu: `UI-0037-static-precomputed` (nhãn "Fixed questions · precomputed"; 2 loại kết quả LLM trang
 hiện — dòng dịch và điểm Haiku khi rerank bằng Haiku — đều ghi model + phiên bản prompt trên từng dòng; câu ngữ cảnh và
-câu hỏi biến đổi có trong file nhưng bản đầu chưa hiện, Method khối 05 nói rõ), `UI-0038-tied-rank`.
+câu hỏi biến đổi có trong file nhưng bản đầu chưa hiện, Method khối About nói rõ — từ PR 2b câu ngữ cảnh hiện khi bật
+công tắc, cũng ghi model + phiên bản prompt), `UI-0038-tied-rank`.
 
 **Xem lại khi.** (1) Bắt đầu PR 2: Thy xác nhận lại thứ tự PR 2 → 4 (gợi ý của Claude, không phải ràng buộc kỹ thuật;
 đổi thứ tự không tốn thêm vì engine đã đủ — trừ phần dense / hybrid của bước 7 (câu biến đổi) và của câu ngữ cảnh ở bước 2: cả hai cần tính điểm dense rồi publish lại file demo trước, đúng 2 mục của `provenance.pending`). (2) PR 4 merge: trang đạt trang đích, câu Bối cảnh ADR-0041 đúng trở lại

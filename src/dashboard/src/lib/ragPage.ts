@@ -4,19 +4,22 @@
 import type { DemoFile, Question, Way } from "./ragDemo/demoFile.ts";
 import type { Outcome } from "./ragDemo/answer.ts";
 import type { Rerank } from "./ragDemo/rerank.ts";
-import type { Retriever } from "./ragDemo/retrieve.ts";
+import type { Retriever, RetrievalStatus } from "./ragDemo/retrieve.ts";
 
 // Một nguồn cho dải mục lục đầu trang và nhãn trên tiêu đề mỗi khối (như `topicSections.ts`)
 // Thy 2026-11-12 (phương án A): thêm khối Loading đứng đầu — bước đầu của pipeline trong repo mẫu (Loader)
 // Thy 2026-11-12: thêm bản đồ pipeline đứng đầu — đối chiếu từng bước với chuẩn repo mẫu của thầy Thy
 // PR 2a (Thy chốt 2026-11-25): thêm bảng thuật ngữ đứng cuối, như khối 06 của /topics
+// PR 2b (thẻ Thy duyệt 2026-11-26): khối Chunking riêng ngay sau Loading — bước 2 của repo mẫu. Chữ trên trang gọi số
+// khối qua `ragNumber`, không viết tay, để chèn khối không làm lệch lời dẫn
 export const RAG_SECTIONS = [
   ["pipeline", "01", "Pipeline map"],
   ["loading", "02", "Loading"],
-  ["question", "03", "Question"],
-  ["passages", "04", "Ranked passages"],
-  ["about", "05", "About this demo"],
-  ["terms", "06", "Terms"],
+  ["chunking", "03", "Chunking"],
+  ["question", "04", "Question"],
+  ["passages", "05", "Ranked passages"],
+  ["about", "06", "About this demo"],
+  ["terms", "07", "Terms"],
 ] as const;
 
 // Bản đồ pipeline: các bước theo đúng số + tên của repo mẫu (README vietnh1009/RAG-pipeline-visualizer, đọc
@@ -61,8 +64,8 @@ export const PIPELINE_STEPS: readonly PipelineStep[] = [
     stage: "indexing",
     optional: false,
     status: "on-page",
-    block: "passages",
-    what: "Cuts each content unit into passages, with 7 methods to choose from. Adding a context sentence to each passage comes in a later version.",
+    block: "chunking",
+    what: "Cuts each content unit into passages, with 7 methods to choose from, and can add a context sentence (a short note on where the passage sits in its content unit) to every passage that is not the whole content unit, before it is indexed. BM25 can already search with it; dense similarity with it is not computed yet.",
   },
   {
     number: 3,
@@ -151,6 +154,66 @@ export function quartiles(values: readonly number[]): { q1: number; median: numb
 export function characterCount(text: string): number {
   return Array.from(text).length;
 }
+
+// Cỡ đoạn của một cách chia (khối Chunking, PR 2b — Thy chọn D3 2026-11-26: bảng 7 dòng, không histogram). Độ dài =
+// `characterCount` của chữ đoạn (cùng đơn vị với bộ chia `src/rag_demo/chunking.py`, đếm điểm mã). `lengths` null khi
+// cách chia không có đoạn nào: trang hiện "—", không in median của tập rỗng (luật dashboard). `withContext` = số đoạn có
+// câu ngữ cảnh — đoạn trùng cả bài (bài ngắn hơn cửa sổ, thread 1 post) không có câu nào (`src/rag_demo/demo_file.py`)
+export type ChunkStats = {
+  count: number;
+  withContext: number;
+  lengths: { q1: number; median: number; q3: number; min: number; max: number } | null;
+};
+
+export function chunkStats(demo: DemoFile, way: Way): ChunkStats {
+  const passages = demo.ways[way].map((chunk) => demo.passages[chunk.passage]);
+  const lengths = passages.map((passage) => characterCount(passage.text));
+  const withContext = passages.filter((passage) => passage.context !== null).length;
+  if (lengths.length === 0) return { count: 0, withContext, lengths: null };
+  return {
+    count: lengths.length,
+    withContext,
+    lengths: { ...quartiles(lengths), min: Math.min(...lengths), max: Math.max(...lengths) },
+  };
+}
+
+// Bộ tìm thật sự xếp danh sách: "hybrid rơi về BM25" (câu ngữ cảnh có hiệu lực, dense còn chờ — ADR-0041 Luật chung 8)
+// chỉ còn BM25, nên tên điểm trên mỗi dòng phải là "BM25 score", không phải "RRF score"
+export function rankedBy(retriever: Retriever, status: RetrievalStatus): Retriever {
+  return retriever === "hybrid" && status === "bm25-only" ? "bm25" : retriever;
+}
+
+// Chữ của công tắc câu ngữ cảnh (UI-0039-chunking-options: tắt ở "không chia", kèm một câu vì sao) và của 2 trạng thái
+// "in progress" ở khối kết quả (UI-0041-step-order cột E). Bản nháp: copy-reviewer đọc, Thy duyệt.
+export const CONTEXT_SHOWN = {
+  off: "Off: each passage is searched as it is.",
+  // ux-reviewer + code-reviewer vòng 1: đoạn trùng cả bài không có câu ngữ cảnh — không viết "each passage" trần
+  on: "On: BM25 searches each passage together with its context sentence, written in advance by Claude Haiku, that places the passage in its content unit; a passage that is the whole content unit has none. Dense similarity for passages with their context sentence is not computed yet.",
+  whole:
+    "Not available with No chunking: each passage is already a whole content unit, so there is nothing around it to describe.",
+} as const;
+
+// Ghi chú dưới "The passages of one content unit" theo số đoạn THẬT của bài đang chọn (code-reviewer PR 2b vòng 1, lỗi
+// chặn: bài #13 chỉ có 1 đoạn = cả bài ở mọi cách trừ "No chunking", câu "each with its context sentence" sai). Chỉ
+// đoạn trùng cả bài mới không có câu ngữ cảnh, nên `withSentence` = 0 nghĩa là bài giữ nguyên một đoạn
+export function unitPassagesNote(wayLabel: string, contextOn: boolean, withSentence: number, total: number): string {
+  const lead = `Cut with ${wayLabel}`;
+  if (!contextOn) return `${lead}.`;
+  if (withSentence === 0) {
+    return `${lead}. This content unit stays one passage, the whole unit, so it has no context sentence.`;
+  }
+  if (withSentence === total) return `${lead}, each passage with its context sentence above it.`;
+  return `${lead}; ${withSentence} of ${total} passages have a context sentence, shown above them.`;
+}
+
+export const IN_PROGRESS_SHOWN = {
+  // "dense trần cần phần còn chờ": không có danh sách nào
+  dense:
+    "In progress: dense similarity for passages with their context sentence is not computed yet, so this setup has no ranking. Turn the context sentence off, or choose BM25.",
+  // "hybrid rơi về BM25": các bước sau vẫn chạy trên danh sách BM25
+  hybrid:
+    "In progress — showing BM25 only: dense similarity for passages with their context sentence is not computed yet, so Hybrid ranks by BM25 alone.",
+} as const;
 
 export function ragShort(id: (typeof RAG_SECTIONS)[number][0]): string {
   return RAG_SECTIONS.find(([key]) => key === id)![2];
