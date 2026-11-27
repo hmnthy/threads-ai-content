@@ -510,7 +510,7 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
   | 2 | Chunking | 7 cách chia trong khối "Ranked passages" | **xong ở PR 2b**: khối riêng 03 "Chunking" — bảng cỡ đoạn 7 cách (Thy D3), đoạn của 1 bài, công tắc câu ngữ cảnh; một lựa chọn chung với khối kết quả (Thy D2). Dense của đoạn kèm câu ngữ cảnh → PR 3 |
   | 3 | Embedding | tính sẵn, giải thích trong Method | **xong ở PR 2b**: khối riêng 04 "Embedding" — heatmap cosine 19 × 19 bài (cách "whole") + 5 đoạn gần nhất của 1 đoạn ở cách chia đang chọn (Thy D1); cùng thang màu amber với heatmap giờ đăng `/analytics` |
   | 4 | Vector DB | không có, có chủ đích (ADR-0037 D3: điểm tính sẵn trong 1 file + chỉ mục BM25 trong trình duyệt) | — (bản đồ nói rõ) |
-  | 7 | Pre-retrieval | chưa có (câu biến đổi đã lưu, BM25 tìm được; điểm dense của chúng còn chờ — `provenance.pending`; engine sẵn) | PR 3 (cùng ô gõ tự do); `self_query`, `route` của chuẩn không có trong ADR-0037 D7 |
+  | 7 | Pre-retrieval | chưa có (câu biến đổi đã lưu, BM25 tìm được; điểm dense của chúng tính ở file định dạng 3 — RAG PR 3a 2026-11-27, chưa publish; engine sẵn) | PR 3 (cùng ô gõ tự do); `self_query`, `route` của chuẩn không có trong ADR-0037 D7 |
   | 8 | Retrieval | BM25 / dense / hybrid RRF | weighted / DBSF → PR 4; `parent_document`, `sentence_window`, `multi_hop` không có trong ADR |
   | 9 | Post-retrieval | rerank cross-encoder / Haiku | trước/sau + mũi tên, lọc gần trùng / Haiku / metadata, MMR → PR 4; nén context, sắp xếp context không có trong ADR |
   | 10–11 | Prompt, Generation | không có, có chủ đích (ADR-0001, ADR-0037 D4: cổng F đóng) | — (bản đồ nói rõ) |
@@ -769,3 +769,30 @@ ghi "selected").
 ngữ cảnh" (bắt ở vòng 1 lẫn vòng 2 của commit 1) → test dữ liệu "`context` null ⇔ đoạn = cả bài" trong `tests/rag_demo/`
 + luật `[[forbid]]` cho cụm "each passage with its context sentence" kèm ca miss là câu đúng ("every passage that is not
 a whole content unit").
+
+### `/rag-pipeline` PR 3a — file demo định dạng 3 + Pre-retrieval (thẻ Thy duyệt 2026-11-27)
+
+**Quyết định Thy 2026-11-27 (đều phương án Claude khuyên):** tách PR 3 thành 3a (dense còn chờ + khối Pre-retrieval +
+bỏ "in progress") và 3b (ô gõ tự do + k1 / b + tô sáng) — lý do: mỗi PR ~3 commit, không chạm dây báo động; cho gọi
+OpenAI + publish Blob; khối riêng 06 Pre-retrieval (đúng thứ tự bước của repo mẫu, như PR 2b tách Chunking / Embedding).
+Thứ tự bắt buộc (ràng buộc kỹ thuật, code-reviewer bắt 2026-11-27; Claude từng nói sai "thứ tự nào cũng được"): merge →
+Vercel triển khai xong → publish, vì trang đang live chỉ đọc file định dạng 2.
+
+**Commit 1 (file định dạng 3 + bộ đọc / engine):** review vòng 1 code 1 chặn (test chưa khoá nối mảng điểm của từng
+cách biến đổi → test `WIRING` 7 biến đổi × công tắc, đột biến tay 4 kiểu đều đỏ) + auditor ADR-0041 5 câu docs thành
+sai do chính commit (Claude xếp lên chặn, sửa); vòng 2 code + auditor 0 chặn.
+
+**NIT chưa sửa (PR chạm file sau):**
+- *Code:* docstring `context_text` trỏ `chunkTexts` ở dòng 77 của `retrieve.ts` (thật 78) — bắt 2 lần (vòng 1 + 2) → **đề xuất luật
+  máy:** mở rộng `check_ref_anchors` (`scripts/consistency/check.py`, hiện chỉ quét `.md`) sang comment / docstring trong
+  `src/`, `scripts/`, `tests/`, hoặc ghi ADR-0033 rằng code comment ngoài phạm vi — PR riêng, cần Thy duyệt;
+  `build_demo` thiếu vector chữ sau Haiku vẫn báo "chạy lệnh embed" (nên "embed-pending"); `run_embed_pending` gọi
+  `all_chunks` ngoài `try` (cache thiếu vector câu → traceback thay câu dễ đọc); docstring `pending_texts` nói "một nguồn
+  cho `build_demo`" (thật: `run_assemble` gọi, `build_demo` dùng cùng 2 hàm phụ); `rounding_ties.transform_dense` đếm cả
+  mảng `context` ở cách "whole" (trang không đọc) và câu con trùng chữ 2 lần — định nghĩa số đo; test Python
+  `transform_dense` không assert hyde / step_back, vector "b" / "c" / "f" trùng nhau.
+- *Docs:* ADR-0041 dòng ~81 "Dense … chưa có nên chưa đo" (mục đo 2026-11-08 / 09, đọc như lịch sử) nên thêm "(định dạng
+  1–2; đã đo ở Xem lại 2)"; tiêu đề Luật chung 8 có thể thêm "(định dạng 2)"; "Xem lại 3" (đo lại hoà chạm đáp án ở RRF,
+  `data/rag_demo/measure/rrf_ties.mjs`) — **hứa làm trong RAG PR 3a**, commit 2 hoặc 3.
+- *Commit 2 (đã thoả thuận):* chữ "in progress" / "not computed yet" ở `ragPage.ts`, `RagPipelineView.tsx`,
+  `docs/claude/architecture.md`, dòng `UI-0041-*` của `ui-contract.md`.

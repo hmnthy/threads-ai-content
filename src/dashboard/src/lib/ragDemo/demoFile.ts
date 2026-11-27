@@ -1,17 +1,23 @@
-// Bộ đọc file demo RAG định dạng 2 (`build_demo` của `src/rag_demo/demo_file.py`, ADR-0041).
+// Bộ đọc file demo RAG định dạng 2 và 3 (`build_demo` của `src/rag_demo/demo_file.py`, ADR-0041).
 // Kiểm cấu trúc và kiểu của mọi trường engine dùng, để file lạ không làm engine ra số sai hay crash.
 import { SCORE_DECIMALS } from "./rank.ts";
 
-// Bản Python: `src/rag_demo/demo_file.py:59#DEMO_FILE_FORMAT`.
-export const DEMO_FILE_FORMAT = 2;
+// Bản Python: `src/rag_demo/demo_file.py:62#DEMO_FILE_FORMAT` — định dạng `assemble` ghi hiện nay.
+export const DEMO_FILE_FORMAT = 3;
 
-// Bản Python: `src/rag_demo/demo_file.py:76#PENDING_PARTS`. Engine viết cứng các trạng thái "hybrid rơi
-// về BM25" / "dense trần cần phần còn chờ" theo đúng 2 mục này (ADR-0041 Luật chung 8): file khác danh
-// sách thì engine phải sửa theo, không đọc tiếp với giả định cũ.
-export const PENDING_PARTS = [
-  "dense score of transformed questions",
-  "dense score of chunks with their context sentence",
-] as const;
+// 2 phần còn chờ (`provenance.pending`). Engine quyết "hybrid rơi về BM25" / "dense trần cần phần còn
+// chờ" (ADR-0041 Luật chung 8) theo mục `pending` của CHÍNH file đang đọc (`retrievalPlan`).
+export const PENDING_TRANSFORMED = "dense score of transformed questions";
+export const PENDING_CONTEXT = "dense score of chunks with their context sentence";
+// Định dạng 3 tính đủ cả hai (RAG PR 3a); bản Python: `src/rag_demo/demo_file.py:81#PENDING_PARTS`.
+export const PENDING_PARTS = [] as const;
+// Định dạng 2 ghi đúng 2 mục này. Trang vẫn đọc định dạng 2 (bản trên Blob tới lần publish kế tiếp):
+// file khác danh sách thì engine phải sửa theo, không đọc tiếp với giả định cũ.
+export const FORMAT_2_PENDING_PARTS = [PENDING_TRANSFORMED, PENDING_CONTEXT] as const;
+const PENDING_BY_FORMAT: Record<number, readonly string[]> = {
+  2: FORMAT_2_PENDING_PARTS,
+  3: PENDING_PARTS,
+};
 
 // Mức "giữ" của Haiku (thang 0–3): nhãn keep / drop ở rerank Haiku, ngưỡng của lọc Haiku. Lựa chọn
 // thiết kế, bản Python `src/rag_demo/llm_jobs.py:46#RERANK_KEEP_MIN_SCORE`; file ghi số khác bị từ chối.
@@ -68,6 +74,17 @@ export type Transforms = {
   step_back: string;
   step_back_en: string;
 };
+// Định dạng 3: điểm dense của một câu con biến đổi với chữ đoạn trần và với chuỗi kèm câu ngữ cảnh
+// (câu ngữ cảnh, xuống dòng, đoạn — như BM25), theo passage
+export type SubQueryDense = { plain: number[]; context: number[] };
+export type TransformDense = {
+  rewrite: SubQueryDense;
+  expand: SubQueryDense;
+  hyde: SubQueryDense;
+  step_back: SubQueryDense;
+  multi_query: SubQueryDense[]; // cùng thứ tự `transforms.multi_query`
+  decompose: SubQueryDense[];
+};
 export type Rule = "single" | "both" | "none";
 export type Question = {
   number: number;
@@ -79,6 +96,9 @@ export type Question = {
   gold_chunks: Record<Way, Record<string, number[]>>; // mã chunk trúng theo bài
   transforms: Transforms;
   dense: number[]; // theo passage
+  // định dạng 3 (không có ở định dạng 2 — khi đó `provenance.pending` ghi 2 mục còn chờ)
+  dense_context?: number[]; // câu gốc với đoạn kèm câu ngữ cảnh, theo passage
+  transform_dense?: TransformDense;
   cross_encoder: number[]; // theo passage, logit thô
   llm: LlmCell[]; // theo passage
 };
@@ -122,12 +142,13 @@ function requireArray(value: unknown, what: string): unknown[] {
 // cosine lệch số chunk, chunk đáp án không thuộc bài của nó.
 export function parseDemoFile(raw: unknown): DemoFile {
   if (!isRecord(raw)) throw new DemoFileError("demo file must be a JSON object");
-  if (raw.format !== DEMO_FILE_FORMAT) {
+  if (typeof raw.format !== "number" || !Object.hasOwn(PENDING_BY_FORMAT, raw.format)) {
     throw new DemoFileError(
-      `demo file format ${String(raw.format)} is not supported (expected ${DEMO_FILE_FORMAT})`,
+      `demo file format ${String(raw.format)} is not supported (expected 2 or ${DEMO_FILE_FORMAT})`,
     );
   }
-  checkProvenance(raw.provenance);
+  const format = raw.format;
+  checkProvenance(raw.provenance, PENDING_BY_FORMAT[format]);
   const units = new Map<string, number>();
   requireArray(raw.units, "units").forEach((unit, i) => {
     const id = checkUnit(unit, i);
@@ -162,6 +183,7 @@ export function parseDemoFile(raw: unknown): DemoFile {
     if (!isRecord(question)) throw new DemoFileError(`questions[${i}] must be an object`);
     checkQuestionText(question, i);
     checkScores(question, i, passageCount);
+    if (format === 3) checkFormat3Scores(question, i, passageCount);
     checkGold(question, i, chunkUnits);
   });
   return raw as unknown as DemoFile;
@@ -189,14 +211,14 @@ function isOffset(value: unknown): value is number {
   return Number.isInteger(value) && (value as number) >= 0;
 }
 
-function checkProvenance(provenance: unknown): void {
+function checkProvenance(provenance: unknown, pending: readonly string[]): void {
   if (!isRecord(provenance) || provenance.score_decimals !== SCORE_DECIMALS) {
     const found = isRecord(provenance) ? String(provenance.score_decimals) : "missing";
     throw new DemoFileError(
       `score_decimals ${found} does not match the engine (${SCORE_DECIMALS})`,
     );
   }
-  if (!sameStrings(provenance.pending, PENDING_PARTS)) {
+  if (!sameStrings(provenance.pending, pending)) {
     throw new DemoFileError("provenance.pending differs from the pending parts this engine assumes");
   }
   if (provenance.llm_keep_min_score !== RERANK_KEEP_MIN_SCORE) {
@@ -326,6 +348,48 @@ function checkScores(question: Record<string, unknown>, i: number, passageCount:
     )
   ) {
     throw new DemoFileError(`questions[${i}].llm scores must be integers 0–${LLM_MAX_SCORE}`);
+  }
+}
+
+function isScoreRow(value: unknown, passageCount: number): boolean {
+  return (
+    Array.isArray(value) && value.length === passageCount && value.every((v) => Number.isFinite(v))
+  );
+}
+
+function isSubQueryDense(value: unknown, passageCount: number): boolean {
+  return (
+    isRecord(value) &&
+    isScoreRow(value.plain, passageCount) &&
+    isScoreRow(value.context, passageCount)
+  );
+}
+
+// Định dạng 3: `dense_context` một số mỗi passage; `transform_dense` cùng cấu trúc `transforms` (câu
+// đơn → 1 cặp mảng; multi-query / decompose → đúng bằng số câu con), mỗi mảng một số mỗi passage.
+// Lệch → dừng lúc đọc, không để dense của câu con này rơi vào câu con khác.
+function checkFormat3Scores(question: Record<string, unknown>, i: number, passageCount: number): void {
+  const where = `questions[${i}]`;
+  if (!isScoreRow(question.dense_context, passageCount)) {
+    throw new DemoFileError(`${where}.dense_context must hold one finite number per passage`);
+  }
+  const dense = question.transform_dense;
+  const t = question.transforms as Record<string, unknown>;
+  const singles = ["rewrite", "expand", "hyde", "step_back"];
+  const lists = ["multi_query", "decompose"];
+  if (
+    !isRecord(dense) ||
+    !singles.every((key) => isSubQueryDense(dense[key], passageCount)) ||
+    !lists.every(
+      (key) =>
+        Array.isArray(dense[key]) &&
+        (dense[key] as unknown[]).length === (t[key] as unknown[]).length &&
+        (dense[key] as unknown[]).every((sub) => isSubQueryDense(sub, passageCount)),
+    )
+  ) {
+    throw new DemoFileError(
+      `${where}.transform_dense must give plain and context scores for every rewritten question`,
+    );
   }
 }
 

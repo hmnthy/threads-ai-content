@@ -1,11 +1,11 @@
-"""File demo định dạng 2 tổng hợp cho test engine demo RAG (ADR-0041).
+"""File demo định dạng 2 và 3 tổng hợp cho test engine demo RAG (ADR-0041, RAG PR 3a).
 
 Câu tự đặt, không dùng chữ của bài thật.
 """
 
 from typing import Any
 
-# Đúng 2 mục bản Python ghi (`src/rag_demo/demo_file.py` PENDING_PARTS)
+# Đúng 2 mục định dạng 2 ghi (bản TS: `FORMAT_2_PENDING_PARTS` của `demoFile.ts`)
 PENDING = (
     "dense score of transformed questions",
     "dense score of chunks with their context sentence",
@@ -79,4 +79,32 @@ def make_demo(
         ],
     }
     demo.update(changes)
+    return demo
+
+
+def make_demo_v3(
+    texts: list[str],
+    *,
+    dense_context: list[float] | None = None,
+    transform_dense: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Như `make_demo` nhưng định dạng 3 (RAG PR 3a): `provenance.pending` rỗng, câu hỏi có
+    `dense_context` (mặc định = `dense`) và `transform_dense` cùng cấu trúc `transforms` (mặc định
+    mọi câu con 0 với cả chữ trần lẫn chữ kèm câu ngữ cảnh). `transform_dense` truyền vào ghi đè
+    từng khoá."""
+    demo = make_demo(texts, **kwargs)
+    n = len(texts)
+    question = demo["questions"][0]
+    zero = {"plain": [0.0] * n, "context": [0.0] * n}
+    full: dict[str, Any] = {key: dict(zero) for key in ("rewrite", "expand", "hyde", "step_back")}
+    for key in ("multi_query", "decompose"):
+        full[key] = [dict(zero) for _ in question["transforms"][key]]
+    full.update(transform_dense or {})
+    demo["format"] = 3
+    demo["provenance"]["pending"] = []
+    question["dense_context"] = (
+        dense_context if dense_context is not None else list(question["dense"])
+    )
+    question["transform_dense"] = full
     return demo

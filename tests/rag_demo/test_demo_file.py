@@ -23,11 +23,14 @@ from src.rag_demo.demo_file import (
     PENDING_PARTS,
     DemoFileError,
     build_demo,
+    context_text,
     encode_demo,
     non_gold_kept,
+    pending_texts,
     rounding_ties,
     score_counts,
     select_outputs,
+    transform_texts,
     utf16_offset,
     write_demo,
 )
@@ -85,6 +88,17 @@ VECTORS: dict[str, list[float]] = {
     POST_1: [1.0, 1.0, 0.0],
     POST_2: [0.0, 0.0, 2.0],  # chưa chuẩn hoá: cosine phải chia độ dài
     QUESTION.text: [1.0, 0.0, 1.0],
+    # định dạng 3: chunk kèm câu ngữ cảnh (chỉ POST_1, POST_2 có câu — FULL_1, FULL_2 là cả bài)
+    f"ngữ cảnh\n{POST_1}": [1.0, 0.0, 1.0],
+    f"ngữ cảnh\n{POST_2}": [0.0, 1.0, 0.0],
+    # câu biến đổi của TRANSFORM: rewrite a, expand b, hyde c, multi_query d, decompose e,
+    # step_back f
+    "a": [0.0, 1.0, 0.0],
+    "b": [0.0, 0.0, 1.0],
+    "c": [0.0, 0.0, 1.0],
+    "d": [1.0, 0.0, 0.0],
+    "e": [0.0, 1.0, 0.0],
+    "f": [0.0, 0.0, 1.0],
 }
 LOGITS = [1.23456789, -2.0000004, 0.5, 3.0]
 LLM = [(3, "Nhà ấm"), (1, ""), (2, "Nhà ấm"), (2, "Sưởi")]
@@ -263,7 +277,7 @@ def test_each_question_gets_its_own_row_of_scores() -> None:
         scores[rerank_id(QUESTION_2, text)] = logit
         raw = {"score": score, "quote": quote, "quote_en": quote and "en"}
         results[rerank_id(QUESTION_2, text)] = check_output(Job.RERANK, raw, text)
-    vectors = VECTORS | {QUESTION_2.text: [0.0, 1.0, 0.0]}
+    vectors = VECTORS | {QUESTION_2.text: [0.0, 1.0, 0.0], "câu 2": [1.0, 0.0, 0.0]}
     built = build(UNITS, BY_WAY, [QUESTION, QUESTION_2], results, scores, vectors)
     first, second = built["questions"]
     assert first["dense"] == [0.707107, 0.0, 0.5, 0.707107]
@@ -297,22 +311,58 @@ def test_a_shared_gold_span_is_converted_per_unit() -> None:
     assert FULL_1[9:11] == "qu" and FULL_2[9:11] == "êm"
 
 
-def test_provenance_lists_the_parts_still_missing() -> None:
+def test_format_3_has_no_part_still_missing() -> None:
     built = demo()
-    assert built["format"] == 2
-    # định dạng 2 bỏ "cosine kèm câu ngữ cảnh": lọc gần trùng và MMR dùng cosine chữ gốc
-    assert built["provenance"]["pending"] == [
-        "dense score of transformed questions",
-        "dense score of chunks with their context sentence",
-    ]
+    assert built["format"] == 3
+    # định dạng 3 tính đủ 2 mục còn chờ của định dạng 2
+    assert built["provenance"]["pending"] == []
     assert list(PENDING_PARTS) == built["provenance"]["pending"]
     assert built["provenance"]["offsets"].startswith("utf-16")
+
+
+def test_dense_with_the_context_sentence_uses_the_bm25_string() -> None:
+    """Đoạn kèm câu ngữ cảnh: vector của "câu ngữ cảnh + xuống dòng + chunk" (ADR-0041); đoạn là
+    cả bài không có câu nên dùng vector chữ đoạn. Câu hỏi [1, 0, 1], tính tay."""
+    assert context_text(None, "chunk") == "chunk"
+    assert context_text("ngữ cảnh", "chunk") == "ngữ cảnh\nchunk"
+    question = demo()["questions"][0]
+    # FULL_1 [1,0,0] → 1/√2; FULL_2 [0,1,0] → 0; POST_1 kèm câu [1,0,1] → 1;
+    # POST_2 kèm câu [0,1,0] → 0
+    assert question["dense_context"] == [0.707107, 0.0, 1.0, 0.0]
+    # khác hẳn `dense` của chữ đoạn trần: nối nhầm mảng thì đỏ
+    assert question["dense"] == [0.707107, 0.0, 0.5, 0.707107]
+
+
+def test_every_rewritten_question_gets_plain_and_context_scores() -> None:
+    """Cùng cấu trúc `transforms`: câu đơn → 1 cặp mảng, multi-query / decompose → danh sách."""
+    dense = demo()["questions"][0]["transform_dense"]
+    assert set(dense) == {"rewrite", "expand", "hyde", "step_back", "multi_query", "decompose"}
+    # rewrite "a" [0,1,0]: trần FULL_1 0, FULL_2 1, POST_1 [1,1,0] 1/√2, POST_2 0;
+    # kèm câu: POST_1 → [1,0,1] 0, POST_2 → [0,1,0] 1
+    assert dense["rewrite"] == {"plain": [0.0, 1.0, 0.707107, 0.0], "context": [0.0, 1.0, 0.0, 1.0]}
+    # expand "b" [0,0,1]: trần chỉ POST_2 [0,0,2] → 1; kèm câu POST_1 [1,0,1] → 1/√2
+    assert dense["expand"] == {"plain": [0.0, 0.0, 0.0, 1.0], "context": [0.0, 0.0, 0.707107, 0.0]}
+    # multi_query ["d"] [1,0,0]: một phần tử
+    assert dense["multi_query"] == [
+        {"plain": [1.0, 0.0, 0.707107, 0.0], "context": [1.0, 0.0, 0.707107, 0.0]}
+    ]
+    assert dense["decompose"] == [dense["rewrite"]]  # "e" cùng vector với "a"
+    assert transform_texts(TRANSFORM) == ["a", "b", "c", "f", "d", "e"]
+
+
+def test_pending_texts_are_context_chunks_then_rewrites_without_duplicates() -> None:
+    texts = pending_texts(UNITS, BY_WAY, [QUESTION], outputs())
+    # đoạn kèm câu theo thứ tự gặp (POST_1, POST_2 ở cách post); không có FULL_1 / FULL_2
+    assert texts == [f"ngữ cảnh\n{POST_1}", f"ngữ cảnh\n{POST_2}", "a", "b", "c", "f", "d", "e"]
 
 
 @pytest.mark.parametrize(
     ("drop", "message"),
     [
         ("vector", "thiếu vector của 1 chữ"),
+        # định dạng 3: vector đoạn kèm câu ngữ cảnh / câu biến đổi chưa embed (lệnh embed-pending)
+        ("context vector", "thiếu vector của 1 chữ"),
+        ("rewrite vector", "thiếu vector của 1 chữ"),
         ("logit", "câu 1: thiếu điểm cross-encoder"),
         ("llm", "câu 1: thiếu điểm Haiku"),
         ("context", "bài u1: thiếu câu ngữ cảnh / bản dịch"),
@@ -323,6 +373,10 @@ def test_any_missing_cell_stops_the_build(drop: str, message: str) -> None:
     vectors, scores, results = dict(VECTORS), logits(), outputs()
     if drop == "vector":
         del vectors[POST_2]
+    elif drop == "context vector":
+        del vectors[f"ngữ cảnh\n{POST_2}"]
+    elif drop == "rewrite vector":
+        del vectors["a"]
     elif drop == "logit":
         del scores[rerank_id(QUESTION, POST_2)]
     elif drop == "llm":
@@ -536,8 +590,13 @@ def test_rounding_ties_in_the_file_count_raw_scores_per_passage_and_per_way() ->
     ]
     # đoạn: FULL_1 0, FULL_2 1, POST_1 2, POST_2 3. whole = [0, 1]; post = [2, 3, 1];
     # fixed_300 = [0, 3, 1, 2]
+    # dense_context: [1/√2, 0, 1, 0] — các số 0 bằng nhau từ điểm thô, không tính.
+    # transform_dense: chỉ câu "d" [1,0,0] với chữ trần: FULL_1 1 và POST_1 0,999999875 cùng ô
+    # 1,000000 → 1 cặp trên mọi đoạn, 1 cặp ở fixed_300 (cách duy nhất có cả FULL_1 lẫn POST_1)
     assert ties == {
         "dense": {"passages": 2, "by_way": {"whole": 0, "post": 1, "fixed_300": 2}},
+        "dense_context": {"passages": 0, "by_way": {"whole": 0, "post": 0, "fixed_300": 0}},
+        "transform_dense": {"passages": 1, "by_way": {"whole": 0, "post": 0, "fixed_300": 1}},
         "cross_encoder": {"passages": 1, "by_way": {"whole": 0, "post": 1, "fixed_300": 1}},
     }
 

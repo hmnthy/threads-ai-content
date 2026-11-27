@@ -28,8 +28,14 @@ from src.rag_demo.cross_encoder import (
     PAIRS_PATH,
     SCORES_PATH,
 )
-from src.rag_demo.demo_file import DEMO_PATH, code_provenance, question_texts_sha256
-from src.rag_demo.embedding import EmbeddingCache, token_upper_bound
+from src.rag_demo.demo_file import (
+    DEMO_FILE_FORMAT,
+    DEMO_PATH,
+    code_provenance,
+    pending_texts,
+    question_texts_sha256,
+)
+from src.rag_demo.embedding import EMBEDDING_MODEL, EmbeddingCache, cache_key, token_upper_bound
 from src.rag_demo.llm_batch import done_ids
 from src.rag_demo.llm_jobs import (
     LLM_MODEL,
@@ -450,7 +456,40 @@ def stored_inputs(tmp_path: Path, cache: EmbeddingCache) -> Path:
     results = tmp_path / "llm" / "results.jsonl"
     results.parent.mkdir()
     results.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    # định dạng 3: vector của chữ chỉ có sau Haiku (đoạn kèm câu ngữ cảnh, câu biến đổi)
+    assert rag_demo_build.run_embed_pending(UNITS, FakeClient(), cache, results) == 0
     return results
+
+
+def test_embed_pending_embeds_context_chunks_and_question_rewrites(
+    embedded: EmbeddingCache, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    results = stored_inputs(tmp_path, embedded)
+    capsys.readouterr()
+    # lần 2: mọi chữ đã có trong cache → không gọi mạng lần nào
+    client = FakeClient()
+    assert rag_demo_build.run_embed_pending(UNITS, client, embedded, results) == 0
+    assert client.embeddings.calls == []
+    by_way = rag_demo_build.all_chunks(UNITS, FakeClient(), embedded)
+    rows = [json.loads(line) for line in results.read_text(encoding="utf-8").splitlines()]
+    outputs = {row["custom_id"]: row["output"] for row in rows}
+    wanted = pending_texts(UNITS, by_way, [QUESTION], outputs)
+    # câu ngữ cảnh giả "x" + xuống dòng + chunk; câu biến đổi giả "x" (mọi trường của transform)
+    assert any(text.startswith("x\n") for text in wanted)
+    assert "x" in wanted
+    for text in wanted:
+        assert embedded.get(cache_key(text, EMBEDDING_MODEL)) is not None
+    assert "0 vừa gọi" in capsys.readouterr().out
+
+
+def test_embed_pending_without_results_stops_before_any_call(
+    embedded: EmbeddingCache, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    client = FakeClient()
+    code = rag_demo_build.run_embed_pending(UNITS, client, embedded, tmp_path / "không-có.jsonl")
+    assert code == 1
+    assert client.embeddings.calls == []
+    assert "Chưa embed" in capsys.readouterr().out
 
 
 def assemble_argv(tmp_path: Path) -> list[str]:
@@ -477,7 +516,7 @@ def test_assemble_writes_the_demo_file_from_stored_results(
         file.write("".join(json.dumps(row) + "\n" for row in extra))
     assert rag_demo_build.main(assemble_argv(tmp_path)) == 0
     demo = json.loads((tmp_path / "demo.json").read_text(encoding="utf-8"))
-    assert demo["format"] == 2
+    assert demo["format"] == 3
     assert demo["units"][0]["month"] == "2026-10"
     assert demo["units"][0]["topic"] == {"id": None, "label_en": "Unclustered"}
     assert demo["provenance"]["topics"] == {
@@ -698,7 +737,7 @@ class Uploads:
 def current_demo(**changes: object) -> bytes:
     """File demo tối thiểu khớp `UNITS` + bộ câu hỏi đang dùng (chỉ các trường publish kiểm)."""
     demo: dict[str, object] = {
-        "format": 2,
+        "format": DEMO_FILE_FORMAT,
         "units": [
             {
                 "id": u.id,
@@ -731,7 +770,7 @@ def test_publish_uploads_the_file_to_the_fixed_pathname(
     ("data", "live", "reason"),
     [
         (current_demo(), ["bài u1 đã bị xoá"], "live-check: bài u1 đã bị xoá"),
-        (current_demo(format=3), [], "định dạng 3"),
+        (current_demo(format=4), [], "định dạng 4"),
         (current_demo(units=[{"id": "u1", "sha256": "cu"}]), [], "khác các bài đóng băng"),
         (current_demo(units=[]), [], "khác các bài đóng băng"),
         (current_demo(provenance={"question_texts_sha256": "cu"}), [], "chữ câu hỏi"),
@@ -740,7 +779,7 @@ def test_publish_uploads_the_file_to_the_fixed_pathname(
             current_demo(
                 provenance={
                     "question_texts_sha256": question_texts_sha256(QUESTIONS),
-                    **(code_provenance() | {"pending": []}),
+                    **(code_provenance() | {"pending": ["dense score of transformed questions"]}),
                 }
             ),
             [],
@@ -998,6 +1037,6 @@ def test_assemble_reports_a_locked_db_instead_of_a_traceback(
 
 
 def test_publish_refuses_a_format_1_file() -> None:
-    assert "định dạng 1 ≠ 2: chạy lại assemble" in rag_demo_build.publish_problems(
+    assert "định dạng 1 ≠ 3: chạy lại assemble" in rag_demo_build.publish_problems(
         UNITS, current_demo(format=1)
     )

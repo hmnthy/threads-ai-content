@@ -758,7 +758,7 @@ bài ở mục cuối.
   thành ô rộng 10⁻⁶: hai điểm cùng ô thành bằng nhau, hai điểm khác ô vẫn khác nhau dù lệch rất ít. Đo trên file
   (`provenance.rounding_ties`): ở dense 7 cặp đoạn cùng câu hỏi thành hoà chỉ vì làm tròn, nhưng không cặp nào nằm trong
   cùng một cách chia (trang xếp hạng trong từng cách chia), nên làm tròn không đổi thứ hạng nào (dense và cross-encoder
-  của câu hỏi gốc, trong từng cách chia; phần còn chờ chưa đo); cross-encoder 0 — con số dùng trong ADR-0041 (luật hoà: mục "Luật xếp hạng cho mọi bước" bên dưới). **Vị trí ký tự ghi theo đơn
+  của câu hỏi gốc, trong từng cách chia; phần còn chờ đo sau, ở định dạng 3 — mục "Định dạng 3" bên dưới); cross-encoder 0 — con số dùng trong ADR-0041 (luật hoà: mục "Luật xếp hạng cho mọi bước" bên dưới). **Vị trí ký tự ghi theo đơn
   vị UTF-16** (cách chuỗi JavaScript đếm), đổi từ điểm mã của Python: 263 / 458 chunk bắt đầu sau ít
   nhất một emoji ngoài BMP, không đổi thì vị trí của chúng lệch trên trang; kiểm bằng node: cắt `full_text` theo vị trí
   ghi trong file ra đúng chữ 458 / 458 chunk, ghép post ra đúng 19 / 19 bài. Lần ghép 2026-11-08: 1.369.248 byte (34 %
@@ -767,7 +767,7 @@ bài ở mục cuối.
   2026-11-08 dùng 4.718 kết quả Haiku (10 biến đổi + 428 câu ngữ cảnh / bản dịch + 4.280
   rerank), bỏ qua 464 dòng không thuộc tập hiện tại (0 thất bại, 0 khác phiên bản prompt hiện tại) = 420 rerank + 44 câu
   ngữ cảnh / bản dịch của bài đã xoá; điểm Haiku 0 / 1 / 2 / 3 trên 19 bài = 3.647 / 403 / 185 / 45; đếm lại từ file: 43
-  đoạn giữ mà không trúng đáp án, khớp mục trên. Chưa có (mục 2 của 3e): điểm dense của câu hỏi biến đổi và của chunk
+  đoạn giữ mà không trúng đáp án, khớp mục trên. Định dạng 2 chưa có (mục 2 của 3e, làm ở định dạng 3 — mục dưới): điểm dense của câu hỏi biến đổi và của chunk
   kèm câu ngữ cảnh; file ghi rõ ở `provenance.pending` (định dạng 2 bỏ mục cosine kèm câu ngữ cảnh: lọc gần trùng và
   MMR dùng cosine của chữ gốc, ADR-0041 Luật chung 8). **Định dạng 2** (ADR-0041, `src/rag_demo/unit_metadata.py`):
   mỗi bài thêm `month` ("YYYY-MM", giờ Paris của post mở đầu, ADR-0034) và `topic` `{id, label_en}` của lần gom cụm
@@ -778,6 +778,17 @@ bài ở mục cuối.
   hash file kết quả Haiku (băm đúng các byte đã đọc và đã kiểm), và số dòng dùng / bỏ qua theo lý do, để truy được file
   ghép từ lần chấm nào; `provenance.embedding_vectors_sha256` là hash các vector đã dùng. `--out` chỉ được nằm hẳn trong
   `data/rag_demo/` (`data/` không bị gitignore cả thư mục), là `.json` và không trùng file đầu vào nào.
+- **Định dạng 3 — mục 2 của 3e** (RAG PR 3a, thẻ Thy duyệt 2026-11-27). Lệnh `embed-pending` embed chữ chỉ có sau
+  Haiku: mỗi chunk kèm câu ngữ cảnh theo đúng chuỗi BM25 dùng (câu ngữ cảnh chữ gốc, xuống dòng, chunk — ADR-0041;
+  một hàm `context_text`, bản TypeScript `chunkTexts`), và mọi câu hỏi biến đổi. Chạy 2026-11-27: 504 chữ khác nhau
+  (409 chunk kèm câu + 95 câu con), 123.022 token, $0,0025. Mỗi câu hỏi thêm `dense_context` (câu gốc với chunk kèm
+  câu; chunk là cả bài không có câu nên dùng vector chính chữ đoạn) và `transform_dense` cùng cấu trúc `transforms`
+  (mỗi câu con 2 mảng: `plain`, `context`); câu gốc của expand / step-back dùng lại `dense` / `dense_context`.
+  `provenance.pending` rỗng; trang đọc cả định dạng 2 (còn 2 mục chờ) lẫn 3 và quyết "in progress" theo `pending` của
+  chính file. Lần ghép 2026-11-27: 2.135.219 byte (53% ngân sách); cặp hoà do làm tròn 6 chữ số (điểm thô khác nhau),
+  trong từng cách chia: `dense_context` 0, `transform_dense` 17 (post 1, fixed_300 5, fixed_500 1, fixed_800 1,
+  recursive_500 4, semantic 5; 83 trên mọi đoạn, mỗi câu con tính 2 mảng) — đo lại theo "Xem lại khi" 2 của ADR-0041,
+  luật hoà hiện có xử lý (khoảng hạng); lần gom cụm 53, 13 / 19 bài có topic.
 - **Luật xếp hạng cho mọi bước** (ADR-0041, Thy chốt 2026-11-09 / 10; bảng đầy đủ trong ADR). Thứ tự: lọc metadata (topic,
   tháng đăng, phần của thread — chunk chạm phần nào khớp phần đó, 105 / 458 chunk chạm cả post mở đầu lẫn một post viết tiếp; BM25 giữ thống kê cả kho) →
   tìm (BM25 / dense, mỗi câu con một lần; câu con gộp bằng RRF) → trộn (RRF k = 60 theo bài gốc + Elasticsearch, nhóm hoà
@@ -796,7 +807,7 @@ bài ở mục cuối.
   câu không có đáp án thì không phán quyết; một bên "in progress", hoặc một bên "hybrid rơi về BM25" còn bên kia có dense thật →
   "no clear winner"; một bên rơi về BM25 so với BM25 thật (hoặc cả hai rơi về) → so bình thường; có hạng thắng không
   hạng, cả hai không có hạng → "no clear winner"; khoảng chồng nhau → "no clear winner". Mũi tên đổi hạng chỉ ở rerank và MMR,
-  khoảng chồng nhau thì không vẽ. Phần dense còn chờ có 2 trường hợp: "hybrid rơi về BM25" (chỉ chạy BM25, các bước
+  khoảng chồng nhau thì không vẽ. Khi file còn mục chờ (định dạng 2; định dạng 3 không còn — mục "Định dạng 3"), phần dense còn chờ có 2 trường hợp: "hybrid rơi về BM25" (chỉ chạy BM25, các bước
   sau vẫn chạy, nhãn "BM25 only") và "dense trần cần phần còn chờ" (khối dense "in progress", các bước sau bỏ qua); lọc
   gần trùng và MMR luôn dùng cosine của chữ gốc. Câu tự gõ: chỉ BM25, kèm lọc metadata, lọc gần trùng, MMR, cắt top-K,
   công tắc câu ngữ cảnh.
