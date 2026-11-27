@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 from src.rag_demo.demo_file import non_gold_kept
-from tests.rag_demo.demo_fixture import WAYS, make_demo
+from tests.rag_demo.demo_fixture import WAYS, make_demo, make_demo_v3
 from tests.rag_demo.node_engine import run_driver
 
 DRIVER = """
@@ -26,6 +26,8 @@ const out = cases.map((c) => {
   if (c.fn === "chunkStats") return page.chunkStats(demoFile.parseDemoFile(c.demo), c.way);
   if (c.fn === "cosineSpread") return page.cosineSpread(demoFile.parseDemoFile(c.demo), c.way);
   if (c.fn === "cosinePairs") return page.cosinePairs(demoFile.parseDemoFile(c.demo), c.way);
+  if (c.fn === "pendingOf") return page.pendingOf(demoFile.parseDemoFile(c.demo));
+  if (c.const !== undefined) return page[c.const];
   if (c.fn === "nearestPassages") {
     return page.nearestPassages(demoFile.parseDemoFile(c.demo), c.way, c.chunk, c.count);
   }
@@ -502,3 +504,65 @@ def test_ranked_by_names_bm25_only_when_hybrid_falls_back(tmp_path: Path) -> Non
         ],
     )
     assert got == ["bm25", "hybrid", "dense", "dense", "bm25"]
+
+
+def test_pending_parts_follow_the_file_being_read(tmp_path: Path) -> None:
+    # RAG PR 3a: định dạng 2 (bản trên Blob tới lần publish kế tiếp) còn 2 mục chờ, định dạng 3
+    # không mục nào — chữ "not computed yet" chỉ được hiện khi file đang đọc còn mục đó
+    got = call(
+        tmp_path,
+        [
+            {"fn": "pendingOf", "demo": make_demo(["a", "b"])},
+            {"fn": "pendingOf", "demo": make_demo_v3(["a", "b"])},
+            {"fn": "contextOnText", "args": [True]},
+            {"fn": "contextOnText", "args": [False]},
+        ],
+    )
+    assert got[0] == {"context": True, "transformed": True}
+    assert got[1] == {"context": False, "transformed": False}
+    assert got[2].endswith(
+        "Only BM25 uses it for now: dense similarity for passages with their context sentence "
+        "is not computed yet."
+    )
+    assert got[3].endswith("Both BM25 and dense similarity use it.")
+    assert "not computed" not in got[3]
+
+
+def test_context_sentence_labels_hold_for_every_retriever(tmp_path: Path) -> None:
+    # code-reviewer + ux-reviewer PR 3a commit 2 (lỗi chặn): "BM25 searched it" /
+    # "(what BM25 searches)" sai khi chọn Dense (BM25 không chạy) — chú giải + nhãn không
+    # được gắn câu ngữ cảnh với riêng một bộ tìm
+    legend, label = call(
+        tmp_path, [{"const": "CONTEXT_LEGEND"}, {"const": "CONTEXT_ORIGINAL_LABEL"}]
+    )
+    for text in (legend, label):
+        assert "BM25" not in text and "dense" not in text
+    assert "the search" in legend and "the search" in label
+
+
+def test_embedding_method_never_promises_a_context_sentence_to_every_passage(
+    tmp_path: Path,
+) -> None:
+    # code-reviewer PR 3a commit 2 (lỗi chặn, lần 3): đoạn trùng cả bài không có câu ngữ cảnh
+    both = {"context": True, "transformed": True}
+    none = {"context": False, "transformed": False}
+    got = call(
+        tmp_path,
+        [
+            {"fn": "embeddingMethodText", "args": ["model-x", both]},
+            {"fn": "embeddingMethodText", "args": ["model-x", none]},
+        ],
+    )
+    head = (
+        "Every passage of every chunking method, and every question, was sent once to OpenAI "
+        "model-x through its API before the demo was published."
+    )
+    tail = (
+        " The vectors themselves are not in the demo file; only the cosines computed from them are."
+    )
+    assert got[0] == head + tail
+    assert got[1] == (
+        head + " The same was done for each passage that has a context sentence, joined to that "
+        "sentence, and for each text Claude Haiku wrote from a question to search with "
+        "(rewrites, sub-questions, the HyDE answer)." + tail
+    )

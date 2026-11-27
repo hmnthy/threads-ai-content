@@ -1,6 +1,7 @@
 // Chữ và hàm phụ của trang /rag-pipeline bản đầu (Thy chốt 2026-11-12: 3 khối + khối Loading và bản đồ pipeline thêm sau, chỉ component có sẵn — phạm vi ở
 // `docs/design/ui-contract-audit.md`, mục "`/rag-pipeline` — trang bản đầu thu hẹp"). Chữ hiển thị là bản nháp,
 // copy-reviewer đọc rồi Thy duyệt. File thường (không "use client") để server component import được.
+import { PENDING_CONTEXT, PENDING_TRANSFORMED } from "./ragDemo/demoFile.ts";
 import type { DemoFile, Question, Way } from "./ragDemo/demoFile.ts";
 import type { Outcome } from "./ragDemo/answer.ts";
 import { cosineOf } from "./ragDemo/filters.ts";
@@ -67,7 +68,8 @@ export const PIPELINE_STEPS: readonly PipelineStep[] = [
     optional: false,
     status: "on-page",
     block: "chunking",
-    what: "Cuts each content unit into passages, with 7 methods to choose from, and can add a context sentence (a short note on where the passage sits in its content unit) to every passage that is not the whole content unit, before it is indexed. BM25 can already search with it; dense similarity with it is not computed yet.",
+    // RAG PR 3a: bỏ câu trạng thái dense ("not computed yet") — chi tiết ở khối 03, theo file đang đọc
+    what: "Cuts each content unit into passages, with 7 methods to choose from, and can add a context sentence (a short note on where the passage sits in its content unit) to every passage that is not the whole content unit, before it is indexed.",
   },
   {
     number: 3,
@@ -96,7 +98,8 @@ export const PIPELINE_STEPS: readonly PipelineStep[] = [
     optional: true,
     status: "later",
     block: null,
-    what: "Rewriting the question before searching (rewrite, expand, HyDE, multi-query, decompose, step-back). The rewrites are stored and BM25 can already search with them, but their dense scores are not computed yet, so this version searches with the original question.",
+    // RAG PR 3a commit 2: điểm dense của câu biến đổi đã tính (file định dạng 3); khối riêng ở commit 3
+    what: "Rewriting the question before searching (rewrite, expand, HyDE, multi-query, decompose, step-back). The rewrites are stored, but this version still searches with the original question.",
   },
   {
     number: 8,
@@ -255,11 +258,29 @@ export function rankedBy(retriever: Retriever, status: RetrievalStatus): Retriev
 // "in progress" ở khối kết quả (UI-0041-step-order cột E). Bản nháp: copy-reviewer đọc, Thy duyệt.
 export const CONTEXT_SHOWN = {
   off: "Off: each passage is searched as it is.",
-  // ux-reviewer + code-reviewer vòng 1: đoạn trùng cả bài không có câu ngữ cảnh — không viết "each passage" trần
-  on: "On: BM25 searches each passage together with its context sentence, written in advance by Claude Haiku, that places the passage in its content unit; a passage that is the whole content unit has none. Dense similarity for passages with their context sentence is not computed yet.",
   whole:
     "Not available with No chunking: each passage is already a whole content unit, so there is nothing around it to describe.",
 } as const;
+
+// Phần còn chờ của file đang đọc (RAG PR 3a): định dạng 2 (bản trên Blob tới lần publish kế tiếp) còn 2 mục, định dạng
+// 3 không mục nào. Chữ nói dense "chưa tính" chỉ hiện khi file thật sự còn mục đó — không viết cứng theo một bản file
+export type Pending = { context: boolean; transformed: boolean };
+export function pendingOf(demo: DemoFile): Pending {
+  return {
+    context: demo.provenance.pending.includes(PENDING_CONTEXT),
+    transformed: demo.provenance.pending.includes(PENDING_TRANSFORMED),
+  };
+}
+
+// Câu dưới công tắc khi bật. ux-reviewer + code-reviewer PR 2b vòng 1: đoạn trùng cả bài không có câu ngữ cảnh —
+// không viết "each passage" trần
+export function contextOnText(contextPending: boolean): string {
+  const lead =
+    "On: each passage is searched together with its context sentence, written in advance by Claude Haiku, that places the passage in its content unit; a passage that is the whole content unit has none.";
+  return contextPending
+    ? `${lead} Only BM25 uses it for now: dense similarity for passages with their context sentence is not computed yet.`
+    : `${lead} Both BM25 and dense similarity use it.`;
+}
 
 // Ghi chú dưới "The passages of one content unit" theo số đoạn THẬT của bài đang chọn (code-reviewer PR 2b vòng 1, lỗi
 // chặn: bài #13 chỉ có 1 đoạn = cả bài ở mọi cách trừ "No chunking", câu gán câu ngữ cảnh cho từng đoạn sai). Chỉ
@@ -299,6 +320,26 @@ export function rankedNote(ranker: Retriever): string {
   return "Hybrid ranks every passage: the dense list holds them all, and BM25 adds to those that share a word with the question.";
 }
 
+// Chú giải ¶ + nhãn chữ gốc câu ngữ cảnh: một câu đúng với MỌI bộ tìm (code-reviewer + ux-reviewer PR 3a commit 2,
+// lỗi chặn: "BM25 searched it" / "(what BM25 searches)" sai khi chọn Dense, BM25 không chạy). Ở file định dạng 2 khi
+// Hybrid rơi về BM25, "the search" là BM25 — vẫn đúng
+export const CONTEXT_LEGEND =
+  "shown above a passage when the context sentence is on, because the search reads the two together; a passage that is a whole content unit has none.";
+export const CONTEXT_ORIGINAL_LABEL = "Context sentence, original language (read by the search together with the passage)";
+
+// Method "Embedding" của khối 04 theo file đang đọc. Code-reviewer PR 3a commit 2 (lỗi chặn, lần 3 của cùng lỗi):
+// không hứa câu ngữ cảnh cho mọi đoạn (luật `ADR0039-every-passage-context`) — đoạn trùng cả bài không có câu nào
+// (ADR-0039 D2)
+export function embeddingMethodText(model: string, pending: Pending): string {
+  const extra = [
+    pending.context ? null : "for each passage that has a context sentence, joined to that sentence",
+    pending.transformed ? null : "for each text Claude Haiku wrote from a question to search with (rewrites, sub-questions, the HyDE answer)",
+  ].filter((part): part is string => part !== null);
+  const same = extra.length === 0 ? "" : ` The same was done ${extra.join(", and ")}.`;
+  return `Every passage of every chunking method, and every question, was sent once to OpenAI ${model} through its API before the demo was published.${same} The vectors themselves are not in the demo file; only the cosines computed from them are.`;
+}
+
+// Chỉ hiện với file còn phần chờ (định dạng 2): `retrievalPlan` ra "in-progress" / "bm25-only" theo `pending` của file
 export const IN_PROGRESS_SHOWN = {
   // "dense trần cần phần còn chờ": không có danh sách nào
   dense:

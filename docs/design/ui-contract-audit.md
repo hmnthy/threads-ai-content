@@ -796,3 +796,37 @@ sai do chính commit (Claude xếp lên chặn, sửa); vòng 2 code + auditor 0
   `data/rag_demo/measure/rrf_ties.mjs`) — **hứa làm trong RAG PR 3a**, commit 2 hoặc 3.
 - *Commit 2 (đã thoả thuận):* chữ "in progress" / "not computed yet" ở `ragPage.ts`, `RagPipelineView.tsx`,
   `docs/claude/architecture.md`, dòng `UI-0041-*` của `ui-contract.md`.
+
+**Commit 2 (chữ trang theo file đang đọc + đo lại hoà RRF):** review vòng 1 — code 2 chặn (chú giải ¶ + nhãn chữ gốc
+câu ngữ cảnh nói "BM25" khi chọn Dense; Method khối 04 hứa câu ngữ cảnh cho mọi đoạn — lần 3 của lỗi này → nới luật
+`ADR0039-every-passage-context` sang "every"), ux 1 chặn (trùng chú giải ¶), copy + auditor ADR-0041 0 chặn. Sửa: một
+câu chung cho mọi bộ tìm (`CONTEXT_LEGEND`, `CONTEXT_ORIGINAL_LABEL`), `embeddingMethodText`, test viết cứng chữ.
+
+**NIT commit 2 (PR chạm file sau):**
+- *Chữ (copy, Thy chọn câu cuối):* ý "dense cũng dùng câu ngữ cảnh" có 4 động từ khác nhau (indexes / reads / searches /
+  uses) — copy khuyên một cách nói "read … as one text" ở cả 4 chỗ; câu công tắc bản định dạng 2 "each passage is
+  searched together…" rồi "Only BM25 uses it" lệch một nhịp; mệnh đề "that places…" tách khỏi danh từ; Method khối 03
+  "together … together"; Method Dense "a passage's vector is that of…" vòng + không nêu ngoại lệ đoạn trùng cả bài;
+  thuật ngữ "BM25 and dense similarity search…" dễ đọc thành danh từ ghép; bước 7 bản đồ bỏ ý "BM25 can already search
+  with them" (copy khuyên giữ lại — đúng với cả 2 định dạng).
+- *UX / code:* dòng "What to know" khối 03 "BM25 searches each passage together with it" chưa nhắc dense (đúng, lệch
+  câu công tắc ngay trên); chưa test nào bắt đảo nhánh `pending.context ? A : B` còn nằm trong `RagPipelineView.tsx`
+  (chuyển vào `ragPage.ts` thành hàm nhận `Pending`); `ux-shots` chỉ chụp trạng thái mặc định → đề xuất danh sách trạng
+  thái riêng cho mỗi trang (VD /rag-pipeline: câu ngữ cảnh On × BM25 / Dense / Hybrid); `ui-contract.md`
+  UI-0041-step-order "dense trần cần phần còn chờ" chưa chú "(định dạng 2)" như "hybrid rơi về BM25".
+- *ADR-0041 "Xem lại khi 3":* lý do "0–3 / 63 ô" của quyết định 2026-11-10 nay đứng cạnh số mới (cao nhất 6 / 63) —
+  **chờ Thy chốt giữ / đổi cách hiện khoảng hạng**; câu "Đo lại (cùng script)" nay có 2 script, đều gitignored (clone
+  công khai không chạy lại được).
+- *Vòng 2–3 (code 1 chặn ở vòng 2 → sửa; vòng 3 0 chặn; ux PASS; copy 0 chặn):* Method "Dense similarity" (bản định
+  dạng 3) từng hứa câu ngữ cảnh cho mọi đoạn — **lần 4** của cùng lỗi, regex `ADR0039-every-passage-context` không bắt
+  được cách viết mới → đề xuất luật theo cấu trúc: mọi chữ trang nói tới "context sentence" đi qua hàm / hằng của
+  `ragPage.ts` có test (chờ Thy chọn); chữ (copy): chú giải "when the context sentence is on" → "when the
+  context-sentence switch is on", có thể thêm "(the rerankers read the passage alone)", "a whole" → "the whole" cho
+  thống nhất, `embeddingMethodText` "joined to that sentence" lơ lửng + ngoặc "(rewrites, sub-questions, the HyDE
+  answer)" thiếu expand / step-back và "to search with" khi trang chưa tìm bằng câu biến đổi, thuật ngữ "BM25 and dense
+  similarity search…" → "both read…"; nhãn chữ gốc ở 375 ngắt giữa ngoặc (có thể rút "(searched with the passage)");
+  test nhãn chỉ kiểm hằng, không kiểm component + "dense" phân biệt hoa thường; comment `test_consistency.py` còn nhắc
+  `CONTEXT_SHOWN.on` (đã xoá); comment code `RagPipelineView.tsx` trỏ `_context_of` ở dòng 266 của `demo_file.py`
+  (thật 311, lệch từ commit 1; `ref_anchor` không quét comment code); Method Dense viết cứng tên model thay
+  `provenanceText`; `embeddingMethodText` chưa test tổ hợp chỉ còn 1 trong 2 phần chờ (không xảy ra với định dạng 2 / 3).
+

@@ -364,7 +364,7 @@
   2. Có phần còn chờ (dense của câu hỏi biến đổi, chunk kèm câu ngữ cảnh) → đo lại hoà trong từng cách chia. Đo
      2026-11-27 (file định dạng 3, `assemble`; cặp bằng nhau chỉ do làm tròn 6 chữ số): `dense_context` 0,
      `transform_dense` 17 (post 1, fixed_300 5, fixed_500 1, fixed_800 1, recursive_500 4, semantic 5) — luật hoà giữ
-     nguyên (khoảng hạng xử lý). Đo lại hoà chạm đáp án ở RRF (xem lại 3) làm trong cùng RAG PR 3a.
+     nguyên (khoảng hạng xử lý). Hoà chạm đáp án ở RRF đo lại 2026-11-27: xem lại 3.
   3. Engine xong → đo số lần hoà chạm đáp án ở RRF; thường xuyên thì xem lại cách hiện khoảng hạng. Đo 2026-11-10
      (engine xong, `data/rag_demo/measure/rrf_ties.mjs`, 9 câu có đáp án × 7 cách chia = 63 ô mỗi cấu hình; số ô có
      chunk trúng nằm trong nhóm hoà / hạng một bài là khoảng / số chính là khoảng): trộn RRF mặc định (hybrid, không
@@ -372,7 +372,11 @@
      decompose 6 / 2 / 2. **Thy chọn giữ nguyên cách hiện khoảng hạng (2026-11-10).** Lý do: số chính ra khoảng
      ở 0–3 / 63 ô mỗi cấu hình (mặc định 2 / 63, ≈ 3 %), không phải "thường xuyên"; khi có hoà, khoảng hạng là cách
      hiện trung thực — một hạng đơn sẽ cho thứ tự do mã chunk quyết định trông như do điểm quyết định. Đo lại (cùng
-     script) khi làm mới bộ bài (xem lại 4) hoặc có phần còn chờ (xem lại 2), vì cả hai đổi số hoà.
+     script) khi làm mới bộ bài (xem lại 4) hoặc có phần còn chờ (xem lại 2), vì cả hai đổi số hoà. Đo lại 2026-11-27
+     (file định dạng 3, `data/rag_demo/measure/rrf_ties_v3.mjs`, cùng cách đếm): 5 cấu hình cũ ra đúng số 2026-11-10;
+     cấu hình mới (số chính là khoảng / 63 ô): dense gộp expand 2, step-back 6, multi-query 0, decompose 0; hybrid RRF
+     với expand 1, step-back 2, multi-query 1, decompose 4, rewrite 3, HyDE 2; hybrid + câu ngữ cảnh 4. Cao nhất 6 / 63
+     (≈ 10 %, dense + step-back).
   4. Làm mới bộ bài (ADR-0037 xem lại 5) → đo lại cosine chunk × chunk trước khi giữ ngưỡng gần trùng 0,95.
 
 ### Hệ quả UI

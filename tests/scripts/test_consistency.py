@@ -1758,6 +1758,15 @@ LEARNED_RULES = [
         '              note="Cut with Recursive 500, each with its context sentence."',
         '              note="Cut with Recursive 500; all 3 passages have a context sentence."',
     ),
+    # lần 3 (RAG PR 3a commit 2): "every" lọt mẫu cũ; ca miss là câu đúng đang có trên trang
+    (
+        "ADR0039-every-passage-context",
+        "src/dashboard/src/lib/ragPage.ts",
+        "  plain: `… published, and so was every passage with its context sentence and every "
+        "rewrite.`,",
+        '    pending.context ? null : "for each passage that has a context sentence, joined '
+        'to that sentence",',
+    ),
 ]
 
 

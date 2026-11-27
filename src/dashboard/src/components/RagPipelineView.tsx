@@ -42,13 +42,18 @@ import {
   characterCount,
   chunkingAnswer,
   chunkStats,
+  CONTEXT_LEGEND,
+  CONTEXT_ORIGINAL_LABEL,
   CONTEXT_SHOWN,
+  contextOnText,
+  embeddingMethodText,
   cosinePairs,
   cosineSpread,
   cosineText,
   IN_PROGRESS_SHOWN,
   NEIGHBOURS,
   nearestPassages,
+  pendingOf,
   rankedBy,
   rankedNote,
   unitPassagesNote,
@@ -304,6 +309,7 @@ function PassagesBlock({
   update: (patch: Partial<Settings>) => void;
 }) {
   const total = demo.ways[settings.way].length;
+  const pending = pendingOf(demo);
   // "dense trần cần phần còn chờ" (câu ngữ cảnh bật + Dense): không có danh sách nào — khối không in số nào, kể cả 0
   // (0 đoạn đã xếp là kết quả thật của BM25, khác với "chưa tính")
   const inProgress = result.final === null;
@@ -414,8 +420,12 @@ function PassagesBlock({
           },
           {
             title: "Dense similarity",
-            plain:
-              "The question and each passage are turned into vectors by OpenAI text-embedding-3-small; passages close in meaning score high even with no shared word.",
+            // RAG PR 3a: file định dạng 3 có vector của đoạn kèm câu ngữ cảnh (cùng chuỗi BM25 đọc)
+            plain: pending.context
+              ? "The question and each passage are turned into vectors by OpenAI text-embedding-3-small; passages close in meaning score high even with no shared word."
+              : // code-reviewer PR 3a commit 2 vòng 2 (lỗi chặn, lần 4 của lỗi "hứa câu ngữ cảnh cho mọi đoạn"): nêu
+                // ngoại lệ đoạn trùng cả bài (ADR-0039 D2)
+                "The question and each passage are turned into vectors by OpenAI text-embedding-3-small; passages close in meaning score high even with no shared word. With the context sentence on, a passage that has one is turned into a vector together with it, the same text BM25 reads; a passage that is the whole content unit has none and keeps its own vector.",
             formula: ["cos(q, d) = (q · d) ÷ (‖q‖ ‖d‖)"],
           },
           {
@@ -446,7 +456,12 @@ function PassagesBlock({
         limits={[
           // ADR-0039 D2: rerank chấm chữ gốc của đoạn, không kèm câu ngữ cảnh, để số cặp không nhân đôi
           "Both rerankers score the original question and the passage alone, without its context sentence, so the number of scored pairs does not double.",
-          "With the context sentence on, only BM25 uses it: dense similarity for passages with their context sentence is not computed yet, so Dense shows “in progress” and Hybrid falls back to BM25.",
+          // chỉ với file còn phần chờ (định dạng 2, bản trên Blob tới lần publish kế tiếp)
+          ...(pending.context
+            ? [
+                "With the context sentence on, only BM25 uses it: dense similarity for passages with their context sentence is not computed yet, so Dense shows “in progress” and Hybrid falls back to BM25.",
+              ]
+            : []),
           "The cross-encoder is run with a limit of 1,024 tokens per question–passage pair (a design choice; the model accepts more); every pair in this demo fits, so nothing is cut.",
           "With 19 content units, a different setup often moves the answer by only a few ranks; the page shows mechanisms, not which setup is best.",
         ]}
@@ -533,7 +548,7 @@ function PassageLegend({
     items.push({
       mark: <Mark>¶</Mark>,
       name: "Context sentence",
-      rule: "shown above a passage when BM25 searched it together with the passage; a passage that is a whole content unit has none.",
+      rule: CONTEXT_LEGEND,
     });
   }
   // `[emoji]` / `[French flag]` hiện trong chữ đoạn → chú giải tại chỗ (reviewer 2026-11-12)
@@ -623,7 +638,7 @@ function ContextText({ demo, passage }: { demo: DemoFile; passage: Passage }) {
         ¶ Context sentence, English (written by Claude Haiku 5.5, prompt version {promptVersion(demo, "context")})
       </span>
       <span className={`${TYPE.body} text-text-primary`}>{showEmoji(passage.context_en ?? "")}</span>
-      <span className={TYPE.label}>Context sentence, original language (what BM25 searches)</span>
+      <span className={TYPE.label}>{CONTEXT_ORIGINAL_LABEL}</span>
       <span className={`${TYPE.body} text-text-primary`}>{showEmoji(passage.context)}</span>
     </span>
   );
@@ -960,7 +975,9 @@ function ChunkingControls({
               value={settings.context ? "on" : "off"}
               onChange={(key) => update({ context: key === "on" })}
             />
-            <p className={`m-0 ${TYPE.note}`}>{settings.context ? CONTEXT_SHOWN.on : CONTEXT_SHOWN.off}</p>
+            <p className={`m-0 ${TYPE.note}`}>
+              {settings.context ? contextOnText(pendingOf(demo).context) : CONTEXT_SHOWN.off}
+            </p>
           </>
         )}
       </Control>
@@ -991,6 +1008,7 @@ function ChunkingBlock({
   const unit = units[Math.min(picked, units.length - 1)];
   const chunks = demo.ways[way].filter((chunk) => chunk.unit === unit.id).sort((a, b) => a.start - b.start);
   const embedding = provenanceText(demo, (p) => p.embedding_model, "text-embedding-3-small");
+  const pending = pendingOf(demo);
   return (
     <Section
       id="chunking"
@@ -1123,7 +1141,7 @@ function ChunkingBlock({
             title: "Context sentence",
             // ux-reviewer vòng 1 (lỗi chặn): đoạn trùng cả bài chỉ được dịch, không có câu ngữ cảnh
             // (`src/rag_demo/demo_file.py:266#_context_of`)
-            plain: `Before the demo was published, Claude Haiku 5.5 read each content unit and each of its passages that is not the whole content unit, and wrote 1–2 sentences that place the passage in the content unit, in the language of the post (prompt version ${promptVersion(demo, "context")}), following Anthropic’s Contextual Retrieval (2024). A passage that is the whole content unit gets no context sentence. With the switch on, BM25 indexes the context sentence and the passage together.`,
+            plain: `Before the demo was published, Claude Haiku 5.5 read each content unit and each of its passages that is not the whole content unit, and wrote 1–2 sentences that place the passage in the content unit, in the language of the post (prompt version ${promptVersion(demo, "context")}), following Anthropic’s Contextual Retrieval (2024). A passage that is the whole content unit gets no context sentence. With the switch on, ${pending.context ? "BM25 indexes the context sentence and the passage together" : "BM25 indexes the context sentence and the passage together, and dense similarity uses the vector of the two together"}.`,
           },
           {
             title: "Lengths",
@@ -1136,7 +1154,9 @@ function ChunkingBlock({
           "Lengths are in characters, not in model tokens.",
           "Fixed windows and Recursive 500 can leave a short last passage, and Semantic can leave very short ones; they are shown as they are.",
           "The rerankers never see the context sentence: they score the passage alone.",
-          "Dense similarity for passages with their context sentence is not computed yet; it is planned for a later version.",
+          ...(pending.context
+            ? ["Dense similarity for passages with their context sentence is not computed yet; it is planned for a later version."]
+            : []),
           "The context sentences were written once; another model or prompt would write different ones.",
         ]}
       />
@@ -1282,6 +1302,7 @@ function EmbeddingBlock({ demo, way }: { demo: DemoFile; way: Way }) {
   const units = demo.units;
   const whole = cosineSpread(demo, "whole");
   const embedding = provenanceText(demo, (p) => p.embedding_model, "text-embedding-3-small");
+  const pending = pendingOf(demo);
   const unit = units[Math.min(unitIndex, units.length - 1)];
   const chunks = demo.ways[way].filter((chunk) => chunk.unit === unit.id).sort((a, b) => a.start - b.start);
   const chosen = chunks[Math.min(passageIndex, chunks.length - 1)];
@@ -1417,7 +1438,7 @@ function EmbeddingBlock({ demo, way }: { demo: DemoFile; way: Way }) {
         steps={[
           {
             title: "Embedding",
-            plain: `Every passage of every chunking method, and every question, was sent once to OpenAI ${embedding} through its API before the demo was published. The vectors themselves are not in the demo file; only the cosines computed from them are.`,
+            plain: embeddingMethodText(embedding, pending),
           },
           {
             title: "Cosine similarity",
@@ -1439,7 +1460,7 @@ function EmbeddingBlock({ demo, way }: { demo: DemoFile; way: Way }) {
           },
         ]}
         limits={[
-          "The vectors are of the original text, without the context sentence.",
+          "The map and the nearest passages use the vectors of the original text, without the context sentence.",
           `The map compares whole content units only. A passage-by-passage map would need up to ${count(Math.max(...WAYS.map((w) => demo.ways[w].length)) ** 2)} cells, about 3 pixels each on a phone (a design choice); the nearest-passage list shows passages instead.`,
           `${count(units.length)} content units are too few to read groups of topics from the map.`,
         ]}
@@ -1709,8 +1730,7 @@ function TermsBlock({ demo }: { demo: DemoFile }) {
         {
           id: "context-sentence",
           term: "Context sentence",
-          plain:
-            "One or two sentences, written in advance by Claude Haiku, that say where a passage sits in its content unit (Anthropic’s Contextual Retrieval). With the switch on, BM25 searches the sentence and the passage together. A passage that is already a whole content unit has none.",
+          plain: `One or two sentences, written in advance by Claude Haiku, that say where a passage sits in its content unit (Anthropic’s Contextual Retrieval). With the switch on, ${pendingOf(demo).context ? "BM25 searches" : "BM25 and dense similarity search"} the sentence and the passage together. A passage that is already a whole content unit has none.`,
         },
         {
           id: "precomputed",
