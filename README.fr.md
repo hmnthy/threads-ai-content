@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml/badge.svg)](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-1569%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1579%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -126,7 +126,7 @@ l'est pas.
 | Gestionnaire de paquets | uv (`pyproject.toml` + `uv.lock`) | En ligne |
 | Client API Threads | httpx (async) | En ligne |
 | Validation | Pydantic v2 | En ligne |
-| IA / LLM | Claude API (`claude-sonnet-5-5`, nommage des clusters ; `claude-haiku-5-5` pour la démo RAG, précalculé : une traduction anglaise de chaque passage et un score de pertinence 0–3 pour chaque paire question–passage ; ses reformulations de questions et phrases de contexte sont stockées pour une version ultérieure de la page) | En ligne |
+| IA / LLM | Claude API (`claude-sonnet-5-5`, nommage des clusters ; `claude-haiku-5-5` pour la démo RAG, précalculé : une traduction anglaise de chaque passage, une phrase de contexte pour chaque passage qui n'est pas un content unit entier (BM25 peut chercher avec), et un score de pertinence 0–3 pour chaque paire question–passage ; ses reformulations de questions sont stockées pour une version ultérieure de la page) | En ligne |
 | Dashboard | Next.js 16 + Tailwind v4, graphiques HTML/CSS faits main (SVG pour le graphique des vues par jour) + Plotly (carte des sujets en 3D) | En ligne |
 | Base de données | SQLite — un fichier, un seul processus d'écriture ; la base de connaissances y vivra aussi | En ligne |
 | Scoring des métriques | Architecture à 6 indices (popularité/engagement/taux de partage/conversation/vélocité/longévité) | En ligne |

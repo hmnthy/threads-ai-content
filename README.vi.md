@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml/badge.svg)](https://github.com/hmnthy/threads-ai-content/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/status-in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-1569%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1579%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
 > The algorithm, read back to you.
@@ -119,7 +119,7 @@ Liệt kê đúng trạng thái thật của code hiện tại — không hứa 
 | Package manager | uv (`pyproject.toml` + `uv.lock`) | Đã có |
 | Threads API client | httpx (async) | Đã có |
 | Validation | Pydantic v2 | Đã có |
-| AI / LLM | Claude API (`claude-sonnet-5-5`, gán tên cluster; `claude-haiku-5-5` cho demo RAG, tính sẵn: bản dịch tiếng Anh của mọi đoạn và điểm liên quan 0–3 cho mọi cặp câu hỏi–đoạn; câu hỏi viết lại và câu ngữ cảnh đã lưu cho bản sau của trang) | Đã có |
+| AI / LLM | Claude API (`claude-sonnet-5-5`, gán tên cluster; `claude-haiku-5-5` cho demo RAG, tính sẵn: bản dịch tiếng Anh của mọi đoạn, câu ngữ cảnh cho mọi đoạn không phải cả content unit (BM25 tìm kèm được), và điểm liên quan 0–3 cho mọi cặp câu hỏi–đoạn; câu hỏi viết lại đã lưu cho bản sau của trang) | Đã có |
 | Dashboard | Next.js 16 + Tailwind v4, chart HTML/CSS tự dựng (SVG cho biểu đồ views theo ngày) + Plotly (bản đồ topic 3D) | Đã có |
 | Database | SQLite — 1 file, 1 tiến trình ghi; knowledge base cũng sẽ nằm trong đó | Đã có |
 | Metric scoring | Kiến trúc 6 index (popularity/engagement/share rate/conversation/velocity/longevity) | Đã có |

@@ -3,20 +3,25 @@
 // copy-reviewer đọc rồi Thy duyệt. File thường (không "use client") để server component import được.
 import type { DemoFile, Question, Way } from "./ragDemo/demoFile.ts";
 import type { Outcome } from "./ragDemo/answer.ts";
+import { cosineOf } from "./ragDemo/filters.ts";
 import type { Rerank } from "./ragDemo/rerank.ts";
-import type { Retriever } from "./ragDemo/retrieve.ts";
+import type { Retriever, RetrievalStatus } from "./ragDemo/retrieve.ts";
 
 // Một nguồn cho dải mục lục đầu trang và nhãn trên tiêu đề mỗi khối (như `topicSections.ts`)
 // Thy 2026-11-12 (phương án A): thêm khối Loading đứng đầu — bước đầu của pipeline trong repo mẫu (Loader)
 // Thy 2026-11-12: thêm bản đồ pipeline đứng đầu — đối chiếu từng bước với chuẩn repo mẫu của thầy Thy
 // PR 2a (Thy chốt 2026-11-25): thêm bảng thuật ngữ đứng cuối, như khối 06 của /topics
+// PR 2b (thẻ Thy duyệt 2026-11-26): khối Chunking riêng ngay sau Loading — bước 2 của repo mẫu. Chữ trên trang gọi số
+// khối qua `ragNumber`, không viết tay, để chèn khối không làm lệch lời dẫn
 export const RAG_SECTIONS = [
   ["pipeline", "01", "Pipeline map"],
   ["loading", "02", "Loading"],
-  ["question", "03", "Question"],
-  ["passages", "04", "Ranked passages"],
-  ["about", "05", "About this demo"],
-  ["terms", "06", "Terms"],
+  ["chunking", "03", "Chunking"],
+  ["embedding", "04", "Embedding"],
+  ["question", "05", "Question"],
+  ["passages", "06", "Ranked passages"],
+  ["about", "07", "About this demo"],
+  ["terms", "08", "Terms"],
 ] as const;
 
 // Bản đồ pipeline: các bước theo đúng số + tên của repo mẫu (README vietnh1009/RAG-pipeline-visualizer, đọc
@@ -61,8 +66,8 @@ export const PIPELINE_STEPS: readonly PipelineStep[] = [
     stage: "indexing",
     optional: false,
     status: "on-page",
-    block: "passages",
-    what: "Cuts each content unit into passages, with 7 methods to choose from. Adding a context sentence to each passage comes in a later version.",
+    block: "chunking",
+    what: "Cuts each content unit into passages, with 7 methods to choose from, and can add a context sentence (a short note on where the passage sits in its content unit) to every passage that is not the whole content unit, before it is indexed. BM25 can already search with it; dense similarity with it is not computed yet.",
   },
   {
     number: 3,
@@ -70,9 +75,10 @@ export const PIPELINE_STEPS: readonly PipelineStep[] = [
     stage: "indexing",
     optional: false,
     status: "fixed",
-    block: "passages",
+    block: "embedding",
     // copy-reviewer 2026-11-12: "BM25 needs no vectors" dễ bị bắt bẻ — BM25 vẫn là một vector thưa (đếm từ)
-    what: "Dense: OpenAI text-embedding-3-small vectors, made before publishing. Sparse: BM25 represents a passage by its word counts instead of a learned vector; those counts are rebuilt in your browser for the chunking you pick. A view of how similar the passages are to each other (cosine similarity, already in the file) comes in a later version.",
+    // PR 2b: khối Embedding riêng; BM25 dựng lại cả khi bật / tắt câu ngữ cảnh (copy-reviewer PR 2b vòng 1)
+    what: "Dense: OpenAI text-embedding-3-small vectors, made before publishing; the page shows how similar the content units and passages are to each other. Sparse: BM25 represents a passage by its word counts instead of a learned vector; those counts are rebuilt in your browser for the chunking and context-sentence setting you pick.",
   },
   {
     number: 4,
@@ -151,6 +157,156 @@ export function quartiles(values: readonly number[]): { q1: number; median: numb
 export function characterCount(text: string): number {
   return Array.from(text).length;
 }
+
+// Cỡ đoạn của một cách chia (khối Chunking, PR 2b — Thy chọn D3 2026-11-26: bảng 7 dòng, không histogram). Độ dài =
+// `characterCount` của chữ đoạn (cùng đơn vị với bộ chia `src/rag_demo/chunking.py`, đếm điểm mã). `lengths` null khi
+// cách chia không có đoạn nào: trang hiện "—", không in median của tập rỗng (luật dashboard). `withContext` = số đoạn có
+// câu ngữ cảnh — đoạn trùng cả bài (bài ngắn hơn cửa sổ, thread 1 post) không có câu nào (`src/rag_demo/demo_file.py`)
+export type ChunkStats = {
+  count: number;
+  withContext: number;
+  lengths: { q1: number; median: number; q3: number; min: number; max: number } | null;
+};
+
+export function chunkStats(demo: DemoFile, way: Way): ChunkStats {
+  const passages = demo.ways[way].map((chunk) => demo.passages[chunk.passage]);
+  const lengths = passages.map((passage) => characterCount(passage.text));
+  const withContext = passages.filter((passage) => passage.context !== null).length;
+  if (lengths.length === 0) return { count: 0, withContext, lengths: null };
+  return {
+    count: lengths.length,
+    withContext,
+    lengths: { ...quartiles(lengths), min: Math.min(...lengths), max: Math.max(...lengths) },
+  };
+}
+
+// Khối Embedding (PR 2b, Thy chọn D1 2026-11-26): heatmap cosine giữa các bài (cách "whole") + láng giềng gần của 1 đoạn.
+// Cosine đọc từ file (`cosine[way]`, tam giác trên theo hàng, thứ tự mã chunk — `cosineOf`), không tính lại.
+export type CosinePair = { value: number; a: number; b: number }; // a < b: mã chunk của cách chia
+export type CosineSpread = { pairs: number; q1: number; median: number; q3: number; low: CosinePair; high: CosinePair };
+
+// Phân bố cosine mọi cặp đoạn khác nhau của một cách chia; null khi < 2 đoạn (không có cặp nào). Hoà ở cặp thấp / cao
+// nhất → cặp đứng trước theo thứ tự hàng (mã chunk nhỏ hơn) — một luật, để câu chữ không đổi giữa hai lần dựng trang
+export function cosineSpread(demo: DemoFile, way: Way): CosineSpread | null {
+  const n = demo.ways[way].length;
+  const values = demo.cosine[way];
+  if (n < 2 || values.length === 0) return null;
+  let low: CosinePair | null = null;
+  let high: CosinePair | null = null;
+  let k = 0;
+  for (let a = 0; a < n; a += 1) {
+    for (let b = a + 1; b < n; b += 1) {
+      const value = values[k];
+      if (low === null || value < low.value) low = { value, a, b };
+      if (high === null || value > high.value) high = { value, a, b };
+      k += 1;
+    }
+  }
+  return { pairs: values.length, ...quartiles(values), low: low!, high: high! };
+}
+
+// Mọi cặp đoạn khác nhau của một cách chia, cosine cao nhất trước; hoà → cặp đứng trước theo thứ tự hàng (a rồi b) —
+// bảng "Show as table" của heatmap (Thy chọn 2026-11-27: lối vào bàn phím / trình đọc màn hình như /analytics)
+export function cosinePairs(demo: DemoFile, way: Way): CosinePair[] {
+  const n = demo.ways[way].length;
+  const values = demo.cosine[way];
+  const pairs: CosinePair[] = [];
+  let k = 0;
+  for (let a = 0; a < n; a += 1) {
+    for (let b = a + 1; b < n; b += 1) {
+      if (k < values.length) pairs.push({ value: values[k], a, b });
+      k += 1;
+    }
+  }
+  return pairs.sort((x, y) => y.value - x.value || x.a - y.a || x.b - y.b);
+}
+
+// Số láng giềng gần hiện cho một đoạn: lựa chọn thiết kế (Thy D1: "top-5"), không có bằng chứng tối ưu
+export const NEIGHBOURS = 5;
+
+// `count` đoạn có cosine cao nhất với đoạn `chunk` (không tính chính nó); cosine bằng nhau → đoạn đứng trước theo mã
+// chunk (sắp xếp ổn định trên thứ tự mã)
+export function nearestPassages(
+  demo: DemoFile,
+  way: Way,
+  chunk: number,
+  count: number,
+): { chunk: number; cosine: number }[] {
+  const n = demo.ways[way].length;
+  const others: { chunk: number; cosine: number }[] = [];
+  for (let other = 0; other < n; other += 1) {
+    if (other !== chunk) others.push({ chunk: other, cosine: cosineOf(demo, way, chunk, other) });
+  }
+  return others.sort((x, y) => y.cosine - x.cosine || x.chunk - y.chunk).slice(0, count);
+}
+
+// Cosine hiện trên trang: 3 chữ số (file lưu 6 — Method nói rõ)
+export function cosineText(value: number): string {
+  return value.toFixed(3);
+}
+
+// Bộ tìm thật sự xếp danh sách: "hybrid rơi về BM25" (câu ngữ cảnh có hiệu lực, dense còn chờ — ADR-0041 Luật chung 8)
+// chỉ còn BM25, nên tên điểm trên mỗi dòng phải là "BM25 score", không phải "RRF score"
+export function rankedBy(retriever: Retriever, status: RetrievalStatus): Retriever {
+  return retriever === "hybrid" && status === "bm25-only" ? "bm25" : retriever;
+}
+
+// Chữ của công tắc câu ngữ cảnh (UI-0039-chunking-options: tắt ở "không chia", kèm một câu vì sao) và của 2 trạng thái
+// "in progress" ở khối kết quả (UI-0041-step-order cột E). Bản nháp: copy-reviewer đọc, Thy duyệt.
+export const CONTEXT_SHOWN = {
+  off: "Off: each passage is searched as it is.",
+  // ux-reviewer + code-reviewer vòng 1: đoạn trùng cả bài không có câu ngữ cảnh — không viết "each passage" trần
+  on: "On: BM25 searches each passage together with its context sentence, written in advance by Claude Haiku, that places the passage in its content unit; a passage that is the whole content unit has none. Dense similarity for passages with their context sentence is not computed yet.",
+  whole:
+    "Not available with No chunking: each passage is already a whole content unit, so there is nothing around it to describe.",
+} as const;
+
+// Ghi chú dưới "The passages of one content unit" theo số đoạn THẬT của bài đang chọn (code-reviewer PR 2b vòng 1, lỗi
+// chặn: bài #13 chỉ có 1 đoạn = cả bài ở mọi cách trừ "No chunking", câu gán câu ngữ cảnh cho từng đoạn sai). Chỉ
+// đoạn trùng cả bài mới không có câu ngữ cảnh, nên `withSentence` = 0 nghĩa là bài giữ nguyên một đoạn
+// PR 2b commit 3: "No chunking" không cắt gì → không viết "Cut with No chunking" (NIT copy-reviewer); câu "mọi đoạn
+// có câu" ghi bằng số đếm, không bằng cụm "each passage with …" (luật `ADR0039-every-passage-context`); động từ theo số
+export function unitPassagesNote(way: Way, contextOn: boolean, withSentence: number, total: number): string {
+  const lead = way === "whole" ? "Kept whole with No chunking" : `Cut with ${WAYS_SHOWN[way].label}`;
+  if (!contextOn) return `${lead}.`;
+  if (withSentence === 0) {
+    return `${lead}. This content unit stays one passage, the whole unit, so it has no context sentence.`;
+  }
+  if (withSentence === total) {
+    return total === 1
+      ? `${lead}; its one passage has a context sentence, shown above it.`
+      : `${lead}; all ${total} passages have a context sentence, shown above them.`;
+  }
+  return `${lead}; ${withSentence} of ${total} passages ${withSentence === 1 ? "has" : "have"} a context sentence, shown above ${withSentence === 1 ? "it" : "them"}.`;
+}
+
+// Câu trả lời của khối Chunking (3 reviewer PR 2b: "No chunking cuts the 19 content units…" tự mâu thuẫn). `median`
+// null khi cách chia không có đoạn nào
+export function chunkingAnswer(way: Way, units: number, passages: number, median: number | null): string {
+  const name = WAYS_SHOWN[way].label;
+  if (median === null) return `${name} gives no passages.`;
+  const length = `with a median length of ${Math.round(median).toLocaleString("en-US")} characters`;
+  return way === "whole"
+    ? `No chunking keeps the ${units} content units whole: ${passages.toLocaleString("en-US")} passages, ${length}.`
+    : `${name} cuts the ${units} content units into ${passages.toLocaleString("en-US")} passages, ${length}.`;
+}
+
+// Ghi chú của Key number "Passages ranked" theo bộ tìm THẬT SỰ xếp danh sách (`rankedBy`): khi Hybrid rơi về BM25,
+// câu "dense similarity ranks every passage" đứng cạnh số của BM25 là sai (3 reviewer PR 2b)
+export function rankedNote(ranker: Retriever): string {
+  if (ranker === "bm25") return "BM25 leaves out passages that share no word with the question.";
+  if (ranker === "dense") return "Dense similarity ranks every passage.";
+  return "Hybrid ranks every passage: the dense list holds them all, and BM25 adds to those that share a word with the question.";
+}
+
+export const IN_PROGRESS_SHOWN = {
+  // "dense trần cần phần còn chờ": không có danh sách nào
+  dense:
+    "In progress: dense similarity for passages with their context sentence is not computed yet, so this setup has no ranking. Turn the context sentence off, or choose BM25.",
+  // "hybrid rơi về BM25": các bước sau vẫn chạy trên danh sách BM25
+  hybrid:
+    "In progress — showing BM25 only: dense similarity for passages with their context sentence is not computed yet, so Hybrid ranks by BM25 alone.",
+} as const;
 
 export function ragShort(id: (typeof RAG_SECTIONS)[number][0]): string {
   return RAG_SECTIONS.find(([key]) => key === id)![2];
