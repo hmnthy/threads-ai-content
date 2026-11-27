@@ -1248,3 +1248,16 @@ why = "Từ ADR-0040: câu 4 còn một bài đáp án (17923191900443021)"
 fix = "Dùng luật một bài (`AnswerRule.SINGLE`); docs ghi 'câu 4 một bài (ADR-0040)'"
 paths = ["docs/**", "src/**", "scripts/**", "tests/**", "README*.md"]
 allow = ["docs/decisions/**", "docs/design/ui-contract-audit.md"]
+
+[[forbid]]
+id = "ADR0039-every-passage-context"
+adr = "0039"
+# Lỗi reviewer bắt lần 2 (PR 2b commit 1, vòng 1 lẫn vòng 2 — quy tắc Thy 2026-11-12: lỗi lặp → luật máy): chữ trang
+# hứa câu ngữ cảnh cho MỌI đoạn, trong khi đoạn trùng cả bài không có câu nào (D2; 19 / 428 đoạn, đo 2026-11-26). Chỉ
+# bắt đúng 2 cụm cũ ("each with its…", "each passage with its…"); câu đúng có giới hạn ("each passage together with
+# its context sentence; a passage that is the whole content unit has none") không bị bắt. Test hit/miss:
+# tests/scripts/test_consistency.py
+pattern = '(?i)\beach (passage )?with its context sentence'
+why = "Từ ADR-0039 D2: đoạn trùng cả bài (không chia, bài ngắn hơn cửa sổ, thread 1 post) không có câu ngữ cảnh"
+fix = "Ghi bằng số đếm của đoạn đang hiện (VD 'all 3 passages have a context sentence'), hoặc nêu ngoại lệ đoạn trùng cả bài"
+paths = ["src/**", "README*.md"]

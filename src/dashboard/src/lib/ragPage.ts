@@ -205,6 +205,22 @@ export function cosineSpread(demo: DemoFile, way: Way): CosineSpread | null {
   return { pairs: values.length, ...quartiles(values), low: low!, high: high! };
 }
 
+// Mọi cặp đoạn khác nhau của một cách chia, cosine cao nhất trước; hoà → cặp đứng trước theo thứ tự hàng (a rồi b) —
+// bảng "Show as table" của heatmap (Thy chọn 2026-11-27: lối vào bàn phím / trình đọc màn hình như /analytics)
+export function cosinePairs(demo: DemoFile, way: Way): CosinePair[] {
+  const n = demo.ways[way].length;
+  const values = demo.cosine[way];
+  const pairs: CosinePair[] = [];
+  let k = 0;
+  for (let a = 0; a < n; a += 1) {
+    for (let b = a + 1; b < n; b += 1) {
+      if (k < values.length) pairs.push({ value: values[k], a, b });
+      k += 1;
+    }
+  }
+  return pairs.sort((x, y) => y.value - x.value || x.a - y.a || x.b - y.b);
+}
+
 // Số láng giềng gần hiện cho một đoạn: lựa chọn thiết kế (Thy D1: "top-5"), không có bằng chứng tối ưu
 export const NEIGHBOURS = 5;
 
@@ -246,16 +262,41 @@ export const CONTEXT_SHOWN = {
 } as const;
 
 // Ghi chú dưới "The passages of one content unit" theo số đoạn THẬT của bài đang chọn (code-reviewer PR 2b vòng 1, lỗi
-// chặn: bài #13 chỉ có 1 đoạn = cả bài ở mọi cách trừ "No chunking", câu "each with its context sentence" sai). Chỉ
+// chặn: bài #13 chỉ có 1 đoạn = cả bài ở mọi cách trừ "No chunking", câu gán câu ngữ cảnh cho từng đoạn sai). Chỉ
 // đoạn trùng cả bài mới không có câu ngữ cảnh, nên `withSentence` = 0 nghĩa là bài giữ nguyên một đoạn
-export function unitPassagesNote(wayLabel: string, contextOn: boolean, withSentence: number, total: number): string {
-  const lead = `Cut with ${wayLabel}`;
+// PR 2b commit 3: "No chunking" không cắt gì → không viết "Cut with No chunking" (NIT copy-reviewer); câu "mọi đoạn
+// có câu" ghi bằng số đếm, không bằng cụm "each passage with …" (luật `ADR0039-every-passage-context`); động từ theo số
+export function unitPassagesNote(way: Way, contextOn: boolean, withSentence: number, total: number): string {
+  const lead = way === "whole" ? "Kept whole with No chunking" : `Cut with ${WAYS_SHOWN[way].label}`;
   if (!contextOn) return `${lead}.`;
   if (withSentence === 0) {
     return `${lead}. This content unit stays one passage, the whole unit, so it has no context sentence.`;
   }
-  if (withSentence === total) return `${lead}, each passage with its context sentence above it.`;
-  return `${lead}; ${withSentence} of ${total} passages have a context sentence, shown above them.`;
+  if (withSentence === total) {
+    return total === 1
+      ? `${lead}; its one passage has a context sentence, shown above it.`
+      : `${lead}; all ${total} passages have a context sentence, shown above them.`;
+  }
+  return `${lead}; ${withSentence} of ${total} passages ${withSentence === 1 ? "has" : "have"} a context sentence, shown above ${withSentence === 1 ? "it" : "them"}.`;
+}
+
+// Câu trả lời của khối Chunking (3 reviewer PR 2b: "No chunking cuts the 19 content units…" tự mâu thuẫn). `median`
+// null khi cách chia không có đoạn nào
+export function chunkingAnswer(way: Way, units: number, passages: number, median: number | null): string {
+  const name = WAYS_SHOWN[way].label;
+  if (median === null) return `${name} gives no passages.`;
+  const length = `with a median length of ${Math.round(median).toLocaleString("en-US")} characters`;
+  return way === "whole"
+    ? `No chunking keeps the ${units} content units whole: ${passages.toLocaleString("en-US")} passages, ${length}.`
+    : `${name} cuts the ${units} content units into ${passages.toLocaleString("en-US")} passages, ${length}.`;
+}
+
+// Ghi chú của Key number "Passages ranked" theo bộ tìm THẬT SỰ xếp danh sách (`rankedBy`): khi Hybrid rơi về BM25,
+// câu "dense similarity ranks every passage" đứng cạnh số của BM25 là sai (3 reviewer PR 2b)
+export function rankedNote(ranker: Retriever): string {
+  if (ranker === "bm25") return "BM25 leaves out passages that share no word with the question.";
+  if (ranker === "dense") return "Dense similarity ranks every passage.";
+  return "Hybrid ranks every passage: the dense list holds them all, and BM25 adds to those that share a word with the question.";
 }
 
 export const IN_PROGRESS_SHOWN = {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { CaretDown } from "@phosphor-icons/react";
 import {
   AnswerRow,
   ControlLabel,
@@ -39,16 +40,20 @@ import type { Row } from "@/lib/ragDemo/rank.ts";
 import {
   answerSentence,
   characterCount,
+  chunkingAnswer,
   chunkStats,
   CONTEXT_SHOWN,
+  cosinePairs,
   cosineSpread,
   cosineText,
   IN_PROGRESS_SHOWN,
   NEIGHBOURS,
   nearestPassages,
   rankedBy,
+  rankedNote,
   unitPassagesNote,
   type ChunkStats,
+  type CosinePair,
   type CosineSpread,
   examplesHeading,
   examplesPointer,
@@ -328,7 +333,7 @@ function PassagesBlock({
       label: "Passages ranked",
       term: "passage",
       share: { part: ranked.length, whole: total, of: `${count(total)} passages` },
-      note: "BM25 leaves out passages that share no word with the question; dense similarity ranks every passage.",
+      note: rankedNote(ranker),
     },
     { value: count(shown.length), label: "Passages shown", term: "top-k", note: shownNote },
   ];
@@ -612,7 +617,8 @@ function PassageRow({
 function ContextText({ demo, passage }: { demo: DemoFile; passage: Passage }) {
   if (passage.context === null) return null;
   return (
-    <span className="flex flex-col gap-0.5 border-l-2 border-amber-600 pl-3">
+    // Viền XÁM (Thy chọn 2026-11-26, ux-reviewer: amber dành cho thứ bấm được + khung ANSWER)
+    <span className="flex flex-col gap-0.5 border-l-2 border-text-muted pl-3">
       <span className={TYPE.label}>
         ¶ Context sentence, English (written by Claude Haiku 5.5, prompt version {promptVersion(demo, "context")})
       </span>
@@ -754,6 +760,8 @@ function PipelineMapBlock() {
   );
 }
 
+type UnitRow = { number: number; unit: Unit; characters: number };
+
 // Khối Loading (Thy chốt 2026-11-12, phương án A — bước đầu của pipeline trong repo mẫu): nguồn, cách ghép một content
 // unit, mốc đóng băng, làm sạch; chọn một content unit để xem nó tách thành từng post. Bản dịch theo post lấy từ đoạn
 // của cách chia "post": đo 2026-11-12, 19/19 bài có đoạn trùng khít vị trí từng post (63 post)
@@ -764,9 +772,11 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
   const followUps = posts - units.length;
   const lengths = units.map((unit) => characterCount(unit.text));
   const spread = quartiles(lengths);
+  const characters = lengths.reduce((sum, length) => sum + length, 0);
   const months = [...new Set(units.map((unit) => unit.month))].sort();
   const monthCounts = months.map((month) => `${units.filter((u) => u.month === month).length} from ${monthText(month)}`);
   const unit = units[Math.min(picked, units.length - 1)];
+  const shownNumber = Math.min(picked, units.length - 1) + 1;
   const postChunks = demo.ways.post.filter((chunk) => chunk.unit === unit.id).sort((a, b) => a.start - b.start);
   return (
     <Section
@@ -805,39 +815,79 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
             label: "Characters per content unit (median)",
             note: `Middle half ${count(Math.round(spread.q1))}–${count(Math.round(spread.q3))} (IQR), n = ${count(units.length)}.`,
           },
+          // PR 2b (thẻ Thy duyệt 2026-11-26): tổng ký tự = toàn bộ chữ mà bước Chunking cắt; K2 tối đa 4 số mỗi hộp
+          {
+            value: count(characters),
+            label: "Characters in all",
+            note: `The text of the ${count(units.length)} content units together, which chunking then cuts into passages.`,
+          },
         ]}
         below={
-          <div className="flex flex-col gap-4">
-            {/* Thứ tự nút = thứ tự đóng băng, bài mới trước (`src/rag_demo/corpus.py:29#FROZEN_UNITS`) — reviewer
-                2026-11-12: nhãn phải nói #1 là bài nào */}
-            <Control label="Inspect one content unit (#1 = newest)">
-              <ToggleGroup
-                label="Content unit"
-                mono
-                // "#1" thay "1": nút 1 chữ số hẹp hơn vùng chạm 44px (máy đo C4); không sửa kiểu ToggleGroup dùng chung
-                options={units.map((_, i) => ({ key: String(i), label: `#${i + 1}` }))}
-                value={String(picked)}
-                onChange={(key) => setPicked(Number(key))}
+          <div className="flex flex-col gap-2">
+            <SubSection
+              title={`All ${count(units.length)} content units`}
+              note="#1 = newest; month of the opening post, Paris time. Characters count the posts joined with a space."
+            >
+              <DataTable
+                label="Every content unit of the demo, as a table"
+                columns={[
+                  {
+                    header: "Content unit",
+                    width: "18%",
+                    cell: (row: UnitRow) => (
+                      <>
+                        #{row.number}
+                        {row.number === shownNumber ? <span className={`${TYPE.label} ml-2 font-medium`}>selected</span> : null}
+                      </>
+                    ),
+                  },
+                  { header: "Month", width: "16%", cell: (row: UnitRow) => monthText(row.unit.month) },
+                  { header: "Posts", width: "12%", numeric: true, cell: (row: UnitRow) => count(row.unit.posts.length) },
+                  { header: "Characters", width: "16%", numeric: true, cell: (row: UnitRow) => count(row.characters) },
+                  { header: "Topic (English)", width: "38%", cell: (row: UnitRow) => topicName(row.unit) },
+                ]}
+                rows={units.map((u, i) => ({ number: i + 1, unit: u, characters: lengths[i] }))}
+                rowKey={(row) => row.unit.id}
+                isSelected={(row) => row.number === shownNumber}
+                minWidth={560}
+                compact
               />
-            </Control>
-            <p className={`m-0 ${TYPE.note}`}>
-              {monthText(unit.month)} · {unit.posts.length === 1 ? "1 post" : `${unit.posts.length} posts`} ·{" "}
-              {count(characterCount(unit.text))} characters ·{" "}
-              {unitTopic(unit) === null ? "Unclustered: fits none of the topics" : `Topic: ${unitTopic(unit)}`}
-            </p>
-            <ol className="m-0 flex list-none flex-col p-0">
-              {postChunks.map((chunk, i) => (
-                <li
-                  key={chunk.id}
-                  className="flex flex-col gap-2 border-t border-border-hairline py-5 first:border-t-0"
-                >
-                  <span className={`${TYPE.mono} font-semibold text-text-primary`}>
-                    post {i + 1} · {i === 0 ? "opening post" : "follow-up post"}
-                  </span>
-                  <PassageText demo={demo} passage={demo.passages[chunk.passage]} unit={unit} withTopic={false} />
-                </li>
-              ))}
-            </ol>
+            </SubSection>
+            <SubSection
+              title="One content unit, post by post"
+              note="Pick a content unit to read its posts; its row is marked “selected” in the table above."
+            >
+              {/* Thứ tự nút = thứ tự đóng băng, bài mới trước (`src/rag_demo/corpus.py:29#FROZEN_UNITS`) — reviewer
+                  2026-11-12: nhãn phải nói #1 là bài nào */}
+              <Control label="Inspect one content unit (#1 = newest)">
+                <ToggleGroup
+                  label="Content unit"
+                  mono
+                  // "#1" thay "1": nút 1 chữ số hẹp hơn vùng chạm 44px (máy đo C4); không sửa kiểu ToggleGroup dùng chung
+                  options={units.map((_, i) => ({ key: String(i), label: `#${i + 1}` }))}
+                  value={String(picked)}
+                  onChange={(key) => setPicked(Number(key))}
+                />
+              </Control>
+              <p className={`m-0 ${TYPE.note}`}>
+                {monthText(unit.month)} · {unit.posts.length === 1 ? "1 post" : `${unit.posts.length} posts`} ·{" "}
+                {count(characterCount(unit.text))} characters ·{" "}
+                {unitTopic(unit) === null ? "Unclustered: fits none of the topics" : `Topic: ${unitTopic(unit)}`}
+              </p>
+              <ol className="m-0 flex list-none flex-col p-0">
+                {postChunks.map((chunk, i) => (
+                  <li
+                    key={chunk.id}
+                    className="flex flex-col gap-2 border-t border-border-hairline py-5 first:border-t-0"
+                  >
+                    <span className={`${TYPE.mono} font-semibold text-text-primary`}>
+                      post {i + 1} · {i === 0 ? "opening post" : "follow-up post"}
+                    </span>
+                    <PassageText demo={demo} passage={demo.passages[chunk.passage]} unit={unit} withTopic={false} />
+                  </li>
+                ))}
+              </ol>
+            </SubSection>
           </div>
         }
       />
@@ -940,7 +990,6 @@ function ChunkingBlock({
   const units = demo.units;
   const unit = units[Math.min(picked, units.length - 1)];
   const chunks = demo.ways[way].filter((chunk) => chunk.unit === unit.id).sort((a, b) => a.start - b.start);
-  const name = WAYS_SHOWN[way].label;
   const embedding = provenanceText(demo, (p) => p.embedding_model, "text-embedding-3-small");
   return (
     <Section
@@ -959,11 +1008,7 @@ function ChunkingBlock({
         />
       </div>
       <AnswerRow
-        answer={
-          spread === null
-            ? `${name} gives no passages.`
-            : `${name} cuts the ${count(units.length)} content units into ${count(stats.count)} passages, with a median length of ${count(Math.round(spread.median))} characters.`
-        }
+        answer={chunkingAnswer(way, units.length, stats.count, spread?.median ?? null)}
         points={[
           `**How it cuts:** ${WAYS_SHOWN[way].sentence}`,
           spread === null
@@ -973,7 +1018,7 @@ function ChunkingBlock({
             way === "whole"
               ? "not available, because each passage is a whole content unit."
               : withContext
-                ? `on. BM25 searches each passage together with it; ${count(stats.count - stats.withContext)} of the ${count(stats.count)} passages are a whole content unit and have none.`
+                ? `on. BM25 searches each passage together with it; ${count(stats.count - stats.withContext)} of the ${count(stats.count)} passages ${stats.count - stats.withContext === 1 ? "is a whole content unit and has" : "are a whole content unit and have"} none.`
                 : // code-reviewer vòng 1: không hứa "câu trên mỗi đoạn" — đoạn trùng cả bài không có câu nào
                   "off. With it on, each passage below that is not a whole content unit shows its context sentence above it."
           }`,
@@ -1007,7 +1052,7 @@ function ChunkingBlock({
             <SubSection
               title="The passages of one content unit"
               note={unitPassagesNote(
-                name,
+                way,
                 withContext,
                 chunks.filter((chunk) => demo.passages[chunk.passage].context !== null).length,
                 chunks.length,
@@ -1099,51 +1144,120 @@ function ChunkingBlock({
   );
 }
 
-// Bảng 7 cách chia (Thy D3): cột số căn phải, tabular-nums (K6); dòng đang chọn có chữ "selected", không chỉ màu nền.
-// < sm cuộn ngang trong khung riêng (không cuộn cả trang), chọn được bằng bàn phím (axe scrollable-region-focusable)
-function ChunkingTable({ rows, selected }: { rows: { way: Way; stats: ChunkStats }[]; selected: Way }) {
-  const number = (value: number | undefined) => (value === undefined ? "—" : count(Math.round(value)));
+// Bảng của trang (bảng 7 cách chia, bảng 19 bài, bảng cặp cosine): một kiểu cho cả 3 (PR 2b commit 3, NIT review
+// commit 1: header lệch cột vì `pr-2` bị `pr-4` đè, cột nhảy khi đổi dòng chọn, hàng có hover mà không bấm được, số
+// màu secondary trong khi bảng khác dùng primary). `table-fixed` + `colgroup`: bề rộng cột cố định, chữ đậm ở dòng
+// chọn không đẩy cột. Mọi ô cùng `px-3` → header thẳng cột với số. Cột số căn phải, tabular-nums (K6). Dòng chọn có
+// chữ (cột đầu tự ghi "selected"), không chỉ màu nền. Màn hẹp: cuộn ngang trong khung riêng, chọn được bằng bàn phím
+// (axe scrollable-region-focusable)
+type Column<R> = { header: string; width: string; numeric?: boolean; cell: (row: R) => ReactNode };
+
+function DataTable<R>({
+  label,
+  columns,
+  rows,
+  rowKey,
+  isSelected,
+  minWidth,
+  compact = false,
+}: {
+  label: string;
+  columns: readonly Column<R>[];
+  rows: readonly R[];
+  rowKey: (row: R) => string;
+  isSelected?: (row: R) => boolean;
+  minWidth: number;
+  compact?: boolean;
+}) {
+  const pad = compact ? "px-3 py-1.5" : "px-3 py-3";
   return (
-    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Passage lengths of every chunking method">
-      <table className="w-full min-w-[560px] border-collapse">
+    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={label}>
+      <table className="w-full table-fixed border-collapse" style={{ minWidth }}>
+        <colgroup>
+          {columns.map((column) => (
+            <col key={column.header} style={{ width: column.width }} />
+          ))}
+        </colgroup>
         <thead>
-          <tr className="border-b border-border-hairline text-left align-bottom">
-            <th scope="col" className={`py-2.5 pr-4 ${TYPE.th}`}>Chunking method</th>
-            <th scope="col" className={`py-2.5 pr-4 text-right ${TYPE.th}`}>Passages (n)</th>
-            <th scope="col" className={`py-2.5 pr-4 text-right ${TYPE.th}`}>Median</th>
-            <th scope="col" className={`py-2.5 pr-4 text-right ${TYPE.th}`}>Middle half (IQR)</th>
-            <th scope="col" className={`py-2.5 pr-4 text-right ${TYPE.th}`}>Shortest</th>
-            <th scope="col" className={`py-2.5 text-right ${TYPE.th}`}>Longest</th>
+          <tr className="border-b border-border-hairline align-bottom">
+            {columns.map((column) => (
+              <th
+                key={column.header}
+                scope="col"
+                className={`px-3 py-2.5 ${column.numeric ? "text-right" : "text-left"} ${TYPE.th}`}
+              >
+                {column.header}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ way, stats }) => {
-            const on = way === selected;
-            const spread = stats.lengths;
-            const cell = `py-3 pr-4 text-right tabular-nums ${TYPE.mono} ${on ? "font-semibold text-text-primary" : "text-text-secondary"}`;
+          {rows.map((row) => {
+            const on = isSelected?.(row) ?? false;
             return (
               <tr
-                key={way}
+                key={rowKey(row)}
                 aria-current={on ? "true" : undefined}
-                className={`border-t border-border-hairline align-baseline ${on ? "bg-warm-surface" : "hover:bg-bg-sunken"}`}
+                className={`border-t border-border-hairline align-baseline ${on ? "bg-warm-surface" : ""}`}
               >
-                <th scope="row" className={`py-3 pl-2 pr-4 text-left font-normal ${TYPE.body}`}>
-                  <span className={on ? "font-semibold text-text-primary" : ""}>{WAYS_SHOWN[way].label}</span>
-                  {on ? <span className={`${TYPE.label} ml-2`}>selected</span> : null}
-                </th>
-                <td className={cell}>{count(stats.count)}</td>
-                <td className={cell}>{number(spread?.median)}</td>
-                <td className={`${cell} whitespace-nowrap`}>
-                  {spread === null ? "—" : `${number(spread.q1)}–${number(spread.q3)}`}
-                </td>
-                <td className={cell}>{number(spread?.min)}</td>
-                <td className={`${cell} pr-2`}>{number(spread?.max)}</td>
+                {columns.map((column, i) => {
+                  const kind = column.numeric
+                    ? `text-right ${TYPE.mono} whitespace-nowrap`
+                    : `text-left ${TYPE.cell}`;
+                  const className = `${pad} ${kind} text-text-primary ${on ? "font-semibold" : "font-normal"}`;
+                  return i === 0 ? (
+                    <th key={column.header} scope="row" className={className}>
+                      {column.cell(row)}
+                    </th>
+                  ) : (
+                    <td key={column.header} className={className}>
+                      {column.cell(row)}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}
         </tbody>
       </table>
     </div>
+  );
+}
+
+// Bảng 7 cách chia (Thy D3)
+function ChunkingTable({ rows, selected }: { rows: { way: Way; stats: ChunkStats }[]; selected: Way }) {
+  const number = (value: number | undefined) => (value === undefined ? "—" : count(Math.round(value)));
+  const columns: Column<{ way: Way; stats: ChunkStats }>[] = [
+    {
+      header: "Chunking method",
+      width: "28%",
+      cell: ({ way }) => (
+        <>
+          {WAYS_SHOWN[way].label}
+          {way === selected ? <span className={`${TYPE.label} ml-2 font-medium`}>selected</span> : null}
+        </>
+      ),
+    },
+    { header: "Passages (n)", width: "13%", numeric: true, cell: ({ stats }) => count(stats.count) },
+    { header: "Median", width: "12%", numeric: true, cell: ({ stats }) => number(stats.lengths?.median) },
+    {
+      header: "Middle half (IQR)",
+      width: "19%",
+      numeric: true,
+      cell: ({ stats }) => (stats.lengths === null ? "—" : `${number(stats.lengths.q1)}–${number(stats.lengths.q3)}`),
+    },
+    { header: "Shortest", width: "14%", numeric: true, cell: ({ stats }) => number(stats.lengths?.min) },
+    { header: "Longest", width: "14%", numeric: true, cell: ({ stats }) => number(stats.lengths?.max) },
+  ];
+  return (
+    <DataTable
+      label="Passage lengths of every chunking method"
+      columns={columns}
+      rows={rows}
+      rowKey={(row) => row.way}
+      isSelected={(row) => row.way === selected}
+      minWidth={600}
+    />
   );
 }
 
@@ -1201,7 +1315,7 @@ function EmbeddingBlock({ demo, way }: { demo: DemoFile; way: Way }) {
                 {
                   value: cosineText(whole.median),
                   label: "Cosine between two content units (median)",
-                  term: "dense",
+                  term: "embedding",
                   note: `Middle half ${cosineText(whole.q1)}–${cosineText(whole.q3)} (IQR), n = ${count(whole.pairs)} pairs.`,
                 },
                 {
@@ -1221,14 +1335,14 @@ function EmbeddingBlock({ demo, way }: { demo: DemoFile; way: Way }) {
             {whole === null ? null : (
               <SubSection
                 title={`Similarity between the ${count(units.length)} content units`}
-                note="Each cell is the cosine between two whole content units; darker means more similar. Rows and columns are the content units, #1 = newest. Point at a cell to read the pair."
+                note="Each cell is the cosine between two whole content units; darker means more similar. Rows and columns are the content units, #1 = newest."
               >
                 <CosineMap
                   demo={demo}
                   spread={whole}
                   active={active}
                   onActivate={setActive}
-                  readout={active ? pairText(active.a, active.b) : "Point at a cell for the two content units and their cosine."}
+                  readout={active ? pairText(active.a, active.b) : "Point at a cell for the two content units and their cosine; the table below lists every pair."}
                 />
               </SubSection>
             )}
@@ -1334,9 +1448,10 @@ function EmbeddingBlock({ demo, way }: { demo: DemoFile; way: Way }) {
   );
 }
 
-// Lưới 19 × 19 (D1). Ô không nhận focus (361 điểm dừng Tab quá nhiều cho bàn phím): người dùng bàn phím / trình đọc
-// màn hình đọc 3 số trong Key numbers + câu trả lời; lưới là `role="img"` có nhãn tóm tắt. Ở màn hẹp lưới cuộn ngang
-// trong khung riêng (như bảng), không bóp ô dưới cỡ đọc được
+// Lưới 19 × 19 (D1). Ô không nhận focus (361 điểm dừng Tab quá nhiều cho bàn phím): lưới là `role="img"` có nhãn tóm
+// tắt; người dùng bàn phím / trình đọc màn hình mở "Show as table" — mọi cặp, cosine cao nhất trước (Thy chọn
+// 2026-11-27, như heatmap giờ đăng của /analytics). Ở màn hẹp lưới cuộn ngang trong khung riêng (như bảng), không bóp ô
+// dưới cỡ đọc được
 function CosineMap({
   demo,
   spread,
@@ -1354,66 +1469,98 @@ function CosineMap({
   const lo = spread.low.value;
   const hi = spread.high.value;
   const columns = { gridTemplateColumns: `32px repeat(${n}, minmax(0, 1fr))` };
+  const units = demo.units;
+  const pairs = cosinePairs(demo, "whole");
+  const unitCell = (i: number) => `#${i + 1} · ${topicName(units[i])}`;
   return (
-    // ≥ lg: chú giải + dòng đọc cặp đứng cạnh lưới (lưới giới hạn 760px — không để ~400px trống bên phải, L5)
-    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,760px)_minmax(0,1fr)] lg:items-start lg:gap-8">
-      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Cosine similarity map, scrolls sideways on small screens">
-        <div
-          role="img"
-          aria-label={`Cosine similarity between every pair of the ${n} content units, from ${cosineText(lo)} to ${cosineText(hi)}; median ${cosineText(spread.median)}.`}
-          // ở 1440 lưới trải hết card thì ô ~55px, cả lưới cao ~1.100px — cột 760px cho ô ~37px, vẫn đọc rõ
-          className="grid min-w-[520px] gap-[2px]"
-          style={columns}
-          onMouseLeave={() => onActivate(null)}
-        >
-          <span aria-hidden="true" />
-          {Array.from({ length: n }, (_, b) => (
-            <span key={`c${b}`} aria-hidden="true" className={`${TYPE.mono} text-center text-text-secondary`}>
-              {b + 1}
-            </span>
-          ))}
-          {Array.from({ length: n }, (_, a) => (
-            <Fragment key={`r${a}`}>
-              <span aria-hidden="true" className={`${TYPE.mono} pr-1 text-right text-text-secondary`}>
-                #{a + 1}
+    <div className="flex flex-col gap-4">
+      {/* ≥ xl: chú giải + dòng đọc cặp đứng cạnh lưới (lưới giới hạn 760px — không để ~400px trống bên phải, L5). Từ
+          xl, không lg: ở 1024px cột phải chỉ còn ~120px (Thy chọn 2026-11-27). Dưới xl lưới cũng tối đa 760px (Thy chọn
+          2026-11-27, ux-reviewer: ở 1024–1279px lưới 910px cao ~900px, dòng đọc cặp ngay dưới rơi khỏi màn hình) */}
+      <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,760px)_minmax(0,1fr)] xl:items-start xl:gap-8">
+        <div className="w-full max-w-[760px] overflow-x-auto" tabIndex={0} role="region" aria-label="Cosine similarity map, scrolls sideways on small screens">
+          <div
+            role="img"
+            aria-label={`Cosine similarity between every pair of the ${n} content units, from ${cosineText(lo)} to ${cosineText(hi)}; median ${cosineText(spread.median)}.`}
+            // ở 1440 lưới trải hết card thì ô ~55px, cả lưới cao ~1.100px — cột 760px cho ô ~37px, vẫn đọc rõ
+            className="grid min-w-[520px] gap-[2px]"
+            style={columns}
+            onMouseLeave={() => onActivate(null)}
+          >
+            <span aria-hidden="true" />
+            {Array.from({ length: n }, (_, b) => (
+              <span key={`c${b}`} aria-hidden="true" className={`${TYPE.mono} text-center text-text-secondary`}>
+                {b + 1}
               </span>
-              {Array.from({ length: n }, (_, b) => {
-                const on = active !== null && ((active.a === a && active.b === b) || (active.a === b && active.b === a));
-                return (
-                  <span
-                    key={`${a}-${b}`}
-                    aria-hidden="true"
-                    onMouseEnter={() => onActivate(a === b ? null : { a: Math.min(a, b), b: Math.max(a, b) })}
-                    className={`aspect-square rounded-[3px] border ${on ? "border-text-primary" : "border-border-hairline"}`}
-                    style={{ background: a === b ? "var(--bg-sunken)" : heatBackground(cosineOf(demo, "whole", a, b), lo, hi) }}
-                  />
-                );
-              })}
-            </Fragment>
-          ))}
-        </div>
-      </div>
-      <div className="flex flex-col gap-3 lg:sticky lg:top-6">
-        <p className={`m-0 min-h-[20px] ${TYPE.note} text-text-primary`} aria-live="polite">
-          {readout}
-        </p>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-text-secondary">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-mono tabular-nums">{cosineText(lo)}</span>
-            <span
-              aria-hidden="true"
-              className="h-2.5 w-28 rounded-full border border-border-hairline"
-              style={{ background: `linear-gradient(90deg, ${heatBackground(lo, lo, hi)}, ${heatBackground(hi, lo, hi)})` }}
-            />
-            <span className="font-mono tabular-nums">{cosineText(hi)}</span>
-            <span>cosine similarity</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="h-3 w-5 rounded-[3px] border border-border-hairline bg-bg-sunken" />
-            <span>a content unit with itself (not stored)</span>
+            ))}
+            {Array.from({ length: n }, (_, a) => (
+              <Fragment key={`r${a}`}>
+                <span aria-hidden="true" className={`${TYPE.mono} pr-1 text-right text-text-secondary`}>
+                  #{a + 1}
+                </span>
+                {Array.from({ length: n }, (_, b) => {
+                  const on = active !== null && ((active.a === a && active.b === b) || (active.a === b && active.b === a));
+                  return (
+                    <span
+                      key={`${a}-${b}`}
+                      aria-hidden="true"
+                      onMouseEnter={() => onActivate(a === b ? null : { a: Math.min(a, b), b: Math.max(a, b) })}
+                      className={`aspect-square rounded-[3px] border ${on ? "border-text-primary" : "border-border-hairline"}`}
+                      style={{ background: a === b ? "var(--bg-sunken)" : heatBackground(cosineOf(demo, "whole", a, b), lo, hi) }}
+                    />
+                  );
+                })}
+              </Fragment>
+            ))}
           </div>
         </div>
+        <div className="flex flex-col gap-3 xl:sticky xl:top-6">
+          <p className={`m-0 min-h-[20px] ${TYPE.note} text-text-primary`} aria-live="polite">
+            {readout}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-text-secondary">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-mono tabular-nums">{cosineText(lo)}</span>
+              <span
+                aria-hidden="true"
+                className="h-2.5 w-28 rounded-full border border-border-hairline"
+                style={{ background: `linear-gradient(90deg, ${heatBackground(lo, lo, hi)}, ${heatBackground(hi, lo, hi)})` }}
+              />
+              <span className="font-mono tabular-nums">{cosineText(hi)}</span>
+              <span>cosine similarity</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span aria-hidden="true" className="h-3 w-5 rounded-[3px] border border-border-hairline bg-bg-sunken" />
+              <span>a content unit with itself (not stored)</span>
+            </div>
+          </div>
+        </div>
       </div>
+      {/* Nút mở bảng: cùng kiểu nút "Show as table" của /analytics (`PostingTimeHeatmap.tsx`) — viền + nền + chevron,
+          vùng chạm 44px (C3) */}
+      <details className="group">
+        <summary className="inline-flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-full border border-border-hairline bg-bg-surface px-4 text-[13px] font-semibold text-text-primary hover:border-amber-600 hover:text-amber-700 [&::-webkit-details-marker]:hidden">
+          <CaretDown size={16} aria-hidden="true" className="transition-transform duration-150 group-open:rotate-180" />
+          Show as table
+        </summary>
+        <div className="mt-3 flex flex-col gap-2">
+          <p className={`m-0 ${TYPE.note}`}>
+            All {count(pairs.length)} pairs of content units, the most similar first.
+          </p>
+          <DataTable
+            label="Cosine similarity of every pair of content units, as a table"
+            columns={[
+              { header: "Content unit", width: "40%", cell: (pair: CosinePair) => unitCell(pair.a) },
+              { header: "Other content unit", width: "40%", cell: (pair: CosinePair) => unitCell(pair.b) },
+              { header: "Cosine", width: "20%", numeric: true, cell: (pair: CosinePair) => cosineText(pair.value) },
+            ]}
+            rows={pairs}
+            rowKey={(pair) => `${pair.a}-${pair.b}`}
+            minWidth={480}
+            compact
+          />
+        </div>
+      </details>
     </div>
   );
 }
@@ -1582,11 +1729,18 @@ function TermsBlock({ demo }: { demo: DemoFile }) {
           term: "BM25",
           plain: `A keyword score: a passage scores higher the more of the question’s words it contains (each repeat adds less); rare words weigh more, and long passages are scored down. A passage that shares no word with the question scores 0 and is not ranked. Formula: block ${ragNumber("passages")}, Method.`,
         },
+        // PR 2b commit 3 (NIT copy-reviewer): mục cũ "Embedding, dense similarity" chỉ định nghĩa cosine câu hỏi–đoạn,
+        // trong khi khối Embedding so đoạn với đoạn → 2 mục: thước đo chung, rồi cách dense retrieval dùng nó
+        {
+          id: "embedding",
+          term: "Embedding, cosine similarity",
+          plain: `An embedding turns a text into a vector (a list of numbers) so that texts with similar meaning get vectors pointing in similar directions. Cosine similarity compares the directions of two vectors: 1 means the same direction, and higher means closer in meaning. Block ${ragNumber("embedding")} uses it to compare content units and passages with each other.`,
+        },
         {
           id: "dense",
-          term: "Embedding, dense similarity",
+          term: "Dense similarity",
           plain:
-            "An embedding turns a text into a vector (a list of numbers) so that texts with similar meaning get vectors pointing in similar directions. Dense similarity is the cosine between the question’s vector and a passage’s vector: higher means closer in meaning, even with no shared word.",
+            "The cosine similarity between the question’s vector and a passage’s vector. Dense retrieval ranks passages by it, so a passage close in meaning can rank high even with no word in common with the question.",
         },
         {
           id: "hybrid",

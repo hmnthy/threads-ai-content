@@ -25,6 +25,7 @@ const out = cases.map((c) => {
   if (c.fn === "nonGoldKept") return page.nonGoldKept(demoFile.parseDemoFile(c.demo), c.max);
   if (c.fn === "chunkStats") return page.chunkStats(demoFile.parseDemoFile(c.demo), c.way);
   if (c.fn === "cosineSpread") return page.cosineSpread(demoFile.parseDemoFile(c.demo), c.way);
+  if (c.fn === "cosinePairs") return page.cosinePairs(demoFile.parseDemoFile(c.demo), c.way);
   if (c.fn === "nearestPassages") {
     return page.nearestPassages(demoFile.parseDemoFile(c.demo), c.way, c.chunk, c.count);
   }
@@ -356,19 +357,66 @@ def test_unit_passages_note_follows_the_passages_shown(tmp_path: Path) -> None:
     got = call(
         tmp_path,
         [
-            {"fn": "unitPassagesNote", "args": ["Recursive 500", False, 3, 3]},
-            {"fn": "unitPassagesNote", "args": ["Recursive 500", True, 3, 3]},
-            {"fn": "unitPassagesNote", "args": ["Recursive 500", True, 0, 1]},
-            {"fn": "unitPassagesNote", "args": ["Semantic", True, 2, 3]},
+            {"fn": "unitPassagesNote", "args": ["recursive_500", False, 3, 3]},
+            {"fn": "unitPassagesNote", "args": ["recursive_500", True, 3, 3]},
+            {"fn": "unitPassagesNote", "args": ["recursive_500", True, 0, 1]},
+            {"fn": "unitPassagesNote", "args": ["semantic", True, 2, 3]},
+            # số ít: động từ + đại từ theo số đoạn có câu (NIT PR 2b "1 of the N passages are")
+            {"fn": "unitPassagesNote", "args": ["fixed_300", True, 1, 3]},
+            {"fn": "unitPassagesNote", "args": ["fixed_300", True, 1, 1]},
+            # "No chunking" không cắt gì → không viết "Cut with No chunking"
+            {"fn": "unitPassagesNote", "args": ["whole", False, 0, 1]},
         ],
     )
     assert got == [
         "Cut with Recursive 500.",
-        "Cut with Recursive 500, each passage with its context sentence above it.",
+        "Cut with Recursive 500; all 3 passages have a context sentence, shown above them.",
         "Cut with Recursive 500. This content unit stays one passage, the whole unit, "
         "so it has no context sentence.",
         "Cut with Semantic; 2 of 3 passages have a context sentence, shown above them.",
+        "Cut with Fixed 300; 1 of 3 passages has a context sentence, shown above it.",
+        "Cut with Fixed 300; its one passage has a context sentence, shown above it.",
+        "Kept whole with No chunking.",
     ]
+
+
+def test_chunking_answer_does_not_say_no_chunking_cuts(tmp_path: Path) -> None:
+    # 3 reviewer PR 2b: "No chunking cuts the 19 content units into …" tự mâu thuẫn
+    got = call(
+        tmp_path,
+        [
+            {"fn": "chunkingAnswer", "args": ["whole", 19, 19, 1277]},
+            {"fn": "chunkingAnswer", "args": ["fixed_300", 19, 102, 290.6]},
+            {"fn": "chunkingAnswer", "args": ["semantic", 19, 1102, 182.5]},
+            {"fn": "chunkingAnswer", "args": ["post", 19, 0, None]},
+        ],
+    )
+    assert got == [
+        "No chunking keeps the 19 content units whole: 19 passages, "
+        "with a median length of 1,277 characters.",
+        "Fixed 300 cuts the 19 content units into 102 passages, "
+        "with a median length of 291 characters.",
+        "Semantic cuts the 19 content units into 1,102 passages, "
+        "with a median length of 183 characters.",
+        "One per post gives no passages.",
+    ]
+
+
+def test_ranked_note_follows_the_list_actually_ranked(tmp_path: Path) -> None:
+    # Hybrid rơi về BM25 → `rankedBy` trả "bm25" → ghi chú của BM25,
+    # không câu "dense similarity ranks every passage"
+    got = call(
+        tmp_path,
+        [
+            {"fn": "rankedNote", "args": ["bm25"]},
+            {"fn": "rankedNote", "args": ["dense"]},
+            {"fn": "rankedNote", "args": ["hybrid"]},
+        ],
+    )
+    assert got[0] == "BM25 leaves out passages that share no word with the question."
+    assert got[1] == "Dense similarity ranks every passage."
+    assert got[2].startswith("Hybrid ranks every passage")
+    assert "BM25 leaves out" not in got[2]
 
 
 def _cosine_demo() -> dict[str, Any]:
@@ -419,6 +467,27 @@ def test_nearest_passages_sort_by_cosine_then_passage_order(tmp_path: Path) -> N
     ]
     assert got[2] == []
     assert got[3] == "0.694"
+
+
+def test_cosine_pairs_sort_highest_first_and_ties_by_row_order(tmp_path: Path) -> None:
+    # bảng "Show as table" của heatmap: cặp (0,2) và (2,3) cùng 0.5 → (0,2) trước (hàng nhỏ hơn)
+    demo = _cosine_demo()
+    got = call(
+        tmp_path,
+        [
+            {"fn": "cosinePairs", "demo": demo, "way": "post"},
+            {"fn": "cosinePairs", "demo": demo, "way": "whole"},
+        ],
+    )
+    assert got[0] == [
+        {"value": 0.9, "a": 1, "b": 2},
+        {"value": 0.5, "a": 0, "b": 2},
+        {"value": 0.5, "a": 2, "b": 3},
+        {"value": 0.3, "a": 0, "b": 3},
+        {"value": 0.2, "a": 1, "b": 3},
+        {"value": 0.1, "a": 0, "b": 1},
+    ]
+    assert got[1] == []
 
 
 def test_ranked_by_names_bm25_only_when_hybrid_falls_back(tmp_path: Path) -> None:

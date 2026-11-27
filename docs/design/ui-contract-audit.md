@@ -682,3 +682,90 @@ thấy quyết định 2026-11-20 (ADR Accepted giữ nguyên; nếu muốn bộ
 `topics/page.tsx`. (9) Ảnh 375px chụp bằng script tay (ngoài `ux-shots`) có thể bị nút công cụ Next.js che góc trái
 dưới — `ux-shots.mjs` đã ẩn `nextjs-portal`; script tay nên làm giống. (10) Luật làm việc đề xuất: đổi component dùng chung (`PageHeader`, `Section`,
 `KeyNumbers`) → grep mọi chỗ gọi và liệt kê đủ trong docs + phép đo (lần này sót `/rag-pipeline`, `code-reviewer` bắt).
+
+### `/rag-pipeline` PR 2b — khối Chunking + Embedding (Thy chốt 2026-11-26; commit `9574bfa`, `d546592`)
+
+**Quyết định Thy (kèm lý do).**
+- D1 Embedding = heatmap 19 × 19 bài (cosine cách "whole") + 5 đoạn gần nhất của 1 đoạn ở cách chia đang chọn. Lý do:
+  lưới đủ đoạn 102 × 102 = 10.404 ô, ~3px / ô trên điện thoại. Xem lại khi có component ma trận lớn dùng chung.
+- D2 một lựa chọn cách chia + công tắc câu ngữ cảnh chung cho khối 03 và khối kết quả (cả 2 khối hiện cùng bộ nút). Lý
+  do: 2 lựa chọn riêng dễ khiến người xem đọc đoạn của cách A nhưng kết quả là cách B.
+- D3 bảng 7 dòng, không histogram. Lý do: component có sẵn, so 7 cách cạnh nhau, đọc được ở 375px.
+- Viền câu ngữ cảnh: xám (ux-reviewer: amber dành cho thứ bấm được + khung ANSWER) — làm ở commit 3.
+- "No chunking": giữ ẩn công tắc + một câu vì sao (không thêm `disabled` vào `ToggleGroup` dùng chung).
+- Nhóm NIT đáng sửa nhất làm ở commit 3 (cùng file).
+- Thy chọn 2026-11-27 (cả hai là phương án Claude khuyên): lối vào bàn phím cho heatmap = nút "Show as table" như
+  `/analytics` (dùng lại cách đã có, trình đọc màn hình đọc bảng tốt; phím mũi tên trong lưới = code mới, khác
+  `/analytics`) — bảng 171 cặp, cosine cao nhất trước; cột chú giải đứng cạnh lưới chỉ từ ≥ 1280px (`xl`; ở 1024px cột
+  chỉ còn ~120px). Xem lại khi: có component ma trận / heatmap dùng chung cho cả 2 trang.
+
+**Số đo (2026-11-26, file demo đang chạy):** semantic median 182 ký tự, ngắn nhất 7 ("Bisous."); 19 đoạn không có câu
+ngữ cảnh = đúng 19 đoạn trùng cả bài; cửa sổ cố định 152 chỗ cắt trong bài, 0 chỗ giữa từ; cosine 171 cặp bài
+0,235–0,696, median 0,429; mã chunk mọi cách chia = (thứ tự bài mới trước, vị trí trong bài).
+
+**Commit 3 (2026-11-27) đã sửa:** nhóm ưu tiên — câu trả lời "No chunking keeps the 19 content units whole…"
+(`chunkingAnswer`); ghi chú "Passages ranked" theo bộ tìm thật sự xếp (`rankedNote(rankedBy(…))`); 3 bảng của trang
+dùng chung `DataTable` (`table-fixed` + `colgroup`, mọi ô `px-3`, không hover, số màu primary — đo: bề rộng cột không
+đổi khi đổi dòng chọn ở 1024 và 1280); heatmap "Show as table" + `xl`. Kèm (cùng hàm / cùng dòng): `unitPassagesNote`
+"Kept whole with No chunking", số ít "1 of 3 passages has"; "1 of the N passages is a whole content unit"; "Point at a
+cell" chỉ còn 1 lần; Glossary tách "Embedding, cosine similarity" (đoạn–đoạn) khỏi "Dense similarity" (câu hỏi–đoạn).
+Luật máy cho lỗi lặp lần 2: `ADR0039-every-passage-context` (bắt "each [passage] with its context sentence"; ca miss là
+câu đúng của `CONTEXT_SHOWN.on`); dữ liệu "context null ⇔ đoạn = cả bài" đã có test ở bước dựng
+(`tests/rag_demo/test_demo_file.py#test_whole_unit_chunks_carry_a_translation_but_no_context`). Loader: Key number thứ 4
+"Characters in all" (25.037, đo lại bằng Python) + bảng 19 bài (#, tháng, số post, số ký tự, topic EN; dòng đang xem
+ghi "selected").
+
+**NIT chưa sửa (review vòng 1–2 của 2 commit; PR chạm file sau):**
+- *Chữ khối 03:* `CONTEXT_SHOWN.on` một câu 3 ý; nhãn công tắc "indexed" khó với người không chuyên; "short passages are
+  shown as they are" → "kept as they are, not merged or dropped"; Key number "Passages with a context sentence" khi công
+  tắc Off dễ hiểu là đang dùng; ghi chú "Unicode code points" nên ở Method; Method Lengths in khoảng nhưng công thức định
+  nghĩa IQR là độ rộng (thêm câu như `/analytics`); "about 12%" (thật 11,4–13,3%); Method Context sentence 5 mệnh đề +
+  "language of the post" → "content unit"; nhãn chữ gốc câu ngữ cảnh "(what BM25 searches)" → "with the passage";
+  `unitPassagesNote` "Cut with … stays one passage"; nhánh "partial" gần như không chạy.
+- *Chữ khối 04:* purpose "the similarity that dense retrieval ranks by" (cùng thước đo, khác cặp: đoạn–đoạn vs câu
+  hỏi–đoạn); câu trả lời dồn 3 số trùng Key numbers; "a list of numbers in which texts … point" sai chủ ngữ; "Unclustered"
+  trơ; "Point at a cell" không hợp điện thoại; "every
+  question" (chỉ 10 câu gốc, chưa có câu biến đổi); đường chéo "stays grey" nhưng trông trắng; Limits nên nói vector của
+  chữ gốc (không phải bản dịch), "(a design choice)" đặt sai chỗ, hàng xếp theo ngày không theo topic; nhãn cột "1…19" vs
+  hàng "#1…#19", nút "P3" vs "passage 3 of 5"; câu hoà "Equal cosines keep …" diễn đạt lại.
+- *Khác:* bước 2 bản đồ pipeline một câu 4 ý; ghi chú giai đoạn Indexing thiếu "dựng lại khi bật / tắt câu ngữ cảnh";
+  công thức BM25 chưa nói |d| gồm câu ngữ cảnh khi bật; 2 `ToggleGroup` trùng
+  `aria-label` ("Chunking", "Context sentence") ở 2 khối; comment cũ "5 khối", "Method khối 04"; "block 03 / 05" trong câu
+  dẫn nên là link; bảng 7 cách ở 375 cuộn ngang không có dấu hiệu; nhãn hàng heatmap trôi khi cuộn ngang ở 375 (sticky);
+  `heatBackground` chép công thức `color-mix` của `PostingTimeHeatmap` (nên export helper); dòng láng giềng chép lưới của
+  `PassageRow` (tách layout chung); nút "Show as table" chép class của `PostingTimeHeatmap` (nên thành component chung
+— đổi component dùng chung thì chạm cả `/analytics`); bảng 19 bài ở 375 dòng cao lệch nhau khi tên topic xuống dòng; "#n" suy từ mã chunk "whole" — nên khoá bằng test / `parseDemoFile`; fixture test cách
+  "whole" có câu ngữ cảnh (trái bất biến); test `cosineSpread` chưa có ca hoà ở 2 đầu; `ux-shots` báo nhầm L2 cho ô trong
+  khung cuộn ngang + chưa chụp trạng thái tương tác.
+
+**NIT review commit 3 (vòng 1, 2026-11-27: code + ux + copy đều 0 chặn; PR chạm file sau):**
+- *UX:* bảng 171 cặp ở 375 đẩy cột Cosine ra ngoài khung (`minWidth` 480 → ~320, hoặc cột Cosine lên trước); bảng 19 bài
+  ở 375 giấu "Characters" + "Topic (English)", hàng topic dài trông như hàng trống; 2 mật độ hàng trong một trang
+  (`compact` py-1.5 vs py-3; `/topics` py-2) → một mật độ; heatmap 1024–1279px: lưới 910px cao ~900px, dòng đọc cặp rơi
+  ngoài màn hình → **đã sửa ở commit 3** (Thy chọn 2026-11-27, sau khi hỏi heatmap là gì: lưới tối đa 760px ở mọi khổ,
+  chú giải vẫn chỉ đứng cạnh lưới từ ≥ 1280px). Review vòng 2 (ux + code, 0 chặn) thêm NIT: ở 1150–1279px bên phải lưới
+  trống tới 405px (35%; chú giải 374px đã vừa từ ~1150px) — Thy chọn 2026-11-27: **giữ `xl` 1280px** (khổ 1150–1279 ít gặp, dòng đọc cặp vẫn ngay dưới lưới; cột 270–370px ở mốc 1152 làm dòng đọc xuống 2–3 dòng);
+  `ux-shots` gộp key L2 theo class (4 khung cuộn khác nhau ở 375 đếm là 1) và ảnh khối chụp cột sticky ở đáy lưới; mục
+  "đã sửa" nằm giữa danh sách "PR chạm file sau" dễ đọc nhầm (tách gạch đầu dòng khi chạm file); ghi chú BM25 khi xếp đủ 100% (19/19 ở No chunking)
+  vẫn "leaves out"; nút "Show as table" không đổi nhãn khi mở (như `/analytics`); `DataTable` nên lên `AppBlock` khi trang
+  khác cần bảng; máy đo: trạng thái `expanded` của `ux-shots.mjs` không mở `<details>` → bảng sau "Show as table" chưa
+  được máy chấm.
+- *Chữ:* "Unclustered" chưa định nghĩa trong 2 bảng (9/19 bài) — (a) thêm định nghĩa (copy khuyên ở PR này hoặc sau), (b)
+  vài chữ đầu bản dịch đoạn mở đầu làm ngữ cảnh tiếng Anh — Thy chọn 2026-11-27: **(a)**, ở PR chạm file sau (rẻ,
+  không đổi dữ liệu; (b) làm bảng dài hơn và bản dịch máy có thể sót tiếng Việt); "Characters in all" vs "in total" (đổi
+  thì đổi cả "posts in all"); ghi chú "which chunking then cuts" sai với No chunking → "that chunking turns into
+  passages"; ghi chú bảng 19 bài lặp "month of the opening post, Paris time"; "Pick a content unit…" lặp ý 3 lần; "Kept
+  whole with No chunking" gượng → "No chunking: this content unit is one passage."; "Cut with Fixed 300. This content unit
+  stays one passage" tự mâu thuẫn → "Fixed 300 leaves this content unit whole, as one passage, …"; "Cut with One per post"
+  vấp; `rankedNote` Hybrid "BM25 adds to those" thiếu tân ngữ; "the table below lists every pair" khi bảng đang đóng →
+  "or open “Show as table” below"; Glossary cosine "higher means closer in meaning" nói mạnh hơn "relative measure"; ghi
+  chú bảng 19 bài thiếu "(Unicode code points)"; `rankedNote` "every passage" sẽ sai khi PR 4 thêm bước lọc.
+- *Code:* test `rankedNote` ca Hybrid chỉ kiểm `startswith` → so nguyên văn; regex `ADR0039-every-passage-context` chưa
+  bắt "every passage with…", "each passage, with…", "each passage shows its…"; `chunkingAnswer` in `units` số trần,
+  còn lại `toLocaleString`; `cosinePairs` `if (k < values.length)` lặng lẽ cắt (parse đã chặn → bỏ hoặc ném lỗi); không
+  còn link `#term-dense` nào; nhánh chết `unitPassagesNote("whole", true, …)` và `withSentence === total === 1`.
+
+**Lỗi reviewer bắt lần 2 → luật máy / test (quy tắc Thy 2026-11-12), đề xuất cho commit 3:** câu "mỗi / mọi đoạn có câu
+ngữ cảnh" (bắt ở vòng 1 lẫn vòng 2 của commit 1) → test dữ liệu "`context` null ⇔ đoạn = cả bài" trong `tests/rag_demo/`
++ luật `[[forbid]]` cho cụm "each passage with its context sentence" kèm ca miss là câu đúng ("every passage that is not
+a whole content unit").

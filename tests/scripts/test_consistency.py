@@ -1742,6 +1742,22 @@ LEARNED_RULES = [
         "| … | Đáp án đúng theo mã bài: câu 3 và 7 cần cả 2 bài, câu 4 một trong 2 bài, câu 10 |",
         "| … | Đáp án đúng theo mã bài: câu 3 và 7 cần cả 2 bài, câu 4 một bài (ADR-0040) |",
     ),
+    # ADR-0039 D2 (lỗi reviewer bắt lần 2, PR 2b): đoạn trùng cả bài không có câu ngữ cảnh.
+    # Ca miss là câu ĐÚNG cùng từ khoá đang có trên trang (`CONTEXT_SHOWN.on`)
+    (
+        "ADR0039-every-passage-context",
+        "src/dashboard/src/lib/ragPage.ts",
+        "  if (withSentence === total) return `${lead}, each passage with its context "
+        "sentence above it.`;",
+        '  on: "On: BM25 searches each passage together with its context sentence; '
+        'a passage that is the whole content unit has none.",',
+    ),
+    (
+        "ADR0039-every-passage-context",
+        "src/dashboard/src/components/RagPipelineView.tsx",
+        '              note="Cut with Recursive 500, each with its context sentence."',
+        '              note="Cut with Recursive 500; all 3 passages have a context sentence."',
+    ),
 ]
 
 
