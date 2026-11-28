@@ -35,23 +35,32 @@ import { chunkParts, cosineOf, haikuKeeps } from "@/lib/ragDemo/filters.ts";
 import { DEFAULT_PIPELINE, runPipeline, type PipelineResult } from "@/lib/ragDemo/pipeline.ts";
 import { RRF_K } from "@/lib/ragDemo/fuse.ts";
 import { TOP_N_DEFAULT, type Rerank } from "@/lib/ragDemo/rerank.ts";
-import { buildWayIndex, contextEffective, type Retriever } from "@/lib/ragDemo/retrieve.ts";
+import {
+  buildWayIndex,
+  contextEffective,
+  TRANSFORMS,
+  type Retriever,
+  type Transform,
+} from "@/lib/ragDemo/retrieve.ts";
 import type { Row } from "@/lib/ragDemo/rank.ts";
 import {
   answerSentence,
   characterCount,
   chunkingAnswer,
   chunkStats,
-  CONTEXT_LEGEND,
-  CONTEXT_ORIGINAL_LABEL,
   CONTEXT_SHOWN,
-  contextOnText,
+  contextCopy,
   embeddingMethodText,
   cosinePairs,
   cosineSpread,
   cosineText,
-  IN_PROGRESS_SHOWN,
+  inProgressText,
   NEIGHBOURS,
+  pipelineAnswer,
+  subQueryRows,
+  transformAnswer,
+  transformMerges,
+  TRANSFORMS_SHOWN,
   nearestPassages,
   pendingOf,
   rankedBy,
@@ -93,13 +102,22 @@ import {
 // Thy chọn D2 (2026-11-26): MỘT lựa chọn cách chia (và công tắc câu ngữ cảnh) chung cho khối Chunking và khối kết quả —
 // hai lựa chọn riêng dễ khiến người xem đọc đoạn của cách A nhưng kết quả tìm là cách B. Cả 2 khối hiện cùng bộ nút
 // (`ChunkingControls`) trỏ vào cùng một state.
-type Settings = { question: number; way: Way; context: boolean; retriever: Retriever; rerank: Rerank };
+// RAG PR 3a: thêm `transform` (khối 06 Pre-retrieval) — cũng một state dùng chung với khối kết quả, như D2
+type Settings = {
+  question: number;
+  way: Way;
+  context: boolean;
+  transform: Transform;
+  retriever: Retriever;
+  rerank: Rerank;
+};
 
-// Mặc định khi mở trang (ADR-0041): câu 1, recursive 500, câu ngữ cảnh tắt, hybrid RRF, chưa rerank
+// Mặc định khi mở trang (ADR-0041): câu 1, recursive 500, câu ngữ cảnh tắt, không biến đổi, hybrid RRF, chưa rerank
 const START: Settings = {
   question: 1,
   way: DEFAULT_PIPELINE.way,
   context: DEFAULT_PIPELINE.context,
+  transform: DEFAULT_PIPELINE.transform,
   retriever: DEFAULT_PIPELINE.retriever,
   rerank: DEFAULT_PIPELINE.rerank,
 };
@@ -129,7 +147,7 @@ function translationJob(passage: { context: string | null }): "translate" | "con
   return passage.context === null ? "translate" : "context";
 }
 
-function promptVersion(demo: DemoFile, job: "rerank" | "translate" | "context"): string {
+function promptVersion(demo: DemoFile, job: "rerank" | "translate" | "context" | "transform"): string {
   return provenanceText(
     demo,
     (p) => (p.prompt_versions as Record<string, unknown> | undefined)?.[job],
@@ -193,11 +211,21 @@ export function RagPipelineView() {
       ...DEFAULT_PIPELINE,
       way: settings.way,
       context: settings.context,
+      transform: settings.transform,
       retriever: settings.retriever,
       rerank: settings.rerank,
     };
     return runPipeline(demo, index, { question }, config);
-  }, [demo, index, question, settings.way, settings.context, settings.retriever, settings.rerank]);
+  }, [
+    demo,
+    index,
+    question,
+    settings.way,
+    settings.context,
+    settings.transform,
+    settings.retriever,
+    settings.rerank,
+  ]);
 
   if (failed) {
     return (
@@ -228,6 +256,7 @@ export function RagPipelineView() {
       <ChunkingBlock demo={demo} settings={settings} update={update} />
       <EmbeddingBlock demo={demo} way={settings.way} />
       <QuestionBlock demo={demo} question={question} onPick={(n) => update({ question: n })} />
+      <TransformBlock demo={demo} question={question} settings={settings} update={update} />
       <PassagesBlock demo={demo} question={question} settings={settings} result={result} gold={gold} update={update} />
       <AboutBlock demo={demo} />
       <TermsBlock demo={demo} />
@@ -267,7 +296,8 @@ function QuestionBlock({
         answer={`Q${question.number} tests ${QUESTION_TESTS[question.number]}.`}
         points={[
           `**The question in English** (translation, for reading only): “${question.english}”`,
-          `**Original wording** (${questionLanguage(question)}, the text every step searches with): “${question.text}”`,
+          // RAG PR 3a (lỗi chặn vòng 1): câu gốc chỉ được tìm khi khối 06 không thay nó; rerank luôn chấm câu gốc
+          `**Original wording** (${questionLanguage(question)}; searched unless the option chosen in block ${ragNumber("transform")} replaces it, while Expand and Step-back search it alongside the new text; always the text both rerankers score): “${question.text}”`,
           `**Correct answer:** ${goldUnitsSentence(question)} It was fixed by post id before any retrieval ran, so no score decides it.`,
         ]}
       />
@@ -281,7 +311,7 @@ function QuestionBlock({
           {
             title: "English line",
             plain:
-              "The English question above is a translation for reading. Retrieval and every model score use the original wording.",
+              `The English question above is a translation for reading. Retrieval searches the original wording, the queries Claude Haiku wrote from it, or both, depending on the option chosen in block ${ragNumber("transform")}; both rerankers always score the original wording.`,
           },
         ]}
         limits={[
@@ -319,6 +349,13 @@ function PassagesBlock({
   const shown = result.cut ? ranked.slice(0, result.cut.shown) : [];
   const goldChunks = new Set(Object.values(question.gold_chunks[settings.way]).flat());
   const withContext = contextEffective(settings.way, settings.context);
+  // Số câu con khi cách biến đổi qua bước gộp: điểm của dòng là tổng RRF (nhãn `scoreName`)
+  const mergedQueries = transformMerges(settings.transform) ? subQueryRows(question, settings.transform).length : null;
+  // Nguyên nhân "in progress" (chỉ file định dạng 2): phần chờ nào cấu hình đang cần
+  const cause = {
+    context: pending.context && withContext,
+    transformed: pending.transformed && settings.transform !== "none",
+  };
   // Số dòng thật đang hiện: nhóm hoà vắt mốc K hiện cả nhóm (> K), danh sách ngắn hơn K (< K) — ux-reviewer vòng 1
   const shownNote =
     shown.length > K
@@ -339,7 +376,7 @@ function PassagesBlock({
       label: "Passages ranked",
       term: "passage",
       share: { part: ranked.length, whole: total, of: `${count(total)} passages` },
-      note: rankedNote(ranker),
+      note: rankedNote(ranker, settings.transform !== "none"),
     },
     { value: count(shown.length), label: "Passages shown", term: "top-k", note: shownNote },
   ];
@@ -349,7 +386,7 @@ function PassagesBlock({
       n={ragNumber("passages")}
       short={ragShort("passages")}
       title="Where the answer lands"
-      purpose="Choose how the content units are cut into passages, how passages are retrieved and whether they are reranked; the ranking below updates at once."
+      purpose="Choose how the content units are cut into passages, whether the question is rewritten, how passages are retrieved and whether they are reranked; the ranking below updates at once."
     >
       <div className="flex flex-col gap-5">
         <ChunkingControls
@@ -357,6 +394,11 @@ function PassagesBlock({
           settings={settings}
           update={update}
           shared={`The same settings as block ${ragNumber("chunking")}: changing them here changes them there.`}
+        />
+        <TransformControls
+          settings={settings}
+          update={update}
+          shared={`The same setting as block ${ragNumber("transform")}, which shows the rewritten queries.`}
         />
         <Control label="Retrieval (how passages are found)">
           <ToggleGroup
@@ -376,13 +418,22 @@ function PassagesBlock({
         </Control>
       </div>
       <AnswerRow
-        answer={inProgress ? IN_PROGRESS_SHOWN.dense : answerSentence(question, gold, K)}
+        answer={inProgress ? inProgressText("dense", cause) : answerSentence(question, gold, K)}
         points={inProgress ? [] : unitPoints(question, gold)}
         // "in progress": không số nào có giá trị, không có danh sách → bỏ hộp số, chú giải và danh sách; câu trả lời
         // trải hết bề rộng (L5: không chừa cột phải toàn "—", không khung rỗng để lại khoảng trống)
         keyNumbers={inProgress ? undefined : keyNumbers}
         // Chú giải ở cột trái, cạnh hộp Key numbers: lấp khoảng trống ~330px dưới ANSWER ở 1440 (ux-reviewer 2026-11-12)
-        extra={inProgress ? undefined : <PassagesNotes settings={settings} bm25Only={bm25Only} shown={shown} />}
+        extra={
+          inProgress ? undefined : (
+            <PassagesNotes
+              settings={settings}
+              fallbackNote={bm25Only ? inProgressText("hybrid", cause) : null}
+              shown={shown}
+              legend={contextCopy(pending).legend}
+            />
+          )
+        }
         below={
           inProgress ? undefined : shown.length === 0 ? (
             <p className={`m-0 ${TYPE.body}`}>No passage shares a word with this question, so BM25 returns nothing.</p>
@@ -399,6 +450,7 @@ function PassagesBlock({
                   rerank={settings.rerank}
                   isGold={goldChunks.has(row.chunk)}
                   withContext={withContext}
+                  mergedQueries={mergedQueries}
                 />
               ))}
             </ol>
@@ -420,12 +472,15 @@ function PassagesBlock({
           },
           {
             title: "Dense similarity",
-            // RAG PR 3a: file định dạng 3 có vector của đoạn kèm câu ngữ cảnh (cùng chuỗi BM25 đọc)
-            plain: pending.context
-              ? "The question and each passage are turned into vectors by OpenAI text-embedding-3-small; passages close in meaning score high even with no shared word."
-              : // code-reviewer PR 3a commit 2 vòng 2 (lỗi chặn, lần 4 của lỗi "hứa câu ngữ cảnh cho mọi đoạn"): nêu
-                // ngoại lệ đoạn trùng cả bài (ADR-0039 D2)
-                "The question and each passage are turned into vectors by OpenAI text-embedding-3-small; passages close in meaning score high even with no shared word. With the context sentence on, a passage that has one is turned into a vector together with it, the same text BM25 reads; a passage that is the whole content unit has none and keeps its own vector.",
+            // RAG PR 3a: file định dạng 3 có vector của đoạn kèm câu ngữ cảnh + của câu biến đổi; chữ câu ngữ cảnh ở
+            // `contextCopy` (một nguồn có test theo cấu trúc, Thy chọn 2026-11-27)
+            plain: [
+              "The question and each passage are turned into vectors by OpenAI text-embedding-3-small; passages close in meaning score high even with no shared word.",
+              pending.transformed ? null : `With a rewrite chosen in block ${ragNumber("transform")}, each query it gives is turned into a vector the same way.`,
+              contextCopy(pending).denseMethod,
+            ]
+              .filter((part): part is string => part !== null)
+              .join(" "),
             formula: ["cos(q, d) = (q · d) ÷ (‖q‖ ‖d‖)"],
           },
           {
@@ -457,9 +512,9 @@ function PassagesBlock({
           // ADR-0039 D2: rerank chấm chữ gốc của đoạn, không kèm câu ngữ cảnh, để số cặp không nhân đôi
           "Both rerankers score the original question and the passage alone, without its context sentence, so the number of scored pairs does not double.",
           // chỉ với file còn phần chờ (định dạng 2, bản trên Blob tới lần publish kế tiếp)
-          ...(pending.context
+          ...(pending.context || pending.transformed
             ? [
-                "With the context sentence on, only BM25 uses it: dense similarity for passages with their context sentence is not computed yet, so Dense shows “in progress” and Hybrid falls back to BM25.",
+                "With a rewrite or the context sentence on, only BM25 uses them: dense similarity for rewritten questions and for passages with their context sentence is not computed yet, so Dense shows “in progress” and Hybrid falls back to BM25.",
               ]
             : []),
           "The cross-encoder is run with a limit of 1,024 tokens per question–passage pair (a design choice; the model accepts more); every pair in this demo fits, so nothing is cut.",
@@ -490,11 +545,21 @@ function unitPoints(question: Question, gold: GoldAnswer | null): ReactNode[] {
 // Cột trái cạnh hộp Key numbers của khối kết quả: câu "in progress — showing BM25 only", câu về điểm Haiku, chú giải.
 // Nhãn chỉ chú giải khi có dòng mang nó (reviewer 2026-11-12: "Not reranked" không bao giờ hiện vì K = 10 < N = 20,
 // "tied across the cut" hiện mà không có chú giải)
-function PassagesNotes({ settings, bm25Only, shown }: { settings: Settings; bm25Only: boolean; shown: Row[] }) {
+function PassagesNotes({
+  settings,
+  fallbackNote,
+  shown,
+  legend,
+}: {
+  settings: Settings;
+  fallbackNote: string | null;
+  shown: Row[];
+  legend: string;
+}) {
   return (
     <div className="flex flex-col gap-4">
       {/* UI-0041-step-order cột E: "hybrid rơi về BM25" ghi "in progress — showing BM25 only" cạnh kết quả */}
-      {bm25Only ? <p className={`m-0 ${TYPE.body}`}>{IN_PROGRESS_SHOWN.hybrid}</p> : null}
+      {fallbackNote !== null ? <p className={`m-0 ${TYPE.body}`}>{fallbackNote}</p> : null}
       {/* UI-0041-stable-rerank-ties cột E: câu ngắn cạnh kết quả rerank Haiku */}
       {settings.rerank === "haiku" ? (
         <p className={`m-0 ${TYPE.body}`}>
@@ -507,6 +572,7 @@ function PassagesNotes({ settings, bm25Only, shown }: { settings: Settings; bm25
         notReranked={settings.rerank !== "none" && shown.some((row) => row.notReranked)}
         acrossCut={shown.length > K}
         context={contextEffective(settings.way, settings.context)}
+        contextRule={legend}
       />
     </div>
   );
@@ -517,11 +583,13 @@ function PassageLegend({
   notReranked,
   acrossCut,
   context,
+  contextRule,
 }: {
   rerank: Rerank;
   notReranked: boolean;
   acrossCut: boolean;
   context: boolean;
+  contextRule: string;
 }) {
   const items = [
     // copy-reviewer 2026-11-12: "covers" nói quá — đoạn chỉ cần chạm phần chứa ý
@@ -548,7 +616,7 @@ function PassageLegend({
     items.push({
       mark: <Mark>¶</Mark>,
       name: "Context sentence",
-      rule: CONTEXT_LEGEND,
+      rule: contextRule,
     });
   }
   // `[emoji]` / `[French flag]` hiện trong chữ đoạn → chú giải tại chỗ (reviewer 2026-11-12)
@@ -578,6 +646,7 @@ function PassageRow({
   rerank,
   isGold,
   withContext,
+  mergedQueries,
 }: {
   demo: DemoFile;
   way: Way;
@@ -587,6 +656,7 @@ function PassageRow({
   rerank: Rerank;
   isGold: boolean;
   withContext: boolean;
+  mergedQueries: number | null;
 }) {
   const chunk = demo.ways[way][row.chunk];
   const passage = demo.passages[chunk.passage];
@@ -608,7 +678,7 @@ function PassageRow({
           rank {rankText(row.tiedFrom, row.tiedTo)}
         </span>
         <span className={`${TYPE.mono} text-text-secondary`}>{scoreText(row.score, rerank, row.notReranked)}</span>
-        <span className={TYPE.label}>{scoreName(retriever, rerank, row.notReranked)}</span>
+        <span className={TYPE.label}>{scoreName(retriever, rerank, row.notReranked, mergedQueries)}</span>
         {/* UI-0037-static-precomputed: điểm Haiku là kết quả LLM → ghi model + phiên bản prompt (code-reviewer vòng 1) */}
         {rerank === "haiku" && !row.notReranked ? (
           <span className={TYPE.label}>prompt version {promptVersion(demo, "rerank")}</span>
@@ -638,7 +708,7 @@ function ContextText({ demo, passage }: { demo: DemoFile; passage: Passage }) {
         ¶ Context sentence, English (written by Claude Haiku 5.5, prompt version {promptVersion(demo, "context")})
       </span>
       <span className={`${TYPE.body} text-text-primary`}>{showEmoji(passage.context_en ?? "")}</span>
-      <span className={TYPE.label}>{CONTEXT_ORIGINAL_LABEL}</span>
+      <span className={TYPE.label}>{contextCopy(pendingOf(demo)).originalLabel}</span>
       <span className={`${TYPE.body} text-text-primary`}>{showEmoji(passage.context)}</span>
     </span>
   );
@@ -687,8 +757,6 @@ function unitTopic(unit: Unit): string | null {
 // đúng số + tên, mỗi bước ghi trạng thái trên trang bản đầu và khối chứa nó — người quen chuẩn dò được bước nào ở đâu
 function PipelineMapBlock() {
   const counts = (status: StepStatus) => PIPELINE_STEPS.filter((step) => step.status === status).length;
-  // số ít / số nhiều theo số đếm (code-reviewer: câu không được viết cứng theo số hôm nay)
-  const verb = (n: number, one: string, many: string) => (n === 1 ? one : many);
   const stages = [
     // reviewer 2026-11-12: "run once" lệch với BM25 dựng lại trong trình duyệt mỗi khi đổi cách chia
     {
@@ -707,15 +775,18 @@ function PipelineMapBlock() {
       purpose="Every step of a standard RAG pipeline, numbered as in the reference project this page follows, and where each one is on this page."
     >
       <AnswerRow
-        answer={`Of the ${PIPELINE_STEPS.length} steps, ${counts("on-page")} can be changed on this page, ${counts("fixed")} ${verb(counts("fixed"), "runs", "run")} with a fixed choice and ${verb(counts("fixed"), "is", "are")} shown or explained, ${counts("later")} ${verb(counts("later"), "is", "are")} planned for a later version, and ${counts("left-out")} ${verb(counts("left-out"), "is", "are")} left out on purpose: this demo ranks source passages and writes no answer.`}
+        answer={pipelineAnswer(PIPELINE_STEPS)}
         below={
           <div className="flex flex-col gap-6">
+            {/* RAG PR 3a: chỉ chú giải trạng thái có bước mang nó (bước 7 lên trang → không còn "Later version") */}
             <Legend
-              items={(Object.keys(STEP_STATUS_SHOWN) as StepStatus[]).map((status) => ({
-                mark: <Mark>{STEP_STATUS_SHOWN[status].mark}</Mark>,
-                name: STEP_STATUS_SHOWN[status].name,
-                rule: STEP_STATUS_SHOWN[status].rule,
-              }))}
+              items={(Object.keys(STEP_STATUS_SHOWN) as StepStatus[])
+                .filter((status) => counts(status) > 0)
+                .map((status) => ({
+                  mark: <Mark>{STEP_STATUS_SHOWN[status].mark}</Mark>,
+                  name: STEP_STATUS_SHOWN[status].name,
+                  rule: STEP_STATUS_SHOWN[status].rule,
+                }))}
             />
             {stages.map((stage) => (
               <SubSection key={stage.key} title={stage.title} note={stage.note}>
@@ -933,6 +1004,154 @@ function LoadingBlock({ demo }: { demo: DemoFile }) {
   );
 }
 
+// Bộ nút biến đổi câu hỏi — một component cho khối Pre-retrieval và khối kết quả, cùng một state (như Thy D2)
+function TransformControls({
+  settings,
+  update,
+  shared,
+}: {
+  settings: Settings;
+  update: (patch: Partial<Settings>) => void;
+  shared: string;
+}) {
+  return (
+    <Control label="Question rewriting (what is searched)">
+      <ToggleGroup
+        label="Question rewriting"
+        options={TRANSFORMS.map((transform) => ({ key: transform, label: TRANSFORMS_SHOWN[transform].label }))}
+        value={settings.transform}
+        onChange={(transform) => update({ transform })}
+      />
+      <p className={`m-0 ${TYPE.note}`}>
+        {TRANSFORMS_SHOWN[settings.transform].sentence} {shared}
+      </p>
+    </Control>
+  );
+}
+
+// Khối Pre-retrieval (bước 7 của repo mẫu; RAG PR 3a, Thy chọn khối riêng 2026-11-27): chọn cách biến đổi câu hỏi,
+// xem đúng các câu con mà bước tìm nhận (thứ tự của `subQueries`, Luật chung 4), bản tiếng Anh trước, chữ gốc dưới
+function TransformBlock({
+  demo,
+  question,
+  settings,
+  update,
+}: {
+  demo: DemoFile;
+  question: Question;
+  settings: Settings;
+  update: (patch: Partial<Settings>) => void;
+}) {
+  const rows = subQueryRows(question, settings.transform);
+  const written = rows.filter((row) => row.written === "haiku").length;
+  const pending = pendingOf(demo);
+  const version = promptVersion(demo, "transform");
+  return (
+    <Section
+      id="transform"
+      n={ragNumber("transform")}
+      short={ragShort("transform")}
+      title="Rewrite the question before searching"
+      purpose="Whether the question is searched as it is or rewritten first, and the exact queries each option sends to retrieval."
+    >
+      <div className="flex flex-col gap-5">
+        <TransformControls
+          settings={settings}
+          update={update}
+          shared={`This setting also sets the ranking in block ${ragNumber("passages")}.`}
+        />
+      </div>
+      <AnswerRow
+        answer={transformAnswer(question.number, settings.transform, rows.length, written)}
+        points={[
+          // copy-reviewer vòng 1: ý "How it works" lặp câu dưới nút → bỏ. Lỗi chặn: expand thêm từ tiếng Pháp / Anh, câu
+          // gốc giữ ngôn ngữ của nó (Q6 tiếng Pháp)
+          "**Language:** Claude Haiku writes its queries in Vietnamese, the main language of the posts, whatever the language of the question; they can keep French or English terms the posts might use, and an expansion adds some on purpose. The original question, when it is searched, keeps its own language.",
+          pending.transformed
+            ? "**Dense similarity:** not computed yet for rewritten queries in this demo file, so with a rewrite Dense shows “in progress” and Hybrid ranks by BM25 alone."
+            : `**Each retriever:** whichever retrievers are chosen in block ${ragNumber("passages")} search every query; with several queries, each retriever merges its own lists by rank before Hybrid combines BM25 and dense.`,
+        ]}
+        keyNumbers={[
+          {
+            value: count(rows.length),
+            label: "Queries searched",
+            term: transformMerges(settings.transform) ? "merge" : "rewriting",
+            note: transformMerges(settings.transform)
+              ? `Their ranked lists are merged by rank (RRF, k = ${RRF_K}).`
+              : "One ranked list, used as it is.",
+          },
+          {
+            value: count(written),
+            label: "Written by Claude Haiku",
+            share: { part: written, whole: rows.length, of: `${count(rows.length)} ${rows.length === 1 ? "query" : "queries"}` },
+            note: `Written in advance, prompt version ${version}.`,
+          },
+        ]}
+        below={
+          <SubSection
+            title="The queries sent to retrieval"
+            note="In the order retrieval runs them. The original text, below each English line, is what is searched."
+          >
+            <ol className="m-0 flex list-none flex-col p-0">
+              {rows.map((row, i) => (
+                <li key={`${i}-${row.text}`} className="flex flex-col gap-2 border-t border-border-hairline py-5 first:border-t-0">
+                  <span className={`${TYPE.mono} font-semibold text-text-primary`}>
+                    query {i + 1} of {rows.length} · {row.written === "question" ? "the original question" : "written by Claude Haiku"}
+                  </span>
+                  <span className="flex flex-col gap-0.5">
+                    <span className={TYPE.label}>
+                      {row.written === "question"
+                        ? "English (translation, for reading only)"
+                        : `English (written by Claude Haiku 5.5 with the query, prompt version ${version})`}
+                    </span>
+                    <span className={`${TYPE.body} text-text-primary`}>{showEmoji(row.english)}</span>
+                  </span>
+                  <span className="flex flex-col gap-0.5">
+                    <span className={TYPE.label}>Original language (what retrieval searches)</span>
+                    <span className={`${TYPE.body} text-text-primary`}>{showEmoji(row.text)}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </SubSection>
+        }
+      />
+      <MethodSection
+        steps={[
+          {
+            title: "Rewrites written in advance",
+            plain: `Before the demo was published, Claude Haiku 5.5 read each of the ${demo.questions.length} fixed questions once and wrote, in one reply, a rewrite, an expansion with synonyms and related terms, a HyDE post, three other phrasings, one to three sub-questions and a broader step-back question, each with an English translation (prompt version ${version}). The page only chooses which of them to search.`,
+          },
+          {
+            title: "Which queries are searched",
+            plain:
+              "Rewrite and HyDE replace the question. Expand and step-back search the question first, then the new text. Multi-query and decompose search only the texts Haiku wrote, without the question (as LangChain’s include_original=False).",
+          },
+          {
+            title: "Merging several queries",
+            plain: `With expand, step-back, multi-query or decompose, each query is searched on its own; each retriever then merges its lists with reciprocal rank fusion, the same formula as Hybrid (block ${ragNumber("passages")}), before Hybrid fuses BM25 and dense. These options always merge, even when they give a single query, so their scores stay on one scale.`,
+            formula: [
+              `merged(d) = Σ_(queries) 1 ÷ (k + r_q(d)), k = ${RRF_K}`,
+              "r_q(d): rank of passage d for query q (tied passages get their average rank); a passage a query does not rank adds nothing",
+            ],
+          },
+        ]}
+        limits={[
+          "The rewrites were written once; another model or prompt would write different ones.",
+          // Thy chọn 2026-11-28 (A): một dòng cố định, ví dụ thật về rủi ro biến đổi câu hỏi. Đo 2026-11-28 trên file
+          // demo: mọi câu Haiku viết cho Q1 nói về tiền cọc, trừ step-back (tranh chấp người thuê – chủ nhà nói chung)
+          "A rewrite can change what is asked. Q1, typed without diacritics, asks about heating, yet the rewrite, expansion, HyDE post, other phrasings and sub-questions Claude Haiku wrote for it are all about getting a deposit back; its step-back question is about tenant–landlord disputes in general.",
+          // ADR-0041 Luật chung 4 + UI-0041-step-order cột E: "trang ghi rõ" (consistency-auditor PR 3a vòng 1)
+          "HyDE was designed for dense retrieval (Gao et al., 2022); searching the made-up post with BM25 as well is a variant.",
+          "Expand searches the question and the expansion as two lists merged by rank, not as one joined text; that way was chosen after looking at the ranks on these same questions, not fixed in advance.",
+          "The HyDE post is made up and can be wrong; it is only searched with, never shown as an answer.",
+          `With ${demo.questions.length} fixed questions, the page shows what each option does, not which one is best.`,
+        ]}
+      />
+    </Section>
+  );
+}
+
 // Bộ nút cách chia + công tắc câu ngữ cảnh — một component cho khối Chunking và khối kết quả, cùng một state (Thy D2).
 // `shared` = một câu nói 2 khối dùng chung thiết lập (người xem đổi ở khối này thì khối kia đổi theo)
 function ChunkingControls({
@@ -976,7 +1195,7 @@ function ChunkingControls({
               onChange={(key) => update({ context: key === "on" })}
             />
             <p className={`m-0 ${TYPE.note}`}>
-              {settings.context ? contextOnText(pendingOf(demo).context) : CONTEXT_SHOWN.off}
+              {settings.context ? contextCopy(pendingOf(demo)).switchOn : CONTEXT_SHOWN.off}
             </p>
           </>
         )}
@@ -1036,7 +1255,7 @@ function ChunkingBlock({
             way === "whole"
               ? "not available, because each passage is a whole content unit."
               : withContext
-                ? `on. BM25 searches each passage together with it; ${count(stats.count - stats.withContext)} of the ${count(stats.count)} passages ${stats.count - stats.withContext === 1 ? "is a whole content unit and has" : "are a whole content unit and have"} none.`
+                ? contextCopy(pending).chunkingPoint(stats.count - stats.withContext, stats.count)
                 : // code-reviewer vòng 1: không hứa "câu trên mỗi đoạn" — đoạn trùng cả bài không có câu nào
                   "off. With it on, each passage below that is not a whole content unit shows its context sentence above it."
           }`,
@@ -1140,8 +1359,8 @@ function ChunkingBlock({
           {
             title: "Context sentence",
             // ux-reviewer vòng 1 (lỗi chặn): đoạn trùng cả bài chỉ được dịch, không có câu ngữ cảnh
-            // (`src/rag_demo/demo_file.py:266#_context_of`)
-            plain: `Before the demo was published, Claude Haiku 5.5 read each content unit and each of its passages that is not the whole content unit, and wrote 1–2 sentences that place the passage in the content unit, in the language of the post (prompt version ${promptVersion(demo, "context")}), following Anthropic’s Contextual Retrieval (2024). A passage that is the whole content unit gets no context sentence. With the switch on, ${pending.context ? "BM25 indexes the context sentence and the passage together" : "BM25 indexes the context sentence and the passage together, and dense similarity uses the vector of the two together"}.`,
+            // (`src/rag_demo/demo_file.py`, hàm `_context_of`); câu cuối ở `contextCopy` (một nguồn có test)
+            plain: `Before the demo was published, Claude Haiku 5.5 read each content unit and each of its passages that is not the whole content unit, and wrote 1–2 sentences that place the passage in the content unit, in the language of the post (prompt version ${promptVersion(demo, "context")}), following Anthropic’s Contextual Retrieval (2024). ${contextCopy(pending).chunkingMethod}`,
           },
           {
             title: "Lengths",
@@ -1680,8 +1899,9 @@ function AboutBlock({ demo }: { demo: DemoFile }) {
           {
             title: "Claude Haiku’s roles",
             // code-reviewer vòng 1: file còn câu ngữ cảnh + câu hỏi biến đổi (gồm HyDE) do Haiku viết — nói rõ trang chưa dùng
-            // PR 2b: câu ngữ cảnh nay là vai thứ 3 (công tắc ở khối Chunking); câu hỏi biến đổi vẫn chưa dùng (PR 3)
-            plain: `On this page, Claude Haiku 5.5 plays three roles: translating every passage for reading (${translationVersions(demo)}), writing the context sentence of every passage that is not a whole content unit (prompt version ${promptVersion(demo, "context")}; block ${ragNumber("chunking")}), and scoring every question–passage pair from 0 to 3 (prompt version ${rerankPromptVersion(demo)}). The demo file also holds question rewrites it wrote for a later version of this page; they are not shown or used here. It never writes the final answer: the page only ranks passages from the channel.`,
+            // PR 2b: câu ngữ cảnh nay là vai thứ 3 (công tắc ở khối Chunking); RAG PR 3a: câu biến đổi là vai thứ 4
+            // (khối Pre-retrieval)
+            plain: `On this page, Claude Haiku 5.5 plays four roles: translating every passage for reading (${translationVersions(demo)}), writing the context sentence of every passage that is not a whole content unit (prompt version ${promptVersion(demo, "context")}; block ${ragNumber("chunking")}), rewriting each question for searching (prompt version ${promptVersion(demo, "transform")}; block ${ragNumber("transform")}), and scoring every question–passage pair from 0 to 3 (prompt version ${rerankPromptVersion(demo)}). It never writes the final answer: the page only ranks passages from the channel.`,
           },
         ]}
         limits={[
@@ -1730,7 +1950,7 @@ function TermsBlock({ demo }: { demo: DemoFile }) {
         {
           id: "context-sentence",
           term: "Context sentence",
-          plain: `One or two sentences, written in advance by Claude Haiku, that say where a passage sits in its content unit (Anthropic’s Contextual Retrieval). With the switch on, ${pendingOf(demo).context ? "BM25 searches" : "BM25 and dense similarity search"} the sentence and the passage together. A passage that is already a whole content unit has none.`,
+          plain: contextCopy(pendingOf(demo)).term,
         },
         {
           id: "precomputed",
@@ -1766,6 +1986,23 @@ function TermsBlock({ demo }: { demo: DemoFile }) {
           id: "hybrid",
           term: "Hybrid (RRF)",
           plain: `Combines the BM25 list and the dense list by rank, not by score: each list gives a passage 1 ÷ (${RRF_K} + its rank), and the two values are added.`,
+        },
+        // RAG PR 3a: khối 06 Pre-retrieval
+        {
+          id: "rewriting",
+          term: "Question rewriting",
+          plain: `Changing the question before it is searched (block ${ragNumber("transform")}): a rewrite meant to be clearer, an expansion with related terms, a HyDE post, other phrasings, sub-questions or a broader question, all written in advance by Claude Haiku. Also called pre-retrieval or query transformation.`,
+        },
+        {
+          id: "hyde",
+          term: "HyDE",
+          plain:
+            "Hypothetical Document Embeddings: instead of the question, a short made-up passage that would answer it is searched, because its words and meaning are closer to real passages than a question is. It may be wrong and is never shown as an answer.",
+        },
+        {
+          id: "merge",
+          term: "Merging several queries",
+          plain: `When an option gives several queries, each is searched and each retriever merges its own lists the way Hybrid does: each list gives a passage 1 ÷ (${RRF_K} + its rank), and the values are added.`,
         },
         {
           id: "tie",

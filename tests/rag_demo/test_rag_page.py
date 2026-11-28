@@ -28,6 +28,10 @@ const out = cases.map((c) => {
   if (c.fn === "cosinePairs") return page.cosinePairs(demoFile.parseDemoFile(c.demo), c.way);
   if (c.fn === "pendingOf") return page.pendingOf(demoFile.parseDemoFile(c.demo));
   if (c.const !== undefined) return page[c.const];
+  if (c.fn === "contextCopy") {
+    const copy = page.contextCopy(c.args[0]);
+    return { ...copy, chunkingPoint: copy.chunkingPoint(c.args[1], c.args[2]) };
+  }
   if (c.fn === "nearestPassages") {
     return page.nearestPassages(demoFile.parseDemoFile(c.demo), c.way, c.chunk, c.count);
   }
@@ -506,6 +510,61 @@ def test_ranked_by_names_bm25_only_when_hybrid_falls_back(tmp_path: Path) -> Non
     assert got == ["bm25", "hybrid", "dense", "dense", "bm25"]
 
 
+def test_score_label_names_the_merged_rrf_score(tmp_path: Path) -> None:
+    # 4 reviewer RAG PR 3a vòng 1 (lỗi chặn): BM25 / Dense + cách biến đổi qua bước gộp → điểm của
+    # dòng là tổng RRF của các câu con, không phải điểm BM25 hay cosine
+    got = call(
+        tmp_path,
+        [
+            {"fn": "scoreName", "args": ["bm25", "none", False, None]},
+            {"fn": "scoreName", "args": ["bm25", "none", False, 2]},
+            {"fn": "scoreName", "args": ["dense", "none", False, 3]},
+            {"fn": "scoreName", "args": ["dense", "none", False, 1]},
+            {"fn": "scoreName", "args": ["hybrid", "none", False, 3]},
+            # đã rerank: nhãn theo bước rerank, kể cả khi có gộp
+            {"fn": "scoreName", "args": ["dense", "cross_encoder", False, 3]},
+            # dòng "not reranked" giữ điểm của bước tìm (đã gộp)
+            {"fn": "scoreName", "args": ["bm25", "haiku", True, 2]},
+        ],
+    )
+    assert got == [
+        "BM25 score",
+        "BM25, merged over 2 queries (RRF)",
+        "cosine, merged over 3 queries (RRF)",
+        "cosine, merged over 1 query (RRF)",
+        "RRF score",
+        "cross-encoder logit",
+        "BM25, merged over 2 queries (RRF)",
+    ]
+
+
+def test_ranked_note_names_the_queries_when_the_question_is_rewritten(tmp_path: Path) -> None:
+    got = call(
+        tmp_path,
+        [
+            {"fn": "rankedNote", "args": ["bm25", True]},
+            {"fn": "rankedNote", "args": ["hybrid", True]},
+            {"fn": "rankedNote", "args": ["bm25", False]},
+        ],
+    )
+    assert got[0] == (
+        "BM25 leaves out passages that share no word with any of the queries searched (block 06)."
+    )
+    assert got[1].endswith("share a word with any of the queries searched (block 06).")
+    assert got[2] == "BM25 leaves out passages that share no word with the question."
+
+
+FORMAT_2 = {"context": True, "transformed": True}
+FORMAT_3 = {"context": False, "transformed": False}
+# Dấu hiệu một câu nêu ngoại lệ ADR-0039 D2 (đoạn trùng cả bài không có câu ngữ cảnh)
+EXCEPTION_MARKERS = (
+    "whole content unit",
+    "that has one",
+    "has a context sentence",
+    "is not the whole",
+)
+
+
 def test_pending_parts_follow_the_file_being_read(tmp_path: Path) -> None:
     # RAG PR 3a: định dạng 2 (bản trên Blob tới lần publish kế tiếp) còn 2 mục chờ, định dạng 3
     # không mục nào — chữ "not computed yet" chỉ được hiện khi file đang đọc còn mục đó
@@ -514,44 +573,58 @@ def test_pending_parts_follow_the_file_being_read(tmp_path: Path) -> None:
         [
             {"fn": "pendingOf", "demo": make_demo(["a", "b"])},
             {"fn": "pendingOf", "demo": make_demo_v3(["a", "b"])},
-            {"fn": "contextOnText", "args": [True]},
-            {"fn": "contextOnText", "args": [False]},
         ],
     )
-    assert got[0] == {"context": True, "transformed": True}
-    assert got[1] == {"context": False, "transformed": False}
-    assert got[2].endswith(
-        "Only BM25 uses it for now: dense similarity for passages with their context sentence "
-        "is not computed yet."
-    )
-    assert got[3].endswith("Both BM25 and dense similarity use it.")
-    assert "not computed" not in got[3]
+    assert got == [FORMAT_2, FORMAT_3]
 
 
-def test_context_sentence_labels_hold_for_every_retriever(tmp_path: Path) -> None:
-    # code-reviewer + ux-reviewer PR 3a commit 2 (lỗi chặn): "BM25 searched it" /
-    # "(what BM25 searches)" sai khi chọn Dense (BM25 không chạy) — chú giải + nhãn không
-    # được gắn câu ngữ cảnh với riêng một bộ tìm
-    legend, label = call(
-        tmp_path, [{"const": "CONTEXT_LEGEND"}, {"const": "CONTEXT_ORIGINAL_LABEL"}]
-    )
-    for text in (legend, label):
-        assert "BM25" not in text and "dense" not in text
-    assert "the search" in legend and "the search" in label
-
-
-def test_embedding_method_never_promises_a_context_sentence_to_every_passage(
-    tmp_path: Path,
-) -> None:
-    # code-reviewer PR 3a commit 2 (lỗi chặn, lần 3): đoạn trùng cả bài không có câu ngữ cảnh
-    both = {"context": True, "transformed": True}
-    none = {"context": False, "transformed": False}
-    got = call(
+def test_every_context_sentence_text_states_the_whole_unit_exception(tmp_path: Path) -> None:
+    """Thy chọn 2026-11-27 (lỗi lặp lần 4 "hứa câu ngữ cảnh cho mọi đoạn"): kiểm theo cấu trúc
+    thay cho regex nới theo từng cách viết — mọi câu của `contextCopy` / `embeddingMethodText` nói
+    tới câu ngữ cảnh phải nêu ngoại lệ đoạn trùng cả bài (ADR-0039 D2), ở cả 2 định dạng file.
+    Nhãn chữ gốc chỉ hiện trên đoạn CÓ câu nên được miễn."""
+    copies = call(
         tmp_path,
-        [
-            {"fn": "embeddingMethodText", "args": ["model-x", both]},
-            {"fn": "embeddingMethodText", "args": ["model-x", none]},
-        ],
+        [{"fn": "contextCopy", "args": [p, 2, 65]} for p in (FORMAT_2, FORMAT_3)]
+        + [{"fn": "embeddingMethodText", "args": ["m", p]} for p in (FORMAT_2, FORMAT_3)],
+    )
+    # MỌI câu của contextCopy (định dạng 2: 5 câu khác null, định dạng 3: 6), không lọc theo
+    # từ khoá — cách viết mới ("context-sentence switch", "has one") cũng phải nêu ngoại lệ
+    texts = [t for c in copies[:2] for k, t in c.items() if k != "originalLabel" and t]
+    # embeddingMethodText định dạng 3 nhắc câu ngữ cảnh; định dạng 2 không nhắc
+    assert "context sentence" not in copies[2]
+    texts.append(copies[3])
+    assert len(texts) == 12
+    for text in texts:
+        assert any(marker in text for marker in EXCEPTION_MARKERS), text
+
+
+def test_context_sentence_copy_follows_the_file_and_every_retriever(tmp_path: Path) -> None:
+    v2, v3 = call(
+        tmp_path, [{"fn": "contextCopy", "args": [p, 1, 65]} for p in (FORMAT_2, FORMAT_3)]
+    )
+    assert v2["switchOn"].endswith(
+        "For now only BM25 reads the two as one text: dense similarity for passages with their "
+        "context sentence is not computed yet."
+    )
+    assert v3["switchOn"].endswith("BM25 and dense similarity both read the two as one text.")
+    assert v2["denseMethod"] is None and "keeps its own vector" in v3["denseMethod"]
+    # chú giải + nhãn không gắn câu ngữ cảnh với riêng một bộ tìm (lỗi chặn PR 3a commit 2)
+    for c in (v2, v3):
+        for text in (c["legend"], c["originalLabel"]):
+            assert "bm25" not in text.casefold() and "dense" not in text.casefold()
+    # số ít khi chỉ 1 đoạn trùng cả bài
+    assert v3["chunkingPoint"] == (
+        "on. BM25 and dense similarity both read each passage that has one together with it; "
+        "1 of the 65 passages is a whole content unit and has none."
+    )
+    assert v2["chunkingPoint"].startswith("on. BM25 reads each passage that has one")
+
+
+def test_embedding_method_lists_what_was_embedded_for_each_format(tmp_path: Path) -> None:
+    v2, v3 = call(
+        tmp_path,
+        [{"fn": "embeddingMethodText", "args": ["model-x", p]} for p in (FORMAT_2, FORMAT_3)],
     )
     head = (
         "Every passage of every chunking method, and every question, was sent once to OpenAI "
@@ -560,9 +633,111 @@ def test_embedding_method_never_promises_a_context_sentence_to_every_passage(
     tail = (
         " The vectors themselves are not in the demo file; only the cosines computed from them are."
     )
-    assert got[0] == head + tail
-    assert got[1] == (
-        head + " The same was done for each passage that has a context sentence, joined to that "
-        "sentence, and for each text Claude Haiku wrote from a question to search with "
-        "(rewrites, sub-questions, the HyDE answer)." + tail
+    assert v2 == head + tail
+    assert v3 == (
+        head + " The same was done for each passage that has a context sentence, read with it as "
+        "one text, and for each text Claude Haiku wrote from a question (rewrites, expansions, "
+        "other phrasings, sub-questions, broader questions, the HyDE post)." + tail
     )
+
+
+def test_in_progress_text_names_the_part_still_missing(tmp_path: Path) -> None:
+    got = call(
+        tmp_path,
+        [
+            {"fn": "inProgressText", "args": ["dense", {"context": True, "transformed": False}]},
+            {"fn": "inProgressText", "args": ["dense", {"context": False, "transformed": True}]},
+            {"fn": "inProgressText", "args": ["hybrid", {"context": True, "transformed": True}]},
+        ],
+    )
+    assert got[0] == (
+        "In progress: dense similarity for passages with their context sentence is not computed "
+        "yet, so this setup has no ranking. To see one, turn the context sentence off, or choose "
+        "BM25."
+    )
+    assert got[1] == (
+        "In progress: dense similarity for rewritten questions is not computed yet, so this setup "
+        "has no ranking. To see one, choose No rewrite, or choose BM25."
+    )
+    assert got[2] == (
+        "In progress — showing BM25 only: dense similarity for rewritten questions and for "
+        "passages with their context sentence is not computed yet, so Hybrid ranks by BM25 alone."
+    )
+
+
+def test_sub_query_rows_follow_the_engine_order_with_english(tmp_path: Path) -> None:
+    question = {
+        "number": 3,
+        "text": "gốc",
+        "english": "original",
+        "transforms": {
+            "rewrite": "viết",
+            "rewrite_en": "rw",
+            "expand": "mở",
+            "expand_en": "ex",
+            "hyde": "giả",
+            "hyde_en": "hy",
+            "multi_query": ["m1", "m2", "m3"],
+            "multi_query_en": ["M1", "M2", "M3"],
+            "decompose": ["d1", "d2"],
+            "decompose_en": ["D1", "D2"],
+            "step_back": "rộng",
+            "step_back_en": "sb",
+        },
+    }
+    names = ["none", "rewrite", "expand", "hyde", "multi_query", "decompose", "step_back"]
+    got = call(tmp_path, [{"fn": "subQueryRows", "args": [question, t]} for t in names])
+    rows = [[(r["text"], r["english"], r["written"]) for r in out] for out in got]
+    original = ("gốc", "original", "question")
+    assert rows == [
+        [original],
+        [("viết", "rw", "haiku")],
+        [original, ("mở", "ex", "haiku")],
+        [("giả", "hy", "haiku")],
+        [("m1", "M1", "haiku"), ("m2", "M2", "haiku"), ("m3", "M3", "haiku")],
+        [("d1", "D1", "haiku"), ("d2", "D2", "haiku")],
+        [original, ("rộng", "sb", "haiku")],
+    ]
+
+
+def test_transform_answer_counts_the_real_queries(tmp_path: Path) -> None:
+    got = call(
+        tmp_path,
+        [
+            {"fn": "transformAnswer", "args": [1, "none", 1, 0]},
+            {"fn": "transformAnswer", "args": [1, "hyde", 1, 1]},
+            {"fn": "transformAnswer", "args": [2, "expand", 2, 1]},
+            {"fn": "transformAnswer", "args": [3, "decompose", 3, 3]},
+            # decompose 1 câu con vẫn qua bước gộp (Luật chung 4)
+            {"fn": "transformAnswer", "args": [4, "decompose", 1, 1]},
+        ],
+    )
+    assert got == [
+        "Q1 is searched as it is: one query, the original question.",
+        "Q1 is replaced by one query that Claude Haiku wrote.",
+        "Q2 is searched as 2 queries: the original question and one that Claude Haiku wrote; "
+        "their lists are merged by rank.",
+        "Q3 is searched as 3 queries, all written by Claude Haiku; their lists are merged by rank.",
+        "Q4 is searched as 1 query, all written by Claude Haiku; their lists are merged by rank.",
+    ]
+
+
+def test_pipeline_answer_skips_statuses_without_steps(tmp_path: Path) -> None:
+    # RAG PR 3a: bước 7 lên trang → không còn bước "later"; câu cũ sẽ ra "0 is planned…"
+    steps = [{"status": s} for s in ["on-page"] * 4 + ["fixed"] * 3 + ["left-out"] * 2]
+    one_each = [{"status": s} for s in ["on-page", "fixed", "later", "left-out"]]
+    got = call(
+        tmp_path,
+        [
+            {"fn": "pipelineAnswer", "args": [steps]},
+            {"fn": "pipelineAnswer", "args": [one_each]},
+        ],
+    )
+    assert got == [
+        "Of the 9 steps, 4 can be changed on this page, 3 run with a fixed choice and are shown or "
+        "explained and 2 are left out on purpose: this demo ranks source passages and writes no "
+        "answer.",
+        "Of the 4 steps, 1 can be changed on this page, 1 runs with a fixed choice and is shown or "
+        "explained, 1 is planned for a later version and 1 is left out on purpose: this demo "
+        "ranks source passages and writes no answer.",
+    ]

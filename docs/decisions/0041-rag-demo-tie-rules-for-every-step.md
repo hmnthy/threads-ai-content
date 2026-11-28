@@ -376,7 +376,10 @@
      (file định dạng 3, `data/rag_demo/measure/rrf_ties_v3.mjs`, cùng cách đếm): 5 cấu hình cũ ra đúng số 2026-11-10;
      cấu hình mới (số chính là khoảng / 63 ô): dense gộp expand 2, step-back 6, multi-query 0, decompose 0; hybrid RRF
      với expand 1, step-back 2, multi-query 1, decompose 4, rewrite 3, HyDE 2; hybrid + câu ngữ cảnh 4. Cao nhất 6 / 63
-     (≈ 10 %, dense + step-back).
+     (≈ 10 %, dense + step-back). **Thy chọn giữ nguyên cách hiện khoảng hạng (2026-11-27, RAG PR 3a).** Lý do: số
+     chính ra khoảng vẫn là thiểu số ô ở mọi cấu hình (0–6 / 63, đa số ≤ 4), và lý do của lần chốt 2026-11-10 không
+     đổi: khi có hoà, khoảng hạng là cách hiện trung thực — một hạng đơn sẽ là thứ tự do mã chunk quyết định. Xem lại
+     khi: làm mới bộ bài (xem lại 4) hoặc thêm bước / cấu hình mới — đo lại bằng cùng script rồi đưa Thy số mới.
   4. Làm mới bộ bài (ADR-0037 xem lại 5) → đo lại cosine chunk × chunk trước khi giữ ngưỡng gần trùng 0,95.
 
 ### Hệ quả UI

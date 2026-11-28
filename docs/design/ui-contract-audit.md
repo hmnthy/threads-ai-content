@@ -510,7 +510,7 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
   | 2 | Chunking | 7 cách chia trong khối "Ranked passages" | **xong ở PR 2b**: khối riêng 03 "Chunking" — bảng cỡ đoạn 7 cách (Thy D3), đoạn của 1 bài, công tắc câu ngữ cảnh; một lựa chọn chung với khối kết quả (Thy D2). Dense của đoạn kèm câu ngữ cảnh → PR 3 |
   | 3 | Embedding | tính sẵn, giải thích trong Method | **xong ở PR 2b**: khối riêng 04 "Embedding" — heatmap cosine 19 × 19 bài (cách "whole") + 5 đoạn gần nhất của 1 đoạn ở cách chia đang chọn (Thy D1); cùng thang màu amber với heatmap giờ đăng `/analytics` |
   | 4 | Vector DB | không có, có chủ đích (ADR-0037 D3: điểm tính sẵn trong 1 file + chỉ mục BM25 trong trình duyệt) | — (bản đồ nói rõ) |
-  | 7 | Pre-retrieval | chưa có (câu biến đổi đã lưu, BM25 tìm được; điểm dense của chúng tính ở file định dạng 3 — RAG PR 3a 2026-11-27, chưa publish; engine sẵn) | PR 3 (cùng ô gõ tự do); `self_query`, `route` của chuẩn không có trong ADR-0037 D7 |
+  | 7 | Pre-retrieval | **xong ở RAG PR 3a**: khối riêng 06 (Thy chọn 2026-11-27) — 7 lựa chọn dùng chung state với khối kết quả, liệt kê đúng các câu con bước tìm nhận (tiếng Anh trước, chữ gốc dưới), gộp RRF; dense của câu biến đổi ở file định dạng 3 | ô gõ tự do → PR 3b; `self_query`, `route` của chuẩn không có trong ADR-0037 D7 |
   | 8 | Retrieval | BM25 / dense / hybrid RRF | weighted / DBSF → PR 4; `parent_document`, `sentence_window`, `multi_hop` không có trong ADR |
   | 9 | Post-retrieval | rerank cross-encoder / Haiku | trước/sau + mũi tên, lọc gần trùng / Haiku / metadata, MMR → PR 4; nén context, sắp xếp context không có trong ADR |
   | 10–11 | Prompt, Generation | không có, có chủ đích (ADR-0001, ADR-0037 D4: cổng F đóng) | — (bản đồ nói rõ) |
@@ -830,3 +830,45 @@ câu chung cho mọi bộ tìm (`CONTEXT_LEGEND`, `CONTEXT_ORIGINAL_LABEL`), `em
   (thật 311, lệch từ commit 1; `ref_anchor` không quét comment code); Method Dense viết cứng tên model thay
   `provenanceText`; `embeddingMethodText` chưa test tổ hợp chỉ còn 1 trong 2 phần chờ (không xảy ra với định dạng 2 / 3).
 
+**Commit 3 (khối 06 Pre-retrieval + gom chữ câu ngữ cảnh + ADR-0041 giữ khoảng hạng):** review vòng 1 — code 2 chặn,
+copy 4, ux 4, auditor 0 chặn nhưng thiếu 2 câu ADR-0041 bắt "trang ghi rõ"; cùng một gốc: thêm trục `transform` làm
+câu cố định ở khối khác thành sai ("the question", "every step searches with", nhãn điểm RRF ghi "BM25 score" /
+"cosine similarity", ý "Language"). Sửa: `scoreName(…, mergedQueries)` (Thy chọn 2026-11-28 nhãn "BM25 / cosine, merged
+over N queries (RRF)"), `rankedNote(ranker, transformed)`, khối 05 2 câu, câu Rewrite / Expand / HyDE đúng dữ liệu,
+Limits khối 06 thêm HyDE-BM25 là biến thể + expand chọn sau khi xem hạng + ví dụ Q1 (Thy chọn A: dòng cố định; đo
+2026-11-28: mọi câu Haiku viết cho Q1 nói về tiền cọc, trừ step-back).
+
+**NIT commit 3 (PR chạm file sau):**
+- *Luật máy đề xuất (code-reviewer):* thêm một trục vào `Settings` → grep mọi chữ chứa danh từ trục đó đổi ("the
+  question", "searches with", "original wording"), mỗi chuỗi nhận trục làm tham số hoặc có test; hoặc `[[forbid]]` cho
+  "every step searches with" / "share(s) no word with the question" ngoài `ragPage.ts`.
+- *Code:* câu "not found … shares no word with the question" (`outcomeText`, `answerSentence`) và "No passage shares a
+  word with this question" cùng họ C1 (0 / 840 ô hôm nay); `transformMerges` / `subQueryRows` chép lại `MERGED` /
+  `subQueries` của engine (nên export dùng chung); test cấu trúc chỉ quét `contextCopy` + `embeddingMethodText`
+  (`CONTEXT_SHOWN.off`, `unitPassagesNote`, "off. With it on…" ngoài phạm vi); "Three other phrasings" viết cứng
+  (`check_output` không kiểm số câu con); `transformAnswer` với 1 câu con ra "all written… their lists" (không xảy ra
+  với dữ liệu); ô "Written by Claude Haiku" = 0 vẫn kèm "Written in advance…" và không có `term`.
+- *Chữ (copy / ux):* câu bản đồ pipeline ≥ 3 vế nên có dấu phẩy Oxford; bước 7 "Rewrites the question… no rewrite" tự
+  mâu thuẫn; ghi chú Stage 2 chưa có bước biến đổi; purpose khối 06 "each option" → "the chosen option"; "One ranked
+  list, used as it is." lệch khi Hybrid; nhãn "English (written by … with the query…)" mơ hồ; "include_original=False"
+  nên nêu `MultiQueryRetriever`; Method bước 3 "one scale" mơ hồ — nên nói điểm khối 07 là điểm gộp; thuật ngữ HyDE nên
+  trích Gao et al. 2022 và nói BM25 cũng tìm; Method BM25 "question words" → "query words"; About "Computed in
+  advance" chưa nhắc câu Haiku viết × đoạn; `chunkingPoint` "one / it" + "a whole content unit" (số nhiều); mạo từ
+  "the / a whole content unit" chưa thống nhất; tên chung "query" / "rewritten query" (copy khuyên); nguồn cho rewrite
+  (Ma et al. 2023), step-back, RAG-Fusion chưa có ở khối 06.
+- *Docs (auditor):* audit "khối 06 'Terms used on this page'" (nay khối 09); NIT commit 2 "chờ Thy chốt giữ / đổi"
+  (đã chốt); dòng `UI-0041-step-order` "lọc gần trùng, MMR → PR 3" (nên PR 4); điều kiện xem lại mới ở ADR-0041 Xem
+  lại 3 ("thêm bước / cấu hình mới") Claude viết — Thy xác nhận khi duyệt commit.
+- *Vòng 2–3 (vòng 2: code + copy 4 câu sai — khối 05 sai với Expand / Step-back, "terms the posts use", "a clearer
+  rewrite" → sửa; ux PASS; vòng 3: code + copy 0 chặn):* câu "Original wording" 3 vế dài (copy: rút còn "the text both
+  rerankers score, and the text searched unless the option chosen in block 06 replaces it"); "the queries Claude Haiku
+  wrote" bao cả bài HyDE (một bài giả); ý "Language" "an expansion" ≠ nhãn nút "Expand", "on purpose" → "because its
+  prompt asks for them"; thuật ngữ "Question rewriting" "Changing the question" lệch Expand / Step-back (chỉ thêm câu),
+  "an expansion with related terms" thật là danh sách từ; viết hoa "Expand and Step-back" (khối 05) vs "Expand and
+  step-back" (Method khối 06); Method khối 07 chưa có câu trỏ công thức gộp RRF qua câu con (nhãn "(RRF)" ở mỗi dòng);
+  nhãn gộp ở 1440 chiếm 3 dòng trong cột 96px (có thể tách "merged over N queries (RRF)" thành dòng nhãn riêng);
+  "the HyDE post" số ít trong danh sách số nhiều; `rankedNote` "any of the queries" khi chỉ 1 câu (Rewrite / HyDE);
+  thuật ngữ HyDE nên nói rào ("tends to be closer") + trích Gao et al. 2022; câu khối 07 "which shows the rewritten
+  queries" sai nhẹ khi No rewrite; **luật máy đề xuất (2 reviewer):** `[[forbid]]` "every step searches with" /
+  "share(s) no word with (the|this) question" ngoài `ragPage.ts`, hoặc test so câu khối 05 với `subQueries` của cả 7
+  lựa chọn; `ux-shots` thêm lượt chụp có lựa chọn khác mặc định (Expand, Decompose) — Thy chọn khi nào làm.
