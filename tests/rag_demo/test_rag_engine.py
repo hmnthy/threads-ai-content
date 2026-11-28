@@ -11,7 +11,7 @@ from typing import Any
 
 from src.rag_demo.demo_file import DEMO_FILE_FORMAT, PENDING_PARTS, SCORE_DECIMALS, _score
 from src.rag_demo.llm_jobs import RERANK_KEEP_MIN_SCORE
-from tests.rag_demo.demo_fixture import PENDING, WAYS, make_demo
+from tests.rag_demo.demo_fixture import PENDING, WAYS, make_demo, make_demo_v3
 from tests.rag_demo.node_engine import run_driver
 
 DRIVER = """
@@ -34,7 +34,9 @@ function run(c) {
   const demo = demoFile.parseDemoFile(c.demo);
   const config = { ...retrieve.DEFAULT_RETRIEVAL, ...(c.config ?? {}) };
   if (c.bm25) config.bm25 = bm25.bm25Params(c.bm25[0], c.bm25[1]);
-  if (c.op === "plan") return retrieve.retrievalPlan(config, c.free ?? false);
+  if (c.op === "plan") {
+    return retrieve.retrievalPlan(config, demo.provenance.pending, c.free ?? false);
+  }
   if (c.op === "texts") return retrieve.chunkTexts(demo, config.way, config.context);
   const index = retrieve.buildWayIndex(
     demo,
@@ -324,6 +326,172 @@ def test_plan_is_decided_from_the_config_before_running(tmp_path: Path) -> None:
     assert engine(tmp_path, cases) == [expected for _, _, expected in PLANS]
 
 
+DENSE_ONLY = plan(False, "run", False, "ok")
+# Định dạng 3 không còn phần chờ: mọi cấu hình ở trên chạy dense thật (Luật chung 8 không còn áp)
+PLANS_V3 = [
+    ({"transform": "expand"}, False, HYBRID),
+    ({"context": True}, False, HYBRID),
+    ({"retriever": "dense", "transform": "rewrite"}, False, DENSE_ONLY),
+    ({"retriever": "dense", "context": True, "way": "post"}, False, DENSE_ONLY),
+    ({"retriever": "bm25", "context": True}, True, BM25_ONLY),
+]
+
+
+def test_a_format_3_file_never_waits_for_a_pending_part(tmp_path: Path) -> None:
+    demo = make_demo_v3(["a"])
+    cases = [{"op": "plan", "demo": demo, "config": c, "free": f} for c, f, _ in PLANS_V3]
+    assert engine(tmp_path, cases) == [expected for _, _, expected in PLANS_V3]
+
+
+# Định dạng 3: 3 đoạn, mỗi mảng điểm có thứ tự riêng để nối nhầm mảng là đỏ
+V3_DENSE = [0.9, 0.5, 0.1]  # câu gốc, chữ trần: 0 > 1 > 2
+V3_CONTEXT = [0.2, 0.8, 0.5]  # câu gốc, kèm câu ngữ cảnh: 1 > 2 > 0
+V3_REWRITE = {"plain": [0.1, 0.2, 0.3], "context": [0.3, 0.2, 0.1]}
+
+
+def v3_demo() -> dict[str, Any]:
+    return make_demo_v3(
+        ["cam", "xoài", "ổi"],
+        contexts=[None, "ngữ cảnh", "ngữ cảnh"],
+        dense=V3_DENSE,
+        dense_context=V3_CONTEXT,
+        transform_dense={"rewrite": V3_REWRITE, "expand": V3_REWRITE},
+        transforms={"rewrite": "viết lại", "expand": "mở rộng"},
+    )
+
+
+def test_dense_on_format_3_reads_the_array_of_the_setup(tmp_path: Path) -> None:
+    dense = {"retriever": "dense"}
+    configs = [
+        dense,
+        dense | {"context": True, "way": "post"},
+        # cách "whole": công tắc coi là tắt → mảng chữ trần
+        dense | {"context": True, "way": "whole"},
+        dense | {"transform": "rewrite"},
+        dense | {"transform": "rewrite", "context": True, "way": "post"},
+    ]
+    cases = [{"op": "retrieve", "demo": v3_demo(), "config": c} for c in configs]
+    lists = [table(result["list"]) for result in engine(tmp_path, cases)]
+    assert lists == [
+        [(0, 0.9, 1, 1), (1, 0.5, 2, 2), (2, 0.1, 3, 3)],
+        [(1, 0.8, 1, 1), (2, 0.5, 2, 2), (0, 0.2, 3, 3)],
+        [(0, 0.9, 1, 1), (1, 0.5, 2, 2), (2, 0.1, 3, 3)],
+        [(2, 0.3, 1, 1), (1, 0.2, 2, 2), (0, 0.1, 3, 3)],
+        [(0, 0.3, 1, 1), (1, 0.2, 2, 2), (2, 0.1, 3, 3)],
+    ]
+
+
+def test_dense_sub_queries_are_merged_like_bm25_on_format_3(tmp_path: Path) -> None:
+    # expand = câu gốc [0.9, 0.5, 0.1] rồi câu mở rộng [0.1, 0.2, 0.3], gộp RRF k = 60:
+    # đoạn 0: 1/61 + 1/63 = 0,0322665 → 0,032266; đoạn 2: 1/63 + 1/61 → cùng ô (hoà, hạng 1–2);
+    # đoạn 1: 1/62 + 1/62 = 0,0322581 → 0,032258
+    config = {"retriever": "dense", "transform": "expand"}
+    result = engine(tmp_path, [{"op": "retrieve", "demo": v3_demo(), "config": config}])[0]
+    assert [sub["text"] for sub in result["dense"]["subQueries"]] == ["câu hỏi", "mở rộng"]
+    assert [sub["mode"] for sub in result["dense"]["subQueries"]] == [None, None]
+    assert table(result["list"]) == [(0, 0.032266, 1, 2), (2, 0.032266, 1, 2), (1, 0.032258, 3, 3)]
+    assert result["list"] == result["dense"]["merged"]
+
+
+# Mỗi mảng điểm một bộ giá trị riêng (không 2 mảng nào chung một số), để bảng hạng của từng câu con
+# chỉ ra đúng mảng engine đã đọc: nối nhầm khoá / nhầm chữ trần ↔ kèm câu / đảo thứ tự câu con → đỏ
+# (code-reviewer PR 3a vòng 1: fixture cũ để 4 biến đổi toàn số 0)
+def sub(plain: list[float], context: list[float]) -> dict[str, list[float]]:
+    return {"plain": plain, "context": context}
+
+
+WIRING: dict[str, Any] = {
+    "rewrite": sub([0.11, 0.21, 0.31], [0.32, 0.22, 0.12]),
+    "expand": sub([0.13, 0.23, 0.33], [0.34, 0.24, 0.14]),
+    "hyde": sub([0.15, 0.25, 0.35], [0.36, 0.26, 0.16]),
+    "step_back": sub([0.17, 0.27, 0.37], [0.38, 0.28, 0.18]),
+    "multi_query": [
+        sub([0.41, 0.51, 0.61], [0.62, 0.52, 0.42]),
+        sub([0.63, 0.53, 0.43], [0.44, 0.54, 0.64]),
+    ],
+    "decompose": [
+        sub([0.45, 0.55, 0.65], [0.66, 0.56, 0.46]),
+        sub([0.67, 0.57, 0.47], [0.48, 0.58, 0.68]),
+    ],
+}
+WIRING_TEXTS: dict[str, Any] = {
+    "rewrite": "viết lại",
+    "expand": "mở rộng",
+    "hyde": "giả định",
+    "step_back": "tổng quát",
+    "multi_query": ["một", "hai"],
+    "decompose": ["phần một", "phần hai"],
+}
+UP = [(2, 1, 1), (1, 2, 2), (0, 3, 3)]  # mảng tăng dần: đoạn 2 hạng 1
+DOWN = [(0, 1, 1), (1, 2, 2), (2, 3, 3)]  # mảng giảm dần: đoạn 0 hạng 1
+ORIG_PLAIN_ORDER = DOWN  # V3_DENSE [0.9, 0.5, 0.1]
+ORIG_CONTEXT_ORDER = [(1, 1, 1), (2, 2, 2), (0, 3, 3)]  # V3_CONTEXT [0.2, 0.8, 0.5]
+
+
+def ranked_rows(order: list[tuple[int, int, int]], scores: list[float]) -> list[tuple[Any, ...]]:
+    # (đoạn, điểm, hạng từ, hạng tới): điểm đọc từ đúng ô của mảng mong đợi
+    return [(chunk, scores[chunk], start, end) for chunk, start, end in order]
+
+
+def expected_subs(transform: str, context: bool) -> list[tuple[str, list[tuple[Any, ...]]]]:
+    key = "context" if context else "plain"
+    original = (
+        "câu hỏi",
+        ranked_rows(
+            *((ORIG_CONTEXT_ORDER, V3_CONTEXT) if context else (ORIG_PLAIN_ORDER, V3_DENSE))
+        ),
+    )
+
+    def one(text: str, scores: dict[str, list[float]]) -> tuple[str, list[tuple[Any, ...]]]:
+        # chữ trần tăng dần, kèm câu giảm dần ở mọi câu con đơn; danh sách: đọc theo giá trị
+        values = scores[key]
+        order = UP if values[0] < values[2] else DOWN
+        return (text, ranked_rows(order, values))
+
+    if transform == "none":
+        return [original]
+    if transform in ("rewrite", "hyde"):
+        return [one(WIRING_TEXTS[transform], WIRING[transform])]
+    if transform in ("expand", "step_back"):
+        return [original, one(WIRING_TEXTS[transform], WIRING[transform])]
+    return [one(t, s) for t, s in zip(WIRING_TEXTS[transform], WIRING[transform], strict=True)]
+
+
+def test_dense_reads_the_array_of_each_sub_query_for_every_transform(tmp_path: Path) -> None:
+    demo = make_demo_v3(
+        ["cam", "xoài", "ổi"],
+        contexts=[None, "ngữ cảnh", "ngữ cảnh"],
+        dense=V3_DENSE,
+        dense_context=V3_CONTEXT,
+        transform_dense=WIRING,
+        transforms=WIRING_TEXTS,
+    )
+    transforms = ["none", "rewrite", "expand", "hyde", "multi_query", "decompose", "step_back"]
+    setups = [(t, c) for t in transforms for c in (False, True)]
+    cases = [
+        {
+            "op": "retrieve",
+            "demo": demo,
+            "config": {"retriever": "dense", "transform": t, "context": c, "way": "post"},
+        }
+        for t, c in setups
+    ]
+    got = [
+        [(s["text"], table(s["ranked"])) for s in result["dense"]["subQueries"]]
+        for result in engine(tmp_path, cases)
+    ]
+    assert got == [expected_subs(t, c) for t, c in setups]
+
+
+def test_hybrid_with_a_rewrite_fuses_bm25_and_dense_on_format_3(tmp_path: Path) -> None:
+    # format 2 thì đây là "hybrid rơi về BM25"; format 3 trộn thật
+    config = {"transform": "rewrite"}
+    result = engine(tmp_path, [{"op": "retrieve", "demo": v3_demo(), "config": config}])[0]
+    assert result["plan"]["status"] == "ok"
+    assert result["dense"] is not None and result["fused"] == result["list"]
+    assert table(result["dense"]["list"]) == [(2, 0.3, 1, 1), (1, 0.2, 2, 2), (0, 0.1, 3, 3)]
+
+
 def test_typed_question_refuses_dense_and_transforms(tmp_path: Path) -> None:
     configs = [{"retriever": "hybrid"}, {"retriever": "bm25", "transform": "rewrite"}]
     cases = [{"op": "plan", "demo": make_demo(["a"]), "config": c, "free": True} for c in configs]
@@ -447,6 +615,7 @@ def test_engine_constants_match_the_python_file_builder(tmp_path: Path) -> None:
         ("demoFile", "DEMO_FILE_FORMAT"),
         ("rank", "SCORE_DECIMALS"),
         ("demoFile", "RERANK_KEEP_MIN_SCORE"),
+        ("demoFile", "FORMAT_2_PENDING_PARTS"),
     ]
     cases = [{"op": "const", "module": m, "name": n} for m, n in names]
     assert engine(tmp_path, cases) == [
@@ -454,8 +623,15 @@ def test_engine_constants_match_the_python_file_builder(tmp_path: Path) -> None:
         DEMO_FILE_FORMAT,
         SCORE_DECIMALS,
         RERANK_KEEP_MIN_SCORE,
+        # định dạng 2 (bản còn trên Blob tới lần publish kế tiếp) ghi đúng 2 mục của fixture
+        list(PENDING),
     ]
-    assert tuple(PENDING) == PENDING_PARTS
+    # định dạng 3 (RAG PR 3a): không còn phần chờ; định dạng 2 ghi đúng 2 mục
+    assert (PENDING_PARTS, DEMO_FILE_FORMAT) == ((), 3)
+    assert PENDING == (
+        "dense score of transformed questions",
+        "dense score of chunks with their context sentence",
+    )
 
 
 def test_reader_accepts_a_minimal_format_2_file(tmp_path: Path) -> None:
@@ -465,6 +641,56 @@ def test_reader_accepts_a_minimal_format_2_file(tmp_path: Path) -> None:
     question["gold_chunks"] = {way: {"u1": [1]} for way in WAYS}
     cases = [{"op": "parse", "demo": make_demo(["a", "b"])}, {"op": "parse", "demo": gold}]
     assert engine(tmp_path, cases) == [2, 2]
+
+
+def test_reader_accepts_a_minimal_format_3_file(tmp_path: Path) -> None:
+    demo = make_demo_v3(["a", "b"], transforms={"multi_query": ["một", "hai"]})
+    assert engine(tmp_path, [{"op": "parse", "demo": demo}]) == [3]
+
+
+def broken_v3(change: str) -> dict[str, Any]:
+    demo = make_demo_v3(["a", "b"], transforms={"multi_query": ["một", "hai"]})
+    question = demo["questions"][0]
+    if change == "v3_pending":
+        # định dạng 3 mà vẫn ghi phần chờ của định dạng 2
+        demo["provenance"]["pending"] = list(PENDING)
+    elif change == "v2_without_pending":
+        demo["format"] = 2
+    elif change == "dense_context_missing":
+        del question["dense_context"]
+    elif change == "dense_context_length":
+        question["dense_context"] = [0.1]
+    elif change == "transform_dense_missing":
+        del question["transform_dense"]
+    elif change == "transform_dense_key":
+        del question["transform_dense"]["hyde"]
+    elif change == "transform_dense_context":
+        del question["transform_dense"]["rewrite"]["context"]
+    elif change == "transform_dense_value":
+        question["transform_dense"]["expand"]["plain"] = [0.1, None]
+    elif change == "transform_dense_count":
+        # 2 câu multi-query nhưng chỉ 1 dòng điểm: điểm câu này sẽ rơi vào câu kia
+        question["transform_dense"]["multi_query"] = question["transform_dense"]["multi_query"][:1]
+    return demo
+
+
+BROKEN_V3 = [
+    "v3_pending",
+    "v2_without_pending",
+    "dense_context_missing",
+    "dense_context_length",
+    "transform_dense_missing",
+    "transform_dense_key",
+    "transform_dense_context",
+    "transform_dense_value",
+    "transform_dense_count",
+]
+
+
+def test_reader_refuses_a_broken_format_3_file(tmp_path: Path) -> None:
+    cases = [{"op": "parse", "demo": broken_v3(change)} for change in BROKEN_V3]
+    errors = [out.get("error") for out in run_driver(tmp_path, DRIVER, cases)]
+    assert errors == ["DemoFileError"] * len(BROKEN_V3)
 
 
 def broken(change: str) -> dict[str, Any]:

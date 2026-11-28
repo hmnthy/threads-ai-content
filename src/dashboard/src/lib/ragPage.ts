@@ -1,11 +1,12 @@
 // Chữ và hàm phụ của trang /rag-pipeline bản đầu (Thy chốt 2026-11-12: 3 khối + khối Loading và bản đồ pipeline thêm sau, chỉ component có sẵn — phạm vi ở
 // `docs/design/ui-contract-audit.md`, mục "`/rag-pipeline` — trang bản đầu thu hẹp"). Chữ hiển thị là bản nháp,
 // copy-reviewer đọc rồi Thy duyệt. File thường (không "use client") để server component import được.
+import { PENDING_CONTEXT, PENDING_TRANSFORMED } from "./ragDemo/demoFile.ts";
 import type { DemoFile, Question, Way } from "./ragDemo/demoFile.ts";
 import type { Outcome } from "./ragDemo/answer.ts";
 import { cosineOf } from "./ragDemo/filters.ts";
 import type { Rerank } from "./ragDemo/rerank.ts";
-import type { Retriever, RetrievalStatus } from "./ragDemo/retrieve.ts";
+import type { Retriever, RetrievalStatus, Transform } from "./ragDemo/retrieve.ts";
 
 // Một nguồn cho dải mục lục đầu trang và nhãn trên tiêu đề mỗi khối (như `topicSections.ts`)
 // Thy 2026-11-12 (phương án A): thêm khối Loading đứng đầu — bước đầu của pipeline trong repo mẫu (Loader)
@@ -19,9 +20,11 @@ export const RAG_SECTIONS = [
   ["chunking", "03", "Chunking"],
   ["embedding", "04", "Embedding"],
   ["question", "05", "Question"],
-  ["passages", "06", "Ranked passages"],
-  ["about", "07", "About this demo"],
-  ["terms", "08", "Terms"],
+  // RAG PR 3a (Thy chọn 2026-11-27): khối riêng cho bước 7 của repo mẫu, giữa câu hỏi và kết quả
+  ["transform", "06", "Pre-retrieval"],
+  ["passages", "07", "Ranked passages"],
+  ["about", "08", "About this demo"],
+  ["terms", "09", "Terms"],
 ] as const;
 
 // Bản đồ pipeline: các bước theo đúng số + tên của repo mẫu (README vietnh1009/RAG-pipeline-visualizer, đọc
@@ -67,7 +70,8 @@ export const PIPELINE_STEPS: readonly PipelineStep[] = [
     optional: false,
     status: "on-page",
     block: "chunking",
-    what: "Cuts each content unit into passages, with 7 methods to choose from, and can add a context sentence (a short note on where the passage sits in its content unit) to every passage that is not the whole content unit, before it is indexed. BM25 can already search with it; dense similarity with it is not computed yet.",
+    // RAG PR 3a: bỏ câu trạng thái dense ("not computed yet") — chi tiết ở khối 03, theo file đang đọc
+    what: "Cuts each content unit into passages, with 7 methods to choose from, and can add a context sentence (a short note on where the passage sits in its content unit) to every passage that is not the whole content unit, before it is indexed.",
   },
   {
     number: 3,
@@ -94,9 +98,10 @@ export const PIPELINE_STEPS: readonly PipelineStep[] = [
     name: "Pre-retrieval",
     stage: "generation",
     optional: true,
-    status: "later",
-    block: null,
-    what: "Rewriting the question before searching (rewrite, expand, HyDE, multi-query, decompose, step-back). The rewrites are stored and BM25 can already search with them, but their dense scores are not computed yet, so this version searches with the original question.",
+    // RAG PR 3a commit 3: khối riêng 06, chọn được trên trang (thiết lập `transform` làm đổi bảng xếp hạng)
+    status: "on-page",
+    block: "transform",
+    what: "Rewrites the question before searching, with 7 options: no rewrite, rewrite, expand, HyDE, multi-query, decompose and step-back. Claude Haiku wrote the rewrites in advance; when an option gives several queries, each is searched and the lists are merged by rank.",
   },
   {
     number: 8,
@@ -135,6 +140,24 @@ export const PIPELINE_STEPS: readonly PipelineStep[] = [
     what: "No answer is written by a model. The page stops at the ranked source passages, which is what an answer would be built from.",
   },
 ];
+
+// Câu trả lời của bản đồ pipeline: đếm theo trạng thái, bỏ trạng thái 0 bước (RAG PR 3a: bước 7 lên trang → không còn
+// bước "later"; câu cũ viết cứng mọi trạng thái sẽ ra "0 is planned…"), động từ theo số (code-reviewer 2026-11-12)
+export function pipelineAnswer(steps: readonly { status: StepStatus }[]): string {
+  const n = (status: StepStatus) => steps.filter((step) => step.status === status).length;
+  const is = (k: number) => (k === 1 ? "is" : "are");
+  const clauses = [
+    n("on-page") > 0 ? `${n("on-page")} can be changed on this page` : null,
+    n("fixed") > 0
+      ? `${n("fixed")} ${n("fixed") === 1 ? "runs" : "run"} with a fixed choice and ${is(n("fixed"))} shown or explained`
+      : null,
+    n("later") > 0 ? `${n("later")} ${is(n("later"))} planned for a later version` : null,
+    n("left-out") > 0 ? `${n("left-out")} ${is(n("left-out"))} left out on purpose` : null,
+  ].filter((clause): clause is string => clause !== null);
+  const list =
+    clauses.length <= 1 ? clauses.join("") : `${clauses.slice(0, -1).join(", ")} and ${clauses[clauses.length - 1]}`;
+  return `Of the ${steps.length} steps, ${list}: this demo ranks source passages and writes no answer.`;
+}
 
 export function ragNumber(id: (typeof RAG_SECTIONS)[number][0]): string {
   return RAG_SECTIONS.find(([key]) => key === id)![1];
@@ -255,11 +278,68 @@ export function rankedBy(retriever: Retriever, status: RetrievalStatus): Retriev
 // "in progress" ở khối kết quả (UI-0041-step-order cột E). Bản nháp: copy-reviewer đọc, Thy duyệt.
 export const CONTEXT_SHOWN = {
   off: "Off: each passage is searched as it is.",
-  // ux-reviewer + code-reviewer vòng 1: đoạn trùng cả bài không có câu ngữ cảnh — không viết "each passage" trần
-  on: "On: BM25 searches each passage together with its context sentence, written in advance by Claude Haiku, that places the passage in its content unit; a passage that is the whole content unit has none. Dense similarity for passages with their context sentence is not computed yet.",
   whole:
     "Not available with No chunking: each passage is already a whole content unit, so there is nothing around it to describe.",
 } as const;
+
+// Phần còn chờ của file đang đọc (RAG PR 3a): định dạng 2 (bản trên Blob tới lần publish kế tiếp) còn 2 mục, định dạng
+// 3 không mục nào. Chữ nói dense "chưa tính" chỉ hiện khi file thật sự còn mục đó — không viết cứng theo một bản file
+export type Pending = { context: boolean; transformed: boolean };
+export function pendingOf(demo: DemoFile): Pending {
+  return {
+    context: demo.provenance.pending.includes(PENDING_CONTEXT),
+    transformed: demo.provenance.pending.includes(PENDING_TRANSFORMED),
+  };
+}
+
+// MỌI chữ trang nói về câu ngữ cảnh ở MỘT chỗ (Thy chọn 2026-11-27 sau lỗi lặp lần 4 "hứa câu ngữ cảnh cho mọi đoạn" —
+// đoạn trùng cả bài không có câu nào, ADR-0039 D2): test quét mọi câu của hàm này theo cấu trúc (phải nêu ngoại lệ),
+// thay cho regex nới theo từng cách viết. Một cách nói chung "read … as one text" (copy-reviewer PR 3a, Thy chọn áp ở
+// commit 3). `pending.context` = file định dạng 2: dense chưa có điểm kèm câu ngữ cảnh
+export type ContextCopy = {
+  switchOn: string; // câu dưới công tắc khi bật
+  legend: string; // chú giải ¶ cạnh danh sách kết quả
+  originalLabel: string; // nhãn trên chữ gốc của câu ngữ cảnh (chỉ hiện khi đoạn có câu)
+  denseMethod: string | null; // câu thêm vào Method "Dense similarity" (khối kết quả)
+  chunkingMethod: string; // câu cuối Method "Context sentence" (khối Chunking)
+  chunkingPoint: (whole: number, total: number) => string; // ý "Context sentence: on." (khối Chunking)
+  term: string; // mục thuật ngữ
+};
+
+export function contextCopy(pending: Pending): ContextCopy {
+  const readers = pending.context ? "BM25 reads" : "BM25 and dense similarity both read";
+  return {
+    switchOn: pending.context
+      ? "On: a passage that is not the whole content unit is read together with its context sentence, a note written in advance by Claude Haiku on where the passage sits in its content unit. For now only BM25 reads the two as one text: dense similarity for passages with their context sentence is not computed yet."
+      : "On: a passage that is not the whole content unit is read together with its context sentence, a note written in advance by Claude Haiku on where the passage sits in its content unit. BM25 and dense similarity both read the two as one text.",
+    legend:
+      "shown above a passage when the context-sentence switch is on: retrieval reads the two as one text (the rerankers read the passage alone); a passage that is the whole content unit has none.",
+    originalLabel: "Context sentence, original language (read with the passage as one text)",
+    denseMethod: pending.context
+      ? null
+      : "With the context-sentence switch on, a passage that has one is turned into a vector together with it, as one text (the same text BM25 reads); a passage that is the whole content unit has none and keeps its own vector.",
+    chunkingMethod: `A passage that is the whole content unit gets no context sentence. With the switch on, ${readers} the context sentence and the passage as one text.`,
+    chunkingPoint: (whole, total) =>
+      `on. ${readers} each passage that has one together with it; ${whole.toLocaleString("en-US")} of the ${total.toLocaleString("en-US")} passages ${whole === 1 ? "is a whole content unit and has" : "are a whole content unit and have"} none.`,
+    term: `One or two sentences, written in advance by Claude Haiku, that say where a passage sits in its content unit (Anthropic’s Contextual Retrieval). With the switch on, ${readers} the sentence and the passage as one text. A passage that is already the whole content unit has none.`,
+  };
+}
+
+// Câu "in progress" của khối kết quả theo NGUYÊN NHÂN (chỉ file định dạng 2): từ RAG PR 3a trang chọn được cả biến đổi
+// câu hỏi, nên phần chờ có thể là dense của câu biến đổi chứ không chỉ của đoạn kèm câu ngữ cảnh
+export function inProgressText(kind: "dense" | "hybrid", cause: { context: boolean; transformed: boolean }): string {
+  const parts = [
+    cause.transformed ? "rewritten questions" : null,
+    cause.context ? "passages with their context sentence" : null,
+  ].filter((part): part is string => part !== null);
+  const what = `dense similarity for ${parts.join(" and for ")} is not computed yet`;
+  const undo = [cause.transformed ? "choose No rewrite" : null, cause.context ? "turn the context sentence off" : null]
+    .filter((part): part is string => part !== null)
+    .join(" and ");
+  return kind === "dense"
+    ? `In progress: ${what}, so this setup has no ranking. To see one, ${undo}, or choose BM25.`
+    : `In progress — showing BM25 only: ${what}, so Hybrid ranks by BM25 alone.`;
+}
 
 // Ghi chú dưới "The passages of one content unit" theo số đoạn THẬT của bài đang chọn (code-reviewer PR 2b vòng 1, lỗi
 // chặn: bài #13 chỉ có 1 đoạn = cả bài ở mọi cách trừ "No chunking", câu gán câu ngữ cảnh cho từng đoạn sai). Chỉ
@@ -293,20 +373,25 @@ export function chunkingAnswer(way: Way, units: number, passages: number, median
 
 // Ghi chú của Key number "Passages ranked" theo bộ tìm THẬT SỰ xếp danh sách (`rankedBy`): khi Hybrid rơi về BM25,
 // câu "dense similarity ranks every passage" đứng cạnh số của BM25 là sai (3 reviewer PR 2b)
-export function rankedNote(ranker: Retriever): string {
-  if (ranker === "bm25") return "BM25 leaves out passages that share no word with the question.";
+// RAG PR 3a (lỗi chặn vòng 1): với một cách biến đổi, BM25 tìm bằng các câu con, không bằng câu hỏi gốc
+export function rankedNote(ranker: Retriever, transformed: boolean = false): string {
+  const what = transformed ? `any of the queries searched (block ${ragNumber("transform")})` : "the question";
+  if (ranker === "bm25") return `BM25 leaves out passages that share no word with ${what}.`;
   if (ranker === "dense") return "Dense similarity ranks every passage.";
-  return "Hybrid ranks every passage: the dense list holds them all, and BM25 adds to those that share a word with the question.";
+  return `Hybrid ranks every passage: the dense list holds them all, and BM25 adds to those that share a word with ${what}.`;
 }
 
-export const IN_PROGRESS_SHOWN = {
-  // "dense trần cần phần còn chờ": không có danh sách nào
-  dense:
-    "In progress: dense similarity for passages with their context sentence is not computed yet, so this setup has no ranking. Turn the context sentence off, or choose BM25.",
-  // "hybrid rơi về BM25": các bước sau vẫn chạy trên danh sách BM25
-  hybrid:
-    "In progress — showing BM25 only: dense similarity for passages with their context sentence is not computed yet, so Hybrid ranks by BM25 alone.",
-} as const;
+// Method "Embedding" của khối 04 theo file đang đọc. Code-reviewer PR 3a commit 2 (lỗi chặn, lần 3 của cùng lỗi):
+// không hứa câu ngữ cảnh cho mọi đoạn — đoạn trùng cả bài không có câu nào (ADR-0039 D2). Copy-reviewer vòng 2:
+// "joined to that sentence" lơ lửng, ngoặc thiếu expand / step-back
+export function embeddingMethodText(model: string, pending: Pending): string {
+  const extra = [
+    pending.context ? null : "for each passage that has a context sentence, read with it as one text",
+    pending.transformed ? null : "for each text Claude Haiku wrote from a question (rewrites, expansions, other phrasings, sub-questions, broader questions, the HyDE post)",
+  ].filter((part): part is string => part !== null);
+  const same = extra.length === 0 ? "" : ` The same was done ${extra.join(", and ")}.`;
+  return `Every passage of every chunking method, and every question, was sent once to OpenAI ${model} through its API before the demo was published.${same} The vectors themselves are not in the demo file; only the cosines computed from them are.`;
+}
 
 export function ragShort(id: (typeof RAG_SECTIONS)[number][0]): string {
   return RAG_SECTIONS.find(([key]) => key === id)![2];
@@ -358,6 +443,82 @@ export const WAYS_SHOWN: Record<Way, { label: string; sentence: string }> = {
   },
 };
 
+// 7 lựa chọn biến đổi câu hỏi (ADR-0037 D7; khối 06 Pre-retrieval, RAG PR 3a): nhãn nút + một câu, theo đúng
+// `subQueries` của engine (Luật chung 4) và prompt `TRANSFORM_SYSTEM` (`src/rag_demo/llm_jobs.py`). Bản nháp: copy-reviewer
+// đọc, Thy duyệt
+export const TRANSFORMS_SHOWN: Record<Transform, { label: string; sentence: string }> = {
+  none: { label: "No rewrite", sentence: "The question is searched as it is." },
+  // 4 reviewer RAG PR 3a vòng 1: "clearer" là mục tiêu của prompt, không bảo đảm (Q1 bị đổi nghĩa); bản expand thật
+  // là danh sách từ, có cả tiếng Pháp / Anh, không phải "a longer version" của câu (0 / 10 giữ câu gốc, ADR-0041)
+  rewrite: {
+    label: "Rewrite",
+    sentence: "A rewrite of the question by Claude Haiku, meant to be clearer and self-contained, is searched instead of the question.",
+  },
+  expand: {
+    label: "Expand",
+    sentence:
+      "The question is searched, and so is a list of related terms and synonyms Claude Haiku wrote for it, some in French or English; the two lists are merged.",
+  },
+  hyde: {
+    label: "HyDE",
+    sentence:
+      "Claude Haiku writes a short made-up post that would answer the question (Hypothetical Document Embeddings), and that post is searched instead. It can be wrong; it is only used to search.",
+  },
+  multi_query: {
+    label: "Multi-query",
+    sentence: "Three other phrasings are searched and their lists are merged; the question itself is not added.",
+  },
+  decompose: {
+    label: "Decompose",
+    sentence: "The question is split into one to three sub-questions; each is searched and the lists are merged.",
+  },
+  step_back: {
+    label: "Step-back",
+    sentence:
+      "The question is searched, and so is a broader question about its general topic; the two lists are merged.",
+  },
+};
+
+// Câu con người xem thấy, đúng thứ tự engine tìm (`subQueries`, Luật chung 4): chữ gốc + bản tiếng Anh (luật song
+// ngữ) + nguồn (câu hỏi gốc hay Haiku viết). Multi-query / decompose: mỗi câu con một dòng
+export type SubQueryRow = { text: string; english: string; written: "question" | "haiku" };
+export function subQueryRows(question: Question, transform: Transform): SubQueryRow[] {
+  const t = question.transforms;
+  const original: SubQueryRow = { text: question.text, english: question.english, written: "question" };
+  const haiku = (text: string, english: string): SubQueryRow => ({ text, english, written: "haiku" });
+  switch (transform) {
+    case "none":
+      return [original];
+    case "rewrite":
+      return [haiku(t.rewrite, t.rewrite_en)];
+    case "hyde":
+      return [haiku(t.hyde, t.hyde_en)];
+    case "expand":
+      return [original, haiku(t.expand, t.expand_en)];
+    case "step_back":
+      return [original, haiku(t.step_back, t.step_back_en)];
+    case "multi_query":
+      return t.multi_query.map((text, i) => haiku(text, t.multi_query_en[i] ?? ""));
+    case "decompose":
+      return t.decompose.map((text, i) => haiku(text, t.decompose_en[i] ?? ""));
+  }
+}
+
+// Lựa chọn có bước gộp câu con (RRF, Luật chung 4) — cùng tập với `MERGED` của engine (`retrieve.ts`)
+export function transformMerges(transform: Transform): boolean {
+  return transform === "expand" || transform === "step_back" || transform === "multi_query" || transform === "decompose";
+}
+
+// Câu trả lời của khối Pre-retrieval theo số câu con thật của câu hỏi đang chọn (không viết cứng "three")
+export function transformAnswer(question: number, transform: Transform, queries: number, written: number): string {
+  if (transform === "none") return `Q${question} is searched as it is: one query, the original question.`;
+  if (!transformMerges(transform)) return `Q${question} is replaced by one query that Claude Haiku wrote.`;
+  const lead = `Q${question} is searched as ${queries} ${queries === 1 ? "query" : "queries"}`;
+  return written === queries
+    ? `${lead}, all written by Claude Haiku; their lists are merged by rank.`
+    : `${lead}: the original question and ${written === 1 ? "one" : written} that Claude Haiku wrote; their lists are merged by rank.`;
+}
+
 export const RETRIEVERS_SHOWN: Record<Retriever, string> = {
   bm25: "BM25 (keywords)",
   dense: "Dense (meaning)",
@@ -371,11 +532,21 @@ export const RERANKS_SHOWN: Record<Rerank, string> = {
 };
 
 // Tên loại điểm của một dòng: bước chấm gần nhất của dòng đó (dòng "not reranked" giữ điểm bước trước)
-export function scoreName(retriever: Retriever, rerank: Rerank, notReranked: boolean): string {
+// `mergedQueries`: số câu con khi cách biến đổi qua bước gộp (Luật chung 4), null khi không gộp. RAG PR 3a (4 reviewer
+// vòng 1, lỗi chặn): với BM25 / Dense + expand / step-back / multi-query / decompose, điểm của dòng là tổng RRF của
+// các câu con (≤ n ÷ 61), không phải điểm BM25 hay cosine — Thy chọn 2026-11-28 nhãn nêu bộ tìm + số câu
+export function scoreName(
+  retriever: Retriever,
+  rerank: Rerank,
+  notReranked: boolean,
+  mergedQueries: number | null = null,
+): string {
   if (rerank === "cross_encoder" && !notReranked) return "cross-encoder logit";
   if (rerank === "haiku" && !notReranked) return "Claude Haiku 5.5 score, 0–3";
-  if (retriever === "bm25") return "BM25 score";
-  if (retriever === "dense") return "cosine similarity";
+  const merged = (name: string) =>
+    `${name}, merged over ${mergedQueries} ${mergedQueries === 1 ? "query" : "queries"} (RRF)`;
+  if (retriever === "bm25") return mergedQueries === null ? "BM25 score" : merged("BM25");
+  if (retriever === "dense") return mergedQueries === null ? "cosine similarity" : merged("cosine");
   return "RRF score";
 }
 

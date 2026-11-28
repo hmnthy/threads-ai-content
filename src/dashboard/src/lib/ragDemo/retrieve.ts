@@ -2,7 +2,8 @@
 // (ADR-0041 Luật chung 1, 4, 6, 8, 9). Lọc metadata đứng trước bước này: nó chỉ quyết `candidates`.
 import { buildChunkIndex, DEFAULT_BM25, searchBm25 } from "./bm25.ts";
 import type { Bm25Params, ChunkIndex } from "./bm25.ts";
-import type { DemoFile, Question, Way } from "./demoFile.ts";
+import { PENDING_CONTEXT, PENDING_TRANSFORMED } from "./demoFile.ts";
+import type { DemoFile, Question, SubQueryDense, Way } from "./demoFile.ts";
 import { fuseDbsf, fuseRrf, fuseWeighted, mergeSubQueries } from "./fuse.ts";
 import { allChunks, rankRange } from "./rank.ts";
 import type { RankedChunk } from "./rank.ts";
@@ -101,14 +102,21 @@ export type RetrievalPlan = {
   status: RetrievalStatus; // "bm25-only" = "hybrid rơi về BM25"; "in-progress" = "dense trần cần phần còn chờ"
 };
 
-// Theo cấu hình, trước khi chạy (Thy chọn, Luật chung 8): dense của câu biến đổi và của chunk kèm câu
-// ngữ cảnh còn chờ (`provenance.pending`). Câu tự gõ: chỉ BM25, không biến đổi (Luật chung 9) — trang
-// phải tắt các lựa chọn đó, nên cấu hình khác là lỗi lập trình.
-export function retrievalPlan(config: RetrievalConfig, freeQuery: boolean = false): RetrievalPlan {
+// Theo cấu hình và file, trước khi chạy (Thy chọn, Luật chung 8): cấu hình cần một phần file còn ghi
+// là chờ (`provenance.pending` — định dạng 2 ghi cả 2 mục, định dạng 3 không mục nào) thì dense không
+// chạy. Câu tự gõ: chỉ BM25, không biến đổi (Luật chung 9) — trang phải tắt các lựa chọn đó, nên cấu
+// hình khác là lỗi lập trình.
+export function retrievalPlan(
+  config: RetrievalConfig,
+  pending: readonly string[],
+  freeQuery: boolean = false,
+): RetrievalPlan {
   if (freeQuery && (config.retriever !== "bm25" || config.transform !== "none")) {
     throw new Error("a typed question runs BM25 only, without a question transform");
   }
-  const needsPending = config.transform !== "none" || contextEffective(config.way, config.context);
+  const needsPending =
+    (config.transform !== "none" && pending.includes(PENDING_TRANSFORMED)) ||
+    (contextEffective(config.way, config.context) && pending.includes(PENDING_CONTEXT));
   if (config.retriever === "bm25") return { bm25: true, dense: "off", fuse: false, status: "ok" };
   if (config.retriever === "dense") {
     return needsPending
@@ -159,19 +167,54 @@ function bm25Block(
   return { subQueries: subs, merged, list: merged ?? subs[0].ranked };
 }
 
-// Dense chỉ chạy khi không biến đổi và không có câu ngữ cảnh (retrievalPlan), nên một câu con:
-// điểm cosine tính sẵn trong file theo passage.
+// Điểm dense theo passage của từng câu con, cùng thứ tự `subQueries` (Luật chung 4): câu gốc dùng
+// `dense` / `dense_context`, câu biến đổi dùng `transform_dense` (định dạng 3). Chọn mảng "kèm câu
+// ngữ cảnh" khi công tắc có hiệu lực — đoạn là cả bài thì mảng đó vẫn là điểm của chính chữ đoạn.
+// `retrievalPlan` chỉ cho dense chạy khi file có phần cần dùng, nên thiếu trường ở đây là lỗi lập trình.
+export function denseScores(question: Question, transform: Transform, withContext: boolean): number[][] {
+  const pick = (sub: SubQueryDense) => (withContext ? sub.context : sub.plain);
+  const original = withContext ? question.dense_context : question.dense;
+  const needsTransform = transform !== "none";
+  const td = question.transform_dense;
+  if (original === undefined || (needsTransform && td === undefined)) {
+    throw new Error("dense scores for this setup are missing from the demo file");
+  }
+  switch (transform) {
+    case "none":
+      return [original];
+    case "rewrite":
+      return [pick(td!.rewrite)];
+    case "hyde":
+      return [pick(td!.hyde)];
+    case "expand":
+      return [original, pick(td!.expand)];
+    case "step_back":
+      return [original, pick(td!.step_back)];
+    case "multi_query":
+      return td!.multi_query.map(pick);
+    case "decompose":
+      return td!.decompose.map(pick);
+  }
+}
+
+// Dense theo từng câu con rồi gộp RRF khi biến đổi qua bước gộp (như BM25, Luật chung 4).
 function denseBlock(
   demo: DemoFile,
   question: Question,
-  way: Way,
+  config: RetrievalConfig,
+  texts: readonly string[],
+  merge: boolean,
   candidates: readonly number[],
 ): RetrieverBlock {
-  const chunks = demo.ways[way];
-  const ranked = rankRange(
-    candidates.map((chunk) => ({ chunk, score: question.dense[chunks[chunk].passage] })),
-  );
-  return { subQueries: [{ text: question.text, mode: null, ranked }], merged: null, list: ranked };
+  const chunks = demo.ways[config.way];
+  const rows = denseScores(question, config.transform, contextEffective(config.way, config.context));
+  const subs = rows.map((scores, i) => ({
+    text: texts[i],
+    mode: null,
+    ranked: rankRange(candidates.map((chunk) => ({ chunk, score: scores[chunks[chunk].passage] }))),
+  }));
+  const merged = merge ? mergeSubQueries(subs.map((sub) => sub.ranked)) : null;
+  return { subQueries: subs, merged, list: merged ?? subs[0].ranked };
 }
 
 function emptyStep(block: RetrieverBlock, single: RetrievalStep): RetrievalStep | null {
@@ -201,7 +244,7 @@ export function retrieve(
   candidates?: readonly number[],
 ): RetrievalResult {
   const question = "question" in query ? query.question : null;
-  const plan = retrievalPlan(config, question === null);
+  const plan = retrievalPlan(config, demo.provenance.pending, question === null);
   if (index.way !== config.way || index.context !== contextEffective(config.way, config.context)) {
     throw new Error("the BM25 index was built for another chunking way or context switch");
   }
@@ -221,7 +264,9 @@ export function retrieve(
   const merge = MERGED.has(config.transform);
   const bm25 = plan.bm25 ? bm25Block(index, texts, merge, config.bm25, pool) : null;
   const dense =
-    plan.dense === "run" && question !== null ? denseBlock(demo, question, config.way, pool) : null;
+    plan.dense === "run" && question !== null
+      ? denseBlock(demo, question, config, texts, merge, pool)
+      : null;
   if (bm25 !== null && dense !== null) {
     const fused =
       config.fusion === "rrf"

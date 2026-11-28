@@ -55,8 +55,11 @@ from src.rag_demo.unit_metadata import TopicSnapshot
 
 DEMO_PATH = Path("data/rag_demo/demo.json")
 # Đổi cấu trúc file thì tăng số này; trang từ chối số lạ thay vì đọc sai. 2 (ADR-0041): mỗi bài có
-# tháng đăng + topic, `provenance.topics` ghi lần gom cụm, điểm làm tròn nửa ra xa số 0.
-DEMO_FILE_FORMAT = 2
+# tháng đăng + topic, `provenance.topics` ghi lần gom cụm, điểm làm tròn nửa ra xa số 0. 3 (RAG PR
+# 3a, Thy duyệt thẻ 2026-11-27): đủ 2 phần còn chờ của định dạng 2 — mỗi câu hỏi có `dense_context`
+# và `transform_dense`, `provenance.pending` rỗng. Trang đọc được cả 2 và 3 (bản cũ còn trên Blob
+# tới lần publish kế tiếp).
+DEMO_FILE_FORMAT = 3
 # ADR-0037 D3: response của Vercel Function tối đa 4,5 MB (vượt → 413); Thy chốt ngân sách < 4 MB
 # (byte, không phải MiB, để chặt hơn).
 DEMO_FILE_MAX_BYTES = 4_000_000
@@ -70,13 +73,15 @@ DEMO_FILE_MAX_BYTES = 4_000_000
 # khi có đủ phần của mục 2).
 SCORE_DECIMALS = 6
 _SCORE_STEP = Decimal(1).scaleb(-SCORE_DECIMALS)
-# Phần file chưa có, làm ở mục 2 của 3e (embed chữ chỉ có sau Haiku). Trang làm theo ADR-0041 Luật
-# chung 8 ("hybrid rơi về BM25", "dense trần cần phần còn chờ"). Lọc gần trùng và MMR luôn dùng
-# cosine của chữ gốc, nên cosine kèm câu ngữ cảnh không còn là phần chờ (bỏ ở định dạng 2).
-PENDING_PARTS = (
-    "dense score of transformed questions",
-    "dense score of chunks with their context sentence",
-)
+# Phần file chưa có. Định dạng 2 ghi 2 mục ("dense score of transformed questions", "dense score of
+# chunks with their context sentence"), trang làm theo ADR-0041 Luật chung 8 ("hybrid rơi về BM25",
+# "dense trần cần phần còn chờ"). Định dạng 3 tính đủ cả hai (mục 2 của 3e, embed chữ chỉ có sau
+# Haiku) → rỗng. Lọc gần trùng và MMR luôn dùng cosine của chữ gốc, nên cosine kèm câu ngữ cảnh
+# không là phần chờ (bỏ ở định dạng 2).
+PENDING_PARTS: tuple[str, ...] = ()
+# Biến đổi câu hỏi ra một câu / nhiều câu (ADR-0037 D7); thứ tự = thứ tự `transform_dense` của file
+SINGLE_TRANSFORMS = ("rewrite", "expand", "hyde", "step_back")
+LIST_TRANSFORMS = ("multi_query", "decompose")
 
 
 class DemoFileError(ValueError):
@@ -263,6 +268,46 @@ def _upper_triangle(matrix: NDArray[np.float64]) -> list[float]:
     return [_score(value) for value in matrix[rows, cols]]
 
 
+def context_text(context: str | None, text: str) -> str:
+    """Chuỗi bộ tìm thấy khi bật câu ngữ cảnh: câu ngữ cảnh (chữ gốc), xuống dòng, chunk; chunk là
+    cả bài (`context` None, ADR-0039 D2) → chunk trần. Một định nghĩa cho BM25 và dense (ADR-0041
+    bảng từng bước; mục 2 của 3e: "embed chunk kèm câu ngữ cảnh theo đúng chuỗi BM25 dùng") — bản
+    TypeScript `src/dashboard/src/lib/ragDemo/retrieve.ts:77#chunkTexts` phải ra cùng chuỗi."""
+    return text if context is None else f"{context}\n{text}"
+
+
+def transform_texts(transform: Mapping[str, Any]) -> list[str]:
+    """Mọi câu Haiku viết cho một câu hỏi, theo thứ tự `SINGLE_TRANSFORMS` rồi `LIST_TRANSFORMS`
+    (không gồm câu gốc: expand / step-back dùng lại điểm của câu gốc ở trang)."""
+    return [transform[k] for k in SINGLE_TRANSFORMS] + [
+        t for k in LIST_TRANSFORMS for t in transform[k]
+    ]
+
+
+def pending_texts(
+    units: Sequence[Unit],
+    by_way: Mapping[ChunkingWay, Sequence[Chunk]],
+    questions: Sequence[Question],
+    outputs: Mapping[str, Mapping[str, Any]],
+) -> list[str]:
+    """Chữ cần vector cho 2 phần của định dạng 3, không trùng: mọi chunk kèm câu ngữ cảnh (chunk
+    là cả bài thì không có) + mọi câu hỏi biến đổi. Một nguồn cho lệnh `embed-pending` và
+    `build_demo`, để chữ đã embed đúng là chữ được dùng."""
+    by_id = {unit.id: unit for unit in units}
+    texts: list[str] = []
+    for chunks in by_way.values():
+        for chunk in chunks:
+            context = _context_of(outputs, by_id[chunk.unit_id].full_text, chunk)["context"]
+            if context is not None:
+                texts.append(context_text(context, chunk.text))
+    for question in questions:
+        transform = outputs.get(transform_id(question))
+        if transform is None:
+            raise DemoFileError(f"câu {question.number}: thiếu câu hỏi biến đổi")
+        texts.extend(transform_texts(transform))
+    return list(dict.fromkeys(texts))
+
+
 def _context_of(
     outputs: Mapping[str, Mapping[str, Any]], document: str, chunk: Chunk
 ) -> dict[str, Any]:
@@ -353,13 +398,30 @@ def build_demo(
             raise DemoFileError(f"thiếu vector của {missing} chữ — chạy lệnh embed")
         return _unit_matrix([vector_of[text] for text in texts])
 
+    transforms: list[Mapping[str, Any]] = []
+    for question in questions:
+        transform = outputs.get(transform_id(question))
+        if transform is None:
+            raise DemoFileError(f"câu {question.number}: thiếu câu hỏi biến đổi")
+        transforms.append(transform)
+    context_texts = [context_text(p["context"], p["text"]) for p in passages]
+    sub_texts = [transform_texts(t) for t in transforms]
     passage_vectors = vectors([p["text"] for p in passages])
+    # định dạng 3: chuỗi kèm câu ngữ cảnh (đoạn trùng cả bài → chính chữ đoạn, cùng vector)
+    context_vectors = vectors(context_texts)
     question_vectors = vectors([q.text for q in questions])
-    # vector thô đã dùng (đoạn rồi câu hỏi): không lưu vector, chỉ lưu dấu vết để truy lần embed
-    used_vectors = np.asarray(
-        [vector_of[p["text"]] for p in passages] + [vector_of[q.text] for q in questions],
-        dtype=np.float64,
+    # kiểm đủ vector câu biến đổi TRƯỚC khi đọc `vector_of[...]` thô bên dưới (thiếu →
+    # DemoFileError)
+    sub_vectors_by_question = [vectors(subs) for subs in sub_texts]
+    # vector thô đã dùng (đoạn, câu hỏi, đoạn kèm câu ngữ cảnh, câu biến đổi): không lưu vector, chỉ
+    # lưu dấu vết để truy lần embed
+    used_texts = (
+        [p["text"] for p in passages]
+        + [q.text for q in questions]
+        + context_texts
+        + [text for texts in sub_texts for text in texts]
     )
+    used_vectors = np.asarray([vector_of[text] for text in used_texts], dtype=np.float64)
     cosine = {
         way: _upper_triangle(
             passage_vectors[[r["passage"] for r in records]]
@@ -371,12 +433,27 @@ def build_demo(
     question_records: list[dict[str, Any]] = []
     ties: dict[str, dict[str, Any]] = {
         kind: {"passages": 0, "by_way": dict.fromkeys(ways, 0)}
-        for kind in ("dense", "cross_encoder")
+        for kind in ("dense", "dense_context", "transform_dense", "cross_encoder")
     }
-    for row, question in enumerate(questions):
-        transform = outputs.get(transform_id(question))
-        if transform is None:
-            raise DemoFileError(f"câu {question.number}: thiếu câu hỏi biến đổi")
+
+    def count_ties(kind: str, raw: Sequence[float]) -> None:
+        # trên mọi đoạn của một dãy điểm, và trong từng cách chia (trang xếp hạng theo cách chia)
+        ties[kind]["passages"] += rounding_ties(raw)
+        for way_name, records in ways.items():
+            ties[kind]["by_way"][way_name] += rounding_ties([raw[r["passage"]] for r in records])
+
+    def scored(vector: NDArray[np.float64], kind: str) -> dict[str, list[float]]:
+        # một câu con: điểm với chữ đoạn trần và với chuỗi kèm câu ngữ cảnh (trang chọn theo
+        # công tắc)
+        plain = [float(v) for v in passage_vectors @ vector]
+        context = [float(v) for v in context_vectors @ vector]
+        count_ties(kind, plain)
+        count_ties(kind, context)
+        return {"plain": [_score(v) for v in plain], "context": [_score(v) for v in context]}
+
+    for row, (question, transform, subs, sub_vectors) in enumerate(
+        zip(questions, transforms, sub_texts, sub_vectors_by_question, strict=True)
+    ):
         ids = [rerank_id(question, p["text"]) for p in passages]
         if any(pair_id not in cross_encoder_logits for pair_id in ids):
             raise DemoFileError(f"câu {question.number}: thiếu điểm cross-encoder")
@@ -387,14 +464,22 @@ def build_demo(
             if outputs[pair_id]["quote"] not in passage["text"]:
                 raise DemoFileError(f"{pair_id}: câu trích không nguyên văn trong đoạn")
         dense = [float(v) for v in passage_vectors @ question_vectors[row]]
+        dense_context = [float(v) for v in context_vectors @ question_vectors[row]]
         logits = [float(cross_encoder_logits[pair_id]) for pair_id in ids]
-        for kind, raw in (("dense", dense), ("cross_encoder", logits)):
-            # trên mọi đoạn của câu hỏi, và trong từng cách chia (trang xếp hạng theo cách chia)
-            ties[kind]["passages"] += rounding_ties(raw)
-            for way_name, records in ways.items():
-                ties[kind]["by_way"][way_name] += rounding_ties(
-                    [raw[r["passage"]] for r in records]
-                )
+        for kind, raw in (
+            ("dense", dense),
+            ("dense_context", dense_context),
+            ("cross_encoder", logits),
+        ):
+            count_ties(kind, raw)
+        by_text = {text: sub_vectors[i] for i, text in enumerate(subs)}
+        transform_dense: dict[str, Any] = {
+            name: scored(by_text[transform[name]], "transform_dense") for name in SINGLE_TRANSFORMS
+        }
+        for name in LIST_TRANSFORMS:
+            transform_dense[name] = [
+                scored(by_text[text], "transform_dense") for text in transform[name]
+            ]
         span = question.gold_span
         # mọi bài đáp án của câu có vị trí dùng chung span (questions.py); đổi đơn vị theo từng bài
         gold_spans = {
@@ -423,6 +508,10 @@ def build_demo(
                 },
                 "transforms": dict(transform),
                 "dense": [_score(v) for v in dense],
+                # định dạng 3: câu gốc với đoạn kèm câu ngữ cảnh; mỗi câu con biến đổi với đoạn
+                # trần ("plain") và kèm câu ngữ cảnh ("context"), cùng cấu trúc với `transforms`
+                "dense_context": [_score(v) for v in dense_context],
+                "transform_dense": transform_dense,
                 "cross_encoder": [_score(v) for v in logits],
                 "llm": [_llm_cell(outputs[pair_id]) for pair_id in ids],
             }

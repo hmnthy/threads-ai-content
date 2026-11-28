@@ -4,6 +4,9 @@ Lệnh con:
   estimate  đếm chữ cần embed và chặn trên chi phí; không gọi mạng, không cần khoá
   embed     gọi OpenAI cho câu (để chia semantic), mọi chunk của 7 cách chia và 10 câu hỏi; cần
             `OPENAI_API_KEY` trong `.env`
+  embed-pending gọi OpenAI cho chữ chỉ có sau Haiku: mọi chunk kèm câu ngữ cảnh (câu ngữ cảnh,
+                xuống dòng, chunk — ADR-0041) và mọi câu hỏi biến đổi; cần lô transform + context đã
+                thu và `OPENAI_API_KEY` (file demo định dạng 3, RAG PR 3a)
   llm-estimate  đếm request của 3 việc Haiku và chặn trên phía vào; không gọi mạng
   llm-submit    gửi lô Message Batches của một việc (`--job transform | context | rerank`); cần
                 `ANTHROPIC_API_KEY`; context và rerank cần embed xong trước (chunk semantic)
@@ -84,6 +87,7 @@ from src.rag_demo.demo_file import (
     build_demo,
     code_provenance,
     non_gold_kept,
+    pending_texts,
     question_texts_sha256,
     score_counts,
     select_outputs,
@@ -225,6 +229,31 @@ def run_embed(units: Sequence[Unit], client: EmbeddingClient, cache: EmbeddingCa
 
 
 SUBMITTED_JOBS = (Job.TRANSFORM, Job.CONTEXT, Job.RERANK)  # lô context mang cả request dịch
+
+
+def run_embed_pending(
+    units: Sequence[Unit], client: EmbeddingClient, cache: EmbeddingCache, results_path: Path
+) -> int:
+    """Embed chữ chỉ có sau Haiku (mục 2 của 3e, định dạng 3): mọi chunk kèm câu ngữ cảnh + mọi
+    câu hỏi biến đổi. Chữ đã có trong cache không gọi lại (`embed_texts`)."""
+    by_way = all_chunks(units, OfflineClient(), cache)
+    chunks = [c for way_chunks in by_way.values() for c in way_chunks]
+    requests = [r for job in SUBMITTED_JOBS for r in requests_of(job, units, chunks)]
+    try:
+        selection = select_outputs(
+            parse_rows(results_path.read_bytes(), str(results_path)), requests
+        )
+        texts = pending_texts(units, by_way, QUESTIONS, selection.outputs)
+    except (ValueError, OSError) as error:  # DemoFileError, file kết quả thiếu / hỏng
+        print(f"Chưa embed: {type(error).__name__}: {error}")
+        return 1
+    _, report = embed_texts(texts, client=client, cache=cache)
+    print(f"Model: {EMBEDDING_MODEL}")
+    print(
+        f"Chữ sau Haiku (đoạn kèm câu ngữ cảnh + câu biến đổi): {report.texts} khác nhau, "
+        f"{report.requested} vừa gọi · token thật {report.tokens} · chi phí ${report.cost_usd:.4f}"
+    )
+    return 0
 
 
 def requests_of(job: Job, units: Sequence[Unit], chunks: Sequence[Chunk]) -> list[LlmRequest]:
@@ -412,8 +441,6 @@ def run_assemble(
         return 1
     chunks = [c for way_chunks in by_way.values() for c in way_chunks]
     requests = [r for job in SUBMITTED_JOBS for r in requests_of(job, units, chunks)]
-    texts = list(dict.fromkeys([c.text for c in chunks] + [q.text for q in QUESTIONS]))
-    vectors = {text: v for text in texts if (v := cache.get(cache_key(text, EMBEDDING_MODEL)))}
     try:
         # mỗi file đọc đúng một lần: hash ghi vào file demo là hash của chính các byte đã dùng
         pairs_data, scores_data = pairs_path.read_bytes(), scores_path.read_bytes()
@@ -423,6 +450,16 @@ def run_assemble(
             raise CrossEncoderResultError("file cặp cross-encoder đổi giữa lúc kiểm và lúc ghép")
         logits = parse_scores(pairs_data, scores_data)
         selection = select_outputs(parse_rows(results_data, str(results_path)), requests)
+        # định dạng 3: thêm chữ chỉ có sau Haiku (đoạn kèm câu ngữ cảnh, câu biến đổi); thiếu vector
+        # → build_demo dừng "chạy lệnh embed" (ở đây: embed-pending)
+        texts = list(
+            dict.fromkeys(
+                [c.text for c in chunks]
+                + [q.text for q in QUESTIONS]
+                + pending_texts(units, by_way, QUESTIONS, selection.outputs)
+            )
+        )
+        vectors = {text: v for text in texts if (v := cache.get(cache_key(text, EMBEDDING_MODEL)))}
         provenance = {
             "cross_encoder_pairs_sha256": hashlib.sha256(pairs_data).hexdigest(),
             "cross_encoder_scores_sha256": hashlib.sha256(scores_data).hexdigest(),
@@ -480,7 +517,8 @@ def run_assemble(
             f"{ties['passages']} trên mọi đoạn · theo cách chia: {per_way}"
         )
     print(metadata_summary(metadata))
-    print("Chưa có (mục 2): " + "; ".join(demo["provenance"]["pending"]))
+    pending = demo["provenance"]["pending"]
+    print("Chưa có (mục 2): " + ("; ".join(pending) if pending else "không còn phần nào"))
     return 0
 
 
@@ -612,6 +650,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         choices=[
             "estimate",
             "embed",
+            "embed-pending",
             "llm-estimate",
             "llm-submit",
             "llm-collect",
@@ -697,6 +736,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         run_embed(units, OpenAI(), cache)
         return 0
+    if args.command == "embed-pending":
+        if not require_env(OPENAI_KEY_ENV):
+            return 2
+        from openai import OpenAI
+
+        return run_embed_pending(units, OpenAI(), cache, args.llm_dir / RESULTS_NAME)
 
     if args.job is None or args.job is Job.TRANSLATE:
         print(

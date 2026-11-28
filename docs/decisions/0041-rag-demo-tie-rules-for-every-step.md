@@ -25,7 +25,7 @@
   hiện khoảng hạng). Trang `/rag-pipeline` bản đầu (Thy chốt 2026-11-09: đủ phạm vi ADR-0037) có mọi bước, nên engine
   TypeScript cần một đặc tả mà hai người viết độc lập ra cùng thứ hạng.
 - Đo trên file demo 2026-11-08 / 09 (câu hỏi gốc, 19 bài):
-  - Hoà trong cùng một cách chia (hoà tuyệt đối lẫn do làm tròn 6 chữ số, `src/rag_demo/demo_file.py:71#SCORE_DECIMALS`):
+  - Hoà trong cùng một cách chia (hoà tuyệt đối lẫn do làm tròn 6 chữ số, `src/rag_demo/demo_file.py:74#SCORE_DECIMALS`):
     **0 ở dense, 0 ở cross-encoder**. Hoà do làm tròn trên mọi cách chia gộp lại: dense 7, cross-encoder 0.
   - Haiku chấm số nguyên 0–3: 3.647 / 403 / 185 / 45 trên 4.280 cặp — hoà là chuyện thường. Bật lọc Haiku (bỏ < 2):
     câu 10 còn 0 đoạn ở cả 7 cách chia, câu 5 còn 1 đoạn ở 6 / 7 cách chia.
@@ -145,7 +145,7 @@
    - Cộng bằng vòng lặp trái → phải (`acc = acc + x`), không `sum` (từ Python 3.12 cộng có bù sai số:
      `sum([0.1] * 10)` = 1.0, vòng lặp và JS = 0.9999999999999999), không `math.fsum`, `statistics` hay numpy.
    - Mọi số làm tròn trong file demo (dense, cross-encoder, cosine chunk × chunk) cũng theo luật này: `assemble`
-     (`src/rag_demo/demo_file.py:213#_score`) dùng ROUND_HALF_UP (giữ `+ 0.0` để −0 thành 0) từ định dạng 2
+     (`src/rag_demo/demo_file.py:218#_score`) dùng ROUND_HALF_UP (giữ `+ 0.0` để −0 thành 0) từ định dạng 2
      (2026-11-10; định dạng 1 dùng `round`). Đo 2026-11-10: 2 / 4.280 logit thô rơi đúng nửa ô, 1 trong đó cho kết
      quả khác — −11,0390625, câu 9, đoạn 403: định dạng 1 ghi −11,039062, luật này cho −11,039063; thứ hạng không
      đổi. Dựng lại sang định dạng 2: đúng ô đó đổi, `rounding_ties` không đổi (dense 7, cross-encoder 0).
@@ -190,6 +190,8 @@
    đo độ trùng / đa dạng trên nội dung người đọc thấy, câu ngữ cảnh chỉ hỗ trợ tìm), nên không phụ thuộc phần còn chờ.
    File định dạng 1 ghi 3 mục còn chờ; mục thứ ba (cosine chunk × chunk kèm câu ngữ cảnh) vì vậy không dùng, đã bỏ
    khỏi `PENDING_PARTS` ở định dạng 2 (2026-11-10) và trang không hiện nó. A/B với hai cấu hình này: mục "Hạng của đáp án".
+   Từ file định dạng 3 (RAG PR 3a, 2026-11-27) không còn mục chờ nào (`provenance.pending` rỗng); engine quyết hai
+   trạng thái trên theo `pending` của chính file đọc được, nên chúng chỉ còn xảy ra với file định dạng 2.
 9. **Câu tự gõ** (ADR-0037 D11): chỉ BM25. Vẫn dùng được: lọc metadata, lọc gần trùng, MMR (rel = điểm BM25), cắt
    top-K, chọn cách chia, thanh kéo k1 / b, công tắc câu ngữ cảnh (câu ngữ cảnh tính sẵn theo chunk, không theo câu
    hỏi). Tắt: dense, trộn, biến đổi câu hỏi, rerank, lọc Haiku (không có điểm tính sẵn cho câu tự gõ); trang ghi lý do.
@@ -335,13 +337,13 @@
   DBSF mọi điểm bằng nhau, A/B câu không có đáp án, mũi tên chỉ ở rerank / MMR và không vẽ khi khoảng chồng nhau,
   hybrid một bộ tìm rỗng, hybrid rơi về BM25 + A/B (bên kia hybrid thật / BM25 thật / cũng rơi về BM25; BM25 so với
   hybrid thật do người xem chọn), công tắc câu
-  ngữ cảnh ở cách "không chia", thanh kéo 0,1 / 0,3, dense trần cần phần còn chờ + lọc metadata loại đáp án → "in progress". Mục 2 của 3e (sau PR 1, chưa làm): embed chunk kèm câu ngữ cảnh theo đúng chuỗi BM25 dùng (câu ngữ cảnh, xuống dòng, chunk; `context =
+  ngữ cảnh ở cách "không chia", thanh kéo 0,1 / 0,3, dense trần cần phần còn chờ + lọc metadata loại đáp án → "in progress". Mục 2 của 3e (đã làm ở file định dạng 3, RAG PR 3a 2026-11-27 — lệnh `embed-pending`): embed chunk kèm câu ngữ cảnh theo đúng chuỗi BM25 dùng (câu ngữ cảnh, xuống dòng, chunk; `context =
   null` → chunk trần), và embed `transforms.expand` riêng (không
   embed chuỗi ghép), vì expand đi theo 2 danh sách. Phần định dạng file thì đã làm, ở commit dựng file định dạng 2 (2026-11-10): nâng
   `DEMO_FILE_FORMAT` lên 2, bỏ mục thứ ba khỏi `PENDING_PARTS` (Luật chung 8) và đổi `_score` sang ROUND_HALF_UP (Luật chung 5). Hằng 6 chữ số có 2
-  bản (`src/rag_demo/demo_file.py:71#SCORE_DECIMALS`, `src/dashboard/src/lib/ragDemo/rank.ts:7#SCORE_DECIMALS`):
+  bản (`src/rag_demo/demo_file.py:74#SCORE_DECIMALS`, `src/dashboard/src/lib/ragDemo/rank.ts:7#SCORE_DECIMALS`):
   engine từ chối file có `provenance.score_decimals` khác hằng của mình
-  (`src/dashboard/src/lib/ragDemo/demoFile.ts:123#parseDemoFile`).
+  (`src/dashboard/src/lib/ragDemo/demoFile.ts:143#parseDemoFile`).
 - **Docs:** `docs/claude/data-model.md` (mục demo RAG), `docs/claude/architecture.md`, `docs/status.md`,
   `docs/design/ui-contract.md`, `docs/decisions/README.md`, dòng
   trạng thái ADR-0038, comment hằng `SCORE_DECIMALS` và hàm `rounding_ties` ở `src/rag_demo/demo_file.py`. Chữ hiển thị
@@ -359,7 +361,10 @@
   khác sẽ giữ đoạn kia); ở ngưỡng mặc định 0,95 không xảy ra trên 19 bài.
 - **Xem lại khi:**
   1. Đổi thang điểm Haiku hoặc số chữ số làm tròn → đo lại số hoà.
-  2. Có phần còn chờ (dense của câu hỏi biến đổi, chunk kèm câu ngữ cảnh) → đo lại hoà trong từng cách chia.
+  2. Có phần còn chờ (dense của câu hỏi biến đổi, chunk kèm câu ngữ cảnh) → đo lại hoà trong từng cách chia. Đo
+     2026-11-27 (file định dạng 3, `assemble`; cặp bằng nhau chỉ do làm tròn 6 chữ số): `dense_context` 0,
+     `transform_dense` 17 (post 1, fixed_300 5, fixed_500 1, fixed_800 1, recursive_500 4, semantic 5) — luật hoà giữ
+     nguyên (khoảng hạng xử lý). Hoà chạm đáp án ở RRF đo lại 2026-11-27: xem lại 3.
   3. Engine xong → đo số lần hoà chạm đáp án ở RRF; thường xuyên thì xem lại cách hiện khoảng hạng. Đo 2026-11-10
      (engine xong, `data/rag_demo/measure/rrf_ties.mjs`, 9 câu có đáp án × 7 cách chia = 63 ô mỗi cấu hình; số ô có
      chunk trúng nằm trong nhóm hoà / hạng một bài là khoảng / số chính là khoảng): trộn RRF mặc định (hybrid, không
@@ -367,7 +372,14 @@
      decompose 6 / 2 / 2. **Thy chọn giữ nguyên cách hiện khoảng hạng (2026-11-10).** Lý do: số chính ra khoảng
      ở 0–3 / 63 ô mỗi cấu hình (mặc định 2 / 63, ≈ 3 %), không phải "thường xuyên"; khi có hoà, khoảng hạng là cách
      hiện trung thực — một hạng đơn sẽ cho thứ tự do mã chunk quyết định trông như do điểm quyết định. Đo lại (cùng
-     script) khi làm mới bộ bài (xem lại 4) hoặc có phần còn chờ (xem lại 2), vì cả hai đổi số hoà.
+     script) khi làm mới bộ bài (xem lại 4) hoặc có phần còn chờ (xem lại 2), vì cả hai đổi số hoà. Đo lại 2026-11-27
+     (file định dạng 3, `data/rag_demo/measure/rrf_ties_v3.mjs`, cùng cách đếm): 5 cấu hình cũ ra đúng số 2026-11-10;
+     cấu hình mới (số chính là khoảng / 63 ô): dense gộp expand 2, step-back 6, multi-query 0, decompose 0; hybrid RRF
+     với expand 1, step-back 2, multi-query 1, decompose 4, rewrite 3, HyDE 2; hybrid + câu ngữ cảnh 4. Cao nhất 6 / 63
+     (≈ 10 %, dense + step-back). **Thy chọn giữ nguyên cách hiện khoảng hạng (2026-11-27, RAG PR 3a).** Lý do: số
+     chính ra khoảng vẫn là thiểu số ô ở mọi cấu hình (0–6 / 63, đa số ≤ 4), và lý do của lần chốt 2026-11-10 không
+     đổi: khi có hoà, khoảng hạng là cách hiện trung thực — một hạng đơn sẽ là thứ tự do mã chunk quyết định. Xem lại
+     khi: làm mới bộ bài (xem lại 4) hoặc thêm bước / cấu hình mới — đo lại bằng cùng script rồi đưa Thy số mới.
   4. Làm mới bộ bài (ADR-0037 xem lại 5) → đo lại cosine chunk × chunk trước khi giữ ngưỡng gần trùng 0,95.
 
 ### Hệ quả UI

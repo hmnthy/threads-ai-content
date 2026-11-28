@@ -510,7 +510,7 @@ Design sửa mockup; code đã theo `UI-0026-logo-replay`).
   | 2 | Chunking | 7 cách chia trong khối "Ranked passages" | **xong ở PR 2b**: khối riêng 03 "Chunking" — bảng cỡ đoạn 7 cách (Thy D3), đoạn của 1 bài, công tắc câu ngữ cảnh; một lựa chọn chung với khối kết quả (Thy D2). Dense của đoạn kèm câu ngữ cảnh → PR 3 |
   | 3 | Embedding | tính sẵn, giải thích trong Method | **xong ở PR 2b**: khối riêng 04 "Embedding" — heatmap cosine 19 × 19 bài (cách "whole") + 5 đoạn gần nhất của 1 đoạn ở cách chia đang chọn (Thy D1); cùng thang màu amber với heatmap giờ đăng `/analytics` |
   | 4 | Vector DB | không có, có chủ đích (ADR-0037 D3: điểm tính sẵn trong 1 file + chỉ mục BM25 trong trình duyệt) | — (bản đồ nói rõ) |
-  | 7 | Pre-retrieval | chưa có (câu biến đổi đã lưu, BM25 tìm được; điểm dense của chúng còn chờ — `provenance.pending`; engine sẵn) | PR 3 (cùng ô gõ tự do); `self_query`, `route` của chuẩn không có trong ADR-0037 D7 |
+  | 7 | Pre-retrieval | **xong ở RAG PR 3a**: khối riêng 06 (Thy chọn 2026-11-27) — 7 lựa chọn dùng chung state với khối kết quả, liệt kê đúng các câu con bước tìm nhận (tiếng Anh trước, chữ gốc dưới), gộp RRF; dense của câu biến đổi ở file định dạng 3 | ô gõ tự do → PR 3b; `self_query`, `route` của chuẩn không có trong ADR-0037 D7 |
   | 8 | Retrieval | BM25 / dense / hybrid RRF | weighted / DBSF → PR 4; `parent_document`, `sentence_window`, `multi_hop` không có trong ADR |
   | 9 | Post-retrieval | rerank cross-encoder / Haiku | trước/sau + mũi tên, lọc gần trùng / Haiku / metadata, MMR → PR 4; nén context, sắp xếp context không có trong ADR |
   | 10–11 | Prompt, Generation | không có, có chủ đích (ADR-0001, ADR-0037 D4: cổng F đóng) | — (bản đồ nói rõ) |
@@ -769,3 +769,106 @@ ghi "selected").
 ngữ cảnh" (bắt ở vòng 1 lẫn vòng 2 của commit 1) → test dữ liệu "`context` null ⇔ đoạn = cả bài" trong `tests/rag_demo/`
 + luật `[[forbid]]` cho cụm "each passage with its context sentence" kèm ca miss là câu đúng ("every passage that is not
 a whole content unit").
+
+### `/rag-pipeline` PR 3a — file demo định dạng 3 + Pre-retrieval (thẻ Thy duyệt 2026-11-27)
+
+**Quyết định Thy 2026-11-27 (đều phương án Claude khuyên):** tách PR 3 thành 3a (dense còn chờ + khối Pre-retrieval +
+bỏ "in progress") và 3b (ô gõ tự do + k1 / b + tô sáng) — lý do: mỗi PR ~3 commit, không chạm dây báo động; cho gọi
+OpenAI + publish Blob; khối riêng 06 Pre-retrieval (đúng thứ tự bước của repo mẫu, như PR 2b tách Chunking / Embedding).
+Thứ tự bắt buộc (ràng buộc kỹ thuật, code-reviewer bắt 2026-11-27; Claude từng nói sai "thứ tự nào cũng được"): merge →
+Vercel triển khai xong → publish, vì trang đang live chỉ đọc file định dạng 2.
+
+**Commit 1 (file định dạng 3 + bộ đọc / engine):** review vòng 1 code 1 chặn (test chưa khoá nối mảng điểm của từng
+cách biến đổi → test `WIRING` 7 biến đổi × công tắc, đột biến tay 4 kiểu đều đỏ) + auditor ADR-0041 5 câu docs thành
+sai do chính commit (Claude xếp lên chặn, sửa); vòng 2 code + auditor 0 chặn.
+
+**NIT chưa sửa (PR chạm file sau):**
+- *Code:* docstring `context_text` trỏ `chunkTexts` ở dòng 77 của `retrieve.ts` (thật 78) — bắt 2 lần (vòng 1 + 2) → **đề xuất luật
+  máy:** mở rộng `check_ref_anchors` (`scripts/consistency/check.py`, hiện chỉ quét `.md`) sang comment / docstring trong
+  `src/`, `scripts/`, `tests/`, hoặc ghi ADR-0033 rằng code comment ngoài phạm vi — PR riêng, cần Thy duyệt;
+  `build_demo` thiếu vector chữ sau Haiku vẫn báo "chạy lệnh embed" (nên "embed-pending"); `run_embed_pending` gọi
+  `all_chunks` ngoài `try` (cache thiếu vector câu → traceback thay câu dễ đọc); docstring `pending_texts` nói "một nguồn
+  cho `build_demo`" (thật: `run_assemble` gọi, `build_demo` dùng cùng 2 hàm phụ); `rounding_ties.transform_dense` đếm cả
+  mảng `context` ở cách "whole" (trang không đọc) và câu con trùng chữ 2 lần — định nghĩa số đo; test Python
+  `transform_dense` không assert hyde / step_back, vector "b" / "c" / "f" trùng nhau.
+- *Docs:* ADR-0041 dòng ~81 "Dense … chưa có nên chưa đo" (mục đo 2026-11-08 / 09, đọc như lịch sử) nên thêm "(định dạng
+  1–2; đã đo ở Xem lại 2)"; tiêu đề Luật chung 8 có thể thêm "(định dạng 2)"; "Xem lại 3" (đo lại hoà chạm đáp án ở RRF,
+  `data/rag_demo/measure/rrf_ties.mjs`) — **hứa làm trong RAG PR 3a**, commit 2 hoặc 3.
+- *Commit 2 (đã thoả thuận):* chữ "in progress" / "not computed yet" ở `ragPage.ts`, `RagPipelineView.tsx`,
+  `docs/claude/architecture.md`, dòng `UI-0041-*` của `ui-contract.md`.
+
+**Commit 2 (chữ trang theo file đang đọc + đo lại hoà RRF):** review vòng 1 — code 2 chặn (chú giải ¶ + nhãn chữ gốc
+câu ngữ cảnh nói "BM25" khi chọn Dense; Method khối 04 hứa câu ngữ cảnh cho mọi đoạn — lần 3 của lỗi này → nới luật
+`ADR0039-every-passage-context` sang "every"), ux 1 chặn (trùng chú giải ¶), copy + auditor ADR-0041 0 chặn. Sửa: một
+câu chung cho mọi bộ tìm (`CONTEXT_LEGEND`, `CONTEXT_ORIGINAL_LABEL`), `embeddingMethodText`, test viết cứng chữ.
+
+**NIT commit 2 (PR chạm file sau):**
+- *Chữ (copy, Thy chọn câu cuối):* ý "dense cũng dùng câu ngữ cảnh" có 4 động từ khác nhau (indexes / reads / searches /
+  uses) — copy khuyên một cách nói "read … as one text" ở cả 4 chỗ; câu công tắc bản định dạng 2 "each passage is
+  searched together…" rồi "Only BM25 uses it" lệch một nhịp; mệnh đề "that places…" tách khỏi danh từ; Method khối 03
+  "together … together"; Method Dense "a passage's vector is that of…" vòng + không nêu ngoại lệ đoạn trùng cả bài;
+  thuật ngữ "BM25 and dense similarity search…" dễ đọc thành danh từ ghép; bước 7 bản đồ bỏ ý "BM25 can already search
+  with them" (copy khuyên giữ lại — đúng với cả 2 định dạng).
+- *UX / code:* dòng "What to know" khối 03 "BM25 searches each passage together with it" chưa nhắc dense (đúng, lệch
+  câu công tắc ngay trên); chưa test nào bắt đảo nhánh `pending.context ? A : B` còn nằm trong `RagPipelineView.tsx`
+  (chuyển vào `ragPage.ts` thành hàm nhận `Pending`); `ux-shots` chỉ chụp trạng thái mặc định → đề xuất danh sách trạng
+  thái riêng cho mỗi trang (VD /rag-pipeline: câu ngữ cảnh On × BM25 / Dense / Hybrid); `ui-contract.md`
+  UI-0041-step-order "dense trần cần phần còn chờ" chưa chú "(định dạng 2)" như "hybrid rơi về BM25".
+- *ADR-0041 "Xem lại khi 3":* lý do "0–3 / 63 ô" của quyết định 2026-11-10 nay đứng cạnh số mới (cao nhất 6 / 63) —
+  **chờ Thy chốt giữ / đổi cách hiện khoảng hạng**; câu "Đo lại (cùng script)" nay có 2 script, đều gitignored (clone
+  công khai không chạy lại được).
+- *Vòng 2–3 (code 1 chặn ở vòng 2 → sửa; vòng 3 0 chặn; ux PASS; copy 0 chặn):* Method "Dense similarity" (bản định
+  dạng 3) từng hứa câu ngữ cảnh cho mọi đoạn — **lần 4** của cùng lỗi, regex `ADR0039-every-passage-context` không bắt
+  được cách viết mới → đề xuất luật theo cấu trúc: mọi chữ trang nói tới "context sentence" đi qua hàm / hằng của
+  `ragPage.ts` có test (chờ Thy chọn); chữ (copy): chú giải "when the context sentence is on" → "when the
+  context-sentence switch is on", có thể thêm "(the rerankers read the passage alone)", "a whole" → "the whole" cho
+  thống nhất, `embeddingMethodText` "joined to that sentence" lơ lửng + ngoặc "(rewrites, sub-questions, the HyDE
+  answer)" thiếu expand / step-back và "to search with" khi trang chưa tìm bằng câu biến đổi, thuật ngữ "BM25 and dense
+  similarity search…" → "both read…"; nhãn chữ gốc ở 375 ngắt giữa ngoặc (có thể rút "(searched with the passage)");
+  test nhãn chỉ kiểm hằng, không kiểm component + "dense" phân biệt hoa thường; comment `test_consistency.py` còn nhắc
+  `CONTEXT_SHOWN.on` (đã xoá); comment code `RagPipelineView.tsx` trỏ `_context_of` ở dòng 266 của `demo_file.py`
+  (thật 311, lệch từ commit 1; `ref_anchor` không quét comment code); Method Dense viết cứng tên model thay
+  `provenanceText`; `embeddingMethodText` chưa test tổ hợp chỉ còn 1 trong 2 phần chờ (không xảy ra với định dạng 2 / 3).
+
+**Commit 3 (khối 06 Pre-retrieval + gom chữ câu ngữ cảnh + ADR-0041 giữ khoảng hạng):** review vòng 1 — code 2 chặn,
+copy 4, ux 4, auditor 0 chặn nhưng thiếu 2 câu ADR-0041 bắt "trang ghi rõ"; cùng một gốc: thêm trục `transform` làm
+câu cố định ở khối khác thành sai ("the question", "every step searches with", nhãn điểm RRF ghi "BM25 score" /
+"cosine similarity", ý "Language"). Sửa: `scoreName(…, mergedQueries)` (Thy chọn 2026-11-28 nhãn "BM25 / cosine, merged
+over N queries (RRF)"), `rankedNote(ranker, transformed)`, khối 05 2 câu, câu Rewrite / Expand / HyDE đúng dữ liệu,
+Limits khối 06 thêm HyDE-BM25 là biến thể + expand chọn sau khi xem hạng + ví dụ Q1 (Thy chọn A: dòng cố định; đo
+2026-11-28: mọi câu Haiku viết cho Q1 nói về tiền cọc, trừ step-back).
+
+**NIT commit 3 (PR chạm file sau):**
+- *Luật máy đề xuất (code-reviewer):* thêm một trục vào `Settings` → grep mọi chữ chứa danh từ trục đó đổi ("the
+  question", "searches with", "original wording"), mỗi chuỗi nhận trục làm tham số hoặc có test; hoặc `[[forbid]]` cho
+  "every step searches with" / "share(s) no word with the question" ngoài `ragPage.ts`.
+- *Code:* câu "not found … shares no word with the question" (`outcomeText`, `answerSentence`) và "No passage shares a
+  word with this question" cùng họ C1 (0 / 840 ô hôm nay); `transformMerges` / `subQueryRows` chép lại `MERGED` /
+  `subQueries` của engine (nên export dùng chung); test cấu trúc chỉ quét `contextCopy` + `embeddingMethodText`
+  (`CONTEXT_SHOWN.off`, `unitPassagesNote`, "off. With it on…" ngoài phạm vi); "Three other phrasings" viết cứng
+  (`check_output` không kiểm số câu con); `transformAnswer` với 1 câu con ra "all written… their lists" (không xảy ra
+  với dữ liệu); ô "Written by Claude Haiku" = 0 vẫn kèm "Written in advance…" và không có `term`.
+- *Chữ (copy / ux):* câu bản đồ pipeline ≥ 3 vế nên có dấu phẩy Oxford; bước 7 "Rewrites the question… no rewrite" tự
+  mâu thuẫn; ghi chú Stage 2 chưa có bước biến đổi; purpose khối 06 "each option" → "the chosen option"; "One ranked
+  list, used as it is." lệch khi Hybrid; nhãn "English (written by … with the query…)" mơ hồ; "include_original=False"
+  nên nêu `MultiQueryRetriever`; Method bước 3 "one scale" mơ hồ — nên nói điểm khối 07 là điểm gộp; thuật ngữ HyDE nên
+  trích Gao et al. 2022 và nói BM25 cũng tìm; Method BM25 "question words" → "query words"; About "Computed in
+  advance" chưa nhắc câu Haiku viết × đoạn; `chunkingPoint` "one / it" + "a whole content unit" (số nhiều); mạo từ
+  "the / a whole content unit" chưa thống nhất; tên chung "query" / "rewritten query" (copy khuyên); nguồn cho rewrite
+  (Ma et al. 2023), step-back, RAG-Fusion chưa có ở khối 06.
+- *Docs (auditor):* audit "khối 06 'Terms used on this page'" (nay khối 09); NIT commit 2 "chờ Thy chốt giữ / đổi"
+  (đã chốt); dòng `UI-0041-step-order` "lọc gần trùng, MMR → PR 3" (nên PR 4); điều kiện xem lại mới ở ADR-0041 Xem
+  lại 3 ("thêm bước / cấu hình mới") Claude viết — Thy xác nhận khi duyệt commit.
+- *Vòng 2–3 (vòng 2: code + copy 4 câu sai — khối 05 sai với Expand / Step-back, "terms the posts use", "a clearer
+  rewrite" → sửa; ux PASS; vòng 3: code + copy 0 chặn):* câu "Original wording" 3 vế dài (copy: rút còn "the text both
+  rerankers score, and the text searched unless the option chosen in block 06 replaces it"); "the queries Claude Haiku
+  wrote" bao cả bài HyDE (một bài giả); ý "Language" "an expansion" ≠ nhãn nút "Expand", "on purpose" → "because its
+  prompt asks for them"; thuật ngữ "Question rewriting" "Changing the question" lệch Expand / Step-back (chỉ thêm câu),
+  "an expansion with related terms" thật là danh sách từ; viết hoa "Expand and Step-back" (khối 05) vs "Expand and
+  step-back" (Method khối 06); Method khối 07 chưa có câu trỏ công thức gộp RRF qua câu con (nhãn "(RRF)" ở mỗi dòng);
+  nhãn gộp ở 1440 chiếm 3 dòng trong cột 96px (có thể tách "merged over N queries (RRF)" thành dòng nhãn riêng);
+  "the HyDE post" số ít trong danh sách số nhiều; `rankedNote` "any of the queries" khi chỉ 1 câu (Rewrite / HyDE);
+  thuật ngữ HyDE nên nói rào ("tends to be closer") + trích Gao et al. 2022; câu khối 07 "which shows the rewritten
+  queries" sai nhẹ khi No rewrite; **luật máy đề xuất (2 reviewer):** `[[forbid]]` "every step searches with" /
+  "share(s) no word with (the|this) question" ngoài `ragPage.ts`, hoặc test so câu khối 05 với `subQueries` của cả 7
+  lựa chọn; `ux-shots` thêm lượt chụp có lựa chọn khác mặc định (Expand, Decompose) — Thy chọn khi nào làm.
